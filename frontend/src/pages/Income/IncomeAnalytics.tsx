@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, LoadingBlock, StatCard } from '../../components/ui';
-import { formatINR } from '../../utils/format';
+import { formatINR, collectionTone } from '../../utils/format';
 
 export default function IncomeAnalytics() {
   const [data, setData] = useState<any>(null);
@@ -69,9 +69,10 @@ export default function IncomeAnalytics() {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div className="bar-track" style={{ flex: 1 }}>
-                        <div className="bar-fill green" style={{ width: `${r.collectionPct}%` }} />
+                        <div className={`bar-fill ${collectionTone(r.collectionPct)}`}
+                          style={{ width: `${Math.max(r.collectionPct, 3)}%` }} />
                       </div>
-                      <span style={{ fontSize: 11.5, fontWeight: 600 }}>{r.collectionPct}%</span>
+                      <span className={`pct-label ${collectionTone(r.collectionPct)}`}>{r.collectionPct}%</span>
                     </div>
                   </td>
                 </tr>

@@ -14,3 +14,7 @@ export const PAYMENT_MODES = [
 
 export const paymentModeLabel = (value: string) =>
   PAYMENT_MODES.find(m => m.value === value)?.label || value;
+
+// Collection progress tone bands: 100% green, 75%+ teal, 50%+ amber, below red
+export const collectionTone = (pct: number) =>
+  pct >= 100 ? 'green' : pct >= 75 ? 'teal' : pct >= 50 ? 'amber' : 'red';

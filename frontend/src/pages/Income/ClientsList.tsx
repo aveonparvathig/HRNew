@@ -4,7 +4,7 @@ import { incomeAPI } from '../../api/income';
 import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal,
 } from '../../components/ui';
-import { formatINR } from '../../utils/format';
+import { formatINR, collectionTone } from '../../utils/format';
 
 const GST_RATE = 0.18;
 const AGREEMENT_SUGGESTIONS = ['Agreement signed', 'MOU signed', 'Renewal due', 'Pending'];
@@ -53,9 +53,10 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <div className="bar-track" style={{ flex: 1 }}>
-                    <div className="bar-fill green" style={{ width: `${r.collectionPct}%` }} />
+                    <div className={`bar-fill ${collectionTone(r.collectionPct)}`}
+                      style={{ width: `${Math.max(r.collectionPct, 3)}%` }} />
                   </div>
-                  <span style={{ fontSize: 11.5, fontWeight: 600 }}>{r.collectionPct}%</span>
+                  <span className={`pct-label ${collectionTone(r.collectionPct)}`}>{r.collectionPct}%</span>
                 </div>
               </td>
               <td>
