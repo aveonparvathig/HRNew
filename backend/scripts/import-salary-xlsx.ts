@@ -75,8 +75,9 @@ async function main() {
     };
   };
 
+  const sheets = (arg('sheets', 'Sheet1,Sheet3') || '').split(',').map(s => s.trim()).filter(Boolean);
   const all: Row[] = [];
-  for (const name of ['Sheet1', 'Sheet3']) {
+  for (const name of sheets) {
     const ws = wb.getWorksheet(name);
     if (!ws) continue;
     for (let r = 2; r <= ws.rowCount; r++) {
