@@ -7,6 +7,9 @@ interface User {
   organizationId: string;
   firstName?: string;
   lastName?: string;
+  role: string;
+  personId?: string | null;
+  mustChangePassword?: boolean;
 }
 
 interface AuthStore {
@@ -56,3 +59,17 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 );
+
+// Convenience role selectors — the API enforces the same policy server-side
+export function useRole() {
+  const user = useAuthStore(s => s.user);
+  const role = user?.role || 'SUPER_ADMIN';
+  return {
+    role,
+    isSA: role === 'SUPER_ADMIN',
+    isHR: role === 'HR',
+    isEmployee: role === 'EMPLOYEE',
+    canManagePeople: role === 'SUPER_ADMIN' || role === 'HR',
+    personId: user?.personId || null,
+  };
+}

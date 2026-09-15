@@ -78,6 +78,16 @@ export default function AppLayout() {
   const logout = useAuthStore(state => state.logout);
   const [navOpen, setNavOpen] = useState(false);
 
+  // Role-based navigation: the API enforces these same rules server-side
+  const role = user?.role || 'SUPER_ADMIN';
+  const isSA = role === 'SUPER_ADMIN';
+  const isHR = role === 'HR';
+  const showIncome = isSA || role === 'EMPLOYEE';
+  const incomeItems = INCOME_ITEMS.filter(i =>
+    isSA || !['/income/academic-years', '/income/import-export'].includes(i.to));
+  const peopleItems = PEOPLE_ITEMS.filter(i =>
+    (isSA || isHR) || ['/people', '/expenses'].includes(i.to));
+
   // Close the drawer whenever navigation happens
   useEffect(() => { setNavOpen(false); }, [location.pathname]);
 
@@ -118,45 +128,61 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          <div className="sidebar-section">Income</div>
-          {INCOME_ITEMS.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
+          {showIncome && (
+            <>
+              <div className="sidebar-section">Income</div>
+              {incomeItems.map(item => (
+                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
+                  <Icon name={item.icon} />
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
 
           <div className="sidebar-section">People</div>
-          {PEOPLE_ITEMS.map(item => (
+          {peopleItems.map(item => (
             <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
               <Icon name={item.icon} />
               {item.label}
             </NavLink>
           ))}
 
-          <div className="sidebar-section">Sales</div>
-          {PROPOSAL_ITEMS.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
+          {isSA && (
+            <>
+              <div className="sidebar-section">Sales</div>
+              {PROPOSAL_ITEMS.map(item => (
+                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
+                  <Icon name={item.icon} />
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
 
-          <div className="sidebar-section">Payroll</div>
-          {PAYROLL_ITEMS.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
+          {(isSA || isHR) && (
+            <>
+              <div className="sidebar-section">Payroll</div>
+              {PAYROLL_ITEMS.map(item => (
+                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
+                  <Icon name={item.icon} />
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
 
-          <div className="sidebar-section">Organization</div>
-          {ORG_ITEMS.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
+          {isSA && (
+            <>
+              <div className="sidebar-section">Organization</div>
+              {ORG_ITEMS.map(item => (
+                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
+                  <Icon name={item.icon} />
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
         </nav>
 
         <div className="sidebar-footer">

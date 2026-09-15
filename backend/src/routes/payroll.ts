@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
+import { requireRole } from '../middleware/roles';
 import { payrollController } from '../controllers/payrollController';
 
 const router = Router();
@@ -10,6 +11,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
   };
 
 router.use(authMiddleware);
+router.use(requireRole('SUPER_ADMIN', 'HR'));
 
 // Settings
 router.get('/settings', asyncHandler((req, res) => payrollController.getSettings(req, res)));

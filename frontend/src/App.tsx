@@ -7,6 +7,7 @@ import { LoadingBlock } from './components/ui';
 
 // Route-level code splitting: each page loads as its own chunk on first visit.
 const Register = lazy(() => import('./pages/Auth/Register'));
+const ChangePassword = lazy(() => import('./pages/Auth/ChangePassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const IncomeDashboard = lazy(() => import('./pages/Income/IncomeDashboard'));
 const IncomeAnalytics = lazy(() => import('./pages/Income/IncomeAnalytics'));
@@ -41,8 +42,19 @@ const Team = lazy(() => import('./pages/Organization/Team'));
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuthStore(state => state.user);
   if (!user) return <Navigate to="/login" replace />;
+  if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
   return <>{children}</>;
 }
+
+// Route guard mirroring the API's role policy (the server enforces it too)
+function RequireRole({ roles, children }: { roles: string[]; children: React.ReactNode }) {
+  const user = useAuthStore(state => state.user);
+  if (user && !roles.includes(user.role)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+const SA = ['SUPER_ADMIN'];
+const SA_HR = ['SUPER_ADMIN', 'HR'];
+const SA_EMP = ['SUPER_ADMIN', 'EMPLOYEE'];
 
 function App() {
   const user = useAuthStore(state => state.user);
@@ -53,38 +65,39 @@ function App() {
         <Routes>
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+          <Route path="/change-password" element={user ? <ChangePassword /> : <Navigate to="/login" />} />
 
           <Route element={<RequireAuth><AppLayout /></RequireAuth>}>
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/income" element={<IncomeDashboard />} />
-            <Route path="/income/analytics" element={<IncomeAnalytics />} />
-            <Route path="/income/clients" element={<ClientsList />} />
-            <Route path="/income/clients/:clientId" element={<ClientDetail />} />
-            <Route path="/income/clients/:clientId/implementation" element={<ClientOnboarding />} />
-            <Route path="/income/implementation" element={<Implementation />} />
-            <Route path="/income/academic-years" element={<AcademicYears />} />
-            <Route path="/income/import-export" element={<ImportExport />} />
-            <Route path="/recruitment" element={<PostingsList />} />
-            <Route path="/recruitment/postings/:postingId" element={<PostingDetail />} />
+            <Route path="/income" element={<RequireRole roles={SA_EMP}><IncomeDashboard /></RequireRole>} />
+            <Route path="/income/analytics" element={<RequireRole roles={SA_EMP}><IncomeAnalytics /></RequireRole>} />
+            <Route path="/income/clients" element={<RequireRole roles={SA_EMP}><ClientsList /></RequireRole>} />
+            <Route path="/income/clients/:clientId" element={<RequireRole roles={SA_EMP}><ClientDetail /></RequireRole>} />
+            <Route path="/income/clients/:clientId/implementation" element={<RequireRole roles={SA_EMP}><ClientOnboarding /></RequireRole>} />
+            <Route path="/income/implementation" element={<RequireRole roles={SA_EMP}><Implementation /></RequireRole>} />
+            <Route path="/income/academic-years" element={<RequireRole roles={SA}><AcademicYears /></RequireRole>} />
+            <Route path="/income/import-export" element={<RequireRole roles={SA}><ImportExport /></RequireRole>} />
+            <Route path="/recruitment" element={<RequireRole roles={SA_HR}><PostingsList /></RequireRole>} />
+            <Route path="/recruitment/postings/:postingId" element={<RequireRole roles={SA_HR}><PostingDetail /></RequireRole>} />
             <Route path="/people" element={<PeopleList />} />
-            <Route path="/people/pipeline" element={<Pipeline />} />
-            <Route path="/people/openings" element={<JobOpenings />} />
-            <Route path="/people/documents/:docId" element={<LetterView />} />
+            <Route path="/people/pipeline" element={<RequireRole roles={SA_HR}><Pipeline /></RequireRole>} />
+            <Route path="/people/openings" element={<RequireRole roles={SA_HR}><JobOpenings /></RequireRole>} />
+            <Route path="/people/documents/:docId" element={<RequireRole roles={SA_HR}><LetterView /></RequireRole>} />
             <Route path="/people/:personId" element={<PersonDetail />} />
-            <Route path="/proposals" element={<ProposalBuilder />} />
-            <Route path="/proposals/history" element={<ProposalHistory />} />
-            <Route path="/proposals/history/:recordId" element={<ProposalView />} />
-            <Route path="/proposals/cms-features" element={<CmsFeatures />} />
+            <Route path="/proposals" element={<RequireRole roles={SA}><ProposalBuilder /></RequireRole>} />
+            <Route path="/proposals/history" element={<RequireRole roles={SA}><ProposalHistory /></RequireRole>} />
+            <Route path="/proposals/history/:recordId" element={<RequireRole roles={SA}><ProposalView /></RequireRole>} />
+            <Route path="/proposals/cms-features" element={<RequireRole roles={SA}><CmsFeatures /></RequireRole>} />
             <Route path="/expenses" element={<ExpensesList />} />
             <Route path="/expenses/:reportId" element={<ExpenseReportEditor />} />
             <Route path="/expenses/:reportId/print" element={<ExpenseReportView />} />
-            <Route path="/payroll" element={<RunsList />} />
-            <Route path="/payroll/runs/:runId" element={<RunDetail />} />
-            <Route path="/payroll/runs/:runId/payslips" element={<BulkPayslips />} />
-            <Route path="/payroll/payslips/:entryId" element={<PayslipView />} />
-            <Route path="/payroll/settings" element={<PayrollSettings />} />
-            <Route path="/organization" element={<CompanyProfile />} />
-            <Route path="/organization/team" element={<Team />} />
+            <Route path="/payroll" element={<RequireRole roles={SA_HR}><RunsList /></RequireRole>} />
+            <Route path="/payroll/runs/:runId" element={<RequireRole roles={SA_HR}><RunDetail /></RequireRole>} />
+            <Route path="/payroll/runs/:runId/payslips" element={<RequireRole roles={SA_HR}><BulkPayslips /></RequireRole>} />
+            <Route path="/payroll/payslips/:entryId" element={<RequireRole roles={SA_HR}><PayslipView /></RequireRole>} />
+            <Route path="/payroll/settings" element={<RequireRole roles={SA_HR}><PayrollSettings /></RequireRole>} />
+            <Route path="/organization" element={<RequireRole roles={SA}><CompanyProfile /></RequireRole>} />
+            <Route path="/organization/team" element={<RequireRole roles={SA}><Team /></RequireRole>} />
           </Route>
 
           <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} />} />

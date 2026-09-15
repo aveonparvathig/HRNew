@@ -31,6 +31,8 @@ const userJSON = (user: any) => ({
   lastName: user.lastName,
   organizationId: user.organizationId,
   role: user.role,
+  personId: user.personId || null,
+  mustChangePassword: user.mustChangePassword || false,
 });
 
 export const authController = {
@@ -99,6 +101,26 @@ export const authController = {
     await storeRefreshToken(user.id, refreshToken);
 
     res.json({ user: userJSON(user), accessToken, refreshToken });
+  },
+
+  // Authenticated password change; clears the first-login force flag
+  async changePassword(req: any, res: Response) {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      throw new AppError(400, 'Current and new password are required');
+    }
+    if (String(newPassword).length < 8) {
+      throw new AppError(400, 'New password must be at least 8 characters');
+    }
+    const user = await prisma.user.findUnique({ where: { id: req.user?.userId } });
+    if (!user) throw new AppError(404, 'User not found');
+    const ok = await bcrypt.compare(currentPassword, user.password);
+    if (!ok) throw new AppError(401, 'Current password is incorrect');
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: await bcrypt.hash(newPassword, 10), mustChangePassword: false },
+    });
+    res.json({ message: 'Password changed' });
   },
 
   async refresh(req: Request, res: Response) {

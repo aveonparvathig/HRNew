@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
+import { useRole } from '../../store/authStore';
 import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
@@ -42,6 +43,7 @@ function InfoRow({ label, value }: { label: string; value: any }) {
 }
 
 export default function PersonDetail() {
+  const { canManagePeople } = useRole();
   const { personId } = useParams<{ personId: string }>();
   const navigate = useNavigate();
   const [person, setPerson] = useState<any>(null);
@@ -169,8 +171,10 @@ export default function PersonDetail() {
                 ))}
               </select>
             )}
+            {canManagePeople && (<>
             <button className="btn btn-secondary" onClick={() => setEditModal(true)}>Edit</button>
             <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+            </>)}
           </>
         }
       />
@@ -269,7 +273,7 @@ export default function PersonDetail() {
         <div className="card-header">
           <h3>Documents ({(person.documents || []).length})</h3>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {(meta?.docTypes || [])
+            {canManagePeople && (meta?.docTypes || [])
               .filter((t: any) => t.kinds.includes(person.kind))
               .map((t: any) => (
                 <button key={t.value} className="btn btn-secondary btn-sm"
@@ -400,9 +404,7 @@ export default function PersonDetail() {
       <div className="card">
         <div className="card-header">
           <h3>Interview rounds ({person.interviews.length})</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => { setInterviewForm(EMPTY_INTERVIEW); setInterviewModal(true); }}>
-            + Add Round
-          </button>
+          {canManagePeople && (<button className="btn btn-primary btn-sm" onClick={() => { setInterviewForm(EMPTY_INTERVIEW); setInterviewModal(true); }}>+ Add Round</button>)}
         </div>
         {person.interviews.length === 0 ? (
           <EmptyState icon="◔" title="No interview rounds yet"

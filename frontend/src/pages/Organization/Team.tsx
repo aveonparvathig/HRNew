@@ -5,7 +5,14 @@ import {
 } from '../../components/ui';
 import { formatDate } from '../../utils/format';
 
-const EMPTY_MEMBER = { email: '', password: '', firstName: '', lastName: '', role: 'MEMBER' };
+const EMPTY_MEMBER = { email: '', password: '', firstName: '', lastName: '', role: 'EMPLOYEE' };
+
+const ROLE_LABELS: Record<string, string> = {
+  SUPER_ADMIN: 'Super Admin', HR: 'HR', EMPLOYEE: 'Employee',
+};
+const ROLE_TONES: Record<string, string> = {
+  SUPER_ADMIN: 'badge-info', HR: 'badge-violet', EMPLOYEE: 'badge-neutral',
+};
 
 export default function Team() {
   const [data, setData] = useState<any>(null);
@@ -32,7 +39,7 @@ export default function Team() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const isOwner = data?.myRole === 'OWNER';
+  const isOwner = data?.myRole === 'SUPER_ADMIN';
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,9 +95,33 @@ export default function Team() {
           ? 'Add teammates, manage roles and access.'
           : 'Your organization’s team. Only owners can make changes.'}
         actions={isOwner && (
-          <button className="btn btn-primary" onClick={() => { setForm(EMPTY_MEMBER); setAddModal(true); }}>
-            + Add Member
-          </button>
+          <>
+            <button className="btn btn-secondary" disabled={saving} onClick={async () => {
+              if (!window.confirm(`Generate logins for ${data?.employeesWithoutLogin ?? 'all'} employees without one? A credential sheet will download — share each password securely; everyone must change it at first sign-in.`)) return;
+              setSaving(true);
+              try {
+                const res = await orgAPI.generateLogins();
+                const url = URL.createObjectURL(new Blob([res.data],
+                  { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `employee-logins-${new Date().toISOString().slice(0, 10)}.xlsx`;
+                a.click();
+                URL.revokeObjectURL(url);
+                setSuccess(`Logins generated (${res.headers['x-created-count'] ?? '?'}) — credential sheet downloaded.`);
+                fetchData();
+              } catch (err: any) {
+                setError('Failed to generate logins');
+              } finally {
+                setSaving(false);
+              }
+            }}>
+              ⚿ Generate Employee Logins{data?.employeesWithoutLogin ? ` (${data.employeesWithoutLogin})` : ''}
+            </button>
+            <button className="btn btn-primary" onClick={() => { setForm(EMPTY_MEMBER); setAddModal(true); }}>
+              + Add Member
+            </button>
+          </>
         )}
       />
 
@@ -119,21 +150,22 @@ export default function Team() {
                       {[m.firstName, m.lastName].filter(Boolean).join(' ') || m.email}
                       {m.id === data.myId && <span className="badge badge-info" style={{ marginLeft: 8 }}>you</span>}
                     </span>
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>{m.email}</div>
+                    <div className="text-muted" style={{ fontSize: 11.5 }}>
+                      {m.email}
+                      {m.personName && <> · linked to {m.personName}</>}
+                      {m.mustChangePassword && <> · <span className="text-warning">temp password</span></>}
+                    </div>
                   </td>
                   <td>
                     {isOwner && m.id !== data.myId ? (
                       <select className="select" style={{ width: 120, padding: '5px 8px', fontSize: 12.5 }}
                         value={m.role}
                         onChange={e => handleUpdate(m, { role: e.target.value },
-                          `${m.email} is now ${e.target.value === 'OWNER' ? 'an owner' : 'a member'}.`)}>
-                        <option value="OWNER">Owner</option>
-                        <option value="MEMBER">Member</option>
+                          `${m.email} is now ${ROLE_LABELS[e.target.value] || e.target.value}.`)}>
+                        <option value="SUPER_ADMIN">Super Admin</option><option value="HR">HR</option><option value="EMPLOYEE">Employee</option>
                       </select>
                     ) : (
-                      <span className={`badge ${m.role === 'OWNER' ? 'badge-info' : 'badge-neutral'}`}>
-                        {m.role.toLowerCase()}
-                      </span>
+                      <span className={`badge ${ROLE_TONES[m.role] || 'badge-neutral'}`}>{ROLE_LABELS[m.role] || m.role}</span>
                     )}
                   </td>
                   <td><StatusBadge status={m.isActive ? 'active' : 'inactive'} /></td>
@@ -194,8 +226,7 @@ export default function Team() {
               <label>Role</label>
               <select className="select" value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}>
-                <option value="MEMBER">Member</option>
-                <option value="OWNER">Owner</option>
+                <option value="EMPLOYEE">Employee</option><option value="HR">HR</option><option value="SUPER_ADMIN">Super Admin</option>
               </select>
             </div>
           </div>

@@ -5,11 +5,12 @@ import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal,
 } from '../../components/ui';
 import { formatINR, collectionTone } from '../../utils/format';
+import { useRole } from '../../store/authStore';
 
 const GST_RATE = 0.18;
 const AGREEMENT_SUGGESTIONS = ['Agreement signed', 'MOU signed', 'Renewal due', 'Pending'];
 
-function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive }: any) {
+function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive, canManage }: any) {
   return (
     <div className="table-wrap">
       <table className="table">
@@ -38,7 +39,7 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
                   className="select"
                   style={{ width: 150, padding: '5px 8px', fontSize: 12.5 }}
                   value={r.latestEngineer}
-                  disabled={r.billingCount === 0}
+                  disabled={!canManage || r.billingCount === 0}
                   onChange={e => onEngineerChange(r.id, e.target.value)}
                 >
                   <option value="">— none —</option>
@@ -62,9 +63,7 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
               <td>
                 <div className="row-actions">
                   <Link to={`/income/clients/${r.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                  <button className="btn btn-ghost btn-sm" onClick={() => onToggleActive(r)}>
-                    {r.isActive ? 'Discontinue' : 'Reactivate'}
-                  </button>
+                  {canManage && (<button className='btn btn-ghost btn-sm' onClick={() => onToggleActive(r)}>{r.isActive ? 'Discontinue' : 'Reactivate'}</button>)}
                 </div>
               </td>
             </tr>
@@ -84,6 +83,7 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
 
 export default function ClientsList() {
   const navigate = useNavigate();
+  const { isSA } = useRole();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -250,6 +250,7 @@ export default function ClientsList() {
               <div className="card">
                 <ClientTable rows={data.activeRows} totals={data.activeTotals}
                   engineers={data.engineers}
+                  canManage={isSA}
                   onEngineerChange={handleEngineerChange}
                   onToggleActive={handleToggleActive} />
               </div>
@@ -261,6 +262,7 @@ export default function ClientsList() {
               <div className="card" style={{ opacity: 0.85 }}>
                 <ClientTable rows={data.inactiveRows} totals={data.inactiveTotals}
                   engineers={data.engineers}
+                  canManage={isSA}
                   onEngineerChange={handleEngineerChange}
                   onToggleActive={handleToggleActive} />
               </div>

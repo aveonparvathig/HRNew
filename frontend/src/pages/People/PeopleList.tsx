@@ -7,6 +7,7 @@ import {
 import PersonFormModal from '../../components/PersonFormModal';
 import apiClient from '../../api/client';
 import { formatDate, formatINR } from '../../utils/format';
+import { useRole } from '../../store/authStore';
 
 // Ambient person state: dot + text, no pill (design system "status language")
 const EMP_STATUS_INLINE: Record<string, string> = {
@@ -33,6 +34,7 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export default function PeopleList() {
   const navigate = useNavigate();
+  const { canManagePeople } = useRole();
   const [data, setData] = useState<any>(null);
   const [meta, setMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,7 @@ export default function PeopleList() {
   const activeEmployees = employees.filter((p: any) => !INACTIVE.has(p.employmentStatus));
   const inactiveEmployees = employees.filter((p: any) => INACTIVE.has(p.employmentStatus));
 
-  const payHeader = <th className="num">Package</th>;
+  const payHeader = canManagePeople ? <th className="num">Package</th> : null;
 
   const employeeRow = (p: any) => (
     <tr key={p.id}>
@@ -102,17 +104,19 @@ export default function PeopleList() {
       <td className="text-muted">{p.designation || '—'}</td>
       <td className="text-muted">{p.employeeNo || '—'}</td>
       <td className="text-muted">{p.joinDate ? formatDate(p.joinDate) : '—'}</td>
-      <td className="num">
-        {p.currentMonthlyPackage ? (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {revealedIds.has(p.id) ? formatINR(p.currentMonthlyPackage) : '••••••'}
-            <button className="eye-btn" title={revealedIds.has(p.id) ? 'Hide package' : 'Show package'}
-              onClick={() => toggleReveal(p.id)}>
-              <EyeIcon open={revealedIds.has(p.id)} />
-            </button>
-          </span>
-        ) : '—'}
-      </td>
+      {canManagePeople && (
+        <td className="num">
+          {p.currentMonthlyPackage ? (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              {revealedIds.has(p.id) ? formatINR(p.currentMonthlyPackage) : '••••••'}
+              <button className="eye-btn" title={revealedIds.has(p.id) ? 'Hide package' : 'Show package'}
+                onClick={() => toggleReveal(p.id)}>
+                <EyeIcon open={revealedIds.has(p.id)} />
+              </button>
+            </span>
+          ) : '—'}
+        </td>
+      )}
       <td>
         <span className={`status-inline ${EMP_STATUS_INLINE[p.employmentStatus] || 'is-active'}`}>
           <span className="dot" />
@@ -122,7 +126,9 @@ export default function PeopleList() {
       <td>
         <div className="row-actions">
           <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
-          <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
+          {canManagePeople && (
+            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
+          )}
         </div>
       </td>
     </tr>
@@ -133,7 +139,7 @@ export default function PeopleList() {
       <PageHeader
         title="People"
         subtitle="Employees, hiring candidates and internship students."
-        actions={
+        actions={canManagePeople && (
           <>
             <button className="btn btn-secondary" onClick={async () => {
               const res = await apiClient.get('/people/export/employees.xlsx', { responseType: 'blob' });
@@ -154,7 +160,7 @@ export default function PeopleList() {
               + Add Employee
             </button>
           </>
-        }
+        )}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
@@ -162,7 +168,7 @@ export default function PeopleList() {
       {data?.employeeStats && employees.length > 0 && (
         <div className="stat-grid">
           <StatCard label="Active Employees" value={data.employeeStats.active} icon="☰" tone="primary" />
-          <StatCard label="Monthly Payroll Cost"
+          {canManagePeople && <StatCard label="Monthly Payroll Cost"
             value={
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 {showCost ? formatINR(data.employeeStats.monthlyCost) : '••••••'}
@@ -172,7 +178,7 @@ export default function PeopleList() {
                 </button>
               </span>
             }
-            sub="Sum of current packages" icon="₹" tone="warning" />
+            sub="Sum of current packages" icon="₹" tone="warning" />}
           <StatCard label="PF Enrolled" value={data.employeeStats.pfCount} icon="▤" tone="info" />
           <StatCard label="ESI Covered" value={data.employeeStats.esiCount} icon="✚" tone="success" />
         </div>

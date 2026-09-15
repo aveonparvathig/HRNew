@@ -52,14 +52,19 @@ model User {
   firstName      String   @default("")
   lastName       String   @default("")
   organizationId String
-  // Signup creates the org's first user, hence OWNER by default;
-  // members added from the Team page are set to MEMBER explicitly.
-  role           String   @default("OWNER") // OWNER | MEMBER
+  // Signup creates the org's first user, hence SUPER_ADMIN by default.
+  // SUPER_ADMIN: everything · HR: people/recruitment/payroll/expenses ·
+  // EMPLOYEE: own clients (income), people directory, own expenses.
+  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN | HR | EMPLOYEE
   isActive       Boolean  @default(true)
+  // Employee logins link to their Person record — "own data" scoping key
+  personId           String?  @unique
+  mustChangePassword Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person        Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
   refreshTokens RefreshToken[]
 
   @@index([organizationId])
@@ -316,6 +321,7 @@ model Person {
   documents      PersonDocument[]
   payslipEntries PayslipEntry[]
   expenseReports ExpenseReport[]
+  user           User?
 
   @@unique([organizationId, kind, name])
   @@index([organizationId, kind, stage])

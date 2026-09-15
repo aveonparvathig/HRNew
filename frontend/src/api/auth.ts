@@ -10,6 +10,11 @@ export interface LoginResponse {
     userId: string;
     email: string;
     organizationId: string;
+    firstName?: string;
+    lastName?: string;
+    role: string;
+    personId?: string | null;
+    mustChangePassword?: boolean;
   };
   accessToken: string;
   refreshToken: string;

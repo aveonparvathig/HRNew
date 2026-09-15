@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
+import { loadActor, actorPerson } from '../middleware/roles';
 
 const GST_RATE = 0.18;
 
@@ -227,6 +228,48 @@ async function engineerNames(organizationId: string): Promise<string[]> {
 }
 
 // ---------------------------------------------------------------------------
+// EMPLOYEE scoping: an employee's income world is the clients currently
+// assigned to them (latest billing year's engineer == their Person name).
+// Clients with no billing yet are visible too, so they can start one.
+// ---------------------------------------------------------------------------
+async function employeeScope(req: any): Promise<{ name: string; clientIds: Set<string> } | null> {
+  const actor = await loadActor(req);
+  if (actor.role !== 'EMPLOYEE') return null;
+  const person = await actorPerson(req);
+  const billings = await prisma.clientBilling.findMany({
+    where: { organizationId: actor.organizationId },
+    select: { clientId: true, engineer: true, yearStart: true },
+  });
+  const latest = new Map<string, { engineer: string; yearStart: number }>();
+  for (const b of billings) {
+    const cur = latest.get(b.clientId);
+    if (!cur || b.yearStart > cur.yearStart) latest.set(b.clientId, b);
+  }
+  const clientIds = new Set<string>();
+  for (const [cid, v] of latest) {
+    if (v.engineer === person.name || v.engineer === '') clientIds.add(cid);
+  }
+  return { name: person.name, clientIds };
+}
+
+// Employees can touch a client only when it is theirs (or not yet assigned).
+async function assertClientAccess(req: any, clientId: string) {
+  const actor = await loadActor(req);
+  if (actor.role !== 'EMPLOYEE') return;
+  const person = await actorPerson(req);
+  const billings = await prisma.clientBilling.findMany({
+    where: { clientId },
+    select: { engineer: true, yearStart: true },
+    orderBy: { yearStart: 'desc' },
+    take: 1,
+  });
+  const latestEngineer = billings[0]?.engineer ?? '';
+  if (latestEngineer !== '' && latestEngineer !== person.name) {
+    throw new AppError(404, 'Client not found');
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Analytics (same math as the Django services/income_analytics.py port)
 // ---------------------------------------------------------------------------
 function buildAnalyticsFrom(billings: any[], payments: any[]) {
@@ -403,12 +446,19 @@ export const incomeController = {
   async getDashboard(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const today = todayStr();
-    const [billings, payments, clients, onboardings] = await Promise.all([
+    let [billings, payments, clients, onboardings] = await Promise.all([
       fetchOrgBillings(orgId),
       prisma.paymentReceipt.findMany({ where: { organizationId: orgId } }),
       prisma.incomeClient.findMany({ where: { organizationId: orgId } }),
       prisma.clientOnboarding.findMany({ where: { organizationId: orgId } }),
     ]);
+    const scope = await employeeScope(req);
+    if (scope) {
+      billings = billings.filter((b: any) => scope.clientIds.has(b.clientId));
+      payments = payments.filter(p => scope.clientIds.has(p.clientId));
+      clients = clients.filter(c => scope.clientIds.has(c.id));
+      onboardings = onboardings.filter(o => scope.clientIds.has(o.clientId));
+    }
 
     const analytics = buildAnalyticsFrom(billings, payments);
     const rows = billings.map(b => billingJSON(b));
@@ -462,10 +512,15 @@ export const incomeController = {
   // ---- Analytics + forecast ---------------------------------------------
   async getAnalytics(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    const [billings, payments] = await Promise.all([
+    let [billings, payments] = await Promise.all([
       fetchOrgBillings(orgId),
       prisma.paymentReceipt.findMany({ where: { organizationId: orgId } }),
     ]);
+    const scope = await employeeScope(req);
+    if (scope) {
+      billings = billings.filter((b: any) => scope.clientIds.has(b.clientId));
+      payments = payments.filter(p => scope.clientIds.has(p.clientId));
+    }
     res.json({ ...buildAnalyticsFrom(billings, payments), forecast: buildForecastFrom(billings) });
   },
 
@@ -574,6 +629,8 @@ export const incomeController = {
     };
 
     let rows = clients.map(makeRow);
+    const scope = await employeeScope(req);
+    if (scope) rows = rows.filter(r => scope.clientIds.has(r.id));
     if (period) rows = rows.filter(r => r.billingCount > 0);
     if (show === 'balance') rows = rows.filter(r => r.balance > 0);
     if (collection === 'full') rows = rows.filter(r => r.billed > 0 && r.balance <= 0);
@@ -643,6 +700,7 @@ export const incomeController = {
       },
     });
     if (!client) throw new AppError(404, 'Client not found');
+    await assertClientAccess(req, client.id);
 
     // Carry-forward mismatch: previousPending vs prior year's closing balance
     let prevBalance: number | null = null;
@@ -674,6 +732,7 @@ export const incomeController = {
   async updateClient(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const { name, agreementStatus, notes, isActive } = req.body;
     const data: any = {};
     if (name !== undefined) {
@@ -699,6 +758,7 @@ export const incomeController = {
   async toggleClientActive(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const updated = await prisma.incomeClient.update({
       where: { id: client.id },
       data: { isActive: !client.isActive },
@@ -709,6 +769,7 @@ export const incomeController = {
   async updateClientEngineer(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const latest = await prisma.clientBilling.findFirst({
       where: { clientId: client.id },
       orderBy: { yearStart: 'desc' },
@@ -722,6 +783,7 @@ export const incomeController = {
   async deleteClient(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const billingCount = await prisma.clientBilling.count({ where: { clientId: client.id } });
     if (billingCount > 0) {
       throw new AppError(400, 'Cannot delete a client with billing records. Mark it inactive instead.');
@@ -734,6 +796,7 @@ export const incomeController = {
   async getBillingPrefill(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const latest = await prisma.clientBilling.findFirst({
       where: { clientId: client.id },
       include: { payments: true },
@@ -767,6 +830,11 @@ export const incomeController = {
   async createBilling(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
+    // An employee's billing rows are always their own assignment
+    if ((await loadActor(req)).role === 'EMPLOYEE') {
+      req.body.engineer = (await actorPerson(req)).name;
+    }
     const period = resolvePeriod(req.body);
     const dup = await prisma.clientBilling.findUnique({
       where: { clientId_academicYear: { clientId: client.id, academicYear: period.academicYear } },
@@ -806,6 +874,9 @@ export const incomeController = {
   async updateBilling(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const billing = await fetchOrgBilling(req.params.billingId, orgId);
+    await assertClientAccess(req, billing.clientId);
+    // Employees cannot hand a client to someone else
+    if ((await loadActor(req)).role === 'EMPLOYEE') delete req.body.engineer;
     const body = req.body;
     const merged: any = { ...billing };
 
@@ -878,6 +949,7 @@ export const incomeController = {
   async deleteBilling(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const billing = await fetchOrgBilling(req.params.billingId, orgId);
+    await assertClientAccess(req, billing.clientId);
     if (billing.payments.length > 0) {
       throw new AppError(400, 'Cannot delete a billing year with recorded payments');
     }
@@ -889,6 +961,7 @@ export const incomeController = {
   async addPayment(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const billing = await fetchOrgBilling(req.params.billingId, orgId);
+    await assertClientAccess(req, billing.clientId);
     const amount = Number(req.body.amount);
     if (!amount || amount <= 0) throw new AppError(400, 'A positive amount is required');
     const payment = await prisma.paymentReceipt.create({
@@ -919,6 +992,7 @@ export const incomeController = {
   async getOnboarding(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const [ob, features] = await Promise.all([
       prisma.clientOnboarding.findUnique({ where: { clientId: client.id } }),
       prisma.featureStatus.findMany({
@@ -945,6 +1019,7 @@ export const incomeController = {
   async getOnboardingDocument(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const ob = await prisma.clientOnboarding.findUnique({ where: { clientId: client.id } });
     const kind = req.params.kind;
     if (!ob || !['po', 'agreement'].includes(kind)) throw new AppError(404, 'Document not found');
@@ -957,6 +1032,7 @@ export const incomeController = {
   async saveOnboarding(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const existing = await prisma.clientOnboarding.findUnique({ where: { clientId: client.id } });
     const b = req.body;
     if (b.stage && !ONBOARDING_STAGES.includes(b.stage)) throw new AppError(400, 'Invalid stage');
@@ -1073,6 +1149,7 @@ export const incomeController = {
   async addFeature(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const name = String(req.body.name || '').trim();
     if (!name) throw new AppError(400, 'Enter a feature name');
     const existing = await prisma.featureStatus.findFirst({
@@ -1097,6 +1174,7 @@ export const incomeController = {
   async seedFeatures(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const existing = await prisma.featureStatus.findMany({
       where: { clientId: client.id },
       select: { name: true },
@@ -1129,6 +1207,7 @@ export const incomeController = {
       where: { id: req.params.featureId, organizationId: orgId },
     });
     if (!feature) throw new AppError(404, 'Feature not found');
+    await assertClientAccess(req, feature.clientId);
     const { status, engineer, remarks } = req.body;
     const data: any = {};
     if (status !== undefined) {

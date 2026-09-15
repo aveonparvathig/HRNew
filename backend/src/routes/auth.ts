@@ -23,5 +23,6 @@ router.post('/login', authLimiter, asyncHandler((req: Request, res: Response) =>
 router.post('/refresh', asyncHandler((req: Request, res: Response) => authController.refresh(req, res)));
 router.post('/logout', asyncHandler((req: Request, res: Response) => authController.logout(req, res)));
 router.get('/me', authMiddleware, asyncHandler((req: Request, res: Response) => authController.getCurrentUser(req, res)));
+router.post('/change-password', authMiddleware, asyncHandler((req: Request, res: Response) => authController.changePassword(req, res)));
 
 export default router;

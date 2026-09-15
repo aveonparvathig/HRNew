@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
+import { loadActor } from '../middleware/roles';
 import { orgBrand } from '../services/orgBrand';
 import { amountInWords } from '../services/payrollCalc';
 
@@ -85,10 +86,18 @@ function assertEditable(report: any) {
   }
 }
 
-async function requireOwner(userId: string) {
-  const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || user.role !== 'OWNER') {
-    throw new AppError(403, 'Only organization owners can approve, reject or reimburse');
+async function requireApprover(req: any) {
+  const actor = await loadActor(req);
+  if (!['SUPER_ADMIN', 'HR'].includes(actor.role)) {
+    throw new AppError(403, 'Only admins and HR can approve, reject or reimburse');
+  }
+}
+
+// EMPLOYEE role only ever sees / edits reports belonging to their Person
+async function assertReportAccess(req: any, reportPersonId: string) {
+  const actor = await loadActor(req);
+  if (actor.role === 'EMPLOYEE' && actor.personId !== reportPersonId) {
+    throw new AppError(404, 'Expense report not found');
   }
 }
 
@@ -105,8 +114,13 @@ const totalOf = (lines: any[]) => round2(lines.reduce((s, l) => s + (l.amount ||
 export const expensesController = {
   async getMeta(req: any, res: Response) {
     const orgId = req.user?.organizationId;
+    const actor = await loadActor(req);
     const employees = await prisma.person.findMany({
-      where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true },
+      where: {
+        organizationId: orgId, kind: 'CANDIDATE', isEmployee: true,
+        // Employees file reports only for themselves
+        ...(actor.role === 'EMPLOYEE' ? { id: actor.personId || '' } : {}),
+      },
       select: { id: true, name: true, employeeNo: true, designation: true },
       orderBy: { name: 'asc' },
     });
@@ -120,7 +134,10 @@ export const expensesController = {
   async getReports(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const status = str(req.query.status);
-    const personId = str(req.query.personId);
+    const actor = await loadActor(req);
+    const personId = actor.role === 'EMPLOYEE'
+      ? (actor.personId || 'none') // own reports only
+      : str(req.query.personId);
     const q = str(req.query.q).trim();
     const reports = await prisma.expenseReport.findMany({
       where: {
@@ -163,8 +180,10 @@ export const expensesController = {
     const b = req.body;
     const title = str(b.title).trim();
     if (!title) throw new AppError(400, 'Report title is required');
+    const actor = await loadActor(req);
+    const targetPersonId = actor.role === 'EMPLOYEE' ? (actor.personId || '') : str(b.personId);
     const person = await prisma.person.findFirst({
-      where: { id: str(b.personId), organizationId: orgId, isEmployee: true },
+      where: { id: targetPersonId, organizationId: orgId, isEmployee: true },
     });
     if (!person) throw new AppError(400, 'Pick the employee this report belongs to');
     const report = await prisma.expenseReport.create({
@@ -186,18 +205,21 @@ export const expensesController = {
   async getReportDetail(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId, 'summary');
+    await assertReportAccess(req, report.personId);
     res.json({
       ...report,
       lines: report.lines.map(lineJSON),
       total: totalOf(report.lines),
       editable: EDITABLE_STATUSES.has(report.status),
-      actions: Object.keys(TRANSITIONS[report.status] || {}),
+      actions: Object.keys(TRANSITIONS[report.status] || {}).filter(a =>
+        !OWNER_ACTIONS.has(a) || ['SUPER_ADMIN', 'HR'].includes((req as any).actor?.role)),
     });
   },
 
   async updateReport(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId);
+    await assertReportAccess(req, report.personId);
     assertEditable(report);
     const b = req.body;
     const data: any = {};
@@ -226,6 +248,7 @@ export const expensesController = {
   async deleteReport(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId);
+    await assertReportAccess(req, report.personId);
     if (report.status !== 'DRAFT') {
       throw new AppError(400, 'Only draft reports can be deleted');
     }
@@ -236,12 +259,13 @@ export const expensesController = {
   async changeStatus(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId);
+    await assertReportAccess(req, report.personId);
     const action = str(req.body.action);
     const next = TRANSITIONS[report.status]?.[action];
     if (!next) {
       throw new AppError(400, `Cannot ${action} a ${report.status.toLowerCase()} report`);
     }
-    if (OWNER_ACTIONS.has(action)) await requireOwner(req.user?.userId);
+    if (OWNER_ACTIONS.has(action)) await requireApprover(req);
     if (action === 'submit') {
       const lineCount = await prisma.expenseLine.count({ where: { reportId: report.id } });
       if (lineCount === 0) throw new AppError(400, 'Add at least one expense line before submitting');
@@ -260,6 +284,7 @@ export const expensesController = {
   async addLine(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId);
+    await assertReportAccess(req, report.personId);
     assertEditable(report);
     const b = req.body;
     const amount = Number(b.amount);
@@ -291,6 +316,7 @@ export const expensesController = {
       include: { report: true },
     });
     if (!line) throw new AppError(404, 'Expense line not found');
+    await assertReportAccess(req, line.report.personId);
     assertEditable(line.report);
     const b = req.body;
     const data: any = {};
@@ -326,6 +352,7 @@ export const expensesController = {
       include: { report: true },
     });
     if (!line) throw new AppError(404, 'Expense line not found');
+    await assertReportAccess(req, line.report.personId);
     assertEditable(line.report);
     await prisma.expenseLine.delete({ where: { id: line.id } });
     res.json({ message: 'Line removed' });
@@ -335,8 +362,10 @@ export const expensesController = {
     const orgId = req.user?.organizationId;
     const line = await prisma.expenseLine.findFirst({
       where: { id: req.params.lineId, organizationId: orgId },
+      include: { report: { select: { personId: true } } },
     });
     if (!line || !line.receiptData) throw new AppError(404, 'No receipt attached');
+    await assertReportAccess(req, line.report.personId);
     res.json({ filename: line.receiptFilename || 'receipt', dataUri: line.receiptData, ocrText: line.ocrText });
   },
 
@@ -344,6 +373,7 @@ export const expensesController = {
   async printReport(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId, 'full');
+    await assertReportAccess(req, report.personId);
     const brand = await orgBrand(orgId);
     const total = totalOf(report.lines);
     const primary = brand.brandPrimary || '#4f46e5';

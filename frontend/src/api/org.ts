@@ -9,4 +9,6 @@ export const orgAPI = {
   updateMember: (memberId: string, data: any) => apiClient.put(`/org/team/${memberId}`, data),
   resetMemberPassword: (memberId: string, password: string) =>
     apiClient.post(`/org/team/${memberId}/reset-password`, { password }),
+  generateLogins: () => apiClient.post('/org/team/generate-logins', {}, { responseType: 'blob' }),
+
 };

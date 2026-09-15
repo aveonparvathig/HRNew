@@ -45,9 +45,20 @@ const MODULES = [
   },
 ];
 
+// Which module cards each role sees (mirrors the API policy)
+const MODULE_ROLES: Record<string, string[]> = {
+  '/income': ['SUPER_ADMIN', 'EMPLOYEE'],
+  '/recruitment': ['SUPER_ADMIN', 'HR'],
+  '/people': ['SUPER_ADMIN', 'HR', 'EMPLOYEE'],
+  '/proposals': ['SUPER_ADMIN'],
+  '/payroll': ['SUPER_ADMIN', 'HR'],
+};
+
 export default function Dashboard() {
   const user = useAuthStore(state => state.user);
   const firstName = user?.firstName || user?.email?.split('@')[0] || 'there';
+  const role = user?.role || 'SUPER_ADMIN';
+  const modules = MODULES.filter(m => (MODULE_ROLES[m.to] || []).includes(role));
 
   return (
     <>
@@ -57,7 +68,7 @@ export default function Dashboard() {
       />
 
       <div className="module-grid">
-        {MODULES.map(mod =>
+        {modules.map(mod =>
           mod.live ? (
             <Link key={mod.name} to={mod.to!} className="module-card">
               <div className={`module-icon ${mod.tone}`}>{mod.icon}</div>

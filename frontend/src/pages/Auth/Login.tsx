@@ -22,7 +22,7 @@ export default function Login() {
       const { user, accessToken, refreshToken } = response.data;
       setUser(user);
       setTokens(accessToken, refreshToken);
-      navigate('/dashboard');
+      navigate(response.data.user?.mustChangePassword ? '/change-password' : '/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
     } finally {

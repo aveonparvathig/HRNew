@@ -3,6 +3,25 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { DOC_TYPES, renderLetter } from '../services/letterTemplates';
 import { orgBrand } from '../services/orgBrand';
+import { loadActor } from '../middleware/roles';
+
+// EMPLOYEE role sees the people directory without money, bank, statutory
+// or government-ID fields — stripped server-side, never sent at all.
+const SENSITIVE_PERSON_FIELDS = [
+  'currentMonthlyPackage', 'expectedCtc',
+  'bankName', 'bankAccountNumber', 'ifscCode',
+  'panNumber', 'pfNumber', 'pfUan', 'esiNumber', 'aadharNo',
+  'isEsiEligible', 'isPfApplicable', 'agreementSigned', 'agreementSignDate',
+  'reasonForLeaving', 'notes',
+] as const;
+
+const stripForEmployee = (actor: any) => actor.role === 'EMPLOYEE';
+
+function stripPersonFields(p: any) {
+  const out: any = { ...p };
+  for (const f of SENSITIVE_PERSON_FIELDS) out[f] = undefined;
+  return out;
+}
 
 export const PERSON_KINDS = [
   { value: 'CANDIDATE', label: 'Employee' },
@@ -238,7 +257,7 @@ export const peopleController = {
       },
       orderBy: { name: 'asc' },
     });
-    const rows = people.map(p => ({
+    let rows: any[] = people.map(p => ({
       ...p,
       interviews: undefined,
       interviewCount: p.interviews.length,
@@ -248,16 +267,20 @@ export const peopleController = {
     const employees = rows.filter(p => p.kind === 'CANDIDATE' && p.isEmployee);
     const activeEmployees = employees.filter(p =>
       !['RESIGNED', 'TERMINATED'].includes(p.employmentStatus));
+    const stats = {
+      active: activeEmployees.length,
+      monthlyCost: activeEmployees.reduce((s, p) => s + (p.currentMonthlyPackage || 0), 0),
+      esiCount: activeEmployees.filter(p => p.isEsiEligible).length,
+      pfCount: activeEmployees.filter(p => p.isPfApplicable).length,
+    };
+    // Employees get a plain directory: no salary, bank, statutory or ID data
+    const strip = stripForEmployee(await loadActor(req));
+    if (strip) rows = rows.map(stripPersonFields);
     res.json({
-      employees,
+      employees: strip ? rows.filter(p => p.kind === 'CANDIDATE' && p.isEmployee) : employees,
       candidates: rows.filter(p => p.kind === 'CANDIDATE' && !p.isEmployee),
       interns: rows.filter(p => p.kind === 'INTERN'),
-      employeeStats: {
-        active: activeEmployees.length,
-        monthlyCost: activeEmployees.reduce((s, p) => s + (p.currentMonthlyPackage || 0), 0),
-        esiCount: activeEmployees.filter(p => p.isEsiEligible).length,
-        pfCount: activeEmployees.filter(p => p.isPfApplicable).length,
-      },
+      employeeStats: strip ? { ...stats, monthlyCost: null } : stats,
     });
   },
 
@@ -389,6 +412,12 @@ export const peopleController = {
       },
     });
     if (!person) throw new AppError(404, 'Person not found');
+    const actor = await loadActor(req);
+    if (stripForEmployee(actor) && actor.personId !== person.id) {
+      // Someone else's record: contact-card view only
+      res.json({ ...stripPersonFields(person), documents: [], interviews: [] });
+      return;
+    }
     res.json(person);
   },
 

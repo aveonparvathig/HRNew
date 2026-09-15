@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import BillingFormModal from '../../components/BillingFormModal';
 import { formatINR, formatDate } from '../../utils/format';
+import { useRole } from '../../store/authStore';
 
 const INVOICE_LABELS: Record<string, string> = {
   PROFORMA: 'Proforma generated',
@@ -20,6 +21,7 @@ const EMPTY_PAYMENT = {
 };
 
 export default function ClientDetail() {
+  const { isSA } = useRole();
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const [client, setClient] = useState<any>(null);
@@ -253,9 +255,7 @@ export default function ClientDetail() {
                             onClick={() => setBillingModal({ open: true, billing: b })}>
                             Edit
                           </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteBilling(b)}>
-                            Del
-                          </button>
+                          {isSA && (<button className='btn btn-danger btn-sm' onClick={() => handleDeleteBilling(b)}>Del</button>)}
                         </div>
                       </td>
                     </tr>
@@ -286,7 +286,7 @@ export default function ClientDetail() {
                                     <td className="text-muted">{p.note || '—'}</td>
                                     <td>
                                       <div className="row-actions">
-                                        <button className="btn btn-danger btn-sm" onClick={() => handleDeletePayment(p)}>Delete</button>
+                                        {isSA && (<button className='btn btn-danger btn-sm' onClick={() => handleDeletePayment(p)}>Delete</button>)}
                                       </div>
                                     </td>
                                   </tr>
