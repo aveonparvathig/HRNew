@@ -17,8 +17,17 @@ export default function CmsFeatures() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Open the standalone document in its own tab and print from there —
+  // printing inside the embedded frame can clip to a single page; the full
+  // tab paginates the whole spec onto A4 (the document carries @page A4 CSS).
   const handlePrint = () => {
-    frameRef.current?.contentWindow?.print();
+    const blob = new Blob([doc.html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      win.addEventListener('load', () => setTimeout(() => win.print(), 400));
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const handleDownload = () => {
@@ -41,7 +50,7 @@ export default function CmsFeatures() {
         actions={doc && (
           <>
             <button className="btn btn-secondary" onClick={handleDownload}>⬇ Download HTML</button>
-            <button className="btn btn-primary" onClick={handlePrint}>🖨 Print / Save as PDF</button>
+            <button className="btn btn-primary" onClick={handlePrint}>🖨 Print / Save as PDF (A4)</button>
           </>
         )}
       />
