@@ -21,6 +21,7 @@ router.put('/openings/:openingId', asyncHandler((req, res) => peopleController.u
 
 // Employee register export
 router.get('/export/employees.csv', asyncHandler((req, res) => peopleController.exportEmployeesCsv(req, res)));
+router.get('/export/employees.xlsx', asyncHandler((req, res) => peopleController.exportEmployeesXlsx(req, res)));
 
 // People
 router.get('/', asyncHandler((req, res) => peopleController.getPeople(req, res)));

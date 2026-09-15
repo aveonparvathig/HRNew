@@ -262,6 +262,53 @@ export const peopleController = {
   },
 
   // Excel-compatible CSV export of the employee register
+  // XLSX in the "employees-all" format — round-trips with
+  // scripts/import-employees-xlsx.ts, so an export can be re-imported.
+  async exportEmployeesXlsx(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const employees = await prisma.person.findMany({
+      where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true },
+      omit: { photoData: true },
+      orderBy: { name: 'asc' },
+    });
+    const inactive = new Set(['RESIGNED', 'TERMINATED']);
+    const cols: [string, (p: any) => any][] = [
+      ['Employee Code', p => p.employeeNo], ['Name', p => p.name],
+      ['Designation', p => p.designation], ['Department', p => p.department],
+      ['Date of Joining', p => p.joinDate], ['Relieving Date', p => p.leavingDate],
+      ['Active', p => (inactive.has(p.employmentStatus) ? 'No' : 'Yes')],
+      ['Employment Status', p => p.employmentStatus],
+      ['Monthly Package (₹)', p => p.currentMonthlyPackage],
+      ['ESI Eligible', p => (p.isEsiEligible ? 'Yes' : 'No')],
+      ['PF Applicable', p => (p.isPfApplicable ? 'Yes' : 'No')],
+      ['PAN Number', p => p.panNumber], ['PF Number', p => p.pfNumber],
+      ['PF UAN', p => p.pfUan], ['ESI Number', p => p.esiNumber],
+      ['Date of Birth', p => p.dateOfBirth], ['Blood Group', p => p.bloodGroup],
+      ['Marital Status', p => p.maritalStatus], ['Aadhaar Number', p => p.aadharNo],
+      ['Address', p => p.address], ['Personal Email', p => p.email],
+      ['Official Email', p => p.officialEmail], ['Contact Number', p => p.phone],
+      ['Official Number', p => p.officialNo], ['Emergency Number', p => p.emergencyNo],
+      ['Agreement Signed', p => (p.agreementSigned ? 'Yes' : 'No')],
+      ['Agreement Sign Date', p => p.agreementSignDate],
+      ['Biometric ID', p => p.biometricId],
+      ['Reason for Leaving', p => p.reasonForLeaving],
+      ['Bank Name', p => p.bankName], ['Account Number', p => p.bankAccountNumber],
+      ['IFSC Code', p => p.ifscCode],
+    ];
+    const Excel = await import('exceljs');
+    const wb = new Excel.Workbook();
+    const ws = wb.addWorksheet('Employees');
+    ws.addRow(cols.map(c => c[0]));
+    ws.getRow(1).font = { bold: true };
+    for (const p of employees) ws.addRow(cols.map(([, fn]) => fn(p) ?? ''));
+    ws.columns.forEach((c: any, i: number) => { c.width = Math.max(14, cols[i][0].length + 2); });
+    const today = new Date().toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="employees-all-${today}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+  },
+
   async exportEmployeesCsv(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const employees = await prisma.person.findMany({
