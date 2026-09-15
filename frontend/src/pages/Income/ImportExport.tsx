@@ -8,7 +8,6 @@ export default function ImportExport() {
   const [fileContent, setFileContent] = useState('');
   const [fileKind, setFileKind] = useState<'csv' | 'xlsx' | ''>('');
   const [fileName, setFileName] = useState('');
-  const [dryRun, setDryRun] = useState(true);
   const [result, setResult] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
@@ -55,10 +54,12 @@ export default function ImportExport() {
     else reader.readAsText(file);
   };
 
-  const handleImport = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runImport = async (dryRun: boolean) => {
     if (!fileContent) {
       setError('Choose a file first');
+      return;
+    }
+    if (!dryRun && !window.confirm('Import this file into the billing sheet now? Existing client + year rows are skipped, never overwritten.')) {
       return;
     }
     setBusy(true);
@@ -115,25 +116,27 @@ export default function ImportExport() {
             Optional: Students, Rate, Engineer, Previous Pending, Received (creates an opening
             payment). Existing client + year rows are skipped, never overwritten.
           </p>
-          <form onSubmit={handleImport}>
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
-                {fileName || 'Choose .xlsx or .csv file…'}
-                <input type="file"
-                  accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-                  onChange={handleFile} hidden />
-              </label>
-            </div>
-            <label className="checkbox-field" style={{ marginBottom: 14 }}>
-              <input type="checkbox" checked={dryRun} onChange={e => setDryRun(e.target.checked)} />
-              Preview only (don't save)
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+              {fileName || 'Choose .xlsx or .csv file…'}
+              <input type="file"
+                accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+                onChange={handleFile} hidden />
             </label>
-            <div>
-              <button type="submit" className="btn btn-primary" disabled={busy || !fileContent}>
-                {busy ? 'Working…' : dryRun ? 'Preview Import' : 'Run Import'}
-              </button>
-            </div>
-          </form>
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button type="button" className="btn btn-secondary" disabled={busy || !fileContent}
+              onClick={() => runImport(true)}>
+              {busy ? 'Working…' : '👁 Preview'}
+            </button>
+            <button type="button" className="btn btn-primary" disabled={busy || !fileContent}
+              onClick={() => runImport(false)}>
+              {busy ? 'Working…' : '⤒ Import Now'}
+            </button>
+          </div>
+          <p className="text-muted" style={{ fontSize: 12, marginTop: 10 }}>
+            Preview only shows what will happen — nothing is saved. Import Now writes to the billing sheet after a confirmation.
+          </p>
         </div>
       </div>
 
