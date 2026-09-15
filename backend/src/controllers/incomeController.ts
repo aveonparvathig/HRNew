@@ -538,6 +538,8 @@ export const incomeController = {
     const engineer = String(req.query.engineer || '').trim();
     const show = String(req.query.show || 'all');
     const sort = String(req.query.sort || 'balance');
+    const period = String(req.query.period || '').trim(); // '2026-2027' | 'CUSTOM' | ''
+    const collection = String(req.query.collection || '').trim(); // full | partial | none | ''
 
     let clients = await prisma.incomeClient.findMany({
       where: {
@@ -550,21 +552,33 @@ export const incomeController = {
       clients = clients.filter(c => c.billings.some(b => b.engineer === engineer));
     }
 
+    // Period filter scopes both membership and the money columns: with a year
+    // selected, Billed/Received/Balance show only that period's figures.
+    const matchesPeriod = (b: any) =>
+      !period ? true
+        : period === 'CUSTOM' ? b.periodType === 'CUSTOM'
+          : b.periodType !== 'CUSTOM' && b.academicYear === period;
+
     const makeRow = (c: any) => {
-      const sorted = [...c.billings].sort((a, b) => a.yearStart - b.yearStart);
+      const scoped = c.billings.filter(matchesPeriod);
+      const sorted = [...scoped].sort((a, b) => a.yearStart - b.yearStart);
       const latest = sorted[sorted.length - 1];
       return {
         ...c,
         billings: undefined,
-        ...clientTotalsOf(c.billings),
+        ...clientTotalsOf(scoped),
         latestEngineer: latest?.engineer || '',
         latestYear: latest?.academicYear || '',
-        billingCount: c.billings.length,
+        billingCount: scoped.length,
       };
     };
 
     let rows = clients.map(makeRow);
+    if (period) rows = rows.filter(r => r.billingCount > 0);
     if (show === 'balance') rows = rows.filter(r => r.balance > 0);
+    if (collection === 'full') rows = rows.filter(r => r.billed > 0 && r.balance <= 0);
+    if (collection === 'partial') rows = rows.filter(r => r.received > 0 && r.balance > 0);
+    if (collection === 'none') rows = rows.filter(r => r.billed > 0 && r.received === 0);
 
     const cmp = sort === 'name'
       ? (a: any, b: any) => a.name.localeCompare(b.name)
@@ -579,12 +593,24 @@ export const incomeController = {
       balance: round2(rs.reduce((s, r) => s + r.balance, 0)),
     });
 
+    // Period options for the filter dropdown (from actual data)
+    const periodSet = new Set<string>();
+    let hasCustomPeriods = false;
+    for (const c of clients) {
+      for (const b of c.billings) {
+        if (b.periodType === 'CUSTOM') hasCustomPeriods = true;
+        else if (b.academicYear) periodSet.add(b.academicYear);
+      }
+    }
+
     res.json({
       activeRows, inactiveRows,
       activeTotals: totalsOf(activeRows),
       inactiveTotals: totalsOf(inactiveRows),
       totalCount: activeRows.length + inactiveRows.length,
       engineers: await engineerNames(orgId),
+      periods: Array.from(periodSet).sort().reverse(),
+      hasCustomPeriods,
     });
   },
 

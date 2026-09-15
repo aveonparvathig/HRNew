@@ -90,6 +90,8 @@ export default function ClientsList() {
   const [engineer, setEngineer] = useState('');
   const [show, setShow] = useState('all');
   const [sort, setSort] = useState('balance');
+  const [period, setPeriod] = useState('');
+  const [collection, setCollection] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
@@ -106,7 +108,7 @@ export default function ClientsList() {
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await incomeAPI.getClients({ q, engineer, show, sort });
+      const res = await incomeAPI.getClients({ q, engineer, show, sort, period, collection });
       setData(res.data);
       setError('');
     } catch (err: any) {
@@ -114,7 +116,7 @@ export default function ClientsList() {
     } finally {
       setLoading(false);
     }
-  }, [q, engineer, show, sort]);
+  }, [q, engineer, show, sort, period, collection]);
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
@@ -183,7 +185,7 @@ export default function ClientsList() {
     }
   };
 
-  const hasFilters = Boolean(q || engineer || show !== 'all');
+  const hasFilters = Boolean(q || engineer || show !== 'all' || period || collection);
 
   return (
     <>
@@ -205,6 +207,17 @@ export default function ClientsList() {
         <select className="select" value={engineer} onChange={e => setEngineer(e.target.value)}>
           <option value="">All engineers</option>
           {(data?.engineers || []).map((e: string) => <option key={e} value={e}>{e}</option>)}
+        </select>
+        <select className="select" value={period} onChange={e => setPeriod(e.target.value)}>
+          <option value="">All periods</option>
+          {(data?.periods || []).map((y: string) => <option key={y} value={y}>{y}</option>)}
+          {data?.hasCustomPeriods && <option value="CUSTOM">Custom periods</option>}
+        </select>
+        <select className="select" value={collection} onChange={e => setCollection(e.target.value)}>
+          <option value="">All collection</option>
+          <option value="full">Fully collected</option>
+          <option value="partial">Partially collected</option>
+          <option value="none">Nothing received</option>
         </select>
         <select className="select" value={show} onChange={e => setShow(e.target.value)}>
           <option value="all">All clients</option>

@@ -14,7 +14,7 @@ export const incomeAPI = {
     apiClient.post(`/income/academic-years/${yearId}/toggle`),
 
   // Clients
-  getClients: (params?: { q?: string; engineer?: string; show?: string; sort?: string }) =>
+  getClients: (params?: { q?: string; engineer?: string; show?: string; sort?: string; period?: string; collection?: string }) =>
     apiClient.get('/income/clients', { params }),
   createClient: (data: { name: string; agreementStatus?: string; notes?: string }) =>
     apiClient.post('/income/clients', data),
