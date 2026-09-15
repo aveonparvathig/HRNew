@@ -1,0 +1,14 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1440, "h": 900, "title": "Dashboard" },
+    { "file": "People.dc.html", "x": 1560, "y": 0, "w": 1440, "h": 900, "title": "People — status colors" },
+    { "file": "ColorSystem.dc.html", "x": 0, "y": 1060, "w": 1120, "h": 1380, "title": "Colors & components" },
+    { "file": "TealSketch.dc.html", "x": 1560, "y": 1060, "w": 760, "h": 540, "title": "Alternate — Fresh Teal" }
+  ],
+  "annotations": [
+    { "id": "direction", "x": 0, "y": -260, "w": 460, "text": "Direction: Airlight. Warm-white canvas, light sidebar (dark one is gone), a single indigo accent, Manrope type, real SVG icons. Everything else stays neutral so the status colors do the talking.\nTry the accent chip above the Dashboard to test other hues." },
+    { "id": "status-language", "x": 1560, "y": -260, "w": 470, "text": "One status language everywhere:\ngreen = active / paid / reimbursed / finalized\namber = pending / awaiting / partial\nred = rejected / overdue / deductions\nblue = submitted / in review / in pipeline\ngray = inactive / any draft / on hold\nMoney: green credit (+), red debit (−), amber balance.\nText on tints uses the darker shade of each family for AA contrast." },
+    { "id": "alternate-note", "x": 2420, "y": 1060, "w": 260, "text": "Low-fi alternate: same system with a teal accent. Pick a hue and I will apply the winning palette across the app's CSS tokens." }
+  ],
+  "launch": { "view": "canvas" }
+}

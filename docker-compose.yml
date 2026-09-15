@@ -1,0 +1,94 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: payslip-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-payslip_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-payslip_password}
+      POSTGRES_DB: ${DB_NAME:-payslip_dev}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+      TZ: "UTC"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - payslip-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-payslip_user} -d ${DB_NAME:-payslip_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Node.js Express Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: payslip-backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${BACKEND_PORT:-3000}
+      DATABASE_URL: postgresql://${DB_USER:-payslip_user}:${DB_PASSWORD:-payslip_password}@postgres:5432/${DB_NAME:-payslip_dev}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/src:ro
+      - ./backend/prisma:/app/prisma:ro
+    networks:
+      - payslip-network
+    restart: unless-stopped
+    command: >
+      sh -c "npx prisma migrate deploy && node dist/server.js"
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://backend:3000/api}
+    container_name: payslip-frontend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://backend:3000/api}
+    ports:
+      - "${FRONTEND_PORT:-5173}:3000"
+    depends_on:
+      - backend
+    networks:
+      - payslip-network
+    restart: unless-stopped
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: payslip-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@example.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      SCRIPT_NAME: /pgadmin
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      - postgres
+    networks:
+      - payslip-network
+    restart: unless-stopped
+    profiles:
+      - dev  # Only starts with: docker-compose --profile dev up
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  payslip-network:
+    driver: bridge

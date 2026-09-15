@@ -1,0 +1,10 @@
+# TEMPORARY override used only during data cutover: publishes the production
+# postgres on host port 5434 so the import script can reach it. Remove the
+# override (restart without this file) as soon as the import reconciles.
+#
+#   docker compose -p payslip-prod -f docker-compose.prod.yml -f deploy/docker-compose.cutover.yml --env-file .env.production up -d postgres
+#
+services:
+  postgres:
+    ports:
+      - "5434:5432"

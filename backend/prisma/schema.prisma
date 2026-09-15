@@ -1,0 +1,601 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  tagline   String   @default("")
+  address   String   @default("")
+  city      String   @default("")
+  state     String   @default("")
+  country   String   @default("India")
+  phone     String   @default("")
+  email     String   @default("")
+  website   String   @default("")
+  jurisdiction String @default("")
+
+  // Branding (logo stored as a data URI, resized client-side)
+  logoData             String @default("")
+  brandPrimary         String @default("#4f46e5")
+  brandAccent          String @default("#312e81")
+  signatoryName        String @default("")
+  signatoryDesignation String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  academicYears AcademicYear[]
+  incomeClients IncomeClient[]
+  jobPostings   JobPosting[]
+  people        Person[]
+  jobOpenings   JobOpening[]
+  proposals     ProposalRecord[]
+  payrollRuns   PayrollRun[]
+
+  @@map("organizations")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  email          String   @unique
+  password       String
+  firstName      String   @default("")
+  lastName       String   @default("")
+  organizationId String
+  // Signup creates the org's first user, hence OWNER by default;
+  // members added from the Team page are set to MEMBER explicitly.
+  role           String   @default("OWNER") // OWNER | MEMBER
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+
+  @@index([organizationId])
+  @@map("users")
+}
+
+// Refresh tokens survive restarts and are revocable; only the SHA-256 hash
+// is stored so a database leak never exposes a usable token.
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Income module
+// Date-only values (receivedOn, nextFollowupDate, agreement dates, ...) are
+// stored as ISO "YYYY-MM-DD" strings: they sort lexicographically and the
+// application layer compares them as strings throughout.
+// ---------------------------------------------------------------------------
+model AcademicYear {
+  id             String   @id @default(cuid())
+  organizationId String
+  label          String // "2025-2026"
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, label])
+  @@map("academic_years")
+}
+
+model IncomeClient {
+  id              String   @id @default(cuid())
+  organizationId  String
+  name            String
+  agreementStatus String   @default("")
+  notes           String   @default("")
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billings     ClientBilling[]
+  payments     PaymentReceipt[]
+  onboarding   ClientOnboarding?
+  features     FeatureStatus[]
+
+  @@unique([organizationId, name])
+  @@map("income_clients")
+}
+
+model ClientBilling {
+  id               String   @id @default(cuid())
+  clientId         String
+  organizationId   String
+  // ACADEMIC: academicYear holds the label ("2024-2025").
+  // CUSTOM: academicYear holds the cycle's start date ("2026-02-01") so the
+  // (clientId, academicYear) uniqueness and chronological sort keep working;
+  // periodStart/periodEnd carry the actual contract dates.
+  periodType       String   @default("ACADEMIC") // ACADEMIC | CUSTOM
+  periodStart      String?
+  periodEnd        String?
+  academicYear     String // "2024-2025"
+  yearStart        Int      @default(0)
+  studentCount     Int?
+  rate             Float?
+  oneTimePayment   Float    @default(0)
+  overrideAmounts  Boolean  @default(false)
+  taxableValue     Float?
+  gstAmount        Float    @default(0)
+  netAmount        Float    @default(0)
+  previousPending  Float    @default(0)
+  engineer         String   @default("")
+  invoiceStatus    String   @default("")
+  remarks          String   @default("")
+  nextFollowupDate String?
+  followupNote     String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  client   IncomeClient     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  payments PaymentReceipt[]
+
+  @@unique([clientId, academicYear])
+  @@index([organizationId, yearStart])
+  @@index([organizationId, nextFollowupDate])
+  @@map("client_billings")
+}
+
+model PaymentReceipt {
+  id             String   @id @default(cuid())
+  billingId      String
+  clientId       String
+  organizationId String
+  amount         Float
+  receivedOn     String? // null = imported opening figure
+  mode           String   @default("")
+  note           String   @default("")
+  createdAt      DateTime @default(now())
+
+  billing ClientBilling @relation(fields: [billingId], references: [id], onDelete: Cascade)
+  client  IncomeClient  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@map("payment_receipts")
+}
+
+model ClientOnboarding {
+  clientId           String   @id
+  organizationId     String
+  stage              String   @default("ONBOARDING")
+  contactPerson      String   @default("")
+  contactDesignation String   @default("")
+  contactPhone       String   @default("")
+  contactEmail       String   @default("")
+  institutionType    String   @default("")
+  address            String   @default("")
+  city               String   @default("")
+  studentStrength    Int?
+  onboardedOn        String?
+  goLiveDate         String?
+  engineer           String   @default("")
+  poReceived         Boolean  @default(false)
+  poNumber           String   @default("")
+  poDate             String?
+  poDocumentData     String   @default("") // data URI (pdf/image), <=8MB
+  poFilename         String   @default("")
+  agreementSigned       Boolean @default(false)
+  agreementDocumentData String  @default("") // data URI (pdf/image), <=8MB
+  agreementFilename     String  @default("")
+  agreementYears        Int?
+  agreementStart        String?
+  agreementEnd          String?
+  reminderDays          Int     @default(90)
+  notes              String   @default("")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  client IncomeClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@map("client_onboardings")
+}
+
+// ---------------------------------------------------------------------------
+// Proposals & quotations - every generated proposal is kept, org-scoped,
+// with a revision chain per client. The rendered HTML is stored verbatim
+// so history shows exactly what was sent.
+// ---------------------------------------------------------------------------
+model ProposalRecord {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientName     String
+  revision       Int      @default(1)
+  selectionLabel String   @default("")
+  totalAmount    Float    @default(0)
+  formData       Json     @default("{}") // snapshot - prefills the next revision
+  html           String
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, clientName])
+  @@map("proposal_records")
+}
+
+// ---------------------------------------------------------------------------
+// People registry - candidates & internship students, with a lightweight
+// recruitment pipeline (job openings + interview rounds).
+// ---------------------------------------------------------------------------
+model Person {
+  id             String   @id @default(cuid())
+  organizationId String
+  kind           String // CANDIDATE | INTERN
+  name           String
+  title          String   @default("") // Mr./Ms./Mrs.
+  gender         String   @default("")
+  email          String   @default("")
+  phone          String   @default("")
+  address        String   @default("")
+  notes          String   @default("")
+
+  // Candidate / employee
+  isEmployee  Boolean @default(false) // auto-set when pipeline stage reaches SELECTED/JOINED
+  employeeNo  String  @default("")
+  designation String  @default("")
+  department  String  @default("")
+  joinDate    String?
+  leavingDate String?
+
+  // HR profile: personal
+  photoData        String  @default("") // data URI, resized client-side
+  dateOfBirth      String?
+  bloodGroup       String  @default("")
+  maritalStatus    String  @default("")
+  parentSpouseName String  @default("")
+  aadharNo         String  @default("")
+
+  // HR profile: contact (email = personal, phone = contact no)
+  officialEmail String @default("")
+  officialNo    String @default("")
+  emergencyNo   String @default("")
+
+  // HR profile: employment
+  employmentStatus String  @default("ACTIVE") // ACTIVE | PROBATION | NOTICE_PERIOD | RESIGNED | TERMINATED
+  biometricId      String  @default("")
+  agreementSigned  Boolean @default(false)
+  agreementSignDate String?
+  currentMonthlyPackage Float @default(0)
+  reasonForLeaving String  @default("")
+
+  // Bank & statutory
+  bankName          String  @default("")
+  bankAccountNumber String  @default("")
+  ifscCode          String  @default("")
+  panNumber         String  @default("")
+  pfNumber          String  @default("")
+  pfUan             String  @default("")
+  esiNumber         String  @default("")
+  isEsiEligible     Boolean @default(false)
+  isPfApplicable    Boolean @default(false)
+
+  // Recruitment pipeline
+  source         String    @default("")
+  stage          String    @default("")
+  appliedForId   String?
+  expectedCtc    Float?
+  stageUpdatedAt DateTime?
+
+  // Internship student
+  rollNumber     String  @default("")
+  course         String  @default("")
+  collegeName    String  @default("")
+  collegeAddress String  @default("")
+  internshipRole String  @default("")
+  startDate      String?
+  endDate        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appliedFor     JobOpening?      @relation(fields: [appliedForId], references: [id], onDelete: SetNull)
+  interviews     InterviewRound[]
+  documents      PersonDocument[]
+  payslipEntries PayslipEntry[]
+  expenseReports ExpenseReport[]
+
+  @@unique([organizationId, kind, name])
+  @@index([organizationId, kind, stage])
+  @@map("people")
+}
+
+model JobOpening {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  department     String   @default("")
+  positions      Int      @default(1)
+  location       String   @default("")
+  description    String   @default("")
+  status         String   @default("OPEN") // OPEN | ON_HOLD | CLOSED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applicants   Person[]
+
+  @@index([organizationId, status])
+  @@map("job_openings")
+}
+
+model PersonDocument {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  docType        String // EMPLOYMENT_OFFER | APPOINTMENT | INTERNSHIP_OFFER | EXPERIENCE_EMPLOYEE | EXPERIENCE_INTERNSHIP
+  title          String
+  formData       Json     @default("{}") // snapshot - prefills the next letter of the same type
+  html           String // the letter exactly as issued
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, docType])
+  @@map("person_documents")
+}
+
+model InterviewRound {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  roundName      String
+  scheduledAt    String? // "YYYY-MM-DDTHH:mm"
+  interviewer    String   @default("")
+  feedback       String   @default("")
+  rating         Int?
+  result         String   @default("PENDING") // PENDING | PASSED | FAILED
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId])
+  @@map("interview_rounds")
+}
+
+// ---------------------------------------------------------------------------
+// Travel & expense reports - per employee, receipt images attached per line
+// (captured via in-browser OCR), approval workflow.
+// ---------------------------------------------------------------------------
+model ExpenseReport {
+  id              String   @id @default(cuid())
+  organizationId  String
+  personId        String
+  reportNumber    String // ER-2026-0001
+  title           String
+  businessPurpose String   @default("")
+  reportTo        String   @default("")
+  periodStart     String?
+  periodEnd       String?
+  submittedOn     String?
+  status          String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | REJECTED | REIMBURSED
+  currency        String   @default("INR")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Restrict, like payslips: an employee with expense history stays on record.
+  person Person        @relation(fields: [personId], references: [id], onDelete: Restrict)
+  lines  ExpenseLine[]
+
+  @@unique([organizationId, reportNumber])
+  @@index([organizationId, status])
+  @@index([personId])
+  @@map("expense_reports")
+}
+
+model ExpenseLine {
+  id              String   @id @default(cuid())
+  organizationId  String
+  reportId        String
+  date            String?
+  category        String   @default("OTHER") // TRAVEL | LODGING | FOOD | LOCAL | TOLL | OTHER
+  description     String   @default("")
+  merchant        String   @default("")
+  amount          Float    @default(0)
+  receiptData     String   @default("") // image/PDF data URI
+  receiptFilename String   @default("")
+  ocrText         String   @default("") // raw OCR output kept for audit
+  createdAt       DateTime @default(now())
+
+  report ExpenseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("expense_lines")
+}
+
+// ---------------------------------------------------------------------------
+// Payroll - org-level rates, monthly runs, computed payslip entries.
+// Defaults reproduce the source Salary Excel's hardcoded values exactly.
+// ---------------------------------------------------------------------------
+model PayrollSettings {
+  organizationId String @id
+
+  basicPercentOfPackage   Float @default(50)
+  daPercentOfBasic        Float @default(45)
+  hraPercentOfBasic       Float @default(25)
+  transportPercentOfBasic Float @default(20)
+  foodPercentOfBasic      Float @default(10)
+
+  esiEmployeePercent Float @default(0.75)
+  esiEmployerPercent Float @default(3.25)
+  esiWageCeiling     Float @default(21000)
+
+  pfEmployeePercent         Float   @default(12)
+  pfEmployerPercent         Float   @default(12)
+  pfWageCap                 Float   @default(15000)
+  pfWageFactor              Float   @default(60)
+  pfEmployerMatchesEmployee Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+
+  @@map("payroll_settings")
+}
+
+model PayrollRun {
+  id             String    @id @default(cuid())
+  organizationId String
+  period         String // "YYYY-MM"
+  status         String    @default("DRAFT") // DRAFT | FINALIZED
+  finalizedAt    DateTime?
+  notes          String    @default("")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entries      PayslipEntry[]
+
+  @@unique([organizationId, period])
+  @@map("payroll_runs")
+}
+
+model PayslipEntry {
+  id             String @id @default(cuid())
+  organizationId String
+  runId          String
+  personId       String
+
+  // Snapshot at entry-creation time so a later increment never
+  // retroactively changes an already-generated month.
+  monthlyPackage Float
+
+  // Attendance - manual inputs.
+  totalWorkingDays Int
+  empLeaveDays     Float @default(0)
+  lopDays          Float @default(0)
+  presentDays      Float @default(0)
+  payDays          Float @default(0)
+
+  // Rare manual one-offs.
+  internetAllowance     Float @default(0)
+  salaryArrearAllowance Float @default(0)
+  salaryAdvance         Float @default(0)
+  tds                   Float @default(0)
+
+  // Computed components.
+  basic              Float @default(0)
+  da                 Float @default(0)
+  hra                Float @default(0)
+  transportAllowance Float @default(0)
+  foodAllowance      Float @default(0)
+  grossSalary        Float @default(0)
+
+  isEsiEligible  Boolean @default(false)
+  esiEmployee    Float   @default(0)
+  esiEmployer    Float   @default(0)
+  isPfApplicable Boolean @default(false)
+  pfEmployee     Float   @default(0)
+  pfEmployer     Float   @default(0)
+
+  totalDeductions       Float @default(0)
+  netPayable            Float @default(0)
+  employerContributions Float @default(0)
+  ctc                   Float @default(0)
+
+  remarks   String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  run    PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  // Restrict, deliberately: a person with payslip history can never be
+  // deleted, only marked inactive.
+  person Person     @relation(fields: [personId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, personId])
+  @@index([organizationId])
+  @@map("payslip_entries")
+}
+
+// ---------------------------------------------------------------------------
+// Recruitment module
+// ---------------------------------------------------------------------------
+model JobPosting {
+  id              String   @id @default(cuid())
+  organizationId  String
+  title           String
+  department      String   @default("")
+  location        String   @default("")
+  description     String   @default("")
+  requirements    String   @default("")
+  employmentType  String   @default("FULL_TIME")
+  experienceRange String   @default("")
+  salaryRange     String   @default("")
+  status          String   @default("DRAFT")
+  postedDate      String?
+  closingDate     String?
+  positionsCount  Int      @default(1)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  @@index([organizationId, status])
+  @@map("job_postings")
+}
+
+model JobApplication {
+  id             String   @id @default(cuid())
+  organizationId String
+  jobPostingId   String
+  applicantName  String
+  applicantEmail String   @default("")
+  applicantPhone String   @default("")
+  resumeNotes    String   @default("")
+  coverLetter    String   @default("")
+  stage          String   @default("APPLIED")
+  appliedDate    String
+  stageUpdatedAt DateTime @default(now())
+  rating         Int?
+  notes          String   @default("")
+  personId       String? // set when a hired applicant is added to People
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  posting JobPosting @relation(fields: [jobPostingId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([jobPostingId, stage])
+  @@map("job_applications")
+}
+
+model FeatureStatus {
+  id             String   @id @default(cuid())
+  clientId       String
+  organizationId String
+  name           String
+  status         String   @default("NOT_STARTED")
+  engineer       String   @default("")
+  startedOn      String?
+  completedOn    String?
+  remarks        String   @default("")
+  order          Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  client IncomeClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, name])
+  @@index([organizationId])
+  @@map("feature_statuses")
+}

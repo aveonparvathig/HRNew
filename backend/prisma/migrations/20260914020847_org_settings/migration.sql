@@ -1,0 +1,19 @@
+-- AlterTable
+ALTER TABLE "organizations" ADD COLUMN     "address" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "brandAccent" TEXT NOT NULL DEFAULT '#312e81',
+ADD COLUMN     "brandPrimary" TEXT NOT NULL DEFAULT '#4f46e5',
+ADD COLUMN     "city" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "country" TEXT NOT NULL DEFAULT 'India',
+ADD COLUMN     "email" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "jurisdiction" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "logoData" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "phone" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "signatoryDesignation" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "signatoryName" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "state" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "tagline" TEXT NOT NULL DEFAULT '',
+ADD COLUMN     "website" TEXT NOT NULL DEFAULT '';
+
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "isActive" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "role" TEXT NOT NULL DEFAULT 'OWNER';

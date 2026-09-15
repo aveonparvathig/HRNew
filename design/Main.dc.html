@@ -1,0 +1,251 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; }
+    a { color: #5A5FE0; text-decoration: none; } a:hover { color: #4548C9; }
+    svg { flex-shrink: 0; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F7F8FB; color: #1B2437; overflow: hidden; font-size: 14px; line-height: 1.5;">
+
+  <!-- ============ Sidebar (light) ============ -->
+  <div style="width: 248px; background: #FFFFFF; border-right: 1px solid #E8ECF3; display: flex; flex-direction: column; padding: 18px 14px 14px;">
+    <div style="display: flex; align-items: center; gap: 11px; padding: 0 8px 16px;">
+      <div style="width: 36px; height: 36px; border-radius: 10px; background: {{accent}}; display: flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"><path d="M6 4h9a4 4 0 0 1 0 8H6"></path><path d="M6 4v16"></path><path d="M6 15h8"></path></svg>
+      </div>
+      <div>
+        <div style="font-size: 15.5px; font-weight: 800; letter-spacing: -0.02em;">Payslip</div>
+        <div style="font-size: 10.5px; font-weight: 600; color: #667085; letter-spacing: 0.06em; text-transform: uppercase;">Aveon HR Suite</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 8px; margin: 0 4px 14px; padding: 7px 10px; background: #F3F5F9; border-radius: 9px; color: #667085; font-size: 12.5px; font-weight: 500;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+      Search&#8230; <span style="margin-left: auto; font-size: 10.5px; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 5px; padding: 1px 5px;">/</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: color-mix(in srgb, {{accent}} 10%, white); color: {{accent}}; font-size: 13px; font-weight: 700;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="10" rx="1.5"></rect><rect x="14" y="3" width="7" height="6" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="8" height="5" rx="1.5"></rect></svg>
+        Dashboard
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">Income</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h6"></path></svg>
+        Clients
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>
+        Implementation
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>
+        Billing Periods
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v12m0 0-3-3m3 3 3-3"></path><path d="M16 20V8m0 0-3 3m3-3 3 3"></path></svg>
+        Import / Export
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">People</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M21 19c0-2.2-1.8-4-4-4"></path></svg>
+        People <span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #F0F2F6; color: #667085; border-radius: 10px; padding: 0 7px;">31</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"></rect><rect x="10" y="4" width="5" height="10" rx="1.5"></rect><rect x="17" y="4" width="5" height="13" rx="1.5"></rect></svg>
+        Pipeline
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
+        Recruitment
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"></path><path d="M9 8h6M9 12h6"></path></svg>
+        Expenses <span style="margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #DE8F0D;"></span>
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">Sales</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"></path><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"></path><path d="M9 14l2 2 4-4"></path></svg>
+        Proposals
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M8 4v5"></path></svg>
+        CMS Features
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">Payroll</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M7 12h.01M17 12h.01"></path></svg>
+        Payroll Runs
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"></path><circle cx="16" cy="8" r="2.5"></circle><circle cx="8" cy="16" r="2.5"></circle></svg>
+        Settings
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; margin-top: 10px; background: #F7F8FB; border: 1px solid #E8ECF3; border-radius: 11px;">
+      <div style="width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, {{accent}} 14%, white); color: {{accent}}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">RA</div>
+      <div style="min-width: 0;">
+        <div style="font-size: 12.5px; font-weight: 700;">Ranjith</div>
+        <div style="font-size: 11px; color: #667085;">Owner &#183; Aveon Infotech</div>
+      </div>
+      <svg style="margin-left: auto;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><path d="m8 10 4 4 4-4"></path></svg>
+    </div>
+  </div>
+
+  <!-- ============ Main column ============ -->
+  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+
+    <div style="display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: #FFFFFF; border-bottom: 1px solid #E8ECF3;">
+      <div>
+        <div style="font-size: 18px; font-weight: 800; letter-spacing: -0.02em;">Good morning, Ranjith</div>
+        <div style="font-size: 12.5px; color: #667085; font-weight: 500;">Monday, 14 September 2026</div>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: {{accent}}; color: #FFFFFF; border-radius: 9px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px color-mix(in srgb, {{accent}} 30%, transparent);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+          New
+        </div>
+        <div style="width: 36px; height: 36px; border-radius: 9px; background: #FFFFFF; border: 1px solid #E8ECF3; display: flex; align-items: center; justify-content: center; position: relative;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5D6B85" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 9a6 6 0 0 0-12 0c0 6-2.5 7-2.5 7h17S18 15 18 9"></path><path d="M10.5 20a1.7 1.7 0 0 0 3 0"></path></svg>
+          <span style="position: absolute; top: 7px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: #E5484D; border: 1.5px solid #FFFFFF;"></span>
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1; padding: 22px 28px; display: flex; flex-direction: column; gap: 18px; overflow: hidden;">
+
+      <!-- Stat cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px;">
+        <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: #667085; letter-spacing: 0.03em; text-transform: uppercase;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><path d="M6 4h9a4 4 0 0 1 0 8H6M6 4v16M6 15h8"></path></svg>
+            Billed &#183; FY 26-27
+          </div>
+          <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">&#8377;1.53 Cr</div>
+          <div style="font-size: 12px; font-weight: 600; color: #067647; display: flex; align-items: center; gap: 4px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 17 17 7M9 7h8v8"></path></svg>
+            +7.8% vs last year
+          </div>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: #667085; letter-spacing: 0.03em; text-transform: uppercase;">Received</div>
+          <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: #067647;">&#8377;88.2 L</div>
+          <div style="height: 5px; background: #E7F7EF; border-radius: 3px; overflow: hidden;"><div style="width: 58%; height: 100%; background: #129D61; border-radius: 3px;"></div></div>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: #667085; letter-spacing: 0.03em; text-transform: uppercase;">Pending</div>
+          <div style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: #B54708;">&#8377;64.7 L</div>
+          <div style="font-size: 12px; font-weight: 600; color: #5D6B85;">across <span style="font-weight: 700;">19 clients</span></div>
+        </div>
+        <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; font-weight: 700; color: #667085; letter-spacing: 0.03em; text-transform: uppercase;">Team</div>
+          <div style="display: flex; align-items: baseline; gap: 8px;">
+            <span style="font-size: 24px; font-weight: 800; letter-spacing: -0.02em;">28</span>
+            <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 2px 9px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #129D61;"></span>26 active</span>
+          </div>
+          <div style="font-size: 12px; font-weight: 600; color: #667085;">2 inactive &#183; 2 in pipeline</div>
+        </div>
+      </div>
+
+      <!-- Chart + side cards -->
+      <div style="display: grid; grid-template-columns: 1fr 380px; gap: 14px; flex: 1; min-height: 0;">
+        <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 14.5px; font-weight: 800;">Collections by month</div>
+            <div style="margin-left: auto; display: flex; gap: 14px; font-size: 11.5px; font-weight: 600; color: #667085;">
+              <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 9px; height: 9px; border-radius: 3px; background: {{accent}};"></span>Billed</span>
+              <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="width: 9px; height: 9px; border-radius: 3px; background: #129D61;"></span>Received</span>
+            </div>
+          </div>
+          <div style="flex: 1; display: flex; align-items: flex-end; gap: 18px; padding: 0 6px;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;"><div style="width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 400px;"><div style="width: 16px; height: 46%; background: color-mix(in srgb, {{accent}} 82%, white); border-radius: 5px 5px 2px 2px;"></div><div style="width: 16px; height: 34%; background: #129D61; border-radius: 5px 5px 2px 2px;"></div></div><span style="font-size: 11px; font-weight: 600; color: #667085;">Apr</span></div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;"><div style="width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 400px;"><div style="width: 16px; height: 62%; background: color-mix(in srgb, {{accent}} 82%, white); border-radius: 5px 5px 2px 2px;"></div><div style="width: 16px; height: 41%; background: #129D61; border-radius: 5px 5px 2px 2px;"></div></div><span style="font-size: 11px; font-weight: 600; color: #667085;">May</span></div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;"><div style="width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 400px;"><div style="width: 16px; height: 55%; background: color-mix(in srgb, {{accent}} 82%, white); border-radius: 5px 5px 2px 2px;"></div><div style="width: 16px; height: 49%; background: #129D61; border-radius: 5px 5px 2px 2px;"></div></div><span style="font-size: 11px; font-weight: 600; color: #667085;">Jun</span></div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;"><div style="width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 400px;"><div style="width: 16px; height: 78%; background: color-mix(in srgb, {{accent}} 82%, white); border-radius: 5px 5px 2px 2px;"></div><div style="width: 16px; height: 58%; background: #129D61; border-radius: 5px 5px 2px 2px;"></div></div><span style="font-size: 11px; font-weight: 600; color: #667085;">Jul</span></div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;"><div style="width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 400px;"><div style="width: 16px; height: 70%; background: color-mix(in srgb, {{accent}} 82%, white); border-radius: 5px 5px 2px 2px;"></div><div style="width: 16px; height: 66%; background: #129D61; border-radius: 5px 5px 2px 2px;"></div></div><span style="font-size: 11px; font-weight: 600; color: #667085;">Aug</span></div>
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;"><div style="width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 5px; height: 400px; background: color-mix(in srgb, {{accent}} 5%, white); border-radius: 8px;"><div style="width: 16px; height: 84%; background: {{accent}}; border-radius: 5px 5px 2px 2px;"></div><div style="width: 16px; height: 52%; background: #129D61; border-radius: 5px 5px 2px 2px;"></div></div><span style="font-size: 11px; font-weight: 700; color: {{accent}};">Sep</span></div>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 14px; min-height: 0;">
+          <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; align-items: center;">
+              <div style="font-size: 14px; font-weight: 800;">September payroll</div>
+              <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 3px 10px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #98A2B3;"></span>Draft</span>
+            </div>
+            <div style="display: flex; align-items: baseline; gap: 6px;">
+              <span style="font-size: 21px; font-weight: 800;">&#8377;7,86,930</span>
+              <span style="font-size: 12px; font-weight: 600; color: #667085;">net &#183; 26 payslips</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: color-mix(in srgb, {{accent}} 7%, white); border-radius: 9px; color: {{accent}}; font-size: 12.5px; font-weight: 700;">
+              Review &amp; finalize run
+              <svg style="margin-left: auto;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg>
+            </div>
+          </div>
+
+          <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 16px 18px; display: flex; flex-direction: column; gap: 11px; flex: 1;">
+            <div style="font-size: 14px; font-weight: 800;">Needs your attention</div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 30px; height: 30px; border-radius: 8px; background: #EAF3FF; color: #175CD3; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"></path></svg></span>
+              <div style="min-width: 0; flex: 1;">
+                <div style="font-size: 12.5px; font-weight: 700;">2 expense reports submitted</div>
+                <div style="font-size: 11.5px; color: #667085; font-weight: 500;">&#8377;4,400 awaiting approval</div>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; color: #175CD3; background: #EAF3FF; border-radius: 20px; padding: 3px 10px;">Submitted</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 30px; height: 30px; border-radius: 8px; background: #FDEBEC; color: #B42318; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg></span>
+              <div style="min-width: 0; flex: 1;">
+                <div style="font-size: 12.5px; font-weight: 700;">3 invoices overdue 60+ days</div>
+                <div style="font-size: 11.5px; color: #667085; font-weight: 500;">&#8377;9.6 L to follow up</div>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; color: #B42318; background: #FDEBEC; border-radius: 20px; padding: 3px 10px;">Overdue</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="width: 30px; height: 30px; border-radius: 8px; background: #F0EBFB; color: #6941C6; display: flex; align-items: center; justify-content: center;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path></svg></span>
+              <div style="min-width: 0; flex: 1;">
+                <div style="font-size: 12.5px; font-weight: 700;">Priya S. reached Interview</div>
+                <div style="font-size: 11.5px; color: #667085; font-weight: 500;">Round 2 on Tuesday</div>
+              </div>
+              <span style="font-size: 11px; font-weight: 700; color: #6941C6; background: #F0EBFB; border-radius: 20px; padding: 3px 10px;">Interview</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent payments strip -->
+      <div style="background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; padding: 14px 20px; display: flex; align-items: center; gap: 26px;">
+        <div style="font-size: 13px; font-weight: 800; flex-shrink: 0;">Recent payments</div>
+        <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 26px; height: 26px; border-radius: 7px; background: #E7F7EF; color: #067647; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800;">SN</span><div><div style="font-size: 12px; font-weight: 700;">SNMV</div><div style="font-size: 11px; color: #067647; font-weight: 700;">+&#8377;2,50,000</div></div></div>
+        <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 26px; height: 26px; border-radius: 7px; background: #E7F7EF; color: #067647; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800;">KG</span><div><div style="font-size: 12px; font-weight: 700;">KG College</div><div style="font-size: 11px; color: #067647; font-weight: 700;">+&#8377;1,28,748</div></div></div>
+        <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 26px; height: 26px; border-radius: 7px; background: #E7F7EF; color: #067647; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800;">PS</span><div><div style="font-size: 12px; font-weight: 700;">PSG CAS</div><div style="font-size: 11px; color: #067647; font-weight: 700;">+&#8377;3,81,300</div></div></div>
+        <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 26px; height: 26px; border-radius: 7px; background: #E7F7EF; color: #067647; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 800;">GR</span><div><div style="font-size: 12px; font-weight: 700;">GRG Institutions</div><div style="font-size: 11px; color: #067647; font-weight: 700;">+&#8377;90,000</div></div></div>
+        <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 700; color: {{accent}};">View all<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12h14m-6-6 6 6-6 6"></path></svg></span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#5A5FE0","options":["#5A5FE0","#0E9384","#1570EF","#7C4DDF"],"section":"Theme"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { accent: this.props.accent ?? '#5A5FE0' };
+  }
+}
+</script>
+</body>
+</html>

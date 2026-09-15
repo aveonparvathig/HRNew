@@ -1,0 +1,102 @@
+# Production stack - one origin behind Caddy (automatic HTTPS), no service
+# ports exposed except the proxy. Run with its own project name so it never
+# collides with the dev stack:
+#
+#   docker compose -p payslip-prod -f docker-compose.prod.yml --env-file .env.production up -d --build
+#
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: payslip-prod-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:?set in .env.production}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set in .env.production}
+      POSTGRES_DB: ${DB_NAME:-payslip}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      TZ: "UTC"
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks: [payslip-prod]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME:-payslip}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: payslip-prod-backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-payslip}
+      JWT_SECRET: ${JWT_SECRET:?set in .env.production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set in .env.production}
+      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [payslip-prod]
+    restart: unless-stopped
+    command: >
+      sh -c "npx prisma migrate deploy && node dist/server.js"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: payslip-prod-frontend
+    depends_on: [backend]
+    networks: [payslip-prod]
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: payslip-prod-caddy
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?e.g. hr.example.com, or :80 for plain HTTP}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [backend, frontend]
+    networks: [payslip-prod]
+    restart: unless-stopped
+
+  # Nightly pg_dump into ./backups (gzip, 14-day retention)
+  backup:
+    image: postgres:16-alpine
+    container_name: payslip-prod-backup
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [payslip-prod]
+    restart: unless-stopped
+    entrypoint: >
+      sh -c 'while true; do
+        pg_dump -h postgres -U ${DB_USER} ${DB_NAME:-payslip} | gzip > /backups/payslip-$$(date +%F-%H%M).sql.gz
+        && echo "backup written: payslip-$$(date +%F-%H%M).sql.gz";
+        find /backups -name "payslip-*.sql.gz" -mtime +14 -delete;
+        sleep 86400;
+      done'
+
+volumes:
+  postgres_prod_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  payslip-prod:
+    driver: bridge

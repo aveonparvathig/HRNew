@@ -1,0 +1,29 @@
+# Caddy reverse proxy - one origin serves the app and the API.
+#
+# SITE_ADDRESS examples:
+#   hr.aveoninfotech.com   -> automatic HTTPS via Let's Encrypt
+#   :80                    -> plain HTTP (local smoke test / behind another LB)
+
+{$SITE_ADDRESS}
+
+encode gzip
+
+# API + health to the backend
+handle /api/* {
+	reverse_proxy backend:3000
+}
+handle /health {
+	reverse_proxy backend:3000
+}
+
+# Everything else is the SPA
+handle {
+	reverse_proxy frontend:3000
+}
+
+header {
+	X-Content-Type-Options nosniff
+	X-Frame-Options DENY
+	Referrer-Policy strict-origin-when-cross-origin
+	-Server
+}

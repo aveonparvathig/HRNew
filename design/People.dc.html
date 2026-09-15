@@ -1,0 +1,264 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; }
+    a { color: #5A5FE0; text-decoration: none; } a:hover { color: #4548C9; }
+    svg { flex-shrink: 0; }
+  </style>
+</helmet>
+<div style="width: 1440px; height: 900px; display: flex; background: #F7F8FB; color: #1B2437; overflow: hidden; font-size: 14px; line-height: 1.5;">
+
+  <!-- Sidebar (same labeled sidebar on every screen — People active) -->
+  <div style="width: 248px; background: #FFFFFF; border-right: 1px solid #E8ECF3; display: flex; flex-direction: column; padding: 18px 14px 14px;">
+    <div style="display: flex; align-items: center; gap: 11px; padding: 0 8px 16px;">
+      <div style="width: 36px; height: 36px; border-radius: 10px; background: #5A5FE0; display: flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round"><path d="M6 4h9a4 4 0 0 1 0 8H6"></path><path d="M6 4v16"></path><path d="M6 15h8"></path></svg>
+      </div>
+      <div>
+        <div style="font-size: 15.5px; font-weight: 800; letter-spacing: -0.02em;">Payslip</div>
+        <div style="font-size: 10.5px; font-weight: 600; color: #667085; letter-spacing: 0.06em; text-transform: uppercase;">Aveon HR Suite</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow: hidden;">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="10" rx="1.5"></rect><rect x="14" y="3" width="7" height="6" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="8" height="5" rx="1.5"></rect></svg>
+        Dashboard
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">Income</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h6"></path></svg>
+        Clients
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 13 9 5 9-5"></path></svg>
+        Implementation
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>
+        Billing Periods
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4v12m0 0-3-3m3 3 3-3"></path><path d="M16 20V8m0 0-3 3m3-3 3 3"></path></svg>
+        Import / Export
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">People</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 8px; background: color-mix(in srgb, #5A5FE0 10%, white); color: #5A5FE0; font-size: 13px; font-weight: 700;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path><circle cx="17" cy="9" r="2.5"></circle><path d="M21 19c0-2.2-1.8-4-4-4"></path></svg>
+        People <span style="margin-left: auto; font-size: 11px; font-weight: 700; background: #FFFFFF; color: #5A5FE0; border-radius: 10px; padding: 0 7px;">31</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="16" rx="1.5"></rect><rect x="10" y="4" width="5" height="10" rx="1.5"></rect><rect x="17" y="4" width="5" height="13" rx="1.5"></rect></svg>
+        Pipeline
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"></rect><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
+        Recruitment
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"></path><path d="M9 8h6M9 12h6"></path></svg>
+        Expenses <span style="margin-left: auto; width: 8px; height: 8px; border-radius: 50%; background: #DE8F0D;"></span>
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">Sales</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v5h5"></path><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"></path><path d="M9 14l2 2 4-4"></path></svg>
+        Proposals
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18M8 4v5"></path></svg>
+        CMS Features
+      </div>
+
+      <div style="font-size: 10.5px; font-weight: 700; color: #667085; letter-spacing: 0.08em; text-transform: uppercase; padding: 12px 10px 4px;">Payroll</div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="2"></rect><circle cx="12" cy="12" r="2.5"></circle><path d="M7 12h.01M17 12h.01"></path></svg>
+        Payroll Runs
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h10M18 8h2M4 16h2M10 16h10"></path><circle cx="16" cy="8" r="2.5"></circle><circle cx="8" cy="16" r="2.5"></circle></svg>
+        Settings
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; margin-top: 10px; background: #F7F8FB; border: 1px solid #E8ECF3; border-radius: 11px;">
+      <div style="width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, #5A5FE0 14%, white); color: #5A5FE0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">RA</div>
+      <div style="min-width: 0;">
+        <div style="font-size: 12.5px; font-weight: 700;">Ranjith</div>
+        <div style="font-size: 11px; color: #667085;">Owner &#183; Aveon Infotech</div>
+      </div>
+      <svg style="margin-left: auto;" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><path d="m8 10 4 4 4-4"></path></svg>
+    </div>
+  </div>
+
+  <div style="flex: 1; display: flex; flex-direction: column; min-width: 0;">
+    <div style="display: flex; align-items: center; gap: 14px; padding: 16px 28px; background: #FFFFFF; border-bottom: 1px solid #E8ECF3;">
+      <div>
+        <div style="font-size: 18px; font-weight: 800; letter-spacing: -0.02em;">People</div>
+        <div style="font-size: 12.5px; color: #667085; font-weight: 500;">Employees, candidates and interns in one place</div>
+      </div>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 9px; color: #5D6B85; font-size: 13px; font-weight: 600;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 4v12m0 0-3-3m3 3 3-3"></path><path d="M16 20V8m0 0-3 3m3-3 3 3"></path></svg>
+          Export
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: #5A5FE0; color: #FFFFFF; border-radius: 9px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(90, 95, 224, 0.3);">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>
+          Add Employee
+        </div>
+      </div>
+    </div>
+
+    <div style="flex: 1; padding: 20px 28px; display: flex; flex-direction: column; gap: 14px; overflow: hidden;">
+
+      <!-- Segments + search -->
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="display: flex; background: #EEF0F5; border-radius: 10px; padding: 3px; gap: 2px;">
+          <span style="padding: 6px 14px; border-radius: 8px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(27, 36, 55, 0.08); font-size: 12.5px; font-weight: 700;">All <span style="color: #667085;">31</span></span>
+          <span style="padding: 6px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #5D6B85;">Employees <span style="color: #667085;">28</span></span>
+          <span style="padding: 6px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #5D6B85;">Candidates <span style="color: #667085;">2</span></span>
+          <span style="padding: 6px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: #5D6B85;">Interns <span style="color: #667085;">1</span></span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 9px; color: #667085; font-size: 13px; font-weight: 500; width: 260px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+          Search name, code, dept&#8230;
+        </div>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; color: #5D6B85;">
+          Status:
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 3px 10px;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #98A2B3;"></span>Inactive</span>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div style="flex: 1; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 13px; overflow: hidden; display: flex; flex-direction: column;">
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 10px 20px; background: #FAFBFD; border-bottom: 1px solid #E8ECF3; font-size: 11px; font-weight: 700; color: #667085; letter-spacing: 0.05em; text-transform: uppercase; align-items: center;">
+          <span>Person</span><span>Designation</span><span>Department</span><span style="text-align: right;">Package</span><span>Stage</span><span>Status</span><span></span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #E7F0FE; color: #1570EF; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">AK</span><div><div style="font-size: 13px; font-weight: 700;">Arun Kumar</div><div style="font-size: 11.5px; color: #667085;">EMP-0002 &#183; arun@aveoninfotech.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Implementation Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Delivery</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;45,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #F0EBFB; color: #6941C6; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">BR</span><div><div style="font-size: 13px; font-weight: 700;">Balachandar R</div><div style="font-size: 11.5px; color: #667085;">EMP-0005 &#183; bala@aveoninfotech.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Senior Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Delivery</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;52,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #FDF3E1; color: #B54708; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">PS</span><div><div style="font-size: 13px; font-weight: 700;">Priya Shankar</div><div style="font-size: 11.5px; color: #667085;">Candidate &#183; priya.s@gmail.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">UI Designer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #667085; justify-self: start;">&#8212;</span>
+          <span style="font-size: 13px; font-weight: 600; color: #667085; text-align: right;">&#8377;38,000 exp.</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #6941C6; background: #F0EBFB; border-radius: 20px; padding: 3px 10px; justify-self: start;">Interview</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #175CD3; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E90FA;"></span>In pipeline</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #E6F5F9; color: #0E5A70; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">SU</span><div><div style="font-size: 13px; font-weight: 700;">Suresh</div><div style="font-size: 11.5px; color: #667085;">EMP-0009 &#183; suresh@aveoninfotech.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Support Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Support</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;30,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center; background: #FAFBFD;">
+          <div style="display: flex; align-items: center; gap: 11px; opacity: 0.65;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #F0F2F6; color: #667085; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">KM</span><div><div style="font-size: 13px; font-weight: 700;">Karthik M</div><div style="font-size: 11.5px; color: #667085;">EMP-0011 &#183; relieved 31 Jul 2026</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #667085;">Field Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 6px; padding: 3px 9px; justify-self: start;">Delivery</span>
+          <span style="font-size: 13px; font-weight: 600; color: #667085; text-align: right;">&#8377;28,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #667085; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #98A2B3;"></span>Inactive</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #FDEBEC; color: #B42318; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">MN</span><div><div style="font-size: 13px; font-weight: 700;">Mullai N</div><div style="font-size: 11.5px; color: #667085;">EMP-0014 &#183; mullai@aveoninfotech.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Implementation Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Delivery</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;34,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #E7F7EF; color: #067647; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">DK</span><div><div style="font-size: 13px; font-weight: 700;">Dharun K</div><div style="font-size: 11.5px; color: #667085;">Intern &#183; joined 01 Aug 2026</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Developer Intern</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Delivery</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;12,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #E6F5F9; color: #0E5A70; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">VG</span><div><div style="font-size: 13px; font-weight: 700;">Vignesh G</div><div style="font-size: 11.5px; color: #667085;">Candidate &#183; vignesh.g@gmail.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Support Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #667085; justify-self: start;">&#8212;</span>
+          <span style="font-size: 13px; font-weight: 600; color: #667085; text-align: right;">&#8377;25,000 exp.</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #175CD3; background: #EAF3FF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Screening</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #175CD3; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E90FA;"></span>In pipeline</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; border-bottom: 1px solid #F1F3F8; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #F0EBFB; color: #6941C6; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">KA</span><div><div style="font-size: 13px; font-weight: 700;">Kalai</div><div style="font-size: 11.5px; color: #667085;">EMP-0007 &#183; kalai@aveoninfotech.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Implementation Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Delivery</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;36,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2.2fr 1.4fr 1fr 1fr 1.1fr 1fr 44px; gap: 12px; padding: 11px 20px; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 11px;"><span style="width: 34px; height: 34px; border-radius: 50%; background: #FDF3E1; color: #B54708; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800;">NR</span><div><div style="font-size: 13px; font-weight: 700;">Naveen R</div><div style="font-size: 11.5px; color: #667085;">EMP-0016 &#183; naveen.r@aveoninfotech.com</div></div></div>
+          <span style="font-size: 12.5px; font-weight: 600; color: #374151;">Support Engineer</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #475467; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 6px; padding: 3px 9px; justify-self: start;">Support</span>
+          <span style="font-size: 13px; font-weight: 700; text-align: right;">&#8377;27,000</span>
+          <span style="font-size: 11.5px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 3px 10px; justify-self: start;">Joined</span>
+          <span style="display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700; color: #067647; justify-self: start;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"></circle><circle cx="12" cy="12" r="1.4"></circle><circle cx="12" cy="19" r="1.4"></circle></svg>
+        </div>
+
+        <div style="margin-top: auto; display: flex; align-items: center; padding: 11px 20px; border-top: 1px solid #E8ECF3; font-size: 12px; font-weight: 600; color: #667085;">
+          Showing 1&#8211;10 of 31
+          <div style="margin-left: auto; display: flex; gap: 5px;">
+            <span style="width: 28px; height: 28px; border-radius: 7px; background: #5A5FE0; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 700;">1</span>
+            <span style="width: 28px; height: 28px; border-radius: 7px; border: 1px solid #E8ECF3; display: flex; align-items: center; justify-content: center;">2</span>
+            <span style="width: 28px; height: 28px; border-radius: 7px; border: 1px solid #E8ECF3; display: flex; align-items: center; justify-content: center;">3</span>
+            <span style="width: 28px; height: 28px; border-radius: 7px; border: 1px solid #E8ECF3; display: flex; align-items: center; justify-content: center;">4</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

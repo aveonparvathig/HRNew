@@ -1,0 +1,162 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; font-family: 'Manrope', 'Segoe UI', system-ui, sans-serif; }
+    a { color: #5A5FE0; text-decoration: none; } a:hover { color: #4548C9; }
+  </style>
+</helmet>
+<div style="width: 1120px; background: #FFFFFF; color: #1B2437; padding: 40px 44px 44px; font-size: 14px; line-height: 1.5; display: flex; flex-direction: column; gap: 30px; box-sizing: border-box;">
+
+  <div style="display: flex; flex-direction: column; gap: 6px;">
+    <div style="font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: #5A5FE0;">Payslip &#183; Design System</div>
+    <div style="font-size: 26px; font-weight: 800; letter-spacing: -0.02em;">Colors, statuses &amp; components</div>
+    <div style="font-size: 13.5px; color: #5D6B85; max-width: 640px;">One light palette, one status language. The same five semantic colors mean the same thing on every screen &#8212; people, billing, expenses, payroll &#8212; so a glance is enough.</div>
+  </div>
+
+  <!-- Core palette -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 14px; font-weight: 800;">Core palette</div>
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px;">
+      <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 56px; border-radius: 10px; background: #F7F8FB; border: 1px solid #E8ECF3;"></div><div style="font-size: 12px; font-weight: 700;">Canvas</div><div style="font-size: 11px; color: #667085; font-family: monospace;">#F7F8FB</div></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 56px; border-radius: 10px; background: #FFFFFF; border: 1px solid #E8ECF3;"></div><div style="font-size: 12px; font-weight: 700;">Surface</div><div style="font-size: 11px; color: #667085; font-family: monospace;">#FFFFFF</div></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 56px; border-radius: 10px; background: #E8ECF3;"></div><div style="font-size: 12px; font-weight: 700;">Border</div><div style="font-size: 11px; color: #667085; font-family: monospace;">#E8ECF3</div></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 56px; border-radius: 10px; background: #1B2437;"></div><div style="font-size: 12px; font-weight: 700;">Text</div><div style="font-size: 11px; color: #667085; font-family: monospace;">#1B2437</div></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 56px; border-radius: 10px; background: #5D6B85;"></div><div style="font-size: 12px; font-weight: 700;">Text muted</div><div style="font-size: 11px; color: #667085; font-family: monospace;">#5D6B85</div></div>
+      <div style="display: flex; flex-direction: column; gap: 6px;"><div style="height: 56px; border-radius: 10px; background: #5A5FE0;"></div><div style="font-size: 12px; font-weight: 700;">Accent</div><div style="font-size: 11px; color: #667085; font-family: monospace;">#5A5FE0</div></div>
+    </div>
+  </div>
+
+  <!-- Semantic colors -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 14px; font-weight: 800;">Semantic colors &#8212; each with a soft tint for backgrounds</div>
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px;">
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; overflow: hidden;"><div style="height: 44px; background: #129D61;"></div><div style="height: 26px; background: #E7F7EF;"></div><div style="padding: 8px 12px;"><div style="font-size: 12px; font-weight: 800;">Success</div><div style="font-size: 10.5px; color: #667085;">good, done, money in</div></div></div>
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; overflow: hidden;"><div style="height: 44px; background: #DE8F0D;"></div><div style="height: 26px; background: #FDF3E1;"></div><div style="padding: 8px 12px;"><div style="font-size: 12px; font-weight: 800;">Warning</div><div style="font-size: 10.5px; color: #667085;">in progress, pending</div></div></div>
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; overflow: hidden;"><div style="height: 44px; background: #E5484D;"></div><div style="height: 26px; background: #FDEBEC;"></div><div style="padding: 8px 12px;"><div style="font-size: 12px; font-weight: 800;">Danger</div><div style="font-size: 10.5px; color: #667085;">rejected, overdue</div></div></div>
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; overflow: hidden;"><div style="height: 44px; background: #2E90FA;"></div><div style="height: 26px; background: #EAF3FF;"></div><div style="padding: 8px 12px;"><div style="font-size: 12px; font-weight: 800;">Info</div><div style="font-size: 10.5px; color: #667085;">submitted, in review</div></div></div>
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; overflow: hidden;"><div style="height: 44px; background: #98A2B3;"></div><div style="height: 26px; background: #F0F2F6;"></div><div style="padding: 8px 12px;"><div style="font-size: 12px; font-weight: 800;">Neutral</div><div style="font-size: 10.5px; color: #667085;">inactive, draft, off</div></div></div>
+    </div>
+  </div>
+
+  <!-- Status language -->
+  <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="font-size: 14px; font-weight: 800;">The status language, module by module</div>
+
+    <div style="display: grid; grid-template-columns: 150px 1fr; gap: 10px 18px; align-items: center; border: 1px solid #E8ECF3; border-radius: 13px; padding: 18px 22px;">
+      <div style="font-size: 12.5px; font-weight: 800; color: #5D6B85;">Employees</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #067647;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #129D61;"></span>Active</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #667085;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #98A2B3;"></span>Inactive / Relieved</span>
+        <span style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #175CD3;"><span style="width: 7px; height: 7px; border-radius: 50%; background: #2E90FA;"></span>In pipeline</span>
+        <span style="font-size: 11px; color: #667085; font-weight: 500; align-self: center;">dot + text, no pill &#8212; a person&#39;s state is ambient, not a badge</span>
+      </div>
+
+      <div style="font-size: 12.5px; font-weight: 800; color: #5D6B85;">Hiring pipeline</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 4px 12px;">New</span>
+        <span style="font-size: 12px; font-weight: 700; color: #175CD3; background: #EAF3FF; border-radius: 20px; padding: 4px 12px;">Screening</span>
+        <span style="font-size: 12px; font-weight: 700; color: #0E5A70; background: #E6F5F9; border-radius: 20px; padding: 4px 12px;">Shortlisted</span>
+        <span style="font-size: 12px; font-weight: 700; color: #6941C6; background: #F0EBFB; border-radius: 20px; padding: 4px 12px;">Interview</span>
+        <span style="font-size: 12px; font-weight: 700; color: #B54708; background: #FDF3E1; border-radius: 20px; padding: 4px 12px;">Offered</span>
+        <span style="font-size: 12px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 4px 12px;">Selected</span>
+        <span style="font-size: 12px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 4px 12px;">Joined</span>
+        <span style="font-size: 12px; font-weight: 700; color: #B42318; background: #FDEBEC; border-radius: 20px; padding: 4px 12px;">Rejected</span>
+        <span style="font-size: 12px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 4px 12px;">On hold</span>
+      </div>
+
+      <div style="font-size: 12.5px; font-weight: 800; color: #5D6B85;">Expenses</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 4px 12px;">Draft</span>
+        <span style="font-size: 12px; font-weight: 700; color: #175CD3; background: #EAF3FF; border-radius: 20px; padding: 4px 12px;">Submitted</span>
+        <span style="font-size: 12px; font-weight: 700; color: #B54708; background: #FDF3E1; border-radius: 20px; padding: 4px 12px;">Approved</span>
+        <span style="font-size: 12px; font-weight: 700; color: #B42318; background: #FDEBEC; border-radius: 20px; padding: 4px 12px;">Rejected</span>
+        <span style="font-size: 12px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 4px 12px;">Reimbursed</span>
+      </div>
+
+      <div style="font-size: 12.5px; font-weight: 800; color: #5D6B85;">Payroll runs</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 4px 12px;">Draft</span>
+        <span style="font-size: 12px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 4px 12px;">Finalized</span>
+      </div>
+
+      <div style="font-size: 12.5px; font-weight: 800; color: #5D6B85;">Billing</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        <span style="font-size: 12px; font-weight: 700; color: #067647; background: #E7F7EF; border-radius: 20px; padding: 4px 12px;">Paid</span>
+        <span style="font-size: 12px; font-weight: 700; color: #B54708; background: #FDF3E1; border-radius: 20px; padding: 4px 12px;">Partial</span>
+        <span style="font-size: 12px; font-weight: 700; color: #B42318; background: #FDEBEC; border-radius: 20px; padding: 4px 12px;">Overdue</span>
+        <span style="font-size: 12px; font-weight: 700; color: #667085; background: #F0F2F6; border-radius: 20px; padding: 4px 12px;">Not invoiced</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Money values -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 14px; font-weight: 800;">Money values &#8212; color says direction, weight says importance</div>
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 11.5px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.04em;">Received / credit</div>
+        <div style="font-size: 20px; font-weight: 800; color: #067647;">+&#8377;2,50,000</div>
+        <div style="font-size: 11.5px; color: #667085;">always green, with a + sign in lists</div>
+      </div>
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 11.5px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.04em;">Pending / balance</div>
+        <div style="font-size: 20px; font-weight: 800; color: #B54708;">&#8377;64,70,300</div>
+        <div style="font-size: 11.5px; color: #667085;">amber until it clears; red when overdue</div>
+      </div>
+      <div style="border: 1px solid #E8ECF3; border-radius: 11px; padding: 16px 18px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="font-size: 11.5px; font-weight: 700; color: #667085; text-transform: uppercase; letter-spacing: 0.04em;">Deduction / debit</div>
+        <div style="font-size: 20px; font-weight: 800; color: #B42318;">&#8722;&#8377;6,800</div>
+        <div style="font-size: 11.5px; color: #667085;">red with a minus; neutral totals stay ink</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Components -->
+  <div style="display: flex; flex-direction: column; gap: 12px;">
+    <div style="font-size: 14px; font-weight: 800;">Components</div>
+    <div style="border: 1px solid #E8ECF3; border-radius: 13px; padding: 20px 22px; display: flex; flex-direction: column; gap: 18px;">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+        <span style="padding: 9px 16px; background: #5A5FE0; color: #FFFFFF; border-radius: 9px; font-size: 13px; font-weight: 700; box-shadow: 0 2px 8px rgba(90, 95, 224, 0.3);">Primary action</span>
+        <span style="padding: 9px 16px; background: #FFFFFF; border: 1px solid #E8ECF3; border-radius: 9px; font-size: 13px; font-weight: 600; color: #374151;">Secondary</span>
+        <span style="padding: 9px 16px; border-radius: 9px; font-size: 13px; font-weight: 600; color: #5D6B85;">Ghost</span>
+        <span style="padding: 9px 16px; background: #FDEBEC; color: #B42318; border-radius: 9px; font-size: 13px; font-weight: 700;">Destructive</span>
+        <span style="padding: 9px 16px; background: #F0F2F6; color: #667085; border-radius: 9px; font-size: 13px; font-weight: 600;">Disabled</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <div style="display: flex; flex-direction: column; gap: 5px; width: 240px;">
+          <span style="font-size: 12px; font-weight: 700; color: #374151;">Employee name</span>
+          <span style="padding: 8px 12px; background: #FFFFFF; border: 1.5px solid #5A5FE0; border-radius: 9px; font-size: 13px; box-shadow: 0 0 0 3px rgba(90, 95, 224, 0.12);">Arun Kumar<span style="color: #5A5FE0;">|</span></span>
+          <span style="font-size: 11px; color: #667085;">Focused state</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px; width: 240px;">
+          <span style="font-size: 12px; font-weight: 700; color: #374151;">Monthly package</span>
+          <span style="padding: 8px 12px; background: #FFFFFF; border: 1.5px solid #E5484D; border-radius: 9px; font-size: 13px; color: #667085;">0</span>
+          <span style="font-size: 11px; color: #B42318; font-weight: 600;">Enter a positive amount</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px; width: 240px;">
+          <span style="font-size: 12px; font-weight: 700; color: #374151;">Department</span>
+          <span style="padding: 8px 12px; background: #F7F8FB; border: 1px solid #E8ECF3; border-radius: 9px; font-size: 13px; color: #374151; display: flex; align-items: center;">Delivery<svg style="margin-left: auto;" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#667085" stroke-width="2" stroke-linecap="round"><path d="m8 10 4 4 4-4"></path></svg></span>
+          <span style="font-size: 11px; color: #667085;">Rest state</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 22px; flex-wrap: wrap;">
+        <span style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">Heading / 22 &#183; 800</span>
+        <span style="font-size: 16px; font-weight: 700;">Section / 16 &#183; 700</span>
+        <span style="font-size: 13.5px; font-weight: 500; color: #374151;">Body / 13.5 &#183; 500</span>
+        <span style="font-size: 12px; font-weight: 600; color: #667085; letter-spacing: 0.05em; text-transform: uppercase;">Label / 12 caps</span>
+        <span style="font-size: 13px; font-family: monospace; color: #374151;">&#8377;45,000.00 / mono for money columns</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
