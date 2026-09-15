@@ -1,5 +1,6 @@
 import express, { Express } from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import { validateEnv, getEnv } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -16,6 +17,8 @@ import expenseRoutes from './routes/expenses';
 const app: Express = express();
 
 // Middleware
+// Gzip responses — list payloads shrink ~80%, the biggest win on slow links
+app.use(compression());
 // 12mb: photos/logos/PO documents travel as base64 data URIs in JSON bodies
 app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ limit: '12mb', extended: true }));
