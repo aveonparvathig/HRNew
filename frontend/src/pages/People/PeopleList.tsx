@@ -23,6 +23,14 @@ export const PEOPLE_STAGE_TONES: Record<string, string> = {
 export const stageLabel = (stages: any[], value: string) =>
   stages.find(s => s.value === value)?.label || value;
 
+function EyeIcon({ open }: { open: boolean }) {
+  return open ? (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
+  ) : (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.1M6.6 6.6A16.7 16.7 0 0 0 2 12s3.5 7 10 7c1.5 0 2.9-.4 4.1-1" /><path d="m3 3 18 18" /></svg>
+  );
+}
+
 export default function PeopleList() {
   const navigate = useNavigate();
   const [data, setData] = useState<any>(null);
@@ -30,8 +38,15 @@ export default function PeopleList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
-  const [showPay, setShowPay] = useState(false);
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [showCost, setShowCost] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; kind: string }>({ open: false, kind: 'CANDIDATE' });
+
+  const toggleReveal = (id: string) => setRevealedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
 
   const fetchData = useCallback(async () => {
     try {
@@ -72,21 +87,7 @@ export default function PeopleList() {
   const activeEmployees = employees.filter((p: any) => !INACTIVE.has(p.employmentStatus));
   const inactiveEmployees = employees.filter((p: any) => INACTIVE.has(p.employmentStatus));
 
-  const payHeader = (
-    <th className="num">
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        Package
-        <button className="eye-btn" title={showPay ? 'Hide amounts' : 'Show amounts'}
-          onClick={() => setShowPay(v => !v)}>
-          {showPay ? (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
-          ) : (
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.1M6.6 6.6A16.7 16.7 0 0 0 2 12s3.5 7 10 7c1.5 0 2.9-.4 4.1-1" /><path d="m3 3 18 18" /></svg>
-          )}
-        </button>
-      </span>
-    </th>
-  );
+  const payHeader = <th className="num">Package</th>;
 
   const employeeRow = (p: any) => (
     <tr key={p.id}>
@@ -102,7 +103,15 @@ export default function PeopleList() {
       <td className="text-muted">{p.employeeNo || '—'}</td>
       <td className="text-muted">{p.joinDate ? formatDate(p.joinDate) : '—'}</td>
       <td className="num">
-        {p.currentMonthlyPackage ? (showPay ? formatINR(p.currentMonthlyPackage) : '••••••') : '—'}
+        {p.currentMonthlyPackage ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            {revealedIds.has(p.id) ? formatINR(p.currentMonthlyPackage) : '••••••'}
+            <button className="eye-btn" title={revealedIds.has(p.id) ? 'Hide package' : 'Show package'}
+              onClick={() => toggleReveal(p.id)}>
+              <EyeIcon open={revealedIds.has(p.id)} />
+            </button>
+          </span>
+        ) : '—'}
       </td>
       <td>
         <span className={`status-inline ${EMP_STATUS_INLINE[p.employmentStatus] || 'is-active'}`}>
@@ -154,7 +163,15 @@ export default function PeopleList() {
         <div className="stat-grid">
           <StatCard label="Active Employees" value={data.employeeStats.active} icon="☰" tone="primary" />
           <StatCard label="Monthly Payroll Cost"
-            value={showPay ? formatINR(data.employeeStats.monthlyCost) : '••••••'}
+            value={
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                {showCost ? formatINR(data.employeeStats.monthlyCost) : '••••••'}
+                <button className="eye-btn" title={showCost ? 'Hide amount' : 'Show amount'}
+                  onClick={() => setShowCost(v => !v)}>
+                  <EyeIcon open={showCost} />
+                </button>
+              </span>
+            }
             sub="Sum of current packages" icon="₹" tone="warning" />
           <StatCard label="PF Enrolled" value={data.employeeStats.pfCount} icon="▤" tone="info" />
           <StatCard label="ESI Covered" value={data.employeeStats.esiCount} icon="✚" tone="success" />
