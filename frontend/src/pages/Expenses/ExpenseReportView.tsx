@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { expensesAPI } from '../../api/expenses';
-import { PageHeader, LoadingBlock, EmptyState, ErrorAlert } from '../../components/ui';
+import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
+} from '../../components/ui';
 import { EXPENSE_STATUS_TONES } from './ExpensesList';
 
 export default function ExpenseReportView() {
@@ -26,7 +27,7 @@ export default function ExpenseReportView() {
   return (
     <>
       <div className="no-print">
-        <div className="breadcrumb">
+        <div className="breadcrumb"><BackButton />
           <Link to="/expenses">Expenses</Link>
           <span>/</span>
           <Link to={`/expenses/${doc.id}`}>{doc.reportNumber}</Link>

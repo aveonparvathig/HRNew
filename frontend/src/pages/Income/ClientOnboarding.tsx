@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
-import { PageHeader, ErrorAlert, LoadingBlock } from '../../components/ui';
+import { PageHeader, ErrorAlert, LoadingBlock, BackButton,
+} from '../../components/ui';
 
 const EMPTY = {
   stage: 'ONBOARDING',
@@ -231,7 +232,7 @@ export default function ClientOnboarding() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/income/implementation">Implementation</Link>
         <span>/</span>
         <Link to={`/income/clients/${clientId}`}>{clientName}</Link>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
 import {
-  PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal,
+  PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
 import PersonFormModal from '../../components/PersonFormModal';
 import DocumentModal from '../../components/DocumentModal';
@@ -142,7 +142,7 @@ export default function PersonDetail() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/people">People</Link>
         <span>/</span>
         <span>{person.name}</span>

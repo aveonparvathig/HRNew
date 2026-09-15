@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton,
 } from '../../components/ui';
 import { formatINR } from '../../utils/format';
 
@@ -111,7 +111,7 @@ export default function RunDetail() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
         <span>{monthLabel(run.period)}</span>

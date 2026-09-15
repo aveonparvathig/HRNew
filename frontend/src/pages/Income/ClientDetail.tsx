@@ -2,7 +2,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { incomeAPI } from '../../api/income';
 import {
-  PageHeader, StatCard, StatusBadge, EmptyState, LoadingBlock, ErrorAlert, Modal,
+  PageHeader, StatCard, StatusBadge, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
 import BillingFormModal from '../../components/BillingFormModal';
 import { formatINR, formatDate } from '../../utils/format';
@@ -128,7 +128,7 @@ export default function ClientDetail() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/income/clients">Clients</Link>
         <span>/</span>
         <span>{client.name}</span>

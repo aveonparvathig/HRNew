@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
-import { PageHeader, LoadingBlock, EmptyState, ErrorAlert } from '../../components/ui';
+import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
+} from '../../components/ui';
 import { formatDate } from '../../utils/format';
 
 export default function LetterView() {
@@ -37,7 +38,7 @@ export default function LetterView() {
   return (
     <>
       <div className="no-print">
-        <div className="breadcrumb">
+        <div className="breadcrumb"><BackButton />
           <Link to="/people">People</Link>
           <span>/</span>
           <Link to={`/people/${doc.person.id}`}>{doc.person.name}</Link>

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { expensesAPI } from '../../api/expenses';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
 import { preprocessImage, ocrImage, parseReceipt } from '../../utils/ocr';
 import { formatINR, formatDate } from '../../utils/format';
@@ -194,7 +194,7 @@ export default function ExpenseReportEditor() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/expenses">Expenses</Link>
         <span>/</span>
         <span>{report.reportNumber}</span>

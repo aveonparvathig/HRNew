@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { proposalsAPI } from '../../api/proposals';
-import { PageHeader, LoadingBlock, EmptyState, ErrorAlert } from '../../components/ui';
+import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
+} from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 
 export default function ProposalView() {
@@ -41,7 +42,7 @@ export default function ProposalView() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/proposals/history">Proposals</Link>
         <span>/</span>
         <span>{record.clientName} · Rev {record.revision}</span>

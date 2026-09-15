@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { recruitmentAPI } from '../../api/recruitment';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton,
 } from '../../components/ui';
 import PostingFormModal from '../../components/PostingFormModal';
 import { formatDate } from '../../utils/format';
@@ -146,7 +146,7 @@ export default function PostingDetail() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/recruitment">Recruitment</Link>
         <span>/</span>
         <span>{posting.title}</span>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
-import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, StatusBadge } from '../../components/ui';
+import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, StatusBadge, BackButton,
+} from '../../components/ui';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -30,7 +31,7 @@ export default function BulkPayslips() {
   return (
     <>
       <div className="no-print">
-        <div className="breadcrumb">
+        <div className="breadcrumb"><BackButton />
           <Link to="/payroll">Payroll</Link>
           <span>/</span>
           <Link to={`/payroll/runs/${data.runId}`}>{monthLabel(data.period)}</Link>

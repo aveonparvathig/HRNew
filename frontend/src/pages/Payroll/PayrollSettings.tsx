@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
-import { PageHeader, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { PageHeader, LoadingBlock, ErrorAlert, BackButton,
+} from '../../components/ui';
 
 const GROUPS: { title: string; hint: string; fields: [string, string, string][] }[] = [
   {
@@ -68,7 +69,7 @@ export default function PayrollSettings() {
 
   return (
     <>
-      <div className="breadcrumb">
+      <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
         <span>Settings</span>
