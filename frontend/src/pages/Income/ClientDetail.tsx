@@ -191,7 +191,7 @@ export default function ClientDetail() {
             action={<button className="btn btn-primary" onClick={() => setBillingModal({ open: true, billing: null })}>+ Add Year</button>} />
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table-sticky-actions">
               <thead>
                 <tr>
                   <th>Period</th><th>Engineer</th><th className="num">Students</th>
