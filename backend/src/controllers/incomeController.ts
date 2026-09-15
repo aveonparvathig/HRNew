@@ -4,9 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 
 const GST_RATE = 0.18;
 
-const ENGINEER_SEED = [
-  'Balachandhar', 'Kalai', 'Mullai', 'Naveen Prasath', 'Selladurai',
-  'Naveen R', 'Suresh', 'Kariyappan', 'Dharun',
+const ENGINEER_SEED: string[] = [
 ];
 
 export const INVOICE_STATUSES = [
@@ -204,13 +202,26 @@ async function fetchOrgBilling(billingId: string, organizationId: string) {
   return billing;
 }
 
+// Engineers are mapped to People: every active employee is offered, plus any
+// legacy names still present on billing rows (so old data stays selectable).
 async function engineerNames(organizationId: string): Promise<string[]> {
-  const rows = await prisma.clientBilling.findMany({
-    where: { organizationId, engineer: { not: '' } },
-    select: { engineer: true },
-    distinct: ['engineer'],
-  });
+  const [rows, employees] = await Promise.all([
+    prisma.clientBilling.findMany({
+      where: { organizationId, engineer: { not: '' } },
+      select: { engineer: true },
+      distinct: ['engineer'],
+    }),
+    prisma.person.findMany({
+      where: {
+        organizationId,
+        isEmployee: true,
+        employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] },
+      },
+      select: { name: true },
+    }),
+  ]);
   const set = new Set(ENGINEER_SEED);
+  employees.forEach(e => set.add(e.name));
   rows.forEach(r => set.add(r.engineer));
   return Array.from(set).sort();
 }
