@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
+import { useRole } from '../../store/authStore';
 import { PageHeader, ErrorAlert, LoadingBlock, BackButton,
 } from '../../components/ui';
 
@@ -76,6 +77,7 @@ function DocUpload({ label, doc, onChange, onDownload }: {
 }
 
 export default function ClientOnboarding() {
+  const { isSA } = useRole();
   const { clientId } = useParams<{ clientId: string }>();
   const [clientName, setClientName] = useState('');
   const [poDoc, setPoDoc] = useState<DocState>({ has: false, filename: '' });
@@ -470,7 +472,7 @@ export default function ClientOnboarding() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDeleteFeature(f)}>✕</button>
+                        {isSA && <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDeleteFeature(f)}>✕</button>}
                       </div>
                     </td>
                   </tr>

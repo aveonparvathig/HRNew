@@ -1104,10 +1104,13 @@ export const incomeController = {
 
   async getImplementationDashboard(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    const clients = await prisma.incomeClient.findMany({
+    let clients = await prisma.incomeClient.findMany({
       where: { organizationId: orgId },
       include: { onboarding: true, features: true },
     });
+    // Employees see implementation status for their own clients only
+    const scope = await employeeScope(req);
+    if (scope) clients = clients.filter(c => scope.clientIds.has(c.id));
     const rows = clients.map(c => {
       const ob = c.onboarding;
       const info = agreementInfo(ob);
