@@ -17,6 +17,10 @@ export const payrollAPI = {
   exportRunCsv: (runId: string) =>
     apiClient.get(`/payroll/runs/${runId}/export.csv`, { responseType: 'blob' }),
   getRunPayslips: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payslips`),
+  attendanceTemplate: (runId: string) =>
+    apiClient.get(`/payroll/runs/${runId}/attendance-template.xlsx`, { responseType: 'blob' }),
+  importAttendance: (runId: string, fileBase64: string, dryRun: boolean) =>
+    apiClient.post(`/payroll/runs/${runId}/attendance-import`, { fileBase64, dryRun }),
   getPersonEntries: (personId: string) => apiClient.get(`/payroll/people/${personId}/entries`),
 
   // Entries

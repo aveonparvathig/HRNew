@@ -282,6 +282,128 @@ export const payrollController = {
     res.json(updated);
   },
 
+  // ---- Attendance import ---------------------------------------------------
+  // Template: current attendance values for every entry in the run, ready to
+  // edit in Excel and upload back.
+  async attendanceTemplate(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await prisma.payrollRun.findFirst({
+      where: { id: req.params.runId, organizationId: orgId },
+      include: { entries: { include: { person: { select: { name: true, employeeNo: true } } } } },
+    });
+    if (!run) throw new AppError(404, 'Payroll run not found');
+    const Excel = await import('exceljs');
+    const wb = new Excel.Workbook();
+    const ws = wb.addWorksheet('Attendance');
+    ws.addRow(['Employee Code', 'Name', 'Total Working Days', 'Leave Days', 'LOP Days', 'Salary Advance', 'TDS']);
+    ws.getRow(1).font = { bold: true };
+    for (const e of sortEntries(run.entries)) {
+      ws.addRow([
+        e.person.employeeNo || '', e.person.name,
+        e.totalWorkingDays, e.empLeaveDays, e.lopDays, e.salaryAdvance, e.tds,
+      ]);
+    }
+    ws.columns.forEach((c: any, i: number) => { c.width = i === 1 ? 28 : 18; });
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="attendance-${run.period}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+  },
+
+  // Upload the edited template: matches rows by employee code (name as
+  // fallback), recomputes every touched entry with the salary engine.
+  async importAttendance(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const { fileBase64, dryRun = true } = req.body;
+    if (!fileBase64 || typeof fileBase64 !== 'string') {
+      throw new AppError(400, 'File content is required');
+    }
+    const run = await prisma.payrollRun.findFirst({
+      where: { id: req.params.runId, organizationId: orgId },
+      include: { entries: { include: { person: { select: { name: true, employeeNo: true } } } } },
+    });
+    if (!run) throw new AppError(404, 'Payroll run not found');
+    assertDraft(run);
+
+    const Excel = await import('exceljs');
+    const buffer = Buffer.from(fileBase64.replace(/^data:[^,]+,/, ''), 'base64');
+    const wb = new Excel.Workbook();
+    try {
+      await wb.xlsx.load(buffer as any);
+    } catch {
+      throw new AppError(400, 'Could not read the workbook — please upload a valid .xlsx file');
+    }
+    const ws = wb.worksheets[0];
+    const norm = (s: any) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const byCode = new Map(run.entries.filter(e => e.person.employeeNo).map(e => [norm(e.person.employeeNo), e]));
+    const byName = new Map(run.entries.map(e => [norm(e.person.name), e]));
+
+    // Header positions (tolerant to reordered columns)
+    const head: Record<string, number> = {};
+    ws.getRow(1).eachCell((cell: any, i: number) => { head[norm(cell.text)] = i; });
+    const col = (row: any, key: string) => {
+      const i = head[key];
+      if (!i) return undefined;
+      const v = row.getCell(i).value;
+      const n = Number(typeof v === 'object' && v ? (v as any).result ?? NaN : v);
+      return isNaN(n) ? undefined : n;
+    };
+
+    const settings = await settingsFor(orgId);
+    const results: any[] = [];
+    let updated = 0, skipped = 0, errors = 0;
+    for (let r = 2; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      const code = String(row.getCell(head['employeecode'] || 1).text || '').trim();
+      const name = String(row.getCell(head['name'] || 2).text || '').trim();
+      if (!code && !name) continue;
+      const entry = byCode.get(norm(code)) || byName.get(norm(name));
+      if (!entry) { results.push({ row: r, name: name || code, action: 'error: not in this run' }); errors++; continue; }
+
+      const merged: any = { ...entry };
+      const twd = col(row, 'totalworkingdays');
+      if (twd !== undefined) {
+        if (twd < 1 || twd > 31) { results.push({ row: r, name: entry.person.name, action: 'error: working days must be 1-31' }); errors++; continue; }
+        merged.totalWorkingDays = Math.round(twd);
+      }
+      const leave = col(row, 'leavedays');
+      const lop = col(row, 'lopdays');
+      const advance = col(row, 'salaryadvance');
+      const tds = col(row, 'tds');
+      if (leave !== undefined) merged.empLeaveDays = leave;
+      if (lop !== undefined) merged.lopDays = lop;
+      if (advance !== undefined) merged.salaryAdvance = advance;
+      if (tds !== undefined) merged.tds = tds;
+
+      const changed = ['totalWorkingDays', 'empLeaveDays', 'lopDays', 'salaryAdvance', 'tds']
+        .some(f => (merged as any)[f] !== (entry as any)[f]);
+      if (!changed) { results.push({ row: r, name: entry.person.name, action: 'skip: no changes' }); skipped++; continue; }
+
+      const computed = computeEntry(merged, settings);
+      if (!dryRun) {
+        await prisma.payslipEntry.update({
+          where: { id: entry.id },
+          data: {
+            totalWorkingDays: merged.totalWorkingDays,
+            empLeaveDays: merged.empLeaveDays,
+            lopDays: merged.lopDays,
+            salaryAdvance: merged.salaryAdvance,
+            tds: merged.tds,
+            ...computed,
+          },
+        });
+      }
+      results.push({
+        row: r, name: entry.person.name,
+        action: dryRun ? 'will update' : 'updated',
+        leave: merged.empLeaveDays, lop: merged.lopDays,
+        net: (computed as any).netPayable,
+      });
+      updated++;
+    }
+    res.json({ dryRun: Boolean(dryRun), summary: { updated, skipped, errors }, results });
+  },
+
   async removeEntry(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const entry = await prisma.payslipEntry.findFirst({

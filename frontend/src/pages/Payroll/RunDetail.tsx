@@ -21,6 +21,54 @@ export default function RunDetail() {
   const [entryModal, setEntryModal] = useState<any>(null); // entry being edited
   const [form, setForm] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  const [attModal, setAttModal] = useState(false);
+  const [attFile, setAttFile] = useState('');
+  const [attFileName, setAttFileName] = useState('');
+  const [attResult, setAttResult] = useState<any>(null);
+  const [attBusy, setAttBusy] = useState(false);
+
+  const handleAttFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttFileName(file.name);
+    setAttResult(null);
+    const reader = new FileReader();
+    reader.onload = () => setAttFile(String(reader.result || ''));
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const runAttImport = async (dryRun: boolean) => {
+    if (!attFile) { setError('Choose the filled attendance file first'); return; }
+    setAttBusy(true);
+    try {
+      const res = await payrollAPI.importAttendance(run.id, attFile, dryRun);
+      setAttResult(res.data);
+      setError('');
+      if (!dryRun) {
+        setSuccess(`Attendance imported: ${res.data.summary.updated} entries recalculated.`);
+        setAttModal(false);
+        setAttFile('');
+        setAttFileName('');
+        fetchData();
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Attendance import failed');
+    } finally {
+      setAttBusy(false);
+    }
+  };
+
+  const downloadAttTemplate = async () => {
+    const res = await payrollAPI.attendanceTemplate(run.id);
+    const url = URL.createObjectURL(new Blob([res.data],
+      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${run.period}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -129,6 +177,9 @@ export default function RunDetail() {
             </Link>
             {isDraft ? (
               <>
+                <button className="btn btn-secondary" onClick={() => setAttModal(true)}>
+                  ⤒ Import Attendance
+                </button>
                 <button className="btn btn-secondary"
                   onClick={() => act(() => payrollAPI.recalculateRun(run.id))}>
                   ↻ Recalculate
@@ -321,6 +372,65 @@ export default function RunDetail() {
               </div>
             </div>
           </form>
+        )}
+      </Modal>
+
+      {/* Attendance import */}
+      <Modal title={`Import Attendance — ${monthLabel(run.period)}`} open={attModal}
+        onClose={() => { setAttModal(false); setAttResult(null); }}>
+        <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+          Download the template (prefilled with this run's current values), fill in
+          <strong> Leave Days, LOP Days, Working Days, Advance, TDS</strong> in Excel,
+          then upload it back. Every touched row is recalculated by the salary engine.
+        </p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+          <button type="button" className="btn btn-secondary" onClick={downloadAttTemplate}>
+            ⤓ Download Template
+          </button>
+          <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+            {attFileName || 'Choose filled file…'}
+            <input type="file" accept=".xlsx" onChange={handleAttFile} hidden />
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button type="button" className="btn btn-secondary" disabled={attBusy || !attFile}
+            onClick={() => runAttImport(true)}>
+            {attBusy ? 'Working…' : '👁 Preview'}
+          </button>
+          <button type="button" className="btn btn-primary" disabled={attBusy || !attFile}
+            onClick={() => runAttImport(false)}>
+            {attBusy ? 'Working…' : '⤒ Import Now'}
+          </button>
+        </div>
+        {attResult && (
+          <>
+            <p style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
+              {attResult.dryRun ? 'Preview' : 'Imported'}: {attResult.summary.updated} to update
+              · {attResult.summary.skipped} unchanged · {attResult.summary.errors} errors
+            </p>
+            <div className="table-wrap" style={{ maxHeight: 260, overflowY: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr><th>Employee</th><th>Action</th><th className="num">Leave</th><th className="num">LOP</th><th className="num">New Net</th></tr>
+                </thead>
+                <tbody>
+                  {attResult.results.map((r: any) => (
+                    <tr key={r.row}>
+                      <td style={{ fontWeight: 600 }}>{r.name}</td>
+                      <td>
+                        <span className={`badge ${String(r.action).startsWith('error') ? 'badge-danger' : String(r.action).startsWith('skip') ? 'badge-neutral' : 'badge-success'}`}>
+                          {r.action}
+                        </span>
+                      </td>
+                      <td className="num">{r.leave ?? '—'}</td>
+                      <td className="num">{r.lop ?? '—'}</td>
+                      <td className="num">{r.net != null ? formatINR(r.net) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </Modal>
     </>
