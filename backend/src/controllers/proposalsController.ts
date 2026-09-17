@@ -40,6 +40,16 @@ export const proposalsController = {
     res.json({ modules, bundles, categories: CATALOG.categories });
   },
 
+  // Render the document for the builder's live preview — nothing is saved.
+  async preview(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const d = req.body || {};
+    const clientName = String(d.clientName || '').trim() || 'Your Institution';
+    const brand = await orgBrand(orgId);
+    const { html, pricing } = renderProposalHtml(brand, { ...d, clientName });
+    res.json({ html, grandTotal: pricing.grandTotal });
+  },
+
   async generate(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const d = req.body || {};
@@ -104,7 +114,13 @@ export const proposalsController = {
       where: { id: req.params.recordId, organizationId: orgId },
     });
     if (!record) throw new AppError(404, 'Proposal not found');
-    res.json(record);
+    // Full revision chain for this client so the viewer can jump between revisions
+    const revisions = await prisma.proposalRecord.findMany({
+      where: { organizationId: orgId, clientName: { equals: record.clientName, mode: 'insensitive' } },
+      select: { id: true, revision: true, totalAmount: true, selectionLabel: true, createdAt: true },
+      orderBy: { revision: 'asc' },
+    });
+    res.json({ ...record, revisions });
   },
 
   // Print-ready CMS ERP product specifications document (16 chapters,

@@ -1,8 +1,17 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, ErrorAlert, LoadingBlock } from '../../components/ui';
 import { formatINR } from '../../utils/format';
+
+// Optional document sections (mirrors SECTION_DEFAULTS on the server)
+export const SECTION_LABELS: Record<string, string> = {
+  about: 'About the company', milestones: 'Company journey', awards: 'Awards & recognition',
+  clients: 'Client logo wall', pillars: 'Five pillars', benefits: 'Key benefits',
+  implementation: 'Implementation & support', roadmap: 'Roadmap', whyUs: 'Why us',
+  whyNow: 'Why now', transformation: 'Before / after', nextSteps: 'Next steps', terms: 'Terms & conditions',
+};
+const ALL_SECTIONS = Object.fromEntries(Object.keys(SECTION_LABELS).map(k => [k, true]));
 
 const EMPTY = {
   clientName: '', clientAddress: '', toAddress: 'The Principal / The Management',
@@ -15,6 +24,7 @@ const EMPTY = {
   gstPercent: '18', includeYear1Cost: true,
   authorizedSignatoryName: '', authorizedSignatoryDesignation: '',
   jurisdiction: 'Coimbatore',
+  sections: { ...ALL_SECTIONS } as Record<string, boolean>,
 };
 
 export default function ProposalBuilder() {
@@ -26,6 +36,25 @@ export default function ProposalBuilder() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [revising, setRevising] = useState(false);
+  const [modSearch, setModSearch] = useState('');
+  const [showPreview, setShowPreview] = useState(true);
+  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewBusy, setPreviewBusy] = useState(false);
+  const previewTimer = useRef<any>(null);
+
+  // Debounced live preview — re-renders the document as the form changes
+  useEffect(() => {
+    if (!showPreview || loading) return;
+    clearTimeout(previewTimer.current);
+    previewTimer.current = setTimeout(() => {
+      setPreviewBusy(true);
+      proposalsAPI.preview(form)
+        .then(res => setPreviewHtml(res.data.html))
+        .catch(() => {})
+        .finally(() => setPreviewBusy(false));
+    }, 700);
+    return () => clearTimeout(previewTimer.current);
+  }, [form, showPreview, loading]);
 
   useEffect(() => {
     const from = params.get('from');
@@ -36,7 +65,12 @@ export default function ProposalBuilder() {
       .then(([catRes, recordRes]) => {
         setCatalog(catRes.data);
         if (recordRes) {
-          setForm({ ...EMPTY, ...(recordRes.data.formData || {}), proposalDate: EMPTY.proposalDate });
+          const fd = recordRes.data.formData || {};
+          setForm({
+            ...EMPTY, ...fd,
+            sections: { ...ALL_SECTIONS, ...(fd.sections || {}) },
+            proposalDate: EMPTY.proposalDate,
+          });
           setRevising(true);
         }
       })
@@ -116,13 +150,22 @@ export default function ProposalBuilder() {
     <>
       <PageHeader
         title={revising ? `Revise Proposal — ${form.clientName}` : 'Proposal Builder'}
-        subtitle="Pick a bundle or custom modules, set the commercials, generate a branded proposal."
-        actions={<Link to="/proposals/history" className="btn btn-secondary">History</Link>}
+        subtitle="Pick a bundle or custom modules, set the commercials — the A4 document previews live."
+        actions={
+          <>
+            <button type="button" className="btn btn-secondary"
+              onClick={() => setShowPreview(p => !p)}>
+              {showPreview ? '◧ Hide Preview' : '◨ Live Preview'}
+            </button>
+            <Link to="/proposals/history" className="btn btn-secondary">History</Link>
+          </>
+        }
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
-      <form onSubmit={handleGenerate}>
+      <div className="builder-layout">
+      <form onSubmit={handleGenerate} className="builder-form">
         {/* Client */}
         <div className="card card-pad mb-24">
           <div className="form-section-title"><span className="step-dot">1</span> Client</div>
@@ -197,18 +240,37 @@ export default function ProposalBuilder() {
             <>
               <div className="toolbar" style={{ marginBottom: 10 }}>
                 <span className="badge badge-info">{form.selectedModules.length} selected</span>
+                <div className="search-input" style={{ maxWidth: 240 }}>
+                  <input className="input" placeholder="Search modules…" value={modSearch}
+                    onChange={e => setModSearch(e.target.value)} />
+                </div>
                 {suggestedCustomPrice > 0 && (
                   <span className="text-muted" style={{ fontSize: 12.5 }}>
                     Suggested rate: {formatINR(suggestedCustomPrice)} / student (sum of module rates)
                   </span>
                 )}
               </div>
-              {Object.entries(catalog.categories).map(([catCode, catLabel]: any) => (
-                modulesByCategory[catCode] ? (
+              {Object.entries(catalog.categories).map(([catCode, catLabel]: any) => {
+                const mods = (modulesByCategory[catCode] || []).filter((m: any) =>
+                  !modSearch || m.name.toLowerCase().includes(modSearch.toLowerCase()));
+                if (!mods.length) return null;
+                const allOn = mods.every((m: any) => form.selectedModules.includes(m.code));
+                return (
                   <div key={catCode} style={{ marginBottom: 16 }}>
-                    <div className="section-title" style={{ margin: '10px 0 8px', fontSize: 13 }}>{catLabel}</div>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '10px 0 8px' }}>
+                      <div className="section-title" style={{ margin: 0, fontSize: 13 }}>{catLabel}</div>
+                      <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11.5, padding: '2px 8px' }}
+                        onClick={() => setForm((f: any) => ({
+                          ...f,
+                          selectedModules: allOn
+                            ? f.selectedModules.filter((cd: string) => !mods.some((m: any) => m.code === cd))
+                            : Array.from(new Set([...f.selectedModules, ...mods.map((m: any) => m.code)])),
+                        }))}>
+                        {allOn ? 'Clear all' : 'Select all'}
+                      </button>
+                    </div>
                     <div className="chip-row">
-                      {modulesByCategory[catCode].map(m => (
+                      {mods.map((m: any) => (
                         <button key={m.code} type="button"
                           className={`chip ${form.selectedModules.includes(m.code) ? 'active' : ''}`}
                           title={`${m.shortDesc} · ${formatINR(m.price)}/student`}
@@ -219,8 +281,8 @@ export default function ProposalBuilder() {
                       ))}
                     </div>
                   </div>
-                ) : null
-              ))}
+                );
+              })}
             </>
           )}
         </div>
@@ -302,9 +364,34 @@ export default function ProposalBuilder() {
           </div>
         </div>
 
+        {/* Document content */}
+        <div className="card card-pad mb-24">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <div className="form-section-title" style={{ marginBottom: 0 }}>
+              <span className="step-dot">4</span> Document content
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm"
+              onClick={() => set('sections', { ...ALL_SECTIONS })}>All</button>
+            <button type="button" className="btn btn-ghost btn-sm"
+              onClick={() => set('sections', Object.fromEntries(Object.keys(SECTION_LABELS).map(k => [k, false])))}>None</button>
+          </div>
+          <p className="text-muted" style={{ fontSize: 12.5, margin: '8px 0 12px' }}>
+            Tune the document to the audience — a lean commercial quote or the full company story.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '6px 16px' }}>
+            {Object.entries(SECTION_LABELS).map(([key, label]) => (
+              <label key={key} className="checkbox-field" style={{ fontSize: 13 }}>
+                <input type="checkbox" checked={form.sections?.[key] !== false}
+                  onChange={e => set('sections', { ...form.sections, [key]: e.target.checked })} />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+
         {/* Signatory */}
         <div className="card card-pad mb-24">
-          <div className="form-section-title"><span className="step-dot">4</span> Signatory &amp; legal</div>
+          <div className="form-section-title"><span className="step-dot">5</span> Signatory &amp; legal</div>
           <div className="form-grid">
             <div className="field">
               <label>Authorized signatory name</label>
@@ -331,6 +418,23 @@ export default function ProposalBuilder() {
           </button>
         </div>
       </form>
+
+      {showPreview && (
+        <aside className="builder-preview">
+          <div className="preview-bar">
+            <span style={{ fontWeight: 600, fontSize: 13 }}>A4 Preview</span>
+            <span className="text-muted" style={{ fontSize: 12 }}>
+              {previewBusy ? 'Rendering…' : 'live'}
+            </span>
+          </div>
+          <div className="preview-frame">
+            {previewHtml
+              ? <iframe title="Proposal preview" srcDoc={previewHtml} />
+              : <div className="text-muted" style={{ padding: 24, fontSize: 13 }}>Start typing — the document renders here.</div>}
+          </div>
+        </aside>
+      )}
+      </div>
     </>
   );
 }

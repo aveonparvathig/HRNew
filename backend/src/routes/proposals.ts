@@ -15,6 +15,7 @@ router.use(requireRole('SUPER_ADMIN'));
 
 router.get('/catalog', asyncHandler((req, res) => proposalsController.getCatalog(req, res)));
 router.get('/cms-features', asyncHandler((req, res) => proposalsController.getCmsFeatures(req, res)));
+router.post('/preview', asyncHandler((req, res) => proposalsController.preview(req, res)));
 router.post('/generate', asyncHandler((req, res) => proposalsController.generate(req, res)));
 router.get('/history', asyncHandler((req, res) => proposalsController.getHistory(req, res)));
 router.get('/history/:recordId', asyncHandler((req, res) => proposalsController.getRecord(req, res)));
