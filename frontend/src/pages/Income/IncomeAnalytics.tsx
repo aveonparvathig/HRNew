@@ -2,7 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, LoadingBlock, StatCard } from '../../components/ui';
-import { formatINR, collectionTone } from '../../utils/format';
+import { formatINR, formatINRCompact, collectionTone } from '../../utils/format';
+
+const monthShort = (ym: string) => {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }).replace(' ', ' ’');
+};
 
 export default function IncomeAnalytics() {
   const [data, setData] = useState<any>(null);
@@ -102,7 +107,14 @@ export default function IncomeAnalytics() {
                       {!r.isActive && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>inactive</span>}
                     </td>
                     <td className="num text-warning" style={{ fontWeight: 600 }}>{formatINR(r.balance)}</td>
-                    <td className="num text-muted">{r.sharePct}%</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                        <div className="bar-track" style={{ width: 64, height: 6 }}>
+                          <div className="bar-fill amber" style={{ width: `${Math.min(Math.max(r.sharePct, 2), 100)}%` }} />
+                        </div>
+                        <span className="text-muted" style={{ fontSize: 12, minWidth: 34, textAlign: 'right' }}>{r.sharePct}%</span>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -112,18 +124,26 @@ export default function IncomeAnalytics() {
 
         {/* Monthly trend */}
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Monthly collections</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
+            <h3 style={{ fontSize: 15 }}>Monthly collections</h3>
+            {monthlyTrend.length > 0 && (
+              <span className="text-muted" style={{ fontSize: 12 }}>
+                last 12 months · avg {formatINRCompact(
+                  monthlyTrend.slice(-12).reduce((s: number, m: any) => s + m.amount, 0) /
+                  Math.max(1, monthlyTrend.slice(-12).length)
+                )}/mo
+              </span>
+            )}
+          </div>
           {monthlyTrend.length === 0 ? (
             <p className="text-muted">No dated payments yet.</p>
           ) : (
-            <div className="bar-chart">
+            <div className="col-chart">
               {monthlyTrend.slice(-12).map((m: any) => (
-                <div key={m.month} className="bar-row">
-                  <span className="bar-label">{m.month}</span>
-                  <div className="bar-track">
-                    <div className="bar-fill" style={{ width: `${(m.amount / maxMonthly) * 100}%` }} />
-                  </div>
-                  <span className="bar-value">{formatINR(m.amount)}</span>
+                <div key={m.month} className="col-item" title={`${monthShort(m.month)} — ${formatINR(m.amount)}`}>
+                  <span className="col-val">{formatINRCompact(m.amount)}</span>
+                  <div className="col-bar" style={{ height: Math.max((m.amount / maxMonthly) * 150, 4) }} />
+                  <span className="col-label">{monthShort(m.month)}</span>
                 </div>
               ))}
             </div>
@@ -146,18 +166,30 @@ export default function IncomeAnalytics() {
                 <tr>
                   <th>Engineer</th><th className="num">Clients</th><th className="num">Billed</th>
                   <th className="num">Received</th><th className="num">Outstanding</th>
+                  <th style={{ width: 170 }}>Collection</th>
                 </tr>
               </thead>
               <tbody>
-                {engineerRows.map((r: any) => (
-                  <tr key={r.engineer}>
-                    <td style={{ fontWeight: 600 }}>{r.engineer}</td>
-                    <td className="num">{r.clientCount}</td>
-                    <td className="num">{formatINR(r.billed)}</td>
-                    <td className="num text-success">{formatINR(r.received)}</td>
-                    <td className="num text-warning">{formatINR(r.outstanding)}</td>
-                  </tr>
-                ))}
+                {engineerRows.map((r: any) => {
+                  const pct = r.billed > 0 ? Math.round((r.received / r.billed) * 100) : 0;
+                  return (
+                    <tr key={r.engineer}>
+                      <td style={{ fontWeight: 600 }}>{r.engineer}</td>
+                      <td className="num">{r.clientCount}</td>
+                      <td className="num">{formatINR(r.billed)}</td>
+                      <td className="num text-success">{formatINR(r.received)}</td>
+                      <td className="num text-warning">{formatINR(r.outstanding)}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div className="bar-track" style={{ flex: 1 }}>
+                            <div className={`bar-fill ${collectionTone(pct)}`} style={{ width: `${Math.min(Math.max(pct, 3), 100)}%` }} />
+                          </div>
+                          <span className={`pct-label ${collectionTone(pct)}`}>{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

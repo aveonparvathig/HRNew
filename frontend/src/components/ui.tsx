@@ -30,12 +30,13 @@ export function PageHeader({ title, subtitle, actions }: {
   );
 }
 
-export function StatCard({ label, value, sub, icon, tone = 'primary' }: {
+export function StatCard({ label, value, sub, icon, tone = 'primary', trend }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   icon: string;
   tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
+  trend?: ReactNode;
 }) {
   return (
     <div className="stat-card">
@@ -44,6 +45,7 @@ export function StatCard({ label, value, sub, icon, tone = 'primary' }: {
         <span className={`stat-icon tone-${tone}`}>{icon}</span>
       </div>
       <div className="stat-value">{value}</div>
+      {trend && <div className="stat-trend">{trend}</div>}
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   );

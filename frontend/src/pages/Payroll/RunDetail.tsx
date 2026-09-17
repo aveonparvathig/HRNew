@@ -157,6 +157,36 @@ export default function RunDetail() {
 
   const t = run.totals;
 
+  // ---- Month-over-month trend chips (vs latest earlier run) ----
+  const prevShort = run.prev
+    ? (() => { const [y, m] = run.prev.period.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'short' }); })()
+    : '';
+  const trendChip = (cur: number, prevV: number | undefined, invert = false) => {
+    if (!run.prev || prevV == null || prevV === 0) return null;
+    const d = cur - prevV;
+    if (Math.abs(d) < 1) return <span className="trend-chip trend-flat">— same as {prevShort}</span>;
+    const pct = Math.abs((d / prevV) * 100);
+    const up = d > 0;
+    const good = invert ? !up : up;
+    return (
+      <span className={`trend-chip ${good ? 'trend-good' : 'trend-bad'}`}
+        title={`${up ? '+' : '−'}${formatINR(Math.abs(d))} vs ${prevShort} (${formatINR(prevV)})`}>
+        {up ? '▲' : '▼'} {pct >= 10 ? Math.round(pct) : pct.toFixed(1)}% vs {prevShort}
+      </span>
+    );
+  };
+
+  // ---- Payout composition: where the gross goes ----
+  const compSum = (f: string) => run.entries.reduce((s: number, e: any) => s + (e[f] || 0), 0);
+  const segments = [
+    { label: 'Net pay', value: t.net, color: 'var(--success-dot, #129D61)' },
+    { label: 'PF', value: compSum('pfEmployee'), color: 'var(--primary, #5A5FE0)' },
+    { label: 'ESI', value: compSum('esiEmployee'), color: '#0E9CB8' },
+    { label: 'Advance', value: compSum('salaryAdvance'), color: '#F79009' },
+    { label: 'TDS', value: compSum('tds'), color: '#B42318' },
+  ].filter(s => s.value > 0.5);
+  const netShare = t.gross > 0 ? (t.net / t.gross) * 100 : 0;
+
   return (
     <>
       <div className="breadcrumb"><BackButton />
@@ -212,13 +242,51 @@ export default function RunDetail() {
       )}
 
       <div className="stat-grid">
-        <StatCard label="Gross Salary" value={formatINR(t.gross)} icon="▤" tone="primary" />
+        <StatCard label="Gross Salary" value={formatINR(t.gross)} icon="▤" tone="primary"
+          trend={trendChip(t.gross, run.prev?.totals?.gross)}
+          sub={`${t.employees} employees on the roster`} />
         <StatCard label="Deductions" value={formatINR(t.deductions)}
+          trend={trendChip(t.deductions, run.prev?.totals?.deductions, true)}
           sub="ESI + PF + advances + TDS" icon="−" tone="warning" />
-        <StatCard label="Net Payable" value={formatINR(t.net)} icon="₹" tone="success" />
-        <StatCard label="CTC" value={formatINR(t.ctc)}
-          sub={`+ ${formatINR(t.employerContributions)} employer share`} icon="◔" tone="info" />
+        <StatCard label="Net Payable" value={formatINR(t.net)} icon="₹" tone="success"
+          trend={trendChip(t.net, run.prev?.totals?.net)}
+          sub={t.gross > 0 ? `${netShare.toFixed(1)}% of gross reaches employees` : undefined} />
+        <StatCard label="CTC" value={t.ctc > 0 ? formatINR(t.ctc) : '—'}
+          trend={trendChip(t.ctc, run.prev?.totals?.ctc)}
+          sub={t.ctc > 0 ? `+ ${formatINR(t.employerContributions)} employer share` : 'Not tracked for this run'}
+          icon="◔" tone="info" />
       </div>
+
+      {t.gross > 0 && segments.length > 1 && (
+        <div className="card payout-card">
+          <div className="payout-head">
+            <h3>Where the gross goes</h3>
+            <span className="text-muted" style={{ fontSize: 12.5 }}>
+              {formatINR(t.gross)} gross{run.prev ? ` · compared with ${monthLabel(run.prev.period)}` : ''}
+            </span>
+          </div>
+          <div className="payout-bar" role="img"
+            aria-label={segments.map(s => `${s.label} ${formatINR(s.value)}`).join(', ')}>
+            {segments.map(s => (
+              <span key={s.label} className="payout-seg"
+                style={{ width: `${(s.value / t.gross) * 100}%`, background: s.color }}
+                title={`${s.label} — ${formatINR(s.value)} (${((s.value / t.gross) * 100).toFixed(1)}%)`} />
+            ))}
+          </div>
+          <div className="payout-legend">
+            {segments.map(s => (
+              <span key={s.label} className="payout-key">
+                <span className="payout-dot" style={{ background: s.color }} />
+                {s.label}
+                <strong>{formatINR(s.value)}</strong>
+                <span className="text-muted">
+                  ({(s.value / t.gross) * 100 < 0.1 ? '<0.1' : ((s.value / t.gross) * 100).toFixed(1)}%)
+                </span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-header">

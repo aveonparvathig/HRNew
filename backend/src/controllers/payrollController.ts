@@ -160,10 +160,17 @@ export const payrollController = {
   async getRunDetail(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const run = await fetchOrgRun(req.params.runId, orgId, true);
+    // Latest earlier run so the UI can show month-over-month trends
+    const prev = await prisma.payrollRun.findFirst({
+      where: { organizationId: orgId, period: { lt: run.period } },
+      orderBy: { period: 'desc' },
+      include: { entries: true },
+    });
     res.json({
       ...run,
       entries: sortEntries(run.entries),
       totals: entryTotals(run.entries),
+      prev: prev ? { id: prev.id, period: prev.period, totals: entryTotals(prev.entries) } : null,
     });
   },
 
