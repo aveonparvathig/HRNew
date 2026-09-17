@@ -47,7 +47,7 @@ export default function PayrollReport() {
         <ErrorAlert message={error} onDismiss={() => setError('')} />
       </div>
 
-      <div className="letter-sheet print-area">
+      <div className="letter-sheet sheet-wide print-area">
         <div dangerouslySetInnerHTML={{ __html: doc.html }} />
       </div>
     </>

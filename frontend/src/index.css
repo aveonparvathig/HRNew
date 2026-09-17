@@ -742,6 +742,8 @@ a:hover { text-decoration: underline; }
 .input-unit .input { padding-left: 26px; }
 
 /* ============ Letters (People documents) ============ */
+.letter-sheet.sheet-wide { max-width: 1160px; padding: 44px 48px; overflow-x: auto; }
+
 .letter-sheet {
   background: #fff;
   max-width: 800px;

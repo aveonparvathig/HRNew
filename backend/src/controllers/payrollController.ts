@@ -329,6 +329,7 @@ export const payrollController = {
     .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-table .tot td { font-weight:700; background:#f8fafc; }
     .st-h { font-size:15px; font-weight:700; color:${accent}; margin:18px 0 8px; }
+    @media print { @page { size: A4 landscape; margin: 10mm; } .st-table th, .st-table td { font-size: 10.5px; padding: 4px 7px; } }
   </style>
   <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
     <div style="display:flex;align-items:center;gap:14px;">
@@ -433,6 +434,7 @@ export const payrollController = {
     .st-table th { background:#eef2ff; color:${accent}; text-align:left; }
     .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-table .tot td { font-weight:700; background:#f8fafc; }
+    @media print { @page { size: A4 landscape; margin: 10mm; } .st-table th, .st-table td { font-size: 10.5px; padding: 4px 7px; } }
   </style>
   <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
     <div style="display:flex;align-items:center;gap:14px;">
