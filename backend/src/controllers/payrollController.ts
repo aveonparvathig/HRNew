@@ -307,15 +307,19 @@ export const payrollController = {
     const pfEE = sum(pfRows, 'pfEmployee'), pfER = sum(pfRows, 'pfEmployer');
     const esiEE = sum(esiRows, 'esiEmployee'), esiER = sum(esiRows, 'esiEmployer');
 
+    const days = (n: number) => { const v = Number(n || 0); return v % 1 === 0 ? String(v) : v.toFixed(1); };
+    const dayCells = (e: any) => `<td class="dy">${days(e.payDays)}</td><td class="dy">${days(e.presentDays)}</td><td class="dy">${days(e.lopDays)}</td>`;
     const pfBody = pfRows.map((e: any, i: number) => `<tr>
-      <td>${i + 1}</td><td>${esc(e.person.employeeNo)}</td><td>${esc(e.person.name)}</td>
+      <td>${i + 1}</td><td>${esc(e.person.employeeNo)}</td><td class="nm">${esc(e.person.name)}</td>
       <td>${esc(e.person.pfNumber) || '—'}</td><td>${esc(e.person.pfUan) || '—'}</td>
+      ${dayCells(e)}
       <td class="amt">${inr(e.basic + e.da)}</td>
       <td class="amt">${inr(e.pfEmployee)}</td><td class="amt">${inr(e.pfEmployer)}</td>
       <td class="amt">${inr(r2(e.pfEmployee + e.pfEmployer))}</td></tr>`).join('');
     const esiBody = esiRows.map((e: any, i: number) => `<tr>
-      <td>${i + 1}</td><td>${esc(e.person.employeeNo)}</td><td>${esc(e.person.name)}</td>
+      <td>${i + 1}</td><td>${esc(e.person.employeeNo)}</td><td class="nm">${esc(e.person.name)}</td>
       <td>${esc(e.person.esiNumber) || '—'}</td>
+      ${dayCells(e)}
       <td class="amt">${inr(e.grossSalary)}</td>
       <td class="amt">${inr(e.esiEmployee)}</td><td class="amt">${inr(e.esiEmployer)}</td>
       <td class="amt">${inr(r2(e.esiEmployee + e.esiEmployer))}</td></tr>`).join('');
@@ -324,8 +328,10 @@ export const payrollController = {
 <div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13.5px;line-height:1.6;">
   <style>
     .st-table { width:100%; border-collapse:collapse; margin-bottom:22px; }
-    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:7px 10px; font-size:12.5px; }
-    .st-table th { background:#eef2ff; color:${accent}; text-align:left; }
+    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:5px 8px; font-size:12px; }
+    .st-table th { background:#eef2ff; color:${accent}; text-align:left; white-space:nowrap; }
+    .st-table .nm { white-space:nowrap; }
+    .st-table .dy { text-align:center; white-space:nowrap; }
     .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-table .tot td { font-weight:700; background:#f8fafc; }
     .st-h { font-size:15px; font-weight:700; color:${accent}; margin:18px 0 8px; }
@@ -347,16 +353,16 @@ export const payrollController = {
 
   <div class="st-h">Provident Fund — ${pfRows.length} employee${pfRows.length !== 1 ? 's' : ''}</div>
   <table class="st-table">
-    <tr><th>#</th><th>Code</th><th>Name</th><th>PF Number</th><th>UAN</th><th class="amt">Basic + DA</th><th class="amt">Employee</th><th class="amt">Employer</th><th class="amt">Total</th></tr>
-    ${pfBody || '<tr><td colspan="9">No PF-applicable employees in this run.</td></tr>'}
-    <tr class="tot"><td colspan="6">Total</td><td class="amt">${inr(pfEE)}</td><td class="amt">${inr(pfER)}</td><td class="amt">${inr(r2(pfEE + pfER))}</td></tr>
+    <tr><th>#</th><th>Code</th><th>Name</th><th>PF No.</th><th>UAN</th><th class="dy">Pay Days</th><th class="dy">Present</th><th class="dy">LOP</th><th class="amt">Basic + DA</th><th class="amt">Employee</th><th class="amt">Employer</th><th class="amt">Total</th></tr>
+    ${pfBody || '<tr><td colspan="12">No PF-applicable employees in this run.</td></tr>'}
+    <tr class="tot"><td colspan="9">Total</td><td class="amt">${inr(pfEE)}</td><td class="amt">${inr(pfER)}</td><td class="amt">${inr(r2(pfEE + pfER))}</td></tr>
   </table>
 
   <div class="st-h">ESI — ${esiRows.length} employee${esiRows.length !== 1 ? 's' : ''}</div>
   <table class="st-table">
-    <tr><th>#</th><th>Code</th><th>Name</th><th>ESI Number</th><th class="amt">Gross Wages</th><th class="amt">Employee</th><th class="amt">Employer</th><th class="amt">Total</th></tr>
-    ${esiBody || '<tr><td colspan="8">No ESI-covered employees in this run.</td></tr>'}
-    <tr class="tot"><td colspan="5">Total</td><td class="amt">${inr(esiEE)}</td><td class="amt">${inr(esiER)}</td><td class="amt">${inr(r2(esiEE + esiER))}</td></tr>
+    <tr><th>#</th><th>Code</th><th>Name</th><th>ESI Number</th><th class="dy">Pay Days</th><th class="dy">Present</th><th class="dy">LOP</th><th class="amt">Gross Wages</th><th class="amt">Employee</th><th class="amt">Employer</th><th class="amt">Total</th></tr>
+    ${esiBody || '<tr><td colspan="11">No ESI-covered employees in this run.</td></tr>'}
+    <tr class="tot"><td colspan="8">Total</td><td class="amt">${inr(esiEE)}</td><td class="amt">${inr(esiER)}</td><td class="amt">${inr(r2(esiEE + esiER))}</td></tr>
   </table>
 
   <table class="st-table" style="width:auto;min-width:50%;">
@@ -430,8 +436,8 @@ export const payrollController = {
 <div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13.5px;line-height:1.6;">
   <style>
     .st-table { width:100%; border-collapse:collapse; }
-    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:7px 10px; font-size:12.5px; }
-    .st-table th { background:#eef2ff; color:${accent}; text-align:left; }
+    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:5px 8px; font-size:12px; }
+    .st-table th { background:#eef2ff; color:${accent}; text-align:left; white-space:nowrap; }
     .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-table .tot td { font-weight:700; background:#f8fafc; }
     @media print { @page { size: A4 landscape; margin: 10mm; } .st-table th, .st-table td { font-size: 10.5px; padding: 4px 7px; } }
