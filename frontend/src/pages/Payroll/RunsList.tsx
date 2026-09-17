@@ -4,11 +4,16 @@ import { payrollAPI } from '../../api/payroll';
 import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge,
 } from '../../components/ui';
-import { formatINR } from '../../utils/format';
+import { formatINR, formatINRCompact } from '../../utils/format';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
+
+const monthShort = (period: string) => {
+  const [y, m] = period.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'short' });
 };
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
@@ -53,6 +58,22 @@ export default function RunsList() {
   if (loading) return <LoadingBlock label="Loading payroll…" />;
 
   const latest = data?.runs?.[0];
+  const prevRun = data?.runs?.[1];
+  const netTrend = (() => {
+    if (!latest || !prevRun || !prevRun.totals.net) return null;
+    const d = latest.totals.net - prevRun.totals.net;
+    if (Math.abs(d) < 1) return <span className="trend-chip trend-flat">— same as {monthShort(prevRun.period)}</span>;
+    const pct = Math.abs((d / prevRun.totals.net) * 100);
+    return (
+      <span className={`trend-chip ${d > 0 ? 'trend-good' : 'trend-bad'}`}
+        title={`${d > 0 ? '+' : '−'}${formatINR(Math.abs(d))} vs ${monthShort(prevRun.period)}`}>
+        {d > 0 ? '▲' : '▼'} {pct >= 10 ? Math.round(pct) : pct.toFixed(1)}% vs {monthShort(prevRun.period)}
+      </span>
+    );
+  })();
+  // Chronological view of recent runs for the trend chart
+  const chartRuns = (data?.runs || []).slice(0, 12).reverse();
+  const maxNet = Math.max(1, ...chartRuns.map((r: any) => r.totals.net));
 
   return (
     <>
@@ -76,10 +97,37 @@ export default function RunsList() {
           sub={latest ? `${latest.totals.employees} employees · ${latest.status.toLowerCase()}` : 'No runs yet'}
           icon="▦" tone="info" />
         <StatCard label="Latest Net Payout" value={latest ? formatINR(latest.totals.net) : '—'}
+          trend={netTrend}
           sub={latest ? `Gross ${formatINR(latest.totals.gross)}` : ''} icon="₹" tone="success" />
-        <StatCard label="Latest CTC" value={latest ? formatINR(latest.totals.ctc) : '—'}
-          sub="Including employer contributions" icon="◔" tone="warning" />
+        <StatCard label="Latest CTC" value={latest && latest.totals.ctc > 0 ? formatINR(latest.totals.ctc) : '—'}
+          sub={latest && latest.totals.ctc > 0 ? 'Including employer contributions' : 'Not tracked for the latest run'}
+          icon="◔" tone="warning" />
       </div>
+
+      {chartRuns.length > 1 && (
+        <div className="card payout-card">
+          <div className="payout-head">
+            <h3>Net payout trend</h3>
+            <span className="text-muted" style={{ fontSize: 12.5 }}>
+              last {chartRuns.length} runs · avg {formatINRCompact(
+                chartRuns.reduce((s: number, r: any) => s + r.totals.net, 0) / chartRuns.length
+              )}/mo{chartRuns.some((r: any) => r.status !== 'FINALIZED') ? ' · amber = draft' : ''}
+            </span>
+          </div>
+          <div className="col-chart">
+            {chartRuns.map((r: any) => (
+              <Link key={r.id} to={`/payroll/runs/${r.id}`} className="col-item"
+                title={`${monthLabel(r.period)} — net ${formatINR(r.totals.net)} · ${r.totals.employees} employees`}>
+                <span className="col-val">{formatINRCompact(r.totals.net)}</span>
+                <div className="col-bar"
+                  style={{ height: Math.max((r.totals.net / maxNet) * 130, 4),
+                    ...(r.status !== 'FINALIZED' ? { background: 'linear-gradient(180deg, #fbbf24, #DE8F0D)' } : {}) }} />
+                <span className="col-label">{monthShort(r.period)} {r.period.slice(2, 4)}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         {(data?.runs || []).length === 0 ? (
