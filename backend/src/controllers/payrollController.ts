@@ -282,6 +282,183 @@ export const payrollController = {
     res.json(updated);
   },
 
+  // ---- Reports -------------------------------------------------------------
+  // PF & ESI statement for statutory filing: employee-wise contributions
+  // with PF/UAN/ESI numbers and remittance totals.
+  async pfEsiStatement(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await prisma.payrollRun.findFirst({
+      where: { id: req.params.runId, organizationId: orgId },
+      include: { entries: { include: { person: { select: { name: true, employeeNo: true, pfNumber: true, pfUan: true, esiNumber: true } } } } },
+    });
+    if (!run) throw new AppError(404, 'Payroll run not found');
+    const brand = await orgBrand(orgId);
+    const primary = brand.brandPrimary || '#4f46e5';
+    const accent = brand.brandAccent || '#312e81';
+    const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const monthName = (() => { const [y, m] = run.period.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }); })();
+
+    const entries = sortEntries(run.entries);
+    const pfRows = entries.filter((e: any) => e.isPfApplicable || e.pfEmployee > 0);
+    const esiRows = entries.filter((e: any) => e.isEsiEligible || e.esiEmployee > 0);
+    const sum = (rows: any[], f: string) => r2(rows.reduce((s, e) => s + (e[f] || 0), 0));
+    const pfEE = sum(pfRows, 'pfEmployee'), pfER = sum(pfRows, 'pfEmployer');
+    const esiEE = sum(esiRows, 'esiEmployee'), esiER = sum(esiRows, 'esiEmployer');
+
+    const pfBody = pfRows.map((e: any, i: number) => `<tr>
+      <td>${i + 1}</td><td>${esc(e.person.employeeNo)}</td><td>${esc(e.person.name)}</td>
+      <td>${esc(e.person.pfNumber) || '—'}</td><td>${esc(e.person.pfUan) || '—'}</td>
+      <td class="amt">${inr(e.basic + e.da)}</td>
+      <td class="amt">${inr(e.pfEmployee)}</td><td class="amt">${inr(e.pfEmployer)}</td>
+      <td class="amt">${inr(r2(e.pfEmployee + e.pfEmployer))}</td></tr>`).join('');
+    const esiBody = esiRows.map((e: any, i: number) => `<tr>
+      <td>${i + 1}</td><td>${esc(e.person.employeeNo)}</td><td>${esc(e.person.name)}</td>
+      <td>${esc(e.person.esiNumber) || '—'}</td>
+      <td class="amt">${inr(e.grossSalary)}</td>
+      <td class="amt">${inr(e.esiEmployee)}</td><td class="amt">${inr(e.esiEmployer)}</td>
+      <td class="amt">${inr(r2(e.esiEmployee + e.esiEmployer))}</td></tr>`).join('');
+
+    const html = `
+<div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13.5px;line-height:1.6;">
+  <style>
+    .st-table { width:100%; border-collapse:collapse; margin-bottom:22px; }
+    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:7px 10px; font-size:12.5px; }
+    .st-table th { background:#eef2ff; color:${accent}; text-align:left; }
+    .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .st-table .tot td { font-weight:700; background:#f8fafc; }
+    .st-h { font-size:15px; font-weight:700; color:${accent}; margin:18px 0 8px; }
+  </style>
+  <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:48px;max-width:140px;object-fit:contain;"/>` : ''}
+      <div>
+        <div style="font-size:22px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
+        ${brand.addressLine ? `<div style="font-size:11.5px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:16px;font-weight:700;">PF &amp; ESI Statement</div>
+      <div style="font-size:12.5px;color:#555;">${monthName}</div>
+    </div>
+  </div>
+
+  <div class="st-h">Provident Fund — ${pfRows.length} employee${pfRows.length !== 1 ? 's' : ''}</div>
+  <table class="st-table">
+    <tr><th>#</th><th>Code</th><th>Name</th><th>PF Number</th><th>UAN</th><th class="amt">Basic + DA</th><th class="amt">Employee</th><th class="amt">Employer</th><th class="amt">Total</th></tr>
+    ${pfBody || '<tr><td colspan="9">No PF-applicable employees in this run.</td></tr>'}
+    <tr class="tot"><td colspan="6">Total</td><td class="amt">${inr(pfEE)}</td><td class="amt">${inr(pfER)}</td><td class="amt">${inr(r2(pfEE + pfER))}</td></tr>
+  </table>
+
+  <div class="st-h">ESI — ${esiRows.length} employee${esiRows.length !== 1 ? 's' : ''}</div>
+  <table class="st-table">
+    <tr><th>#</th><th>Code</th><th>Name</th><th>ESI Number</th><th class="amt">Gross Wages</th><th class="amt">Employee</th><th class="amt">Employer</th><th class="amt">Total</th></tr>
+    ${esiBody || '<tr><td colspan="8">No ESI-covered employees in this run.</td></tr>'}
+    <tr class="tot"><td colspan="5">Total</td><td class="amt">${inr(esiEE)}</td><td class="amt">${inr(esiER)}</td><td class="amt">${inr(r2(esiEE + esiER))}</td></tr>
+  </table>
+
+  <table class="st-table" style="width:auto;min-width:50%;">
+    <tr><th colspan="2">Remittance summary — ${monthName}</th></tr>
+    <tr><td>PF payable (employee + employer)</td><td class="amt">${inr(r2(pfEE + pfER))}</td></tr>
+    <tr><td>ESI payable (employee + employer)</td><td class="amt">${inr(r2(esiEE + esiER))}</td></tr>
+    <tr class="tot"><td>Total statutory remittance</td><td class="amt">${inr(r2(pfEE + pfER + esiEE + esiER))}</td></tr>
+  </table>
+</div>`;
+    res.json({ html, period: run.period, title: `PF & ESI Statement — ${monthName}` });
+  },
+
+  // Month-over-month comparison against the previous period's run.
+  async runComparison(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await prisma.payrollRun.findFirst({
+      where: { id: req.params.runId, organizationId: orgId },
+      include: { entries: { include: { person: { select: { id: true, name: true, employeeNo: true } } } } },
+    });
+    if (!run) throw new AppError(404, 'Payroll run not found');
+    // Latest run before this one (handles gaps in the run history)
+    const prev = await prisma.payrollRun.findFirst({
+      where: { organizationId: orgId, period: { lt: run.period } },
+      orderBy: { period: 'desc' },
+      include: { entries: { include: { person: { select: { id: true, name: true, employeeNo: true } } } } },
+    });
+    if (!prev) throw new AppError(404, 'No earlier run found to compare against');
+
+    const brand = await orgBrand(orgId);
+    const primary = brand.brandPrimary || '#4f46e5';
+    const accent = brand.brandAccent || '#312e81';
+    const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const label = (p: string) => { const [yy, mm] = p.split('-').map(Number); return new Date(yy, mm - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }); };
+    const diffCell = (d: number) => d === 0
+      ? '<td class="amt" style="color:#6b7280;">—</td>'
+      : `<td class="amt" style="color:${d > 0 ? '#067647' : '#B42318'};font-weight:600;">${d > 0 ? '▲' : '▼'} ${inr(Math.abs(d))}</td>`;
+
+    const prevBy = new Map(prev.entries.map((e: any) => [e.person.id, e]));
+    const curBy = new Map(run.entries.map((e: any) => [e.person.id, e]));
+    const rows: string[] = [];
+    for (const e of sortEntries(run.entries) as any[]) {
+      const p = prevBy.get(e.person.id);
+      const notes: string[] = [];
+      if (!p) notes.push('joined this month');
+      else {
+        if (p.monthlyPackage !== e.monthlyPackage) notes.push(`package ${inr(p.monthlyPackage)} → ${inr(e.monthlyPackage)}`);
+        if (p.payDays !== e.payDays) notes.push(`pay days ${p.payDays} → ${e.payDays}`);
+      }
+      const d = r2(e.netPayable - (p?.netPayable || 0));
+      rows.push(`<tr>
+        <td>${esc(e.person.name)}<div style="font-size:10.5px;color:#6b7280;">${esc(e.person.employeeNo)}${notes.length ? ' · ' + esc(notes.join(', ')) : ''}</div></td>
+        <td class="amt">${p ? inr(p.grossSalary) : '—'}</td><td class="amt">${inr(e.grossSalary)}</td>
+        <td class="amt">${p ? inr(p.netPayable) : '—'}</td><td class="amt">${inr(e.netPayable)}</td>
+        ${diffCell(d)}</tr>`);
+    }
+    const leavers = (prev.entries as any[]).filter(e => !curBy.has(e.person.id));
+    for (const e of leavers) {
+      rows.push(`<tr style="opacity:.7;">
+        <td>${esc(e.person.name)}<div style="font-size:10.5px;color:#B42318;">not in ${label(run.period)}</div></td>
+        <td class="amt">${inr(e.grossSalary)}</td><td class="amt">—</td>
+        <td class="amt">${inr(e.netPayable)}</td><td class="amt">—</td>
+        ${diffCell(r2(-e.netPayable))}</tr>`);
+    }
+    const tot = (es: any[], f: string) => r2(es.reduce((s, e) => s + (e[f] || 0), 0));
+    const pg = tot(prev.entries, 'grossSalary'), cg = tot(run.entries, 'grossSalary');
+    const pn = tot(prev.entries, 'netPayable'), cn = tot(run.entries, 'netPayable');
+
+    const html = `
+<div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13.5px;line-height:1.6;">
+  <style>
+    .st-table { width:100%; border-collapse:collapse; }
+    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:7px 10px; font-size:12.5px; }
+    .st-table th { background:#eef2ff; color:${accent}; text-align:left; }
+    .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .st-table .tot td { font-weight:700; background:#f8fafc; }
+  </style>
+  <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:48px;max-width:140px;object-fit:contain;"/>` : ''}
+      <div>
+        <div style="font-size:22px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
+        ${brand.addressLine ? `<div style="font-size:11.5px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:16px;font-weight:700;">Salary Comparison</div>
+      <div style="font-size:12.5px;color:#555;">${label(prev.period)} vs ${label(run.period)}</div>
+    </div>
+  </div>
+  <table class="st-table">
+    <tr><th>Employee</th><th class="amt">Gross (${label(prev.period)})</th><th class="amt">Gross (${label(run.period)})</th><th class="amt">Net (${label(prev.period)})</th><th class="amt">Net (${label(run.period)})</th><th class="amt">Net Change</th></tr>
+    ${rows.join('')}
+    <tr class="tot"><td>Total (${prev.entries.length} → ${run.entries.length} employees)</td>
+      <td class="amt">${inr(pg)}</td><td class="amt">${inr(cg)}</td>
+      <td class="amt">${inr(pn)}</td><td class="amt">${inr(cn)}</td>
+      ${diffCell(r2(cn - pn))}</tr>
+  </table>
+</div>`;
+    res.json({ html, title: `Salary Comparison — ${label(prev.period)} vs ${label(run.period)}` });
+  },
+
   // ---- Attendance import ---------------------------------------------------
   // Template: current attendance values for every entry in the run, ready to
   // edit in Excel and upload back.

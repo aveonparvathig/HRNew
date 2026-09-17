@@ -172,6 +172,8 @@ export default function RunDetail() {
           <>
             <StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />
             <button className="btn btn-secondary" onClick={handleExport}>⤓ Register</button>
+            <Link to={`/payroll/runs/${run.id}/reports/pf-esi`} className="btn btn-secondary">▤ PF &amp; ESI</Link>
+            <Link to={`/payroll/runs/${run.id}/reports/comparison`} className="btn btn-secondary">⇄ vs Prev Month</Link>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
             </Link>
