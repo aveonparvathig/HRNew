@@ -802,6 +802,15 @@ a:hover { text-decoration: underline; }
 .rev-chip strong { color: var(--text); }
 .rev-chip.current { border-color: var(--primary); background: var(--primary-soft); }
 
+/* Sidebar footer as a "My profile" link when the login is linked to a Person */
+.sidebar-user-link {
+  display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;
+  border-radius: 10px; padding: 4px 6px; margin: -4px -6px -4px -6px;
+  color: inherit; transition: background 0.15s;
+}
+.sidebar-user-link:hover { background: var(--neutral-soft); }
+.sidebar-user-link .email { color: var(--primary); }
+
 .letter-sheet {
   background: #fff;
   max-width: 800px;

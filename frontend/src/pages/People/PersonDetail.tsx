@@ -161,7 +161,7 @@ export default function PersonDetail() {
             <span className={`badge ${isIntern ? 'badge-info' : person.isEmployee ? 'badge-success' : 'badge-neutral'}`}>
               {isIntern ? 'Intern' : person.isEmployee ? <><span className="dot" />Employee</> : 'Candidate'}
             </span>
-            {!isIntern && (
+            {!isIntern && canManagePeople && (
               <select className="select" style={{ width: 150 }}
                 value={person.stage || ''}
                 onChange={e => handleStageChange(e.target.value)}>

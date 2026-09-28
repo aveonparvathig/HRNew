@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 
 // Stroke icon set (18px grid) — the design system replaces glyph characters.
@@ -189,11 +189,23 @@ export default function AppLayout() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="avatar">{initials}</div>
-          <div className="sidebar-user">
-            <div className="name">{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Account'}</div>
-            <div className="email">{user?.email}</div>
-          </div>
+          {user?.personId ? (
+            <Link to={`/people/${user.personId}`} className="sidebar-user-link" title="View my profile">
+              <div className="avatar">{initials}</div>
+              <div className="sidebar-user">
+                <div className="name">{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Account'}</div>
+                <div className="email">My profile</div>
+              </div>
+            </Link>
+          ) : (
+            <>
+              <div className="avatar">{initials}</div>
+              <div className="sidebar-user">
+                <div className="name">{user?.firstName ? `${user.firstName} ${user.lastName || ''}` : 'Account'}</div>
+                <div className="email">{user?.email}</div>
+              </div>
+            </>
+          )}
           <button className="icon-btn" onClick={handleLogout} title="Sign out">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">

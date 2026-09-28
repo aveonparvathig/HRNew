@@ -15,7 +15,7 @@ const SENSITIVE_PERSON_FIELDS = [
   'reasonForLeaving', 'notes',
 ] as const;
 
-const stripForEmployee = (actor: any) => actor.role === 'EMPLOYEE';
+const stripForEmployee = (actor: any) => ['EMPLOYEE', 'MARKETING'].includes(actor.role);
 
 function stripPersonFields(p: any) {
   const out: any = { ...p };
