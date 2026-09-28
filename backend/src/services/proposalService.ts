@@ -306,10 +306,6 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
       ${String(d.clientAddress || '').split('\n').filter((l: string) => l.trim())
         .map((l: string) => `<div style="color:#4b5563;font-size:13px;">${esc(l)}</div>`).join('')}
     </div>
-    <div style="text-align:right;font-size:13px;color:#4b5563;">
-      <strong style="color:#111827;">${esc(orgName)}</strong>
-      ${d.jurisdiction ? `<div>Jurisdiction: ${esc(d.jurisdiction)}</div>` : ''}
-    </div>
   </div>
 
   <p style="margin-top:24px;color:#374151;">${esc(CATALOG.salutation)}</p>
