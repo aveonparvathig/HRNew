@@ -8,10 +8,10 @@ import { formatDate } from '../../utils/format';
 const EMPTY_MEMBER = { email: '', password: '', firstName: '', lastName: '', role: 'EMPLOYEE' };
 
 const ROLE_LABELS: Record<string, string> = {
-  SUPER_ADMIN: 'Super Admin', HR: 'HR', EMPLOYEE: 'Employee',
+  SUPER_ADMIN: 'Super Admin', HR: 'HR', EMPLOYEE: 'Employee', MARKETING: 'Marketing',
 };
 const ROLE_TONES: Record<string, string> = {
-  SUPER_ADMIN: 'badge-info', HR: 'badge-violet', EMPLOYEE: 'badge-neutral',
+  SUPER_ADMIN: 'badge-info', HR: 'badge-violet', EMPLOYEE: 'badge-neutral', MARKETING: 'badge-teal',
 };
 
 export default function Team() {
@@ -162,7 +162,7 @@ export default function Team() {
                         value={m.role}
                         onChange={e => handleUpdate(m, { role: e.target.value },
                           `${m.email} is now ${ROLE_LABELS[e.target.value] || e.target.value}.`)}>
-                        <option value="SUPER_ADMIN">Super Admin</option><option value="HR">HR</option><option value="EMPLOYEE">Employee</option>
+                        <option value="SUPER_ADMIN">Super Admin</option><option value="HR">HR</option><option value="EMPLOYEE">Employee</option><option value="MARKETING">Marketing</option>
                       </select>
                     ) : (
                       <span className={`badge ${ROLE_TONES[m.role] || 'badge-neutral'}`}>{ROLE_LABELS[m.role] || m.role}</span>
@@ -226,7 +226,7 @@ export default function Team() {
               <label>Role</label>
               <select className="select" value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}>
-                <option value="EMPLOYEE">Employee</option><option value="HR">HR</option><option value="SUPER_ADMIN">Super Admin</option>
+                <option value="EMPLOYEE">Employee</option><option value="MARKETING">Marketing</option><option value="HR">HR</option><option value="SUPER_ADMIN">Super Admin</option>
               </select>
             </div>
           </div>

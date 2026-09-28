@@ -50,7 +50,7 @@ const MODULE_ROLES: Record<string, string[]> = {
   '/income': ['SUPER_ADMIN', 'EMPLOYEE'],
   '/recruitment': ['SUPER_ADMIN', 'HR'],
   '/people': ['SUPER_ADMIN', 'HR', 'EMPLOYEE'],
-  '/proposals': ['SUPER_ADMIN'],
+  '/proposals': ['SUPER_ADMIN', 'MARKETING'],
   '/payroll': ['SUPER_ADMIN', 'HR'],
 };
 

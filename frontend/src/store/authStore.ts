@@ -69,6 +69,7 @@ export function useRole() {
     isSA: role === 'SUPER_ADMIN',
     isHR: role === 'HR',
     isEmployee: role === 'EMPLOYEE',
+    isMarketing: role === 'MARKETING',
     canManagePeople: role === 'SUPER_ADMIN' || role === 'HR',
     personId: user?.personId || null,
   };

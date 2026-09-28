@@ -56,6 +56,7 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 const SA = ['SUPER_ADMIN'];
 const SA_HR = ['SUPER_ADMIN', 'HR'];
 const SA_EMP = ['SUPER_ADMIN', 'EMPLOYEE'];
+const SA_MKT = ['SUPER_ADMIN', 'MARKETING'];
 
 function App() {
   const user = useAuthStore(state => state.user);
@@ -85,10 +86,10 @@ function App() {
             <Route path="/people/openings" element={<RequireRole roles={SA_HR}><JobOpenings /></RequireRole>} />
             <Route path="/people/documents/:docId" element={<RequireRole roles={SA_HR}><LetterView /></RequireRole>} />
             <Route path="/people/:personId" element={<PersonDetail />} />
-            <Route path="/proposals" element={<RequireRole roles={SA}><ProposalBuilder /></RequireRole>} />
-            <Route path="/proposals/history" element={<RequireRole roles={SA}><ProposalHistory /></RequireRole>} />
-            <Route path="/proposals/history/:recordId" element={<RequireRole roles={SA}><ProposalView /></RequireRole>} />
-            <Route path="/proposals/cms-features" element={<RequireRole roles={SA}><CmsFeatures /></RequireRole>} />
+            <Route path="/proposals" element={<RequireRole roles={SA_MKT}><ProposalBuilder /></RequireRole>} />
+            <Route path="/proposals/history" element={<RequireRole roles={SA_MKT}><ProposalHistory /></RequireRole>} />
+            <Route path="/proposals/history/:recordId" element={<RequireRole roles={SA_MKT}><ProposalView /></RequireRole>} />
+            <Route path="/proposals/cms-features" element={<RequireRole roles={SA_MKT}><CmsFeatures /></RequireRole>} />
             <Route path="/expenses" element={<ExpensesList />} />
             <Route path="/expenses/:reportId" element={<ExpenseReportEditor />} />
             <Route path="/expenses/:reportId/print" element={<ExpenseReportView />} />

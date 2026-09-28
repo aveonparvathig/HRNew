@@ -93,10 +93,12 @@ async function requireApprover(req: any) {
   }
 }
 
-// EMPLOYEE role only ever sees / edits reports belonging to their Person
+// EMPLOYEE and MARKETING roles only ever see / edit reports for their own Person
+const selfScoped = (actor: any) => ['EMPLOYEE', 'MARKETING'].includes(actor?.role);
+
 async function assertReportAccess(req: any, reportPersonId: string) {
   const actor = await loadActor(req);
-  if (actor.role === 'EMPLOYEE' && actor.personId !== reportPersonId) {
+  if (selfScoped(actor) && actor.personId !== reportPersonId) {
     throw new AppError(404, 'Expense report not found');
   }
 }
@@ -119,7 +121,7 @@ export const expensesController = {
       where: {
         organizationId: orgId, kind: 'CANDIDATE', isEmployee: true,
         // Employees file reports only for themselves
-        ...(actor.role === 'EMPLOYEE' ? { id: actor.personId || '' } : {}),
+        ...(selfScoped(actor) ? { id: actor.personId || '' } : {}),
       },
       select: { id: true, name: true, employeeNo: true, designation: true },
       orderBy: { name: 'asc' },
@@ -135,7 +137,7 @@ export const expensesController = {
     const orgId = req.user?.organizationId;
     const status = str(req.query.status);
     const actor = await loadActor(req);
-    const personId = actor.role === 'EMPLOYEE'
+    const personId = selfScoped(actor)
       ? (actor.personId || 'none') // own reports only
       : str(req.query.personId);
     const q = str(req.query.q).trim();
@@ -181,7 +183,7 @@ export const expensesController = {
     const title = str(b.title).trim();
     if (!title) throw new AppError(400, 'Report title is required');
     const actor = await loadActor(req);
-    const targetPersonId = actor.role === 'EMPLOYEE' ? (actor.personId || '') : str(b.personId);
+    const targetPersonId = selfScoped(actor) ? (actor.personId || '') : str(b.personId);
     const person = await prisma.person.findFirst({
       where: { id: targetPersonId, organizationId: orgId, isEmployee: true },
     });

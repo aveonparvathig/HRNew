@@ -4,10 +4,12 @@ import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { useRole } from '../../store/authStore';
 
 export default function ProposalView() {
   const { recordId } = useParams<{ recordId: string }>();
   const navigate = useNavigate();
+  const { isSA } = useRole();
   const [record, setRecord] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -91,7 +93,7 @@ export default function ProposalView() {
         subtitle={`${record.selectionLabel} · ${formatINR(record.totalAmount)} · generated ${formatDate(record.createdAt)}`}
         actions={
           <>
-            <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+            {isSA && <button className="btn btn-danger" onClick={handleDelete}>Delete</button>}
             <Link to={`/proposals?from=${record.id}`} className="btn btn-secondary">↻ Revise</Link>
             <button className="btn btn-secondary" onClick={openFullPage}>⧉ Full Page / Print</button>
             <button className="btn btn-primary" onClick={downloadPdf} disabled={pdfBusy}>

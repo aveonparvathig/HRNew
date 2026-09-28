@@ -6,6 +6,12 @@ import { renderProposalHtml } from '../services/proposalService';
 import { renderCmsFeatureDoc } from '../services/cmsFeatureDoc';
 import { orgBrand } from '../services/orgBrand';
 
+// MARKETING users only ever see proposals they generated themselves
+const ownScope = (req: any) => {
+  const actor = req.actor;
+  return actor?.role === 'MARKETING' ? { createdById: actor.id } : {};
+};
+
 export const proposalsController = {
   // Catalog for the builder UI (modules trimmed of long feature lists)
   async getCatalog(req: any, res: Response) {
@@ -80,6 +86,7 @@ export const proposalsController = {
         totalAmount: pricing.grandTotal,
         formData: d,
         html,
+        createdById: (req as any).actor?.id || null,
       },
     });
     res.status(201).json({
@@ -97,6 +104,7 @@ export const proposalsController = {
     const records = await prisma.proposalRecord.findMany({
       where: {
         organizationId: orgId,
+        ...ownScope(req),
         ...(q ? { clientName: { contains: q, mode: 'insensitive' as const } } : {}),
       },
       select: {
@@ -111,12 +119,16 @@ export const proposalsController = {
   async getRecord(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const record = await prisma.proposalRecord.findFirst({
-      where: { id: req.params.recordId, organizationId: orgId },
+      where: { id: req.params.recordId, organizationId: orgId, ...ownScope(req) },
     });
     if (!record) throw new AppError(404, 'Proposal not found');
     // Full revision chain for this client so the viewer can jump between revisions
     const revisions = await prisma.proposalRecord.findMany({
-      where: { organizationId: orgId, clientName: { equals: record.clientName, mode: 'insensitive' } },
+      where: {
+        organizationId: orgId,
+        ...ownScope(req),
+        clientName: { equals: record.clientName, mode: 'insensitive' },
+      },
       select: { id: true, revision: true, totalAmount: true, selectionLabel: true, createdAt: true },
       orderBy: { revision: 'asc' },
     });

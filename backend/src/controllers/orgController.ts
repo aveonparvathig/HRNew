@@ -5,7 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 
 const str = (v: any) => String(v ?? '');
 
-const ROLES = ['SUPER_ADMIN', 'HR', 'EMPLOYEE'];
+const ROLES = ['SUPER_ADMIN', 'HR', 'EMPLOYEE', 'MARKETING'];
 
 async function requireOwner(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });

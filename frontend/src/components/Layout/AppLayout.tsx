@@ -82,11 +82,14 @@ export default function AppLayout() {
   const role = user?.role || 'SUPER_ADMIN';
   const isSA = role === 'SUPER_ADMIN';
   const isHR = role === 'HR';
+  const isMarketing = role === 'MARKETING';
   const showIncome = isSA || role === 'EMPLOYEE';
   const incomeItems = INCOME_ITEMS.filter(i =>
     isSA || !['/income/academic-years', '/income/import-export'].includes(i.to));
   const peopleItems = PEOPLE_ITEMS.filter(i =>
-    (isSA || isHR) || ['/people', '/expenses'].includes(i.to));
+    (isSA || isHR) ? true
+      : isMarketing ? i.to === '/expenses' // marketing: own expenses only
+      : ['/people', '/expenses'].includes(i.to));
 
   // Close the drawer whenever navigation happens
   useEffect(() => { setNavOpen(false); }, [location.pathname]);
@@ -140,7 +143,7 @@ export default function AppLayout() {
             </>
           )}
 
-          <div className="sidebar-section">People</div>
+          <div className="sidebar-section">{isMarketing ? 'Expenses' : 'People'}</div>
           {peopleItems.map(item => (
             <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
               <Icon name={item.icon} />
@@ -148,7 +151,7 @@ export default function AppLayout() {
             </NavLink>
           ))}
 
-          {isSA && (
+          {(isSA || isMarketing) && (
             <>
               <div className="sidebar-section">Sales</div>
               {PROPOSAL_ITEMS.map(item => (

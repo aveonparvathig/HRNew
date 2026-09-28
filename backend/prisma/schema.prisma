@@ -54,8 +54,9 @@ model User {
   organizationId String
   // Signup creates the org's first user, hence SUPER_ADMIN by default.
   // SUPER_ADMIN: everything · HR: people/recruitment/payroll/expenses ·
-  // EMPLOYEE: own clients (income), people directory, own expenses.
-  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN | HR | EMPLOYEE
+  // EMPLOYEE: own clients (income), people directory, own expenses ·
+  // MARKETING: proposals they generated + own expenses.
+  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN | HR | EMPLOYEE | MARKETING
   isActive       Boolean  @default(true)
   // Employee logins link to their Person record — "own data" scoping key
   personId           String?  @unique
@@ -63,9 +64,10 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  person        Person?        @relation(fields: [personId], references: [id], onDelete: SetNull)
-  refreshTokens RefreshToken[]
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person          Person?          @relation(fields: [personId], references: [id], onDelete: SetNull)
+  refreshTokens   RefreshToken[]
+  proposalRecords ProposalRecord[]
 
   @@index([organizationId])
   @@map("users")
@@ -232,9 +234,12 @@ model ProposalRecord {
   totalAmount    Float    @default(0)
   formData       Json     @default("{}") // snapshot - prefills the next revision
   html           String
+  // Who generated it — MARKETING users only ever see their own records
+  createdById    String?
   createdAt      DateTime @default(now())
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([organizationId, clientName])
   @@map("proposal_records")

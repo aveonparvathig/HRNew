@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from './errorHandler';
 
-export type Role = 'SUPER_ADMIN' | 'HR' | 'EMPLOYEE';
+export type Role = 'SUPER_ADMIN' | 'HR' | 'EMPLOYEE' | 'MARKETING';
 
 // Fetch the caller's live role + person link once per request, so role
 // changes and deactivation take effect immediately without re-login.

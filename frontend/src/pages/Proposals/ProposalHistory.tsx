@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, EmptyState, LoadingBlock, ErrorAlert } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { useRole } from '../../store/authStore';
 
 export default function ProposalHistory() {
+  const { isSA } = useRole();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -117,7 +119,7 @@ export default function ProposalHistory() {
                             <div className="row-actions">
                               <Link to={`/proposals/history/${r.id}`} className="btn btn-secondary btn-sm">View</Link>
                               <Link to={`/proposals?from=${r.id}`} className="btn btn-secondary btn-sm">Revise</Link>
-                              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r)}>Del</button>
+                              {isSA && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r)}>Del</button>}
                             </div>
                           </td>
                         </tr>
