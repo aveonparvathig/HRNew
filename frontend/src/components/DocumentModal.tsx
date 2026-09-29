@@ -67,6 +67,8 @@ const FIELDS: Record<string, Field[]> = {
     { key: 'recipientAddress', label: 'Student address', type: 'textarea', span2: true },
     { key: 'internshipRole', label: 'Internship role' },
     { key: 'collegeName', label: 'College' },
+    { key: 'course', label: 'Course' },
+    { key: 'rollNumber', label: 'Roll number' },
     { key: 'startDate', label: 'Start date', type: 'date' },
     { key: 'endDate', label: 'End date', type: 'date' },
     { key: 'workLocation', label: 'Location' },

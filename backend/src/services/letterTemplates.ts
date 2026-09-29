@@ -144,22 +144,32 @@ const RENDERERS: Record<string, (orgName: string, d: any) => string> = {
     'INTERNSHIP OFFER LETTER',
     `Dear ${esc(d.recipientName)},`,
     [
-      para(`We are pleased to offer you an internship at <strong>${esc(orgName)}</strong> as
+      para(`With reference to your application${d.collegeName ? ` through <strong>${esc(d.collegeName)}</strong>` : ''},
+        we are pleased to offer you an internship at <strong>${esc(orgName)}</strong> as
         <strong>${esc(d.internshipRole)}</strong>. Your internship will commence on
-        <strong>${fmtDate(d.startDate)}</strong> and conclude on <strong>${fmtDate(d.endDate)}</strong>.`),
+        <strong>${fmtDate(d.startDate)}</strong> and conclude on <strong>${fmtDate(d.endDate)}</strong>,
+        on the following terms:`),
       detailTable([
         ['Internship Role', esc(d.internshipRole)],
+        ['College', esc(d.collegeName)],
+        ['Course', esc(d.course)],
+        ['Roll Number', esc(d.rollNumber)],
         ['Duration', `${fmtDate(d.startDate)} to ${fmtDate(d.endDate)}`],
         ['Location', esc(d.workLocation)],
         ['Stipend', d.stipend ? fmtINR(d.stipend) + ' per month' : 'Unpaid'],
         ['Mentor / Guide', esc(d.mentor)],
-        ['College', esc(d.collegeName)],
       ]),
-      para(`During the internship you will be expected to abide by the rules of the organisation
-        and maintain confidentiality of all proprietary information. On successful completion,
-        you will be issued an internship experience certificate.`),
+      para(`During the internship you will work on assigned projects and activities under the
+        guidance of your mentor${d.mentor ? `, <strong>${esc(d.mentor)}</strong>` : ''}. You are
+        expected to abide by the rules and regulations of the organisation, maintain regular
+        attendance, and keep all proprietary and client information strictly confidential.`),
+      para(`This internship is a training engagement and does not constitute an offer of
+        employment. On successful completion, you will be issued an internship experience
+        certificate.`),
       d.terms ? para(esc(d.terms)) : '',
-      para(`We welcome you and wish you a rewarding learning experience.`),
+      para(`Please sign and return a copy of this letter as a token of your acceptance.
+        We welcome you to <strong>${esc(orgName)}</strong> and wish you a rewarding learning
+        experience.`),
     ].join('')),
 
   EXPERIENCE_INTERNSHIP: (orgName, d) => shell(orgName, d,

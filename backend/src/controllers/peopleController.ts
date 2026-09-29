@@ -636,6 +636,7 @@ export const peopleController = {
       endDate: person.endDate,
       collegeName: person.collegeName,
       course: person.course,
+      rollNumber: person.rollNumber,
       letterDate: new Date().toISOString().split('T')[0],
     };
     res.json({
