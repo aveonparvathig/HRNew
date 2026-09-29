@@ -32,7 +32,7 @@ function shell(orgName: string, d: any, subject: string, salutation: string, bod
   const accent = b.brandAccent || '#312e81';
   const contact = [b.phone, b.email, b.website].filter(Boolean).join(' · ');
   return `
-<div style="font-family:Georgia,'Times New Roman',serif;color:#1a1a2e;font-size:14px;line-height:1.7;">
+<div style="font-family:'Times New Roman',Times,serif;color:#1a1a2e;font-size:14px;line-height:1.7;">
   <div style="border-bottom:3px solid ${primary};padding-bottom:14px;margin-bottom:8px;display:flex;align-items:center;gap:16px;">
     ${b.logoData ? `<img src="${b.logoData}" alt="" style="height:56px;max-width:150px;object-fit:contain;"/>` : ''}
     <div>
