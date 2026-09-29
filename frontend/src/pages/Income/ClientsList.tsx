@@ -45,6 +45,12 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
                   <option value="">— none —</option>
                   {engineers.map((e: string) => <option key={e} value={e}>{e}</option>)}
                 </select>
+                {r.supportEngineer && (
+                  <div className="text-muted" style={{ fontSize: 11.5, marginTop: 3 }}
+                    title="Additional engineer (set on the Implementation page)">
+                    + {r.supportEngineer}
+                  </div>
+                )}
               </td>
               <td className="num">{formatINR(r.billed)}</td>
               <td className="num text-success">{formatINR(r.received)}</td>

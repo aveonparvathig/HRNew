@@ -236,10 +236,16 @@ async function employeeScope(req: any): Promise<{ name: string; clientIds: Set<s
   const actor = await loadActor(req);
   if (actor.role !== 'EMPLOYEE') return null;
   const person = await actorPerson(req);
-  const billings = await prisma.clientBilling.findMany({
-    where: { organizationId: actor.organizationId },
-    select: { clientId: true, engineer: true, yearStart: true },
-  });
+  const [billings, onboardings] = await Promise.all([
+    prisma.clientBilling.findMany({
+      where: { organizationId: actor.organizationId },
+      select: { clientId: true, engineer: true, yearStart: true },
+    }),
+    prisma.clientOnboarding.findMany({
+      where: { organizationId: actor.organizationId },
+      select: { clientId: true, engineer: true, supportEngineer: true },
+    }),
+  ]);
   const latest = new Map<string, { engineer: string; yearStart: number }>();
   for (const b of billings) {
     const cur = latest.get(b.clientId);
@@ -249,6 +255,10 @@ async function employeeScope(req: any): Promise<{ name: string; clientIds: Set<s
   for (const [cid, v] of latest) {
     if (v.engineer === person.name || v.engineer === '') clientIds.add(cid);
   }
+  // A second engineer on the implementation record shares the client too
+  for (const ob of onboardings) {
+    if (ob.engineer === person.name || ob.supportEngineer === person.name) clientIds.add(ob.clientId);
+  }
   return { name: person.name, clientIds };
 }
 
@@ -257,12 +267,19 @@ async function assertClientAccess(req: any, clientId: string) {
   const actor = await loadActor(req);
   if (actor.role !== 'EMPLOYEE') return;
   const person = await actorPerson(req);
-  const billings = await prisma.clientBilling.findMany({
-    where: { clientId },
-    select: { engineer: true, yearStart: true },
-    orderBy: { yearStart: 'desc' },
-    take: 1,
-  });
+  const [billings, ob] = await Promise.all([
+    prisma.clientBilling.findMany({
+      where: { clientId },
+      select: { engineer: true, yearStart: true },
+      orderBy: { yearStart: 'desc' },
+      take: 1,
+    }),
+    prisma.clientOnboarding.findUnique({
+      where: { clientId },
+      select: { engineer: true, supportEngineer: true },
+    }),
+  ]);
+  if (ob && (ob.engineer === person.name || ob.supportEngineer === person.name)) return;
   const latestEngineer = billings[0]?.engineer ?? '';
   if (latestEngineer !== '' && latestEngineer !== person.name) {
     throw new AppError(404, 'Client not found');
@@ -601,10 +618,16 @@ export const incomeController = {
         organizationId: orgId,
         ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
       },
-      include: { billings: { include: { payments: true } } },
+      include: {
+        billings: { include: { payments: true } },
+        onboarding: { select: { engineer: true, supportEngineer: true } },
+      },
     });
     if (engineer) {
-      clients = clients.filter(c => c.billings.some(b => b.engineer === engineer));
+      clients = clients.filter(c =>
+        c.billings.some(b => b.engineer === engineer) ||
+        (c as any).onboarding?.engineer === engineer ||
+        (c as any).onboarding?.supportEngineer === engineer);
     }
 
     // Period filter scopes both membership and the money columns: with a year
@@ -621,8 +644,10 @@ export const incomeController = {
       return {
         ...c,
         billings: undefined,
+        onboarding: undefined,
         ...clientTotalsOf(scoped),
-        latestEngineer: latest?.engineer || '',
+        latestEngineer: latest?.engineer || c.onboarding?.engineer || '',
+        supportEngineer: c.onboarding?.supportEngineer || '',
         latestYear: latest?.academicYear || '',
         billingCount: scoped.length,
       };
@@ -777,6 +802,12 @@ export const incomeController = {
     if (!latest) throw new AppError(400, 'No billing year exists for this client');
     const engineer = String(req.body.engineer || '').trim();
     await prisma.clientBilling.update({ where: { id: latest.id }, data: { engineer } });
+    // Keep the implementation record's assigned engineer in step
+    await prisma.clientOnboarding.upsert({
+      where: { clientId: client.id },
+      create: { clientId: client.id, organizationId: orgId, engineer },
+      update: { engineer },
+    });
     res.json({ ok: true, engineer });
   },
 
@@ -993,17 +1024,24 @@ export const incomeController = {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
     await assertClientAccess(req, client.id);
-    const [ob, features] = await Promise.all([
+    const [ob, features, latestBilling] = await Promise.all([
       prisma.clientOnboarding.findUnique({ where: { clientId: client.id } }),
       prisma.featureStatus.findMany({
         where: { clientId: client.id },
         orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
+      }),
+      prisma.clientBilling.findFirst({
+        where: { clientId: client.id },
+        orderBy: { yearStart: 'desc' },
+        select: { engineer: true },
       }),
     ]);
     res.json({
       client: { id: client.id, name: client.name },
       onboarding: ob ? {
         ...ob,
+        // One source of truth on screen: fall back to the billing engineer
+        engineer: ob.engineer || latestBilling?.engineer || '',
         // Documents are heavy - ship flags here, bytes via the download route.
         poDocumentData: undefined,
         agreementDocumentData: undefined,
@@ -1011,6 +1049,7 @@ export const incomeController = {
         agreementHasDocument: Boolean(ob.agreementDocumentData),
         agreement: agreementInfo(ob),
       } : null,
+      latestBillingEngineer: latestBilling?.engineer || '',
       features,
       progress: featureProgressOf(features),
     });
@@ -1054,6 +1093,7 @@ export const incomeController = {
       onboardedOn: b.onboardedOn ?? existing?.onboardedOn ?? null,
       goLiveDate: b.goLiveDate ?? existing?.goLiveDate ?? null,
       engineer: String(b.engineer ?? existing?.engineer ?? ''),
+      supportEngineer: String(b.supportEngineer ?? existing?.supportEngineer ?? ''),
       poReceived: b.poReceived !== undefined ? Boolean(b.poReceived) : Boolean(existing?.poReceived),
       poNumber: String(b.poNumber ?? existing?.poNumber ?? ''),
       poDate: b.poDate ?? existing?.poDate ?? null,
@@ -1092,6 +1132,21 @@ export const incomeController = {
       create: { ...data, clientId: client.id, organizationId: orgId },
       update: data,
     });
+    // Same engineer everywhere: mirror the assignment onto the latest billing
+    // row, which drives the Clients list, analytics and employee scoping.
+    if (b.engineer !== undefined) {
+      const latestBilling = await prisma.clientBilling.findFirst({
+        where: { clientId: client.id },
+        orderBy: { yearStart: 'desc' },
+        select: { id: true, engineer: true },
+      });
+      if (latestBilling && latestBilling.engineer !== data.engineer) {
+        await prisma.clientBilling.update({
+          where: { id: latestBilling.id },
+          data: { engineer: data.engineer },
+        });
+      }
+    }
     res.json({
       ...ob,
       poDocumentData: undefined,

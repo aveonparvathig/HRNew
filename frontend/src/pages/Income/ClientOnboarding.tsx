@@ -9,7 +9,7 @@ const EMPTY = {
   stage: 'ONBOARDING',
   contactPerson: '', contactDesignation: '', contactPhone: '', contactEmail: '',
   institutionType: '', address: '', city: '', studentStrength: '',
-  onboardedOn: '', goLiveDate: '', engineer: '',
+  onboardedOn: '', goLiveDate: '', engineer: '', supportEngineer: '',
   poReceived: false, poNumber: '', poDate: '',
   agreementSigned: false, agreementYears: '', agreementStart: '', agreementEnd: '',
   reminderDays: 90, notes: '',
@@ -114,6 +114,9 @@ export default function ClientOnboarding() {
         setAgreement(ob.agreement);
         setPoDoc({ has: Boolean(ob.poHasDocument), filename: ob.poFilename || '' });
         setAgDoc({ has: Boolean(ob.agreementHasDocument), filename: ob.agreementFilename || '' });
+      } else if (obRes.data.latestBillingEngineer) {
+        // No implementation record yet — start from the billing assignment
+        setForm((f: any) => ({ ...f, engineer: obRes.data.latestBillingEngineer }));
       }
       setError('');
     } catch (err: any) {
@@ -278,9 +281,17 @@ export default function ClientOnboarding() {
               <label>Assigned engineer</label>
               <input className="input" list="ob-engineers" value={form.engineer}
                 onChange={e => set('engineer', e.target.value)} />
+              <span className="hint">Also updates the client's engineer on the Clients page.</span>
               <datalist id="ob-engineers">
                 {meta.engineers.map((e: string) => <option key={e} value={e} />)}
               </datalist>
+            </div>
+            <div className="field">
+              <label>Additional engineer</label>
+              <input className="input" list="ob-engineers" value={form.supportEngineer}
+                placeholder="Optional — second engineer"
+                onChange={e => set('supportEngineer', e.target.value)} />
+              <span className="hint">For institutions handled by two engineers.</span>
             </div>
           </div>
           <div className="form-grid mb-16">

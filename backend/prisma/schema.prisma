@@ -197,7 +197,8 @@ model ClientOnboarding {
   studentStrength    Int?
   onboardedOn        String?
   goLiveDate         String?
-  engineer           String   @default("")
+  engineer           String   @default("") // kept in sync with the latest billing engineer
+  supportEngineer    String   @default("") // second engineer on larger institutions
   poReceived         Boolean  @default(false)
   poNumber           String   @default("")
   poDate             String?
