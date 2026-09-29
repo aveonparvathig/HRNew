@@ -823,12 +823,15 @@ a:hover { text-decoration: underline; }
 }
 
 @media print {
+  /* Zero page margins so the browser has nowhere to print its URL /
+     date / page-number header and footer; padding replaces the margin. */
+  @page { margin: 0; }
   body * { visibility: hidden; }
   .print-area, .print-area * { visibility: visible; }
   .print-area {
     position: absolute;
     left: 0; top: 0; width: 100%;
-    margin: 0; padding: 24px 32px;
+    margin: 0; padding: 14mm 16mm;
     border: none; box-shadow: none; border-radius: 0;
     min-height: 0;
   }
