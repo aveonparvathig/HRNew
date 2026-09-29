@@ -1020,6 +1020,124 @@ export const incomeController = {
   },
 
   // ---- Onboarding / implementation --------------------------------------
+  // ---- Client visits (site attendance) -----------------------------------
+  // Any client is loggable — deliberately NOT gated by assertClientAccess.
+  // Everyone in the income module sees all visits; employees edit only
+  // their own entries, SUPER_ADMIN edits all.
+  async getVisits(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const clientId = String(req.query.client || '').trim();
+    const engineer = String(req.query.engineer || '').trim();
+    const month = String(req.query.month || '').trim(); // "YYYY-MM"
+    const [visits, visitClients, engineers] = await Promise.all([
+      prisma.clientVisit.findMany({
+        where: {
+          organizationId: orgId,
+          ...(clientId ? { clientId } : {}),
+          ...(engineer ? { engineerName: engineer } : {}),
+          ...(month ? { visitDate: { startsWith: month } } : {}),
+        },
+        include: { client: { select: { id: true, name: true } } },
+        orderBy: [{ visitDate: 'desc' }, { createdAt: 'desc' }],
+      }),
+      prisma.incomeClient.findMany({
+        where: { organizationId: orgId, isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      engineerNames(orgId),
+    ]);
+    const actor = await loadActor(req);
+    res.json({
+      visits: visits.map(v => ({ ...v, mine: v.createdById === actor.id })),
+      summary: {
+        count: visits.length,
+        clients: new Set(visits.map(v => v.clientId)).size,
+        engineers: new Set(visits.map(v => v.engineerName).filter(Boolean)).size,
+      },
+      visitClients,
+      engineers,
+      actorIsAdmin: actor.role === 'SUPER_ADMIN',
+    });
+  },
+
+  async createVisit(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body || {};
+    const actor = await loadActor(req);
+    const client = await fetchOrgClient(String(b.clientId || ''), orgId);
+    const visitDate = String(b.visitDate || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(visitDate)) throw new AppError(400, 'Pick the visit date');
+    const engineerName = actor.role === 'EMPLOYEE'
+      ? (await actorPerson(req)).name
+      : String(b.engineerName || '').trim();
+    const visit = await prisma.clientVisit.create({
+      data: {
+        organizationId: orgId,
+        clientId: client.id,
+        engineerName,
+        visitDate,
+        timeIn: String(b.timeIn || '').trim(),
+        timeOut: String(b.timeOut || '').trim(),
+        workDone: String(b.workDone || '').trim(),
+        metPersons: String(b.metPersons || '').trim(),
+        followupNote: String(b.followupNote || '').trim(),
+        followupDate: b.followupDate || null,
+        createdById: actor.id,
+      },
+    });
+    res.status(201).json(visit);
+  },
+
+  async updateVisit(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const actor = await loadActor(req);
+    const visit = await prisma.clientVisit.findFirst({
+      where: { id: req.params.visitId, organizationId: orgId },
+    });
+    if (!visit) throw new AppError(404, 'Visit not found');
+    if (actor.role !== 'SUPER_ADMIN' && visit.createdById !== actor.id) {
+      throw new AppError(403, 'You can only edit your own visits');
+    }
+    const b = req.body || {};
+    if (b.visitDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(b.visitDate))) {
+      throw new AppError(400, 'Invalid visit date');
+    }
+    if (b.clientId !== undefined) await fetchOrgClient(String(b.clientId), orgId);
+    const engineerName = actor.role === 'EMPLOYEE'
+      ? (await actorPerson(req)).name
+      : b.engineerName !== undefined ? String(b.engineerName).trim() : visit.engineerName;
+    const updated = await prisma.clientVisit.update({
+      where: { id: visit.id },
+      data: {
+        clientId: b.clientId !== undefined ? String(b.clientId) : visit.clientId,
+        engineerName,
+        visitDate: b.visitDate !== undefined ? String(b.visitDate) : visit.visitDate,
+        timeIn: b.timeIn !== undefined ? String(b.timeIn).trim() : visit.timeIn,
+        timeOut: b.timeOut !== undefined ? String(b.timeOut).trim() : visit.timeOut,
+        workDone: b.workDone !== undefined ? String(b.workDone).trim() : visit.workDone,
+        metPersons: b.metPersons !== undefined ? String(b.metPersons).trim() : visit.metPersons,
+        followupNote: b.followupNote !== undefined ? String(b.followupNote).trim() : visit.followupNote,
+        followupDate: b.followupDate !== undefined ? (b.followupDate || null) : visit.followupDate,
+      },
+    });
+    res.json(updated);
+  },
+
+  async deleteVisit(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const actor = await loadActor(req);
+    const visit = await prisma.clientVisit.findFirst({
+      where: { id: req.params.visitId, organizationId: orgId },
+    });
+    if (!visit) throw new AppError(404, 'Visit not found');
+    if (actor.role !== 'SUPER_ADMIN' && visit.createdById !== actor.id) {
+      throw new AppError(403, 'You can only delete your own visits');
+    }
+    await prisma.clientVisit.delete({ where: { id: visit.id } });
+    res.json({ message: 'Visit deleted' });
+  },
+
   async getOnboarding(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
@@ -1036,8 +1154,15 @@ export const incomeController = {
         select: { engineer: true },
       }),
     ]);
+    const recentVisits = await prisma.clientVisit.findMany({
+      where: { clientId: client.id },
+      orderBy: [{ visitDate: 'desc' }, { createdAt: 'desc' }],
+      take: 5,
+      select: { id: true, visitDate: true, engineerName: true, workDone: true, metPersons: true, timeIn: true, timeOut: true },
+    });
     res.json({
       client: { id: client.id, name: client.name },
+      visits: recentVisits,
       onboarding: ob ? {
         ...ob,
         // One source of truth on screen: fall back to the billing engineer

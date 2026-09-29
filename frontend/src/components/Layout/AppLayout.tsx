@@ -22,6 +22,7 @@ const ICON_PATHS: Record<string, React.ReactNode> = {
   sliders: <><path d="M4 8h10M18 8h2M4 16h2M10 16h10" /><circle cx="16" cy="8" r="2.5" /><circle cx="8" cy="16" r="2.5" /></>,
   home: <><path d="m3 10 9-7 9 7" /><path d="M5 8.5V21h14V8.5" /><path d="M10 21v-6h4v6" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>,
+  pin: <><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z" /><circle cx="12" cy="10" r="2.5" /></>,
   megaphone: <><path d="m3 11 14-6v14L3 13v-2Z" /><path d="M17 8a4 4 0 0 1 0 8" /><path d="M6.5 13.5V19a1.5 1.5 0 0 0 3 0v-4.5" /></>,
 };
 
@@ -43,6 +44,7 @@ const INCOME_ITEMS = [
   { to: '/income/analytics', icon: 'analytics', label: 'Analytics', end: true },
   { to: '/income/clients', icon: 'building', label: 'Clients', end: false },
   { to: '/income/implementation', icon: 'layers', label: 'Implementation', end: true },
+  { to: '/income/implementation/visits', icon: 'pin', label: 'Client Visits', end: true },
   { to: '/income/academic-years', icon: 'calendar', label: 'Billing Periods', end: true },
   { to: '/income/import-export', icon: 'transfer', label: 'Import / Export', end: true },
 ];

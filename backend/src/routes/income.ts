@@ -26,6 +26,12 @@ router.post('/academic-years', adminOnly, asyncHandler((req, res) => incomeContr
 router.post('/academic-years/:yearId/toggle', adminOnly, asyncHandler((req, res) => incomeController.toggleAcademicYear(req, res)));
 
 // Clients
+// Client visits (site attendance) — any client, org-wide visibility
+router.get('/visits', asyncHandler((req, res) => incomeController.getVisits(req, res)));
+router.post('/visits', asyncHandler((req, res) => incomeController.createVisit(req, res)));
+router.put('/visits/:visitId', asyncHandler((req, res) => incomeController.updateVisit(req, res)));
+router.delete('/visits/:visitId', asyncHandler((req, res) => incomeController.deleteVisit(req, res)));
+
 router.get('/clients', asyncHandler((req, res) => incomeController.getClients(req, res)));
 router.post('/clients', asyncHandler((req, res) => incomeController.createClient(req, res)));
 router.get('/clients/:clientId', asyncHandler((req, res) => incomeController.getClientDetail(req, res)));

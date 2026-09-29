@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { useRole } from '../../store/authStore';
+import { formatDate } from '../../utils/format';
 import { PageHeader, ErrorAlert, LoadingBlock, BackButton,
 } from '../../components/ui';
 
@@ -85,6 +86,7 @@ export default function ClientOnboarding() {
   const [form, setForm] = useState<any>(EMPTY);
   const [agreement, setAgreement] = useState<any>(null);
   const [features, setFeatures] = useState<any[]>([]);
+  const [visits, setVisits] = useState<any[]>([]);
   const [progress, setProgress] = useState<any>({ total: 0, applicable: 0, live: 0, pct: 0 });
   const [newFeature, setNewFeature] = useState('');
   const [meta, setMeta] = useState<any>({ engineers: [], onboardingStages: [], institutionTypes: [], featureStatuses: [] });
@@ -102,6 +104,7 @@ export default function ClientOnboarding() {
       setClientName(obRes.data.client.name);
       setMeta(metaRes.data);
       setFeatures(obRes.data.features || []);
+      setVisits(obRes.data.visits || []);
       setProgress(obRes.data.progress || { total: 0, applicable: 0, live: 0, pct: 0 });
       const ob = obRes.data.onboarding;
       if (ob) {
@@ -419,6 +422,42 @@ export default function ClientOnboarding() {
           </button>
         </div>
       </form>
+
+      {/* Recent site visits */}
+      <div className="card" style={{ marginTop: 28 }}>
+        <div className="card-header">
+          <h3>Recent visits</h3>
+          <Link to={`/income/implementation/visits?client=${clientId}`} className="btn btn-secondary btn-sm">
+            ⇗ Log / view all
+          </Link>
+        </div>
+        {visits.length === 0 ? (
+          <p className="text-muted" style={{ padding: '14px 20px', fontSize: 13 }}>
+            No site visits logged for this client yet.
+          </p>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr><th>Date</th><th>Engineer</th><th>Time</th><th>Work done</th><th>Met</th></tr>
+              </thead>
+              <tbody>
+                {visits.map((v: any) => (
+                  <tr key={v.id}>
+                    <td style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{formatDate(v.visitDate)}</td>
+                    <td>{v.engineerName || '—'}</td>
+                    <td className="text-muted" style={{ whiteSpace: 'nowrap', fontSize: 12.5 }}>
+                      {v.timeIn || v.timeOut ? `${v.timeIn || '?'} – ${v.timeOut || '?'}` : '—'}
+                    </td>
+                    <td style={{ fontSize: 12.5 }}>{v.workDone || '—'}</td>
+                    <td className="text-muted" style={{ fontSize: 12.5 }}>{v.metPersons || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Feature delivery status */}
       <div className="card" style={{ marginTop: 28 }}>

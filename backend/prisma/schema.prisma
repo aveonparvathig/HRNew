@@ -68,6 +68,7 @@ model User {
   person          Person?          @relation(fields: [personId], references: [id], onDelete: SetNull)
   refreshTokens   RefreshToken[]
   proposalRecords ProposalRecord[]
+  clientVisits    ClientVisit[]
 
   @@index([organizationId])
   @@map("users")
@@ -122,6 +123,7 @@ model IncomeClient {
   payments     PaymentReceipt[]
   onboarding   ClientOnboarding?
   features     FeatureStatus[]
+  visits       ClientVisit[]
 
   @@unique([organizationId, name])
   @@map("income_clients")
@@ -219,6 +221,33 @@ model ClientOnboarding {
 
   @@index([organizationId])
   @@map("client_onboardings")
+}
+
+// Site-visit attendance: which engineer was at which client, when, what
+// they worked on and whom they met. Any client is loggable; ownership
+// (createdById) gates edits, visibility is org-wide.
+model ClientVisit {
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  engineerName   String   @default("") // forced to own Person name for employees
+  visitDate      String // "YYYY-MM-DD"
+  timeIn         String   @default("") // "HH:MM"
+  timeOut        String   @default("")
+  workDone       String   @default("")
+  metPersons     String   @default("") // "Name (Designation), ..."
+  followupNote   String   @default("")
+  followupDate   String?
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  client    IncomeClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, visitDate])
+  @@index([clientId])
+  @@map("client_visits")
 }
 
 // ---------------------------------------------------------------------------

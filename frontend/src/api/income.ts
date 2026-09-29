@@ -62,6 +62,13 @@ export const incomeAPI = {
   deleteFeature: (featureId: string) =>
     apiClient.delete(`/income/features/${featureId}`),
 
+  // Client visits (site attendance)
+  getVisits: (params?: { client?: string; engineer?: string; month?: string }) =>
+    apiClient.get('/income/visits', { params }),
+  createVisit: (data: any) => apiClient.post('/income/visits', data),
+  updateVisit: (visitId: string, data: any) => apiClient.put(`/income/visits/${visitId}`, data),
+  deleteVisit: (visitId: string) => apiClient.delete(`/income/visits/${visitId}`),
+
   // Export / import
   exportCsv: () => apiClient.get('/income/export.csv', { responseType: 'blob' }),
   exportXlsx: () => apiClient.get('/income/export.xlsx', { responseType: 'blob' }),

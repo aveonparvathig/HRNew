@@ -45,6 +45,7 @@ export default function Implementation() {
       <PageHeader
         title="Implementation"
         subtitle="Onboarding stages, purchase orders and agreement renewals."
+        actions={<Link to="/income/implementation/visits" className="btn btn-secondary">⇗ Client Visits</Link>}
       />
 
       <ErrorAlert message={error} />
