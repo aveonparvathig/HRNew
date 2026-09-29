@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export function BackButton({ fallback = '/dashboard' }: { fallback?: string }) {
@@ -117,9 +118,18 @@ export function Modal({ title, open, onClose, children, size }: {
   children: ReactNode;
   size?: 'lg';
 }) {
+  // Close on backdrop click only when the press STARTED on the backdrop too —
+  // otherwise selecting text in an input and releasing outside the dialog
+  // registers as a backdrop click and throws away the user's work.
+  const pressedBackdrop = useRef(false);
   if (!open) return null;
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay"
+      onMouseDown={e => { pressedBackdrop.current = e.target === e.currentTarget; }}
+      onClick={e => {
+        if (pressedBackdrop.current && e.target === e.currentTarget) onClose();
+        pressedBackdrop.current = false;
+      }}>
       <div className={`modal ${size === 'lg' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h3>{title}</h3>
