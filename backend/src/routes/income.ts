@@ -41,6 +41,7 @@ router.post('/clients/:clientId/toggle-active', adminOnly, asyncHandler((req, re
 router.post('/clients/:clientId/engineer', adminOnly, asyncHandler((req, res) => incomeController.updateClientEngineer(req, res)));
 
 // Billings
+router.get('/clients/:clientId/export.xlsx', asyncHandler((req, res) => incomeController.exportClientXlsx(req, res)));
 router.get('/clients/:clientId/billing-prefill', asyncHandler((req, res) => incomeController.getBillingPrefill(req, res)));
 router.post('/clients/:clientId/billings', asyncHandler((req, res) => incomeController.createBilling(req, res)));
 router.put('/billings/:billingId', asyncHandler((req, res) => incomeController.updateBilling(req, res)));

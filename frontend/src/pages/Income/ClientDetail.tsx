@@ -117,6 +117,21 @@ export default function ClientDetail() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const res = await incomeAPI.exportClientXlsx(client.id);
+      const url = URL.createObjectURL(new Blob([res.data],
+        { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${client.name.replace(/[^\w]+/g, '_')}_statement.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      setError('Failed to export the statement');
+    }
+  };
+
   if (loading) return <LoadingBlock label="Loading client…" />;
   if (!client) {
     return (
@@ -145,6 +160,7 @@ export default function ClientDetail() {
         actions={
           <>
             <StatusBadge status={client.isActive ? 'active' : 'inactive'} />
+            <button className="btn btn-secondary" onClick={handleExport}>⤓ Export</button>
             <Link to={`/income/clients/${client.id}/implementation`} className="btn btn-secondary">
               Implementation
             </Link>

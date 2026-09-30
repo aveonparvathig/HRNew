@@ -1528,6 +1528,95 @@ export const incomeController = {
   },
 
   // Excel export of the full billing sheet
+  // Per-client statement: billing years + every payment, as a workbook.
+  // Employees can export their own clients (assertClientAccess).
+  async exportClientXlsx(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
+    const billings = await prisma.clientBilling.findMany({
+      where: { clientId: client.id },
+      include: { payments: true },
+      orderBy: { yearStart: 'asc' },
+    });
+    const rows = billings.map(b => billingJSON(b, { withPayments: true }));
+    const totals = clientTotalsOf(billings);
+
+    const ExcelJS = await import('exceljs');
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Statement');
+    ws.columns = [
+      { key: 'period', width: 22 }, { key: 'engineer', width: 18 },
+      { key: 'students', width: 10 }, { key: 'rate', width: 10 },
+      { key: 'net', width: 14 }, { key: 'prev', width: 15 },
+      { key: 'due', width: 14 }, { key: 'received', width: 14 },
+      { key: 'balance', width: 14 }, { key: 'status', width: 15 },
+      { key: 'remarks', width: 28 },
+    ] as any;
+    const title = ws.addRow({ period: client.name });
+    title.font = { bold: true, size: 14 };
+    ws.addRow({ period: `Client statement · exported ${todayStr()}` }).font = { color: { argb: 'FF667085' } };
+    ws.addRow({});
+    const sum = ws.addRow({
+      period: 'Total billed', engineer: totals.billed,
+      students: 'Received', rate: totals.received,
+      net: 'Balance', prev: totals.balance,
+      due: 'Collection', received: `${totals.collectionPct}%`,
+    });
+    sum.font = { bold: true };
+    ws.addRow({});
+    const head = ws.addRow({
+      period: 'Period', engineer: 'Engineer', students: 'Students', rate: 'Rate',
+      net: 'Net', prev: 'Prev Pending', due: 'Total Due', received: 'Received',
+      balance: 'Balance', status: 'Invoice Status', remarks: 'Remarks',
+    });
+    head.font = { bold: true };
+    (head as any).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2FF' } };
+    for (const b of rows) {
+      ws.addRow({
+        period: b.periodLabel, engineer: b.engineer,
+        students: b.studentCount ?? '', rate: b.rate ?? '',
+        net: b.netAmount ?? 0, prev: b.previousPending ?? 0,
+        due: b.totalDue, received: b.received, balance: b.balance,
+        status: b.invoiceStatus, remarks: b.remarks,
+      });
+    }
+    const tot = ws.addRow({
+      period: 'Totals', due: totals.billed, received: totals.received, balance: totals.balance,
+    });
+    tot.font = { bold: true };
+    for (const col of ['rate', 'net', 'prev', 'due', 'received', 'balance']) {
+      ws.getColumn(col).numFmt = '#,##0.00';
+    }
+
+    const pws = wb.addWorksheet('Payments');
+    pws.columns = [
+      { header: 'Period', key: 'period', width: 22 },
+      { header: 'Received On', key: 'date', width: 14 },
+      { header: 'Amount', key: 'amount', width: 14 },
+      { header: 'Mode', key: 'mode', width: 14 },
+      { header: 'Note', key: 'note', width: 32 },
+    ] as any;
+    pws.getRow(1).font = { bold: true };
+    (pws.getRow(1) as any).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEF2FF' } };
+    for (const b of rows) {
+      for (const p of b.payments || []) {
+        pws.addRow({
+          period: b.periodLabel,
+          date: p.receivedOn || 'opening figure',
+          amount: p.amount, mode: p.mode, note: p.note,
+        });
+      }
+    }
+    pws.getColumn('amount').numFmt = '#,##0.00';
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const safeName = String(client.name).replace(/[^\w]+/g, '_').slice(0, 60);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}_statement_${todayStr()}.xlsx"`);
+    res.send(Buffer.from(buffer as any));
+  },
+
   async exportXlsx(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const billings = await fetchOrgBillings(orgId);
