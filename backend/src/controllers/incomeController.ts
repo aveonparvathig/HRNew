@@ -1637,7 +1637,14 @@ export const incomeController = {
     const primary = brand.brandPrimary || '#4f46e5';
     const accent = brand.brandAccent || '#312e81';
     const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    // Paise shown only when present — keeps wide lakh figures compact
+    const inr = (n: number) => {
+      const v = Number(n || 0);
+      return '₹' + v.toLocaleString('en-IN', {
+        minimumFractionDigits: Number.isInteger(round2(v)) ? 0 : 2,
+        maximumFractionDigits: 2,
+      });
+    };
     const periodTitle = year ? rows[0]?.periodLabel || year : 'All periods';
 
     const billingRows = rows.map(b => `<tr>
@@ -1654,28 +1661,28 @@ export const incomeController = {
     const html = `
 <div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13px;line-height:1.6;background:#fff;padding:2px;">
   <style>
-    .st-table { width:100%; border-collapse:collapse; margin-bottom:20px; }
-    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:5px 8px; font-size:11.5px; }
+    .st-table { width:100%; border-collapse:collapse; margin-bottom:18px; }
+    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:3px 5px; font-size:10px; }
     .st-table th { background:#eef2ff; color:${accent}; text-align:left; white-space:nowrap; }
     .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
     .st-table .tot td { font-weight:700; background:#f8fafc; }
-    .st-h { font-size:14px; font-weight:700; color:${accent}; margin:16px 0 8px; page-break-after:avoid; }
+    .st-h { font-size:13px; font-weight:700; color:${accent}; margin:14px 0 7px; page-break-after:avoid; }
     .st-table tr { page-break-inside:avoid; }
   </style>
   <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
-    <div style="display:flex;align-items:center;gap:14px;">
-      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:44px;max-width:130px;object-fit:contain;"/>` : ''}
-      <div>
-        <div style="font-size:20px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
-        ${brand.addressLine ? `<div style="font-size:11px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
+    <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:40px;max-width:110px;object-fit:contain;"/>` : ''}
+      <div style="min-width:0;">
+        <div style="font-size:17px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
+        ${brand.addressLine ? `<div style="font-size:10px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
       </div>
     </div>
-    <div style="text-align:right;">
-      <div style="font-size:15px;font-weight:700;">Client Statement</div>
-      <div style="font-size:12px;color:#555;">${esc(periodTitle)} · ${todayStr()}</div>
+    <div style="text-align:right;flex:none;">
+      <div style="font-size:14px;font-weight:700;white-space:nowrap;">Client Statement</div>
+      <div style="font-size:11px;color:#555;white-space:nowrap;">${esc(periodTitle)} · ${todayStr()}</div>
     </div>
   </div>
-  <div style="font-size:16px;font-weight:700;margin-bottom:10px;">${esc(client.name)}</div>
+  <div style="font-size:15px;font-weight:700;margin-bottom:10px;">${esc(client.name)}</div>
   <table class="st-table" style="width:auto;min-width:60%;">
     <tr><th>Total Billed</th><th>Received</th><th>Balance</th><th>Collection</th></tr>
     <tr><td class="amt">${inr(totals.billed)}</td><td class="amt">${inr(totals.received)}</td>
