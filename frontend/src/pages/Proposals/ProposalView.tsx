@@ -4,6 +4,7 @@ import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
 
 export default function ProposalView() {
@@ -33,29 +34,17 @@ export default function ProposalView() {
     setPdfBusy(true);
     setError('');
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const doc = new DOMParser().parseFromString(record.html, 'text/html');
-      const container = document.createElement('div');
-      const styles = Array.from(doc.querySelectorAll('style')).map(s => s.outerHTML).join('');
-      container.innerHTML =
-        styles +
-        // Neutralize screen-only chrome for both the new .paper layout and
-        // the legacy 900px .page layout of older stored proposals.
-        '<style>.paper{box-shadow:none!important;width:210mm!important;margin:0!important}' +
-        '.page{max-width:210mm!important}.footer{display:none!important}body{background:#fff!important}</style>' +
-        doc.body.innerHTML;
-      container.style.cssText = 'width:210mm;background:#fff;';
-      // IMPORTANT: pass the element DETACHED — html2pdf clones it into its
-      // own on-screen sandbox. Parking it offscreen ourselves makes
-      // html2canvas capture empty viewport space (blank PDF).
-      await html2pdf().set({
-        margin: 0,
-        filename: `Proposal_${String(record.clientName).replace(/[^\w]+/g, '_')}_Rev${record.revision}.pdf`,
-        image: { type: 'jpeg', quality: 0.96 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: 794, scrollX: 0, scrollY: 0 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] },
-      } as any).from(container).save();
+      // Neutralize screen-only chrome for both the new .paper layout and
+      // the legacy 900px .page layout of older stored proposals.
+      await downloadHtmlAsPdf(
+        record.html,
+        `Proposal_${String(record.clientName).replace(/[^\w]+/g, '_')}_Rev${record.revision}.pdf`,
+        {
+          fullDocument: true,
+          extraCss: '.paper{box-shadow:none!important;width:210mm!important;margin:0!important}' +
+            '.page{max-width:210mm!important}.footer{display:none!important}body{background:#fff!important}',
+        },
+      );
     } catch {
       setError('PDF export failed — use Open Full Page and print to PDF instead.');
     } finally {

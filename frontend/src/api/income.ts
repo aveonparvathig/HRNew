@@ -70,8 +70,10 @@ export const incomeAPI = {
   deleteVisit: (visitId: string) => apiClient.delete(`/income/visits/${visitId}`),
 
   // Export / import
-  exportClientXlsx: (clientId: string) =>
-    apiClient.get(`/income/clients/${clientId}/export.xlsx`, { responseType: 'blob' }),
+  exportClientXlsx: (clientId: string, year?: string) =>
+    apiClient.get(`/income/clients/${clientId}/export.xlsx`, { responseType: 'blob', params: { year } }),
+  getClientStatement: (clientId: string, year?: string) =>
+    apiClient.get(`/income/clients/${clientId}/statement`, { params: { year } }),
   exportCsv: () => apiClient.get('/income/export.csv', { responseType: 'blob' }),
   exportXlsx: () => apiClient.get('/income/export.xlsx', { responseType: 'blob' }),
   importCsv: (csv: string, dryRun: boolean) =>

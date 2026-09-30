@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import BillingFormModal from '../../components/BillingFormModal';
 import { formatINR, formatDate } from '../../utils/format';
+import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
 
 const INVOICE_LABELS: Record<string, string> = {
@@ -28,6 +29,9 @@ export default function ClientDetail() {
   const [meta, setMeta] = useState<any>({ academicYears: [], engineers: [], invoiceStatuses: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [exportModal, setExportModal] = useState(false);
+  const [exportYear, setExportYear] = useState('');
+  const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const [billingModal, setBillingModal] = useState<{ open: boolean; billing: any | null }>({ open: false, billing: null });
@@ -117,18 +121,35 @@ export default function ClientDetail() {
     }
   };
 
-  const handleExport = async () => {
+  const handleExportXlsx = async () => {
+    setExporting('xlsx');
     try {
-      const res = await incomeAPI.exportClientXlsx(client.id);
+      const res = await incomeAPI.exportClientXlsx(client.id, exportYear || undefined);
       const url = URL.createObjectURL(new Blob([res.data],
         { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${client.name.replace(/[^\w]+/g, '_')}_statement.xlsx`;
+      a.download = `${client.name.replace(/[^\w]+/g, '_')}_statement${exportYear ? '_' + exportYear : ''}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
+      setExportModal(false);
     } catch {
       setError('Failed to export the statement');
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    setExporting('pdf');
+    try {
+      const res = await incomeAPI.getClientStatement(client.id, exportYear || undefined);
+      await downloadHtmlAsPdf(res.data.html, res.data.filename);
+      setExportModal(false);
+    } catch {
+      setError('Failed to export the PDF statement');
+    } finally {
+      setExporting(null);
     }
   };
 
@@ -160,7 +181,7 @@ export default function ClientDetail() {
         actions={
           <>
             <StatusBadge status={client.isActive ? 'active' : 'inactive'} />
-            <button className="btn btn-secondary" onClick={handleExport}>⤓ Export</button>
+            <button className="btn btn-secondary" onClick={() => setExportModal(true)}>⤓ Export</button>
             <Link to={`/income/clients/${client.id}/implementation`} className="btn btn-secondary">
               Implementation
             </Link>
@@ -450,6 +471,29 @@ export default function ClientDetail() {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Statement export: pick the period + format */}
+      <Modal title={`Export Statement — ${client.name}`} open={exportModal}
+        onClose={() => setExportModal(false)}>
+        <div className="field" style={{ marginBottom: 16 }}>
+          <label>Period</label>
+          <select className="select" value={exportYear} onChange={e => setExportYear(e.target.value)}>
+            <option value="">All periods ({client.billings.length})</option>
+            {client.billings.map((b: any) => (
+              <option key={b.id} value={b.academicYear}>{b.periodLabel || b.academicYear}</option>
+            ))}
+          </select>
+          <span className="hint">The statement includes the billing rows and every payment for the selection.</span>
+        </div>
+        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
+          <button className="btn btn-primary" disabled={exporting !== null} onClick={handleExportPdf}>
+            {exporting === 'pdf' ? 'Exporting…' : '⤓ Download PDF'}
+          </button>
+          <button className="btn btn-secondary" disabled={exporting !== null} onClick={handleExportXlsx}>
+            {exporting === 'xlsx' ? 'Exporting…' : '⤓ Download Excel'}
+          </button>
+        </div>
       </Modal>
     </>
   );

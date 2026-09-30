@@ -1534,8 +1534,9 @@ export const incomeController = {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
     await assertClientAccess(req, client.id);
+    const year = String(req.query.year || '').trim(); // '' = all periods
     const billings = await prisma.clientBilling.findMany({
-      where: { clientId: client.id },
+      where: { clientId: client.id, ...(year ? { academicYear: year } : {}) },
       include: { payments: true },
       orderBy: { yearStart: 'asc' },
     });
@@ -1612,9 +1613,94 @@ export const incomeController = {
 
     const buffer = await wb.xlsx.writeBuffer();
     const safeName = String(client.name).replace(/[^\w]+/g, '_').slice(0, 60);
+    const suffix = year ? `_${year.replace(/[^\w]+/g, '-')}` : '';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}_statement_${todayStr()}.xlsx"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}_statement${suffix}_${todayStr()}.xlsx"`);
     res.send(Buffer.from(buffer as any));
+  },
+
+  // Branded statement document for the same data — the frontend turns it
+  // into a PDF (same html2pdf pipeline as proposals).
+  async clientStatement(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
+    const year = String(req.query.year || '').trim();
+    const billings = await prisma.clientBilling.findMany({
+      where: { clientId: client.id, ...(year ? { academicYear: year } : {}) },
+      include: { payments: true },
+      orderBy: { yearStart: 'asc' },
+    });
+    const rows = billings.map(b => billingJSON(b, { withPayments: true }));
+    const totals = clientTotalsOf(billings);
+    const brand = await (await import('../services/orgBrand')).orgBrand(orgId);
+    const primary = brand.brandPrimary || '#4f46e5';
+    const accent = brand.brandAccent || '#312e81';
+    const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+    const periodTitle = year ? rows[0]?.periodLabel || year : 'All periods';
+
+    const billingRows = rows.map(b => `<tr>
+      <td>${esc(b.periodLabel)}</td><td>${esc(b.engineer) || '—'}</td>
+      <td class="amt">${b.studentCount ?? '—'}</td><td class="amt">${b.rate != null ? inr(b.rate) : '—'}</td>
+      <td class="amt">${inr(b.netAmount)}</td><td class="amt">${inr(b.previousPending)}</td>
+      <td class="amt">${inr(b.totalDue)}</td><td class="amt">${inr(b.received)}</td>
+      <td class="amt">${inr(b.balance)}</td><td>${esc(b.invoiceStatus) || '—'}</td></tr>`).join('');
+
+    const paymentRows = rows.flatMap(b => (b.payments || []).map((p: any) => `<tr>
+      <td>${esc(b.periodLabel)}</td><td>${p.receivedOn ? esc(p.receivedOn) : 'opening figure'}</td>
+      <td class="amt">${inr(p.amount)}</td><td>${esc(p.mode) || '—'}</td><td>${esc(p.note) || ''}</td></tr>`)).join('');
+
+    const html = `
+<div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13px;line-height:1.6;background:#fff;padding:2px;">
+  <style>
+    .st-table { width:100%; border-collapse:collapse; margin-bottom:20px; }
+    .st-table th, .st-table td { border:1px solid #d6dbe3; padding:5px 8px; font-size:11.5px; }
+    .st-table th { background:#eef2ff; color:${accent}; text-align:left; white-space:nowrap; }
+    .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .st-table .tot td { font-weight:700; background:#f8fafc; }
+    .st-h { font-size:14px; font-weight:700; color:${accent}; margin:16px 0 8px; page-break-after:avoid; }
+    .st-table tr { page-break-inside:avoid; }
+  </style>
+  <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
+    <div style="display:flex;align-items:center;gap:14px;">
+      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:44px;max-width:130px;object-fit:contain;"/>` : ''}
+      <div>
+        <div style="font-size:20px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
+        ${brand.addressLine ? `<div style="font-size:11px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:15px;font-weight:700;">Client Statement</div>
+      <div style="font-size:12px;color:#555;">${esc(periodTitle)} · ${todayStr()}</div>
+    </div>
+  </div>
+  <div style="font-size:16px;font-weight:700;margin-bottom:10px;">${esc(client.name)}</div>
+  <table class="st-table" style="width:auto;min-width:60%;">
+    <tr><th>Total Billed</th><th>Received</th><th>Balance</th><th>Collection</th></tr>
+    <tr><td class="amt">${inr(totals.billed)}</td><td class="amt">${inr(totals.received)}</td>
+      <td class="amt">${inr(totals.balance)}</td><td class="amt">${totals.collectionPct}%</td></tr>
+  </table>
+
+  <div class="st-h">Billing — ${rows.length} period${rows.length !== 1 ? 's' : ''}</div>
+  <table class="st-table">
+    <tr><th>Period</th><th>Engineer</th><th class="amt">Students</th><th class="amt">Rate</th>
+      <th class="amt">Net</th><th class="amt">Prev Pending</th><th class="amt">Total Due</th>
+      <th class="amt">Received</th><th class="amt">Balance</th><th>Invoice</th></tr>
+    ${billingRows || '<tr><td colspan="10">No billing records for this selection.</td></tr>'}
+    <tr class="tot"><td colspan="6">Totals</td><td class="amt">${inr(totals.billed)}</td>
+      <td class="amt">${inr(totals.received)}</td><td class="amt">${inr(totals.balance)}</td><td></td></tr>
+  </table>
+
+  <div class="st-h">Payments</div>
+  <table class="st-table">
+    <tr><th>Period</th><th>Received On</th><th class="amt">Amount</th><th>Mode</th><th>Note</th></tr>
+    ${paymentRows || '<tr><td colspan="5">No payments recorded for this selection.</td></tr>'}
+  </table>
+</div>`;
+    const safeName = String(client.name).replace(/[^\w]+/g, '_').slice(0, 60);
+    const suffix = year ? `_${year.replace(/[^\w]+/g, '-')}` : '';
+    res.json({ html, filename: `${safeName}_statement${suffix}.pdf`, title: `Statement — ${client.name}` });
   },
 
   async exportXlsx(req: any, res: Response) {
