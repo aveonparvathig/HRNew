@@ -12,6 +12,7 @@ import { payrollDeclarationsController } from '../controllers/payrollDeclaration
 import { payrollPayoutController } from '../controllers/payrollPayoutController';
 import { payrollControlController } from '../controllers/payrollControlController';
 import { payrollReturnsController } from '../controllers/payrollReturnsController';
+import { payrollArrearsController } from '../controllers/payrollArrearsController';
 
 const router = Router();
 
@@ -101,6 +102,20 @@ router.get('/form16/:personId/part-a', asyncHandler((req, res) => payrollReturns
 router.put('/form16/:personId/part-a', asyncHandler((req, res) => payrollReturnsController.uploadPartA(req, res)));
 router.delete('/form16/:personId/part-a', asyncHandler((req, res) => payrollReturnsController.deletePartA(req, res)));
 
+// Arrears and final settlements
+router.get('/arrears', asyncHandler((req, res) => payrollArrearsController.getArrears(req, res)));
+router.post('/arrears/lop-reversal', asyncHandler((req, res) => payrollArrearsController.reverseLop(req, res)));
+router.post('/arrears/:arrearId/cancel', asyncHandler((req, res) => payrollArrearsController.cancelArrear(req, res)));
+router.get('/people/:personId/lop-months', asyncHandler((req, res) => payrollArrearsController.getLopMonths(req, res)));
+router.get('/settlements', asyncHandler((req, res) => payrollArrearsController.getSettlements(req, res)));
+router.post('/settlements', asyncHandler((req, res) => payrollArrearsController.createSettlement(req, res)));
+router.post('/people/:personId/settlement-preview', asyncHandler((req, res) => payrollArrearsController.previewSettlement(req, res)));
+router.get('/settlements/:settlementId', asyncHandler((req, res) => payrollArrearsController.getSettlement(req, res)));
+router.put('/settlements/:settlementId', asyncHandler((req, res) => payrollArrearsController.updateSettlement(req, res)));
+router.delete('/settlements/:settlementId', asyncHandler((req, res) => payrollArrearsController.deleteSettlement(req, res)));
+router.post('/settlements/:settlementId/apply', asyncHandler((req, res) => payrollArrearsController.applySettlement(req, res)));
+router.post('/settlements/:settlementId/recover-loans', asyncHandler((req, res) => payrollArrearsController.recoverLoans(req, res)));
+
 // Loans and advances
 router.get('/loans', asyncHandler((req, res) => payrollLoansController.getLoans(req, res)));
 router.post('/loans', asyncHandler((req, res) => payrollLoansController.createLoan(req, res)));
@@ -122,6 +137,10 @@ router.get('/reports/tds-return', asyncHandler((req, res) => payrollReturnsContr
 router.get('/reports/form-16', asyncHandler((req, res) => payrollReturnsController.form16(req, res)));
 router.get('/reports/form-16-all', asyncHandler((req, res) => payrollReturnsController.form16All(req, res)));
 router.get('/reports/form-12ba', asyncHandler((req, res) => payrollReturnsController.form12ba(req, res)));
+router.get('/reports/arrears', asyncHandler((req, res) => payrollArrearsController.arrearReport(req, res)));
+router.get('/reports/pf-arrears', asyncHandler((req, res) => payrollArrearsController.pfArrearReport(req, res)));
+router.get('/reports/settlement-statement', asyncHandler((req, res) => payrollArrearsController.settlementStatement(req, res)));
+router.get('/reports/settlements', asyncHandler((req, res) => payrollArrearsController.settlementRegister(req, res)));
 router.get('/reports/form-12bb', asyncHandler((req, res) => payrollDeclarationsController.form12bb(req, res)));
 router.get('/reports/declarations', asyncHandler((req, res) => payrollDeclarationsController.declarationsReport(req, res)));
 router.get('/reports/tax-statement', asyncHandler((req, res) => payrollTaxController.taxStatement(req, res)));

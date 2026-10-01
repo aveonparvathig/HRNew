@@ -367,6 +367,8 @@ model Person {
   loans          Loan[]
   taxProfiles    EmployeeTaxProfile[]
   form16PartAs Form16PartA[]
+  arrearItems    ArrearItem[]
+  settlements    Settlement[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -532,6 +534,13 @@ model PayrollSettings {
   form16Name   String @default("Form 16")
   form12baName String @default("Form 12BA")
 
+  // Arrears and final settlement
+  lopReversalMonths  Int   @default(6) // how far back loss of pay can be reversed
+  noticePeriodDays   Int   @default(30) // the usual notice period, as a starting value
+  settlementDayBasis Int   @default(30) // days in a month for leave encashment and notice pay
+  gratuityMinYears   Int   @default(5)
+  gratuityCap        Float @default(2000000)
+
   // On finalizing a run: release its payslips, and open next month's run
   autoReleaseOnFinalize Boolean @default(false)
   autoCreateNextRun     Boolean @default(false)
@@ -644,6 +653,9 @@ model PayslipEntry {
   payoutBatch PayoutBatch? @relation(fields: [payoutBatchId], references: [id], onDelete: SetNull)
   expenseReports ExpenseReport[]
   tdsAllocations TdsChallanAllocation[]
+  arrearsRaised  ArrearItem[] @relation("ArrearSource")
+  arrearsPaid    ArrearItem[] @relation("ArrearPaid")
+  settlements    Settlement[]
   run    PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   // Restrict, deliberately: a person with payslip history can never be
   // deleted, only marked inactive.
@@ -689,6 +701,9 @@ model PayslipLine {
   type           String // EARNING | DEDUCTION
   amount         Float
   remarks        String @default("")
+  // "" = entered by hand. ARREAR and SETTLEMENT lines are written by those
+  // features and cannot be edited on the payslip.
+  source         String @default("")
 
   entry     PayslipEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   component PayComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
@@ -712,6 +727,7 @@ model SalaryRevision {
   createdAt         DateTime @default(now())
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  arrearItems ArrearItem[]
 
   @@index([organizationId, personId])
   @@map("salary_revisions")
@@ -1280,4 +1296,93 @@ model Form16PartA {
   @@unique([personId, fyStart])
   @@index([organizationId, fyStart])
   @@map("form16_part_a")
+}
+
+// Pay owed for a month that is already finalized: a back-dated salary
+// revision, or loss-of-pay days reversed. It is paid as a line on a later
+// payslip, with PF and ESI on it.
+model ArrearItem {
+  id             String    @id @default(cuid())
+  organizationId String
+  personId       String
+  kind           String // REVISION | LOP_REVERSAL
+  sourcePeriod   String // "YYYY-MM" the month being corrected
+  sourceEntryId  String
+  revisionId     String?
+  lopDays        Float     @default(0) // days reversed (LOP_REVERSAL)
+  fromPackage    Float     @default(0)
+  toPackage      Float     @default(0)
+
+  basic              Float @default(0)
+  da                 Float @default(0)
+  hra                Float @default(0)
+  transportAllowance Float @default(0)
+  foodAllowance      Float @default(0)
+  gross              Float @default(0)
+  pfEmployee         Float @default(0)
+  pfEmployer         Float @default(0)
+  esiEmployee        Float @default(0)
+  esiEmployer        Float @default(0)
+
+  status        String    @default("OPEN") // OPEN | CANCELLED; paid once its payslip's run is finalized
+  paidEntryId   String?
+  reason        String    @default("")
+  createdByName String    @default("")
+  createdAt     DateTime  @default(now())
+  cancelledAt   DateTime?
+
+  person      Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
+  sourceEntry PayslipEntry    @relation("ArrearSource", fields: [sourceEntryId], references: [id], onDelete: Cascade)
+  paidEntry   PayslipEntry?   @relation("ArrearPaid", fields: [paidEntryId], references: [id], onDelete: SetNull)
+  revision    SalaryRevision? @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, personId])
+  @@index([sourceEntryId])
+  @@index([paidEntryId])
+  @@map("arrear_items")
+}
+
+// Full and final settlement of an employee who is leaving. Its amounts are
+// paid as lines on the employee's payslip for the chosen month. A later
+// correction is a new settlement (sequence 2, 3…) that pays the difference.
+model Settlement {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  sequence       Int      @default(1)
+  period         String // "YYYY-MM" the payroll month it is paid in
+  entryId        String?
+
+  lastWorkingDate String // "YYYY-MM-DD"
+  resignedOn      String?
+  reason          String  @default("")
+  payDays         Float? // paid days in the settlement month; null leaves the run's attendance alone
+
+  // Workings, kept for the statement
+  monthlyGross     Float @default(0)
+  basicDa          Float @default(0)
+  serviceYears     Float @default(0)
+  noticeDays       Float @default(0)
+  noticeServedDays Float @default(0)
+  noticePayDays    Float @default(0)
+  leaveDays        Float @default(0)
+  gratuityYears    Float @default(0)
+
+  // Amounts to pay or recover: totals as they should finally stand
+  leaveEncashment Float @default(0)
+  gratuity        Float @default(0)
+  noticePay       Float @default(0)
+  noticeRecovery  Float @default(0)
+
+  remarks       String   @default("")
+  createdByName String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  person Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  entry  PayslipEntry? @relation(fields: [entryId], references: [id], onDelete: SetNull)
+
+  @@unique([personId, sequence])
+  @@index([organizationId, period])
+  @@map("settlements")
 }

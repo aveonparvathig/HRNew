@@ -6,37 +6,15 @@ import {
   packageForPeriod, sortRevisions, currentPeriodIST,
 } from '../services/payroll/salaryStructure';
 import { syncDraftEntries } from '../services/payroll/draftSync';
+import { ensureDefaultComponents } from '../services/payroll/payComponents';
+import { raiseRevisionArrears, cancelRevisionArrears } from '../services/payroll/arrears';
 
 const str = (v: any) => String(v ?? '').trim();
 
 const COMPONENT_TYPES = ['EARNING', 'DEDUCTION'];
 
-// Starter catalogue for a new organization — the usual one-off pay items.
-const DEFAULT_COMPONENTS: [string, string, string][] = [
-  ['BONUS', 'Bonus', 'EARNING'],
-  ['INCENTIVE', 'Incentive', 'EARNING'],
-  ['PERFORMANCE_BONUS', 'Performance Bonus', 'EARNING'],
-  ['OVERTIME', 'Overtime', 'EARNING'],
-  ['JOINING_BONUS', 'Joining Bonus', 'EARNING'],
-  ['REFERRAL_BONUS', 'Referral Bonus', 'EARNING'],
-  ['RELOCATION_BONUS', 'Relocation Bonus', 'EARNING'],
-  ['VARIABLE_PAY', 'Variable Pay', 'EARNING'],
-  ['LEAVE_ENCASHMENT', 'Leave Encashment', 'EARNING'],
-  ['OTHER_EARNINGS', 'Other Earnings', 'EARNING'],
-  ['OTHER_DEDUCTION', 'Other Deduction', 'DEDUCTION'],
-  ['NOTICE_PAY_RECOVERY', 'Notice Period Recovery', 'DEDUCTION'],
-];
-
 export async function componentsFor(organizationId: string) {
-  const existing = await prisma.payComponent.count({ where: { organizationId } });
-  if (existing === 0) {
-    await prisma.payComponent.createMany({
-      data: DEFAULT_COMPONENTS.map(([code, name, type], i) => ({
-        organizationId, code, name, type, taxable: type === 'EARNING', sortOrder: i,
-      })),
-      skipDuplicates: true,
-    });
-  }
+  await ensureDefaultComponents(organizationId);
   return prisma.payComponent.findMany({
     where: { organizationId },
     include: { _count: { select: { lines: true } } },
@@ -204,12 +182,15 @@ export const payrollStructureController = {
       action: 'SALARY_REVISED', personId: person.id, personName: person.name, period: month,
       field: 'Monthly package', oldValue: String(oldPackage), newValue: String(newPackage),
     }]);
+    const draftEntriesUpdated = await syncDraftEntries(req, person.id, month);
     res.status(201).json({
       revision: revisionJSON(revision),
       currentMonthlyPackage: current,
-      draftEntriesUpdated: await syncDraftEntries(req, person.id, month),
-      // Finalized months on or after the effective month keep their old package
+      draftEntriesUpdated,
+      // Finalized months on or after the effective month keep their old
+      // package; the difference is raised as arrears
       finalizedThrough: finalized?.run.period || null,
+      arrears: finalized ? await raiseRevisionArrears(req, person.id, month, revision.id) : null,
     });
   },
 
@@ -224,6 +205,8 @@ export const payrollStructureController = {
     if (!latest || latest.id !== req.params.revisionId) {
       throw new AppError(400, 'Only the latest revision can be removed');
     }
+    // Unpaid arrears of the revision go with it; paid ones stop the removal
+    await cancelRevisionArrears(orgId, latest.id);
     await prisma.salaryRevision.delete({ where: { id: latest.id } });
     const remaining = revisions.slice(0, -1);
     const today = currentPeriodIST();

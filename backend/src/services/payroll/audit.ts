@@ -18,7 +18,8 @@ export type AuditAction =
   | 'PAY_SETTINGS_UPDATED' | 'PAYOUT_SETTINGS_UPDATED' | 'LEDGER_MAPPING_UPDATED'
   | 'PAYOUT_BATCH_CREATED' | 'PAYOUT_BATCH_PAID' | 'PAYOUT_BATCH_DELETED' | 'PAYOUT_BATCH_CHANGED'
   | 'CLAIM_ATTACHED' | 'CLAIM_DETACHED'
-  | 'TDS_CHALLAN_RECORDED' | 'TDS_CHALLAN_DELETED' | 'FORM16_RELEASE_CHANGED' | 'FORM16_PART_A_SAVED';
+  | 'TDS_CHALLAN_RECORDED' | 'TDS_CHALLAN_DELETED' | 'FORM16_RELEASE_CHANGED' | 'FORM16_PART_A_SAVED'
+  | 'ARREAR_RAISED' | 'ARREAR_CANCELLED' | 'SETTLEMENT_SAVED' | 'SETTLEMENT_DELETED';
 
 export interface AuditRow {
   action: AuditAction;
@@ -54,6 +55,11 @@ const FIELD_LABELS: Record<string, string> = {
   professionalTax: 'Professional Tax',
   loanDeduction: 'Loan instalment',
   tdsAutoFrom: 'Compute TDS from',
+  lopReversalMonths: 'Months back loss of pay can be reversed',
+  noticePeriodDays: 'Usual notice period (days)',
+  settlementDayBasis: 'Days in a month for encashment and notice',
+  gratuityMinYears: 'Service needed for gratuity (years)',
+  gratuityCap: 'Gratuity limit',
   form24qName: 'Name of the quarterly TDS return',
   form16Name: 'Name of the salary TDS certificate',
   form12baName: 'Name of the perquisites statement',

@@ -43,7 +43,10 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
       setError('');
       setNotice([
         res.data.draftEntriesUpdated ? `${res.data.draftEntriesUpdated} draft payslip${res.data.draftEntriesUpdated === 1 ? '' : 's'} recalculated with the new package.` : '',
-        res.data.finalizedThrough ? `Payroll up to ${monthLabel(res.data.finalizedThrough)} is already finalized and keeps the old package.` : '',
+        res.data.arrears?.months
+          ? `Payroll up to ${monthLabel(res.data.finalizedThrough)} is already finalized: ${formatINR(res.data.arrears.amount)} of arrears for ${res.data.arrears.months} month${res.data.arrears.months === 1 ? '' : 's'} ${res.data.arrears.paidIn ? `is on the ${monthLabel(res.data.arrears.paidIn)} draft payslip` : 'will be paid with the next payroll run'}.`
+          : res.data.finalizedThrough ? `Payroll up to ${monthLabel(res.data.finalizedThrough)} is already finalized and keeps the old package.` : '',
+        res.data.arrears?.reductions ? 'A back-dated reduction is not recovered automatically.' : '',
       ].filter(Boolean).join(' '));
       setForm({ newMonthlyPackage: '', effectiveMonth: thisMonth(), reason: '' });
       fetchData();

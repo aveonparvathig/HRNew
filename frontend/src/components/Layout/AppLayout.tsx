@@ -73,6 +73,7 @@ const MY_PAY_ITEMS = [
 const PAYROLL_ITEMS = [
   { to: '/payroll', icon: 'banknote', label: 'Runs', end: true },
   { to: '/payroll/loans', icon: 'layers', label: 'Loans', end: false },
+  { to: '/payroll/adjustments', icon: 'transfer', label: 'Arrears & Settlements', end: false },
   { to: '/payroll/declarations', icon: 'pen', label: 'Tax Declarations', end: false },
   { to: '/payroll/tds', icon: 'calendar', label: 'TDS Returns', end: true },
   { to: '/payroll/reports', icon: 'chart', label: 'Reports', end: false },

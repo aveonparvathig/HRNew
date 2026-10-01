@@ -56,10 +56,13 @@ export default function PersonPayCard({ person }: { person: any }) {
             {data.paymentMode === 'BANK' && !data.hasBankDetails && ' · account number or IFSC missing'}
           </span>
         </div>
-        <button className="btn btn-primary btn-sm"
-          onClick={() => setForm({ paymentMode: data.paymentMode, salaryStopped: data.salaryStopped, salaryStopReason: data.salaryStopReason })}>
-          Edit
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to={`/payroll/settlements/new?personId=${person.id}`} className="btn btn-secondary btn-sm">Final Settlement</Link>
+          <button className="btn btn-primary btn-sm"
+            onClick={() => setForm({ paymentMode: data.paymentMode, salaryStopped: data.salaryStopped, salaryStopReason: data.salaryStopReason })}>
+            Edit
+          </button>
+        </div>
       </div>
       {(error || data.salaryStopped || data.held.length > 0) && (
         <div style={{ padding: '14px 22px 18px', fontSize: 13 }}>
