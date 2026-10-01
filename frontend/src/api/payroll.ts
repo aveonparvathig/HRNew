@@ -96,6 +96,20 @@ export const payrollAPI = {
   uploadForm16PartA: (personId: string, data: any) => apiClient.put(`/payroll/form16/${personId}/part-a`, data),
   deleteForm16PartA: (personId: string, fy: string) => apiClient.delete(`/payroll/form16/${personId}/part-a`, { params: { fy } }),
 
+  // Arrears and final settlements
+  getArrears: () => apiClient.get('/payroll/arrears'),
+  getLopMonths: (personId: string) => apiClient.get(`/payroll/people/${personId}/lop-months`),
+  reverseLop: (data: any) => apiClient.post('/payroll/arrears/lop-reversal', data),
+  cancelArrear: (arrearId: string, reason: string) => apiClient.post(`/payroll/arrears/${arrearId}/cancel`, { reason }),
+  getSettlements: () => apiClient.get('/payroll/settlements'),
+  previewSettlement: (personId: string, data: any) => apiClient.post(`/payroll/people/${personId}/settlement-preview`, data),
+  getSettlement: (settlementId: string) => apiClient.get(`/payroll/settlements/${settlementId}`),
+  createSettlement: (data: any) => apiClient.post('/payroll/settlements', data),
+  updateSettlement: (settlementId: string, data: any) => apiClient.put(`/payroll/settlements/${settlementId}`, data),
+  deleteSettlement: (settlementId: string) => apiClient.delete(`/payroll/settlements/${settlementId}`),
+  applySettlement: (settlementId: string) => apiClient.post(`/payroll/settlements/${settlementId}/apply`),
+  recoverSettlementLoans: (settlementId: string) => apiClient.post(`/payroll/settlements/${settlementId}/recover-loans`),
+
   // Loans and advances
   getLoans: (personId?: string) => apiClient.get('/payroll/loans', { params: personId ? { personId } : {} }),
   getLoan: (loanId: string) => apiClient.get(`/payroll/loans/${loanId}`),
@@ -111,6 +125,7 @@ export const payrollAPI = {
   //       | tax-statement | tax-consolidated | pan-status | form-12bb | declarations
   //       | bank-advice | hold-release | duplicates | reimbursements
   //       | tds-challans | tds-return | form-16 | form-16-all | form-12ba
+  //       | arrears | pf-arrears | settlement-statement | settlements
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),

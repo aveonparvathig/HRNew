@@ -20,6 +20,7 @@ import {
 import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/reportHtml';
 import { runStage, nextRunDefaults } from '../services/payroll/payoutCalc';
 import { prePayrollChecksFor, setRunClaimStatus, claimsOfEntry } from '../services/payroll/payout';
+import { attachOpenArrears } from '../services/payroll/arrears';
 
 // Entry inputs a user can change — the fields the audit trail tracks.
 const ENTRY_INPUT_FIELDS = [
@@ -34,7 +35,10 @@ const SETTINGS_FIELDS = [
   'pfEmployeePercent', 'pfEmployerPercent', 'pfWageCap', 'pfWageFactor',
   'epsPercent', 'epsWageCap', 'edliPercent', 'edliWageCap', 'pfAdminPercent', 'pfAdminMinimum',
   'loanBenchmarkRate', 'loanPerquisiteExemptLimit',
+  'lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears', 'gratuityCap',
 ];
+// Whole numbers
+const SETTINGS_INTEGERS = new Set(['lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears']);
 const SETTINGS_FLAGS = ['pfEmployerMatchesEmployee', 'pfRoundToRupee', 'esiAutoCoverage'];
 
 const num =(v: any, fallback = 0) => (v == null || v === '' || isNaN(Number(v)) ? fallback : Number(v));
@@ -116,7 +120,7 @@ const statutoryOptions = (entry: any) => ({
 });
 
 // A new entry for an employee: package and statutory flags are snapshots.
-function newEntryData(ctx: any, organizationId: string, runId: string, emp: any, totalWorkingDays: number) {
+export function newEntryData(ctx: any, organizationId: string, runId: string, emp: any, totalWorkingDays: number) {
   const base = {
     monthlyPackage: packageForPeriod(emp.currentMonthlyPackage || 0, emp.salaryRevisions, ctx.period),
     totalWorkingDays,
@@ -135,8 +139,9 @@ function newEntryData(ctx: any, organizationId: string, runId: string, emp: any,
 
 // Validates the catalogue lines sent for an entry. Zero amounts drop the
 // line; a component already on the entry may stay even if since deactivated.
-async function resolveLines(organizationId: string, input: any, existing: any[]) {
+async function resolveLines(organizationId: string, input: any, existing: any[], managed: any[] = []) {
   if (!Array.isArray(input)) throw new AppError(400, 'Lines must be a list');
+  const reserved = new Set(managed.map(l => l.componentId));
   const components = await prisma.payComponent.findMany({ where: { organizationId } });
   const byId = new Map(components.map(c => [c.id, c]));
   const onEntry = new Set(existing.map(l => l.componentId));
@@ -146,6 +151,9 @@ async function resolveLines(organizationId: string, input: any, existing: any[])
     const component = byId.get(String(raw?.componentId || ''));
     if (!component) throw new AppError(400, 'Pick a pay component for every line');
     if (seen.has(component.id)) throw new AppError(400, `${component.name} is listed twice`);
+    if (reserved.has(component.id)) {
+      throw new AppError(400, `${component.name} on this payslip comes from arrears or the final settlement. Change it there.`);
+    }
     seen.add(component.id);
     const amount = num(raw.amount, NaN);
     if (isNaN(amount) || amount < 0) throw new AppError(400, `Enter a valid amount for ${component.name}`);
@@ -192,6 +200,7 @@ async function createRunFor(req: any, organizationId: string, period: string, to
     data: employees.map(emp => newEntryData(ctx, organizationId, run.id, emp, totalWorkingDays)),
   });
   await saveTaxWorkings(ctx.tax, organizationId, run.id);
+  await attachOpenArrears(organizationId, run.id);
   await logPayrollAudit(req, [{
     action: 'RUN_CREATED', runId: run.id, period,
     newValue: `${employees.length} employees, ${totalWorkingDays} working days${automatic ? ' (opened automatically)' : ''}`,
@@ -214,7 +223,8 @@ export const payrollController = {
       if (b[f] !== undefined) {
         const v = num(b[f], NaN);
         if (isNaN(v) || v < 0) throw new AppError(400, `Invalid value for ${f}`);
-        data[f] = v;
+        if (f === 'settlementDayBasis' && (v < 26 || v > 31)) throw new AppError(400, 'Days in a month must be between 26 and 31');
+        data[f] = SETTINGS_INTEGERS.has(f) ? Math.round(v) : v;
       }
     }
     for (const f of SETTINGS_FLAGS) {
@@ -358,6 +368,10 @@ export const payrollController = {
     if (batches > 0) {
       throw new AppError(400, 'Salaries of this run are in a payment batch. Delete its payment batches before reopening.');
     }
+    const arrears = await prisma.arrearItem.count({ where: { status: 'OPEN', sourceEntry: { runId: run.id } } });
+    if (arrears > 0) {
+      throw new AppError(400, 'Arrears have been raised for this month. Cancel them on the Arrears page before reopening.');
+    }
     const deposited = await prisma.tdsChallanAllocation.count({ where: { entry: { runId: run.id } } });
     if (deposited > 0) {
       throw new AppError(400, 'Tax deducted in this run is matched to a TDS challan. Delete the challan before reopening.');
@@ -413,6 +427,7 @@ export const payrollController = {
       });
     }
     await saveTaxWorkings(ctx.tax, orgId, run.id);
+    await attachOpenArrears(orgId, run.id);
     await logPayrollAudit(req, [{
       action: 'RUN_RECALCULATED', runId: run.id, period: run.period,
       newValue: `${run.entries.length} entries${missing.length ? `, ${missing.length} added` : ''}`,
@@ -458,9 +473,10 @@ export const payrollController = {
     if (b.isPfApplicable !== undefined) merged.isPfApplicable = Boolean(b.isPfApplicable);
     if (b.remarks !== undefined) merged.remarks = String(b.remarks);
 
-    const lines = b.lines !== undefined
-      ? await resolveLines(orgId, b.lines, entry.lines)
-      : entry.lines;
+    const manual = entry.lines.filter(l => !l.source);
+    const managed = entry.lines.filter(l => l.source);
+    const typed = b.lines !== undefined ? await resolveLines(orgId, b.lines, manual, managed) : manual;
+    const lines = [...typed, ...managed];
     const ctx = await loadStatutoryContext(orgId, entry.run.period);
     // Under computed TDS a typed amount overrides the calculation and a
     // blank returns to it; otherwise TDS is simply what was typed.
@@ -477,9 +493,9 @@ export const payrollController = {
     });
     if (b.lines !== undefined) {
       await prisma.$transaction([
-        prisma.payslipLine.deleteMany({ where: { entryId: entry.id } }),
+        prisma.payslipLine.deleteMany({ where: { entryId: entry.id, source: '' } }),
         prisma.payslipLine.createMany({
-          data: lines.map((l: any) => ({
+          data: typed.map((l: any) => ({
             organizationId: orgId, entryId: entry.id, componentId: l.componentId,
             name: l.name, type: l.type, amount: l.amount, remarks: l.remarks || '',
           })),
@@ -518,7 +534,7 @@ export const payrollController = {
         oldValue: tdsBefore === null ? 'Computed' : String(tdsBefore),
         newValue: tdsOverride === null ? 'Computed' : String(tdsOverride),
       }] : []),
-      ...(b.lines !== undefined ? lineChanges(entry.lines, lines) : []),
+      ...(b.lines !== undefined ? lineChanges(manual, typed) : []),
       ...(ptOverride !== ptBefore ? [{
         field: 'professionalTax',
         oldValue: ptBefore === null ? 'Computed' : String(ptBefore),

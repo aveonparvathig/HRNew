@@ -122,7 +122,7 @@ export default function RunDetail() {
       isEsiEligible: entry.isEsiEligible,
       isPfApplicable: entry.isPfApplicable,
       remarks: entry.remarks,
-      lines: (entry.lines || []).map((l: any) => ({ componentId: l.componentId, amount: l.amount })),
+      lines: (entry.lines || []).filter((l: any) => !l.source).map((l: any) => ({ componentId: l.componentId, amount: l.amount })),
       professionalTax: entry.professionalTax,
       ptTouched: false,
       tdsTouched: false,
@@ -665,8 +665,21 @@ export default function RunDetail() {
 
             <div className="form-section">
               <div className="form-section-title"><span className="step-dot">3</span> Other earnings &amp; deductions</div>
+              {(entryModal.lines || []).filter((l: any) => l.source).map((l: any) => (
+                <div key={l.componentId} className="line-row" style={{ alignItems: 'center', fontSize: 13 }}>
+                  <span>{l.name} <span className="text-muted">({l.type === 'DEDUCTION' ? 'deduction' : 'earning'})</span></span>
+                  <strong>{formatINR(l.amount)}</strong>
+                  <Link to={l.source === 'ARREAR' ? '/payroll/adjustments' : '/payroll/adjustments?tab=settlements'}
+                    className="text-muted" style={{ fontSize: 12 }}>
+                    from {l.source === 'ARREAR' ? 'arrears' : 'the final settlement'}
+                  </Link>
+                </div>
+              ))}
               {(form.lines || []).map((line: any, i: number) => {
-                const taken = new Set((form.lines || []).map((l: any) => l.componentId));
+                const taken = new Set([
+                  ...(form.lines || []).map((l: any) => l.componentId),
+                  ...(entryModal.lines || []).filter((l: any) => l.source).map((l: any) => l.componentId),
+                ]);
                 const setLine = (patch: any) => setForm({
                   ...form, lines: form.lines.map((l: any, j: number) => (j === i ? { ...l, ...patch } : l)),
                 });

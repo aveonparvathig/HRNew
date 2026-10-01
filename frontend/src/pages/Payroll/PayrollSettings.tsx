@@ -62,6 +62,17 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
     ],
   },
   {
+    title: 'Arrears and final settlement',
+    hint: 'Leave encashment is on Basic + DA and notice pay or recovery on the monthly gross, both by the day. Gratuity is 15/26 of Basic + DA for each year of service.',
+    fields: [
+      ['lopReversalMonths', 'Loss of pay can be reversed for (months)', '#'],
+      ['noticePeriodDays', 'Usual notice period (days)', '#'],
+      ['settlementDayBasis', 'Days in a month for encashment and notice', '#'],
+      ['gratuityMinYears', 'Service needed for gratuity (years)', '#'],
+      ['gratuityCap', 'Gratuity limit', '₹'],
+    ],
+  },
+  {
     title: 'PF return — pension, insurance and charges',
     hint: 'Used to split the employer share in the PF statement and ECR file, and to work out what is payable. None of this is deducted from pay.',
     fields: [

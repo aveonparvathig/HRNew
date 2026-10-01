@@ -208,6 +208,31 @@ export default function ReportsHub() {
       </div>
 
       <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Arrears and settlements</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          For the financial year chosen above. A settlement statement opens from the settlement itself.
+        </p>
+        <div className="report-grid">
+          <button className="report-tile" disabled={!fy} onClick={() => go('arrears', { fy })}>
+            <strong>Arrear Report</strong>
+            <span>Arrears by the month they were paid in, component by component.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('arrears', { fy, kind: 'LOP_REVERSAL' })}>
+            <strong>LOP Reversal Report</strong>
+            <span>Loss-of-pay days reversed and what was paid for them.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('pf-arrears', { fy })}>
+            <strong>PF and ESI on Arrears</strong>
+            <span>Employee and employer shares on arrears, for the supplementary remittance.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('settlements', { fy })}>
+            <strong>Settlements and Resettlements</strong>
+            <span>Everyone settled in the year, with leave encashment, gratuity, notice and the net paid.</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-pad mb-24">
         <h3 style={{ fontSize: 15, marginBottom: 4 }}>Loans</h3>
         <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>A statement for one loan opens from the loan's own page.</p>
         <div className="report-grid">
