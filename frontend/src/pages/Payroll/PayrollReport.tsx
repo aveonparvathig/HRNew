@@ -36,6 +36,17 @@ const REPORT_LABELS: Record<string, string> = {
   'form-12bb': 'Form 12BB',
   declarations: 'Income Tax Declarations',
   'bank-advice': 'Bank Transfer Advice',
+  'register-tn-u': 'Form U — Employee Register',
+  'register-tn-v': 'Form V — Register of Employment',
+  'register-tn-w': 'Form W — Register of Wages',
+  'register-tn-x': 'Form X — Leave and Social Security',
+  'register-form-a': 'Form A — Employee Register',
+  'register-form-b': 'Form B — Wage Register',
+  'register-form-c': 'Form C — Loans and Recoveries',
+  'register-form-d': 'Form D — Attendance Register',
+  'register-bonus-c': 'Bonus Form C',
+  'register-bonus-d': 'Bonus Form D',
+  'register-gratuity-f': 'Gratuity Form F',
   arrears: 'Arrear Report',
   'pf-arrears': 'PF and ESI on Arrears',
   'settlement-statement': 'Settlement Statement',
@@ -76,6 +87,23 @@ export default function PayrollReport() {
 
   const back = runId ? `/payroll/runs/${runId}` : '/payroll/reports';
 
+  // Registers can also be taken as an Excel workbook
+  const downloadWorkbook = async () => {
+    try {
+      const { data: file } = await payrollAPI.getRegisterWorkbook(doc.register, Object.fromEntries(new URLSearchParams(query)));
+      const bytes = Uint8Array.from(atob(file.base64), c => c.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Could not prepare the workbook');
+    }
+  };
+
   if (loading) return <LoadingBlock label="Preparing report…" />;
   if (!doc) {
     return <EmptyState icon="▦" title="Report unavailable" message={error}
@@ -94,11 +122,12 @@ export default function PayrollReport() {
         </div>
         <PageHeader
           title={doc.title}
-          actions={
+          actions={<>
+            {doc.register && <button className="btn btn-secondary" onClick={downloadWorkbook}>⤓ Excel</button>}
             <button className="btn btn-primary" onClick={() => window.print()}>
               🖨 Print / Save as PDF
             </button>
-          }
+          </>}
         />
         <ErrorAlert message={error} onDismiss={() => setError('')} />
       </div>

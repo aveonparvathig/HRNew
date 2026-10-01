@@ -13,6 +13,7 @@ import { payrollPayoutController } from '../controllers/payrollPayoutController'
 import { payrollControlController } from '../controllers/payrollControlController';
 import { payrollReturnsController } from '../controllers/payrollReturnsController';
 import { payrollArrearsController } from '../controllers/payrollArrearsController';
+import { payrollRegistersController, REGISTER_CODES } from '../controllers/payrollRegistersController';
 
 const router = Router();
 
@@ -126,6 +127,12 @@ router.post('/loans/:loanId/skip', asyncHandler((req, res) => payrollLoansContro
 router.post('/loans/:loanId/prepay', asyncHandler((req, res) => payrollLoansController.prepay(req, res)));
 router.post('/loans/:loanId/foreclose', asyncHandler((req, res) => payrollLoansController.foreclose(req, res)));
 router.post('/loans/:loanId/revise', asyncHandler((req, res) => payrollLoansController.revise(req, res)));
+
+// Labour-law registers: each as a printable page, and as a workbook
+for (const code of REGISTER_CODES) {
+  router.get(`/reports/register-${code}`, asyncHandler((req, res) => payrollRegistersController.report(code)(req, res)));
+}
+router.get('/registers/:code/workbook', asyncHandler((req, res) => payrollRegistersController.workbook(req, res)));
 
 // Reports across runs
 router.get('/reports/bank-advice', asyncHandler((req, res) => payrollControlController.bankAdvice(req, res)));
