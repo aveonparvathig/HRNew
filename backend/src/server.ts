@@ -12,6 +12,7 @@ import proposalRoutes from './routes/proposals';
 import payrollRoutes from './routes/payroll';
 import orgRoutes from './routes/org';
 import expenseRoutes from './routes/expenses';
+import selfServiceRoutes from './routes/selfService';
 
 // Initialize Express app
 const app: Express = express();
@@ -59,6 +60,7 @@ app.use('/api/proposals', proposalRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/org', orgRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/self', selfServiceRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

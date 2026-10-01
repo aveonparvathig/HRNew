@@ -529,6 +529,8 @@ model PayrollRun {
   period         String // "YYYY-MM"
   status         String    @default("DRAFT") // DRAFT | FINALIZED
   finalizedAt    DateTime?
+  // Employees see their payslip for this month only once it is released
+  releasedAt     DateTime?
   notes          String    @default("")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -734,17 +736,97 @@ model EmployeeTaxProfile {
   otherIncome         Float   @default(0)
   annualRentPaid      Float   @default(0)
   isMetro             Boolean @default(false)
-  section80C          Float   @default(0) // investments other than PF
-  otherDeductions     Float   @default(0) // rest of Chapter VI-A, as allowed
+  landlordName        String  @default("")
+  landlordPan         String  @default("")
   housingLoanInterest Float   @default(0)
+
+  // Proof of investment: once considered, tax uses the approved amounts
+  // (an item with nothing approved counts as nil) instead of the declared.
+  poiConsidered           Boolean @default(false)
+  rentApproved            Float?
+  housingInterestApproved Float?
+  submittedAt             DateTime? // employee's last save
 
   updatedAt DateTime @updatedAt
 
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+  lines  DeclarationLine[]
+  proofs DeclarationProof[]
 
   @@unique([personId, fyStart])
   @@index([organizationId, fyStart])
   @@map("employee_tax_profiles")
+}
+
+// Catalogue of what an employee can declare under Chapter VI-A.
+// group decides how it feeds the tax engine: the Section 80C pool (capped
+// together) or the other deductions (each capped on its own).
+model DeclarationItem {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  section        String // as commonly known, e.g. "80C", "80D"
+  sectionNew     String   @default("") // number under the Income-tax Act, 2025
+  group          String // SECTION_80C | OTHER
+  maxAmount      Float? // cap on this item; null = no cap of its own
+  deductPercent  Float    @default(100) // share of the amount that is deductible
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines DeclarationLine[]
+
+  @@unique([organizationId, code])
+  @@map("declaration_items")
+}
+
+model DeclarationLine {
+  id             String @id @default(cuid())
+  profileId      String
+  itemId         String
+  declaredAmount Float  @default(0)
+  approvedAmount Float? // set by HR against proofs
+  remarks        String @default("")
+
+  profile EmployeeTaxProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  item    DeclarationItem    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@unique([profileId, itemId])
+  @@map("declaration_lines")
+}
+
+// A document supporting a declaration. kind says what it backs: an ITEM
+// (itemId set), RENT, HOUSING_LOAN or PREVIOUS_EMPLOYER.
+model DeclarationProof {
+  id         String   @id @default(cuid())
+  profileId  String
+  kind       String
+  itemId     String?
+  fileName   String
+  fileData   String // data URI
+  uploadedBy String   @default("")
+  createdAt  DateTime @default(now())
+
+  profile EmployeeTaxProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId])
+  @@map("declaration_proofs")
+}
+
+// Per financial year: whether employees may edit their declaration, upload
+// proofs, and choose their own tax regime.
+model TaxYearControl {
+  organizationId   String
+  fyStart          Int
+  declarationOpen  Boolean  @default(false)
+  proofOpen        Boolean  @default(false)
+  employeeCanChooseRegime Boolean @default(false)
+  updatedAt        DateTime @updatedAt
+
+  @@id([organizationId, fyStart])
+  @@map("tax_year_controls")
 }
 
 // The full working behind the TDS on one payslip, kept so every figure

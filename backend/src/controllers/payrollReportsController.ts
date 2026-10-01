@@ -55,13 +55,14 @@ async function fetchEmployee(personId: any, organizationId: string) {
 }
 
 // Entries of a financial year, each tagged with its run's period.
-async function fetchYearEntries(organizationId: string, startYear: number, personId?: string) {
+// releasedOnly limits it to months whose payslips employees can see.
+async function fetchYearEntries(organizationId: string, startYear: number, personId?: string, releasedOnly = false) {
   const fy = financialYearFor(startYear);
   const entries = await prisma.payslipEntry.findMany({
     where: {
       organizationId,
       ...(personId ? { personId } : {}),
-      run: { period: { gte: fy.start, lte: fy.end } },
+      run: { period: { gte: fy.start, lte: fy.end }, ...(releasedOnly ? { releasedAt: { not: null } } : {}) },
     },
     include: {
       run: { select: { period: true, status: true } },
@@ -74,6 +75,36 @@ async function fetchYearEntries(organizationId: string, startYear: number, perso
 
 const headerCells = (cols: ComponentColumn[]) =>
   cols.map(c => `<th class="amt">${esc(c.short)}</th>`).join('');
+
+// One employee, every component, month by month.
+export async function buildYtdStatement(orgId: string, personId: string, startYear: number, releasedOnly = false) {
+  const person = await fetchEmployee(personId, orgId);
+  const fy = financialYearFor(startYear);
+  const periods = periodsOfFinancialYear(startYear);
+  const entries = await fetchYearEntries(orgId, startYear, person.id, releasedOnly);
+  const entryOf = (period: string) => entries.find(e => e.period === period);
+  const cols = usedColumns(entries);
+  const row = (label: string, value: (e: any) => string, cls = '') => `<tr class="${cls}"><td class="nw">${esc(label)}</td>
+    ${periods.map(p => { const e = entryOf(p); return `<td class="amt">${e ? value(e) : '—'}</td>`; }).join('')}`;
+  const lopTotal = entries.reduce((s, e) => s + e.lopDays, 0);
+  const body = [
+    row('Pay days', e => `${days(e.payDays)}/${e.totalWorkingDays}`) + '<td class="amt">—</td></tr>',
+    row('LOP days', e => (e.lopDays ? days(e.lopDays) : '—'))
+      + `<td class="amt">${lopTotal ? days(lopTotal) : '—'}</td></tr>`,
+    ...cols.map(c => {
+      const total = ['GROSS', 'TOTAL_DEDUCTIONS', 'NET', 'CTC'].includes(c.group);
+      return row(c.label, e => amt(columnValue(e, c.key)), total ? 'sub' : '')
+        + `<td class="amt">${amt(columnTotal(entries, c.key))}</td></tr>`;
+    }),
+  ].join('');
+  const html = reportShell(await orgBrand(orgId), 'Year-to-Date Statement', `FY ${fy.label}`, `
+  <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''}${person.designation ? ` · ${esc(person.designation)}` : ''}</p>
+  <table class="st-table">
+  <tr><th>Component</th>${periods.map(p => `<th class="amt">${esc(monthShort(p))}</th>`).join('')}<th class="amt">Total</th></tr>
+  ${entries.length ? body : `<tr><td colspan="14">No payslips for this employee in FY ${fy.label}.</td></tr>`}
+  </table>`);
+  return { html, title: `Year-to-Date Statement — ${person.name} — FY ${fy.label}` };
+}
 
 export const payrollReportsController = {
   // What the report hub can offer: years with payroll, employees, components.
@@ -153,36 +184,8 @@ export const payrollReportsController = {
   },
 
   // ---- Financial-year level -------------------------------------------------
-  // One employee, every component, month by month.
   async ytdStatement(req: any, res: Response) {
-    const orgId = req.user?.organizationId;
-    const startYear = parseFinancialYear(req.query.fy);
-    const person = await fetchEmployee(req.query.personId, orgId);
-    const fy = financialYearFor(startYear);
-    const periods = periodsOfFinancialYear(startYear);
-    const entries = await fetchYearEntries(orgId, startYear, person.id);
-    const entryOf = (period: string) => entries.find(e => e.period === period);
-    const cols = usedColumns(entries);
-    const row = (label: string, value: (e: any) => string, cls = '') => `<tr class="${cls}"><td class="nw">${esc(label)}</td>
-      ${periods.map(p => { const e = entryOf(p); return `<td class="amt">${e ? value(e) : '—'}</td>`; }).join('')}`;
-    const lopTotal = entries.reduce((s, e) => s + e.lopDays, 0);
-    const body = [
-      row('Pay days', e => `${days(e.payDays)}/${e.totalWorkingDays}`) + '<td class="amt">—</td></tr>',
-      row('LOP days', e => (e.lopDays ? days(e.lopDays) : '—'))
-        + `<td class="amt">${lopTotal ? days(lopTotal) : '—'}</td></tr>`,
-      ...cols.map(c => {
-        const total = ['GROSS', 'TOTAL_DEDUCTIONS', 'NET', 'CTC'].includes(c.group);
-        return row(c.label, e => amt(columnValue(e, c.key)), total ? 'sub' : '')
-          + `<td class="amt">${amt(columnTotal(entries, c.key))}</td></tr>`;
-      }),
-    ].join('');
-    const html = reportShell(await orgBrand(orgId), 'Year-to-Date Statement', `FY ${fy.label}`, `
-  <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''}${person.designation ? ` · ${esc(person.designation)}` : ''}</p>
-  <table class="st-table">
-    <tr><th>Component</th>${periods.map(p => `<th class="amt">${esc(monthShort(p))}</th>`).join('')}<th class="amt">Total</th></tr>
-    ${entries.length ? body : `<tr><td colspan="14">No payslips for this employee in FY ${fy.label}.</td></tr>`}
-  </table>`);
-    res.json({ html, title: `Year-to-Date Statement — ${person.name} — FY ${fy.label}` });
+    res.json(await buildYtdStatement(req.user?.organizationId, String(req.query.personId || ''), parseFinancialYear(req.query.fy)));
   },
 
   // One component (or gross / net / CTC) for every employee, month by month.

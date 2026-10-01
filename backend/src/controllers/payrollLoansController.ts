@@ -93,6 +93,59 @@ async function nextLoanNo(organizationId: string): Promise<string> {
 
 const firstDuePeriod = (loan: any) => loan.schedule.find((l: any) => l.status === 'DUE')?.period;
 
+// One loan: terms, every transaction, and the plan for what is left.
+// With onlyPersonId the loan must belong to that employee.
+export async function buildLoanStatement(organizationId: string, loanId: string, onlyPersonId?: string) {
+  const loan = await fetchLoan(loanId, organizationId);
+  if (onlyPersonId && loan.personId !== onlyPersonId) throw new AppError(404, 'Loan not found');
+  const s = loanSummary(loan);
+  const txns = loan.transactions.map(t => `<tr>
+    <td class="nw">${esc(dateLabel(t.date))}</td><td>${esc(TXN_LABELS[t.type] || t.type)}${t.period ? ` <span class="muted">(${esc(monthLabel(t.period))})</span>` : ''}</td>
+    <td class="amt">${t.principal > 0 ? inr(t.principal) : '—'}</td><td class="amt">${t.principal < 0 ? inr(-t.principal) : '—'}</td>
+    <td class="amt">${t.interest ? inr(t.interest) : '—'}</td><td class="amt">${inr(t.balanceAfter)}</td>
+    <td>${esc(t.remarks) || '<span class="muted">—</span>'}</td></tr>`).join('');
+  const due = loan.schedule.filter(l => l.status === 'DUE');
+  const plan = due.map(l => `<tr><td class="nw">${esc(monthLabel(l.period))}</td>
+    <td class="amt">${inr(l.principal)}</td><td class="amt">${l.interest ? inr(l.interest) : '—'}</td><td class="amt">${inr(instalmentOf(l))}</td></tr>`).join('');
+  const html = reportShell(await orgBrand(organizationId), 'Loan Statement', `${loan.loanNo} · as on ${dateLabel(todayIST())}`, `
+  <p style="margin:0 0 10px;"><strong>${esc(loan.person.name)}</strong>${loan.person.employeeNo ? ` · ${esc(loan.person.employeeNo)}` : ''}${loan.title ? ` · ${esc(loan.title)}` : ''}</p>
+  <table class="st-table" style="width:auto;min-width:60%;">
+  <tr><th colspan="2">Terms</th></tr>
+  <tr><td>Type</td><td>${esc(s.typeLabel)}${loan.annualRate ? `, ${loan.annualRate}% a year` : ''}</td></tr>
+  <tr><td>Given on</td><td>${esc(dateLabel(loan.loanDate))}</td></tr>
+  <tr><td>Amount lent</td><td class="amt">${inr(s.totalLent)}</td></tr>
+  <tr><td>Interest paid so far</td><td class="amt">${inr(s.interestPaid)}</td></tr>
+  <tr class="tot"><td>Principal outstanding</td><td class="amt">${inr(s.outstanding)}</td></tr>
+  <tr><td>Status</td><td>${loan.status === 'CLOSED' ? `Closed on ${esc(dateLabel(loan.closedOn || ''))}` : `${due.length} instalment${due.length === 1 ? '' : 's'} left`}</td></tr>
+  </table>
+  <div class="st-h">Transactions</div>
+  <table class="st-table">
+  <tr><th>Date</th><th>Transaction</th><th class="amt">Lent</th><th class="amt">Principal repaid</th><th class="amt">Interest</th><th class="amt">Balance</th><th>Remarks</th></tr>
+  ${txns}
+  </table>
+  ${due.length ? `<div class="st-h">Instalments to come</div>
+  <table class="st-table" style="width:auto;min-width:60%;">
+  <tr><th>Month</th><th class="amt">Principal</th><th class="amt">Interest</th><th class="amt">Instalment</th></tr>
+  ${plan}
+  <tr class="tot"><td>Total</td><td class="amt">${inr(r2(due.reduce((t, l) => t + l.principal, 0)))}</td><td class="amt">${inr(r2(due.reduce((t, l) => t + l.interest, 0)))}</td><td class="amt">${inr(r2(due.reduce((t, l) => t + instalmentOf(l), 0)))}</td></tr>
+  </table>` : ''}`);
+  return { html, title: `Loan Statement — ${loan.loanNo} — ${loan.person.name}` };
+}
+
+// Summary rows of an employee's loans, for their own view.
+export async function loansOfPerson(organizationId: string, personId: string) {
+  const loans = await prisma.loan.findMany({
+    where: { organizationId, personId },
+    include: {
+      person: { select: { id: true, name: true, employeeNo: true, designation: true } },
+      schedule: { orderBy: { seq: 'asc' } },
+      transactions: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  return loans.map(loanSummary);
+}
+
 export const payrollLoansController = {
   async getLoans(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
@@ -359,42 +412,8 @@ export const payrollLoansController = {
   },
 
   // ---- Reports ------------------------------------------------------------
-  // One loan: terms, every transaction, and the plan for what is left.
   async loanStatement(req: any, res: Response) {
-    const organizationId = req.user?.organizationId;
-    const loan = await fetchLoan(str(req.query.loanId), organizationId);
-    const s = loanSummary(loan);
-    const txns = loan.transactions.map(t => `<tr>
-      <td class="nw">${esc(dateLabel(t.date))}</td><td>${esc(TXN_LABELS[t.type] || t.type)}${t.period ? ` <span class="muted">(${esc(monthLabel(t.period))})</span>` : ''}</td>
-      <td class="amt">${t.principal > 0 ? inr(t.principal) : '—'}</td><td class="amt">${t.principal < 0 ? inr(-t.principal) : '—'}</td>
-      <td class="amt">${t.interest ? inr(t.interest) : '—'}</td><td class="amt">${inr(t.balanceAfter)}</td>
-      <td>${esc(t.remarks) || '<span class="muted">—</span>'}</td></tr>`).join('');
-    const due = loan.schedule.filter(l => l.status === 'DUE');
-    const plan = due.map(l => `<tr><td class="nw">${esc(monthLabel(l.period))}</td>
-      <td class="amt">${inr(l.principal)}</td><td class="amt">${l.interest ? inr(l.interest) : '—'}</td><td class="amt">${inr(instalmentOf(l))}</td></tr>`).join('');
-    const html = reportShell(await orgBrand(organizationId), 'Loan Statement', `${loan.loanNo} · as on ${dateLabel(todayIST())}`, `
-  <p style="margin:0 0 10px;"><strong>${esc(loan.person.name)}</strong>${loan.person.employeeNo ? ` · ${esc(loan.person.employeeNo)}` : ''}${loan.title ? ` · ${esc(loan.title)}` : ''}</p>
-  <table class="st-table" style="width:auto;min-width:60%;">
-    <tr><th colspan="2">Terms</th></tr>
-    <tr><td>Type</td><td>${esc(s.typeLabel)}${loan.annualRate ? `, ${loan.annualRate}% a year` : ''}</td></tr>
-    <tr><td>Given on</td><td>${esc(dateLabel(loan.loanDate))}</td></tr>
-    <tr><td>Amount lent</td><td class="amt">${inr(s.totalLent)}</td></tr>
-    <tr><td>Interest paid so far</td><td class="amt">${inr(s.interestPaid)}</td></tr>
-    <tr class="tot"><td>Principal outstanding</td><td class="amt">${inr(s.outstanding)}</td></tr>
-    <tr><td>Status</td><td>${loan.status === 'CLOSED' ? `Closed on ${esc(dateLabel(loan.closedOn || ''))}` : `${due.length} instalment${due.length === 1 ? '' : 's'} left`}</td></tr>
-  </table>
-  <div class="st-h">Transactions</div>
-  <table class="st-table">
-    <tr><th>Date</th><th>Transaction</th><th class="amt">Lent</th><th class="amt">Principal repaid</th><th class="amt">Interest</th><th class="amt">Balance</th><th>Remarks</th></tr>
-    ${txns}
-  </table>
-  ${due.length ? `<div class="st-h">Instalments to come</div>
-  <table class="st-table" style="width:auto;min-width:60%;">
-    <tr><th>Month</th><th class="amt">Principal</th><th class="amt">Interest</th><th class="amt">Instalment</th></tr>
-    ${plan}
-    <tr class="tot"><td>Total</td><td class="amt">${inr(r2(due.reduce((t, l) => t + l.principal, 0)))}</td><td class="amt">${inr(r2(due.reduce((t, l) => t + l.interest, 0)))}</td><td class="amt">${inr(r2(due.reduce((t, l) => t + instalmentOf(l), 0)))}</td></tr>
-  </table>` : ''}`);
-    res.json({ html, title: `Loan Statement — ${loan.loanNo} — ${loan.person.name}` });
+    res.json(await buildLoanStatement(req.user?.organizationId, str(req.query.loanId)));
   },
 
   // Every loan with its terms and balance, and totals by status.

@@ -43,6 +43,12 @@ const ReportsHub = lazy(() => import('./pages/Payroll/ReportsHub'));
 const Remittances = lazy(() => import('./pages/Payroll/Remittances'));
 const LoansList = lazy(() => import('./pages/Payroll/LoansList'));
 const LoanDetail = lazy(() => import('./pages/Payroll/LoanDetail'));
+const Declarations = lazy(() => import('./pages/Payroll/Declarations'));
+const DeclarationDetail = lazy(() => import('./pages/Payroll/DeclarationDetail'));
+const MyPayslips = lazy(() => import('./pages/My/MyPayslips'));
+const MyDeclaration = lazy(() => import('./pages/My/MyDeclaration'));
+const MyLoans = lazy(() => import('./pages/My/MyLoans'));
+const MyDocument = lazy(() => import('./pages/My/MyDocument'));
 const CompanyProfile = lazy(() => import('./pages/Organization/CompanyProfile'));
 const Team = lazy(() => import('./pages/Organization/Team'));
 
@@ -110,8 +116,16 @@ function App() {
             <Route path="/payroll/remittances" element={<RequireRole roles={SA_HR}><Remittances /></RequireRole>} />
             <Route path="/payroll/loans" element={<RequireRole roles={SA_HR}><LoansList /></RequireRole>} />
             <Route path="/payroll/loans/:loanId" element={<RequireRole roles={SA_HR}><LoanDetail /></RequireRole>} />
+            <Route path="/payroll/declarations" element={<RequireRole roles={SA_HR}><Declarations /></RequireRole>} />
+            <Route path="/payroll/declarations/:personId" element={<RequireRole roles={SA_HR}><DeclarationDetail /></RequireRole>} />
             <Route path="/payroll/reports" element={<RequireRole roles={SA_HR}><ReportsHub /></RequireRole>} />
             <Route path="/payroll/reports/:kind" element={<RequireRole roles={SA_HR}><PayrollReport /></RequireRole>} />
+            {/* An employee's own pay: the API scopes these to the person linked to the login */}
+            <Route path="/my/payslips" element={<MyPayslips />} />
+            <Route path="/my/payslips/:entryId" element={<MyDocument />} />
+            <Route path="/my/declaration" element={<MyDeclaration />} />
+            <Route path="/my/loans" element={<MyLoans />} />
+            <Route path="/my/reports/:kind" element={<MyDocument />} />
             <Route path="/organization" element={<RequireRole roles={SA}><CompanyProfile /></RequireRole>} />
             <Route path="/organization/team" element={<RequireRole roles={SA}><Team /></RequireRole>} />
           </Route>

@@ -20,10 +20,6 @@ const CONFIG_NUMBERS = [
   'seniorExemption', 'superSeniorExemption', 'section80CLimit', 'housingInterestLimit',
 ];
 const CONFIG_FLAGS = ['rebateMarginalRelief', 'allowsExemptions'];
-const PROFILE_NUMBERS = [
-  'prevEmployerIncome', 'prevEmployerTds', 'otherIncome', 'annualRentPaid',
-  'section80C', 'otherDeductions', 'housingLoanInterest',
-];
 
 function fyInput(value: any): number {
   const year = Number(/^(\d{4})/.exec(String(value || ''))?.[1]);
@@ -67,14 +63,72 @@ async function fetchEmployee(personId: string, organizationId: string) {
 }
 
 // The latest stored working of each employee in a financial year.
-async function latestWorkings(organizationId: string, fyStart: number, personId?: string) {
+// releasedOnly limits it to months whose payslips employees can see.
+async function latestWorkings(organizationId: string, fyStart: number, personId?: string, releasedOnly = false) {
   const rows = await prisma.taxComputation.findMany({
-    where: { organizationId, fyStart, ...(personId ? { personId } : {}) },
+    where: {
+      organizationId, fyStart, ...(personId ? { personId } : {}),
+      ...(releasedOnly ? { run: { releasedAt: { not: null } } } : {}),
+    },
     orderBy: { period: 'asc' },
   });
   const latest = new Map<string, (typeof rows)[number]>();
   for (const row of rows) latest.set(row.personId, row);
   return latest;
+}
+
+// One employee's tax working for the year, as of the latest payroll
+// month — or, for the employee's own view, the latest released one.
+export async function buildTaxStatement(organizationId: string, personId: string, fyStart: number, releasedOnly = false) {
+  const person = await fetchEmployee(personId, organizationId);
+  const fy = financialYearFor(fyStart);
+  const row = (await latestWorkings(organizationId, fyStart, person.id, releasedOnly)).get(person.id);
+  if (!row) {
+    throw new AppError(404, releasedOnly
+      ? `No tax statement is available yet for FY ${fy.label}.`
+      : `No tax has been computed for ${person.name} in FY ${fy.label}. Computed TDS starts from the month set in Payroll Settings → Income Tax.`);
+  }
+  const w = row.working as any;
+  const line = (label: string, value: number, cls = '') =>
+    `<tr class="${cls}"><td>${esc(label)}</td><td class="amt">${inr(value)}</td></tr>`;
+  const maybe = (label: string, value: number) => (value ? line(label, value) : '');
+  const html = reportShell(await orgBrand(organizationId), 'Income Tax Statement', `FY ${fy.label} · as of ${monthLabel(row.period)}`, `
+  <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''} · PAN ${esc(person.panNumber) || 'not on record'} · ${esc(regimeLabel(w.regime))}</p>
+  <table class="st-table" style="width:auto;min-width:70%;">
+    <tr><th>Income</th><th class="amt">Amount</th></tr>
+    ${line('Salary paid in earlier months', w.income.paidEarlier)}
+    ${line(`Salary for ${monthLabel(row.period)}`, w.income.thisMonth)}
+    ${line(`Projected for the ${w.monthsLeft - 1} month${w.monthsLeft - 1 === 1 ? '' : 's'} to come`, w.income.projected)}
+    ${maybe('Salary from previous employer', w.income.previousEmployer)}
+    ${maybe('Perquisites', w.income.perquisites)}
+    ${line('Gross salary', w.grossSalary, 'sub')}
+    ${maybe('Less: House Rent Allowance exemption', w.exemptions.hra)}
+    ${line('Less: Standard deduction', w.deductions.standard)}
+    ${maybe('Less: Professional Tax', w.deductions.professionalTax)}
+    ${line('Income from salary', w.incomeFromSalary, 'sub')}
+    ${maybe('Add: Other income', w.otherIncome)}
+    ${maybe('Less: Interest on housing loan', w.housingLoanInterest)}
+    ${line('Gross total income', w.grossTotalIncome, 'sub')}
+    ${w.chapter6.total ? `${line(`Less: Section 80C (PF ${inr(w.chapter6.pf)} + investments ${inr(w.chapter6.declared80C)})`, w.chapter6.section80C)}
+    ${maybe('Less: Other Chapter VI-A deductions', w.chapter6.other)}` : ''}
+    ${line('Taxable income', w.taxableIncome, 'tot')}
+  </table>
+  <table class="st-table" style="width:auto;min-width:70%;">
+    <tr><th>Tax</th><th class="amt">Amount</th></tr>
+    ${line('Tax on income', w.tax.taxOnIncome)}
+    ${maybe('Less: Rebate', w.tax.rebate)}
+    ${maybe('Add: Surcharge', w.tax.surcharge)}
+    ${line('Add: Health and education cess', w.tax.cess)}
+    ${w.tax.higherRateForPan ? '<tr><td colspan="2" class="muted">No valid PAN on record: tax is taken at 20% of taxable income.</td></tr>' : ''}
+    ${line('Tax for the year', w.tax.total, 'tot')}
+    ${line('Less: Deducted in earlier months', w.paid.payroll)}
+    ${maybe('Less: Deducted by previous employer', w.paid.previousEmployer)}
+    ${line('Balance', w.balance, 'sub')}
+    ${maybe('Of which due now on one-off payments', w.oneTimeTax)}
+    ${line(`TDS for ${monthLabel(row.period)}${w.overridden ? ' (entered by hand)' : ''}`, w.tdsThisMonth, 'tot')}
+  </table>
+  <p style="font-size:11.5px;color:#6b7280;">The balance is spread over the ${w.monthsLeft} payroll month${w.monthsLeft === 1 ? '' : 's'} left in the year, this one included. Figures change as salary, attendance and declarations change.</p>`);
+  return { html, title: `Income Tax Statement — ${person.name} — FY ${fy.label}` };
 }
 
 export const payrollTaxController = {
@@ -158,10 +212,8 @@ export const payrollTaxController = {
     res.json({
       fyStart, financialYear: financialYearFor(fyStart).label,
       financialYears: [now + 1, now, now - 1].map(y => ({ startYear: y, label: financialYearFor(y).label })),
-      profile: profile || {
-        regime: '', prevEmployerIncome: 0, prevEmployerTds: 0, otherIncome: 0, annualRentPaid: 0,
-        isMetro: false, section80C: 0, otherDeductions: 0, housingLoanInterest: 0,
-      },
+      regime: profile?.regime || '',
+      poiConsidered: profile?.poiConsidered || false,
       defaultTaxRegime: settings.defaultTaxRegime,
       tdsAutoFrom: settings.tdsAutoFrom,
       hasValidPan: hasValidPan(person.panNumber),
@@ -176,92 +228,11 @@ export const payrollTaxController = {
     });
   },
 
-  async updateTaxProfile(req: any, res: Response) {
-    const organizationId = req.user?.organizationId;
-    const person = await fetchEmployee(req.params.personId, organizationId);
-    const fyStart = fyInput(req.body.fyStart ?? req.query.fy);
-    const b = req.body;
-    const data: any = {};
-    if (b.regime !== undefined) {
-      if (b.regime !== '' && !REGIMES.includes(b.regime)) throw new AppError(400, 'Pick the old or the new regime');
-      data.regime = b.regime;
-    }
-    for (const f of PROFILE_NUMBERS) {
-      if (b[f] === undefined) continue;
-      const v = Number(b[f] || 0);
-      if (!isFinite(v) || v < 0) throw new AppError(400, 'Amounts cannot be negative');
-      data[f] = Math.round(v * 100) / 100;
-    }
-    if (b.isMetro !== undefined) data.isMetro = Boolean(b.isMetro);
-    const before = await prisma.employeeTaxProfile.findUnique({ where: { personId_fyStart: { personId: person.id, fyStart } } });
-    const profile = await prisma.employeeTaxProfile.upsert({
-      where: { personId_fyStart: { personId: person.id, fyStart } },
-      create: { organizationId, personId: person.id, fyStart, ...data },
-      update: data,
-    });
-    const label = `FY ${financialYearFor(fyStart).label}`;
-    await logPayrollAudit(req, diffFields(before || {}, profile, ['regime', ...PROFILE_NUMBERS, 'isMetro'])
-      .filter(c => !(c.oldValue === '' && (c.newValue === '0' || c.newValue === 'No' || c.newValue === '')))
-      .map(c => ({
-        action: 'TAX_PROFILE_UPDATED' as const, personId: person.id, personName: person.name,
-        field: `${label} · ${c.field}`, oldValue: c.oldValue, newValue: c.newValue,
-      })));
-    res.json(profile);
+  // ---- Reports ----------------------------------------------------------------
+  async taxStatement(req: any, res: Response) {
+    res.json(await buildTaxStatement(req.user?.organizationId, str(req.query.personId), fyInput(req.query.fy)));
   },
 
-  // ---- Reports ----------------------------------------------------------------
-  // One employee's tax working for the year, as of the latest payroll month.
-  async taxStatement(req: any, res: Response) {
-    const organizationId = req.user?.organizationId;
-    const person = await fetchEmployee(str(req.query.personId), organizationId);
-    const fyStart = fyInput(req.query.fy);
-    const fy = financialYearFor(fyStart);
-    const row = (await latestWorkings(organizationId, fyStart, person.id)).get(person.id);
-    if (!row) {
-      throw new AppError(404, `No tax has been computed for ${person.name} in FY ${fy.label}. Computed TDS starts from the month set in Payroll Settings → Income Tax.`);
-    }
-    const w = row.working as any;
-    const line = (label: string, value: number, cls = '') =>
-      `<tr class="${cls}"><td>${esc(label)}</td><td class="amt">${inr(value)}</td></tr>`;
-    const maybe = (label: string, value: number) => (value ? line(label, value) : '');
-    const html = reportShell(await orgBrand(organizationId), 'Income Tax Statement', `FY ${fy.label} · as of ${monthLabel(row.period)}`, `
-  <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''} · PAN ${esc(person.panNumber) || 'not on record'} · ${esc(regimeLabel(w.regime))}</p>
-  <table class="st-table" style="width:auto;min-width:70%;">
-    <tr><th>Income</th><th class="amt">Amount</th></tr>
-    ${line('Salary paid in earlier months', w.income.paidEarlier)}
-    ${line(`Salary for ${monthLabel(row.period)}`, w.income.thisMonth)}
-    ${line(`Projected for the ${w.monthsLeft - 1} month${w.monthsLeft - 1 === 1 ? '' : 's'} to come`, w.income.projected)}
-    ${maybe('Salary from previous employer', w.income.previousEmployer)}
-    ${maybe('Perquisites', w.income.perquisites)}
-    ${line('Gross salary', w.grossSalary, 'sub')}
-    ${maybe('Less: House Rent Allowance exemption', w.exemptions.hra)}
-    ${line('Less: Standard deduction', w.deductions.standard)}
-    ${maybe('Less: Professional Tax', w.deductions.professionalTax)}
-    ${line('Income from salary', w.incomeFromSalary, 'sub')}
-    ${maybe('Add: Other income', w.otherIncome)}
-    ${maybe('Less: Interest on housing loan', w.housingLoanInterest)}
-    ${line('Gross total income', w.grossTotalIncome, 'sub')}
-    ${w.chapter6.total ? `${line(`Less: Section 80C (PF ${inr(w.chapter6.pf)} + investments ${inr(w.chapter6.declared80C)})`, w.chapter6.section80C)}
-    ${maybe('Less: Other Chapter VI-A deductions', w.chapter6.other)}` : ''}
-    ${line('Taxable income', w.taxableIncome, 'tot')}
-  </table>
-  <table class="st-table" style="width:auto;min-width:70%;">
-    <tr><th>Tax</th><th class="amt">Amount</th></tr>
-    ${line('Tax on income', w.tax.taxOnIncome)}
-    ${maybe('Less: Rebate', w.tax.rebate)}
-    ${maybe('Add: Surcharge', w.tax.surcharge)}
-    ${line('Add: Health and education cess', w.tax.cess)}
-    ${w.tax.higherRateForPan ? '<tr><td colspan="2" class="muted">No valid PAN on record: tax is taken at 20% of taxable income.</td></tr>' : ''}
-    ${line('Tax for the year', w.tax.total, 'tot')}
-    ${line('Less: Deducted in earlier months', w.paid.payroll)}
-    ${maybe('Less: Deducted by previous employer', w.paid.previousEmployer)}
-    ${line('Balance', w.balance, 'sub')}
-    ${maybe('Of which due now on one-off payments', w.oneTimeTax)}
-    ${line(`TDS for ${monthLabel(row.period)}${w.overridden ? ' (entered by hand)' : ''}`, w.tdsThisMonth, 'tot')}
-  </table>
-  <p style="font-size:11.5px;color:#6b7280;">The balance is spread over the ${w.monthsLeft} payroll month${w.monthsLeft === 1 ? '' : 's'} left in the year, this one included. Figures change as salary, attendance and declarations change.</p>`);
-    res.json({ html, title: `Income Tax Statement — ${person.name} — FY ${fy.label}` });
-  },
 
   // TDS deducted from each employee in one payroll month.
   async tdsStatement(req: any, res: Response) {

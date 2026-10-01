@@ -8,6 +8,7 @@ import {
   DEFAULT_TAX_CONFIGS, EMPTY_TAX_PROFILE, MonthFigures, TaxConfigLike, TaxProfileLike,
   ageAtYearEnd, computeTds, hasValidPan,
 } from './taxCalc';
+import { effectiveTaxProfile } from './declarationCalc';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -100,9 +101,10 @@ export async function loadTaxContext(organizationId: string, period: string, set
   const fy = financialYearOf(period);
   const periods = periodsOfFinancialYear(fy.startYear);
   const before = periods.filter(p => p < period);
-  const [configs, profiles, entries, people, components, perquisites] = await Promise.all([
+  const [configs, profiles, items, entries, people, components, perquisites] = await Promise.all([
     taxConfigsFor(organizationId, fy.startYear),
-    prisma.employeeTaxProfile.findMany({ where: { organizationId, fyStart: fy.startYear } }),
+    prisma.employeeTaxProfile.findMany({ where: { organizationId, fyStart: fy.startYear }, include: { lines: true } }),
+    prisma.declarationItem.findMany({ where: { organizationId } }),
     before.length
       ? prisma.payslipEntry.findMany({
         where: { organizationId, run: { period: { in: before } } },
@@ -138,7 +140,8 @@ export async function loadTaxContext(organizationId: string, period: string, set
     later: periods.filter(p => p > period),
     defaultRegime: settings.defaultTaxRegime || 'NEW',
     configs: new Map(configs.map(c => [c.regime, c])),
-    profiles: new Map(profiles.map(p => [p.personId, p])),
+    // Declared amounts, or the approved ones once proofs are considered
+    profiles: new Map(profiles.map(p => [p.personId, { ...effectiveTaxProfile(p, p.lines, items), regime: p.regime }])),
     earlier,
     people: new Map(people.map(p => [p.id, p])),
     perquisites,

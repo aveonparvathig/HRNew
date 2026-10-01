@@ -25,6 +25,8 @@ const REPORT_LABELS: Record<string, string> = {
   'tax-statement': 'Income Tax Statement',
   'tax-consolidated': 'Income Tax — Consolidated',
   'pan-status': 'PAN Status',
+  'form-12bb': 'Form 12BB',
+  declarations: 'Income Tax Declarations',
   'loan-statement': 'Loan Statement',
   'loan-register': 'Loan Register',
   'loan-transactions': 'Loan Transactions',

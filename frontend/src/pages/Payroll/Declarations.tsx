@@ -1,0 +1,141 @@
+import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { payrollAPI } from '../../api/payroll';
+import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, BackButton } from '../../components/ui';
+import { formatINR, formatDate } from '../../utils/format';
+
+const regimeName = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New regime');
+
+const WINDOWS: [string, string, string][] = [
+  ['declarationOpen', 'Employees can edit their declaration', 'Turn off to lock declarations; HR can still edit.'],
+  ['proofOpen', 'Employees can attach proofs', 'Usually opened towards the end of the year.'],
+  ['employeeCanChooseRegime', 'Employees can choose their tax regime', 'When off, only HR sets the regime.'],
+];
+
+// Every employee's income-tax declaration for a year, and the year's windows.
+export default function Declarations() {
+  const [data, setData] = useState<any>(null);
+  const [fy, setFy] = useState('');
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await payrollAPI.getDeclarations(fy);
+      setData(res.data);
+      setError('');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to load declarations');
+    }
+  }, [fy]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const setWindow = async (key: string, value: boolean) => {
+    try {
+      await payrollAPI.updateDeclarationControl({ fyStart: data.fyStart, [key]: value });
+      fetchData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Could not change the setting');
+    }
+  };
+
+  if (!data) return error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading declarations…" />;
+
+  const q = search.trim().toLowerCase();
+  const rows = data.rows.filter((r: any) =>
+    !q || r.person.name.toLowerCase().includes(q) || (r.person.employeeNo || '').toLowerCase().includes(q));
+  const started = data.rows.filter((r: any) => r.declared > 0 || r.rent > 0 || r.housingLoanInterest > 0).length;
+
+  return (
+    <>
+      <div className="breadcrumb"><BackButton />
+        <Link to="/payroll">Payroll</Link>
+        <span>/</span>
+        <span>Tax Declarations</span>
+      </div>
+
+      <PageHeader
+        title="Income Tax Declarations"
+        subtitle={`FY ${data.financialYear} · ${started} of ${data.rows.length} employees have declared something`}
+        actions={<>
+          <select className="select" style={{ width: 'auto' }} value={data.fyStart} onChange={e => setFy(e.target.value)}>
+            {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
+          </select>
+          <Link to={`/payroll/reports/declarations?fy=${data.fyStart}`} className="btn btn-secondary">Declarations Report</Link>
+          <Link to="/payroll/settings?tab=declarations" className="btn btn-secondary">Declaration Items</Link>
+        </>}
+      />
+
+      <ErrorAlert message={error} onDismiss={() => setError('')} />
+
+      <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>What employees can do — FY {data.financialYear}</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+          These apply to employees using My Pay. HR can always edit a declaration.
+        </p>
+        <div style={{ display: 'grid', gap: 12 }}>
+          {WINDOWS.map(([key, label, hint]) => (
+            <label key={key} className="checkbox-field" style={{ alignItems: 'flex-start' }}>
+              <input type="checkbox" style={{ marginTop: 2 }} checked={data.control[key]}
+                onChange={e => setWindow(key, e.target.checked)} />
+              <span>{label}<span className="text-muted" style={{ display: 'block', fontSize: 12 }}>{hint}</span></span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header">
+          <h3>Employees</h3>
+          <input className="input" style={{ maxWidth: 240 }} placeholder="Search name or code…" value={search}
+            onChange={e => setSearch(e.target.value)} />
+        </div>
+        {rows.length === 0 ? (
+          <EmptyState icon="▤" title="No employees match" />
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Employee</th><th>Regime</th><th className="num">Deductions declared</th>
+                  <th className="num">Approved</th><th className="num">Rent</th><th className="num">Proofs</th>
+                  <th>Tax uses</th><th>Employee saved</th><th />
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r: any) => (
+                  <tr key={r.person.id}>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{r.person.name}</span>
+                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo}</div>
+                    </td>
+                    <td>
+                      {regimeName(r.regime)}
+                      {r.regimeIsDefault && <div className="text-muted" style={{ fontSize: 11.5 }}>default</div>}
+                    </td>
+                    <td className="num">{r.declared ? formatINR(r.declared) : '—'}</td>
+                    <td className="num">{r.approved ? formatINR(r.approved) : '—'}</td>
+                    <td className="num">{r.rent ? formatINR(r.rent) : '—'}</td>
+                    <td className="num">{r.proofs || '—'}</td>
+                    <td>
+                      <span className={`badge ${r.poiConsidered ? 'badge-success' : 'badge-neutral'}`}>
+                        {r.poiConsidered ? 'Approved' : 'Declared'}
+                      </span>
+                    </td>
+                    <td>{r.submittedAt ? formatDate(r.submittedAt) : <span className="text-muted">—</span>}</td>
+                    <td>
+                      <div className="row-actions">
+                        <Link to={`/payroll/declarations/${r.person.id}?fy=${data.fyStart}`} className="btn btn-secondary btn-sm">Open</Link>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

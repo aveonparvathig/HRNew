@@ -123,7 +123,7 @@ export default function ReportsHub() {
 
       <div className="card card-pad mb-24">
         <h3 style={{ fontSize: 15, marginBottom: 4 }}>Income tax</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>For the financial year and employee chosen above. Available once TDS is computed by payroll.</p>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>For the financial year and employee chosen above. The tax statements are available once TDS is computed by payroll.</p>
         <div className="report-grid">
           <button className="report-tile" disabled={!fy || !personId} onClick={() => go('tax-statement', { fy, personId })}>
             <strong>Income Tax Statement</strong>
@@ -132,6 +132,14 @@ export default function ReportsHub() {
           <button className="report-tile" disabled={!fy} onClick={() => go('tax-consolidated', { fy })}>
             <strong>Income Tax — Consolidated</strong>
             <span>Every employee's taxable income, tax for the year, deducted so far and still to deduct.</span>
+          </button>
+          <button className="report-tile" disabled={!fy || !personId} onClick={() => go('form-12bb', { fy, personId })}>
+            <strong>Form 12BB</strong>
+            <span>The chosen employee's statement of claims: rent, housing-loan interest and deductions, ready to sign.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('declarations', { fy })}>
+            <strong>Income Tax Declarations</strong>
+            <span>Every employee's regime, rent, deductions declared against approved, and proofs attached.</span>
           </button>
           <button className="report-tile" onClick={() => go('pan-status', {})}>
             <strong>PAN Status</strong>
