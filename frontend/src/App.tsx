@@ -43,6 +43,7 @@ const ReportsHub = lazy(() => import('./pages/Payroll/ReportsHub'));
 const Remittances = lazy(() => import('./pages/Payroll/Remittances'));
 const LoansList = lazy(() => import('./pages/Payroll/LoansList'));
 const LoanDetail = lazy(() => import('./pages/Payroll/LoanDetail'));
+const Payout = lazy(() => import('./pages/Payroll/Payout'));
 const Declarations = lazy(() => import('./pages/Payroll/Declarations'));
 const DeclarationDetail = lazy(() => import('./pages/Payroll/DeclarationDetail'));
 const MyPayslips = lazy(() => import('./pages/My/MyPayslips'));
@@ -109,6 +110,7 @@ function App() {
             <Route path="/payroll" element={<RequireRole roles={SA_HR}><RunsList /></RequireRole>} />
             <Route path="/payroll/runs/:runId" element={<RequireRole roles={SA_HR}><RunDetail /></RequireRole>} />
             <Route path="/payroll/runs/:runId/reports/:kind" element={<RequireRole roles={SA_HR}><PayrollReport /></RequireRole>} />
+            <Route path="/payroll/runs/:runId/payout" element={<RequireRole roles={SA_HR}><Payout /></RequireRole>} />
             <Route path="/payroll/runs/:runId/payslips" element={<RequireRole roles={SA_HR}><BulkPayslips /></RequireRole>} />
             <Route path="/payroll/payslips/:entryId" element={<RequireRole roles={SA_HR}><PayslipView /></RequireRole>} />
             <Route path="/payroll/settings" element={<RequireRole roles={SA_HR}><PayrollSettings /></RequireRole>} />

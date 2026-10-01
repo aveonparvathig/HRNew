@@ -152,7 +152,12 @@ export default function RunsList() {
                         {monthLabel(r.period)}
                       </Link>
                     </td>
-                    <td><StatusBadge status={r.status === 'FINALIZED' ? 'finalized' : 'draft'} /></td>
+                    <td>
+                      <StatusBadge status={r.status === 'FINALIZED' ? 'finalized' : 'draft'} />
+                      {r.stage && r.stage.key !== 'INPUTS_OPEN' && r.stage.key !== 'FINALIZED' && (
+                        <div className="text-muted" style={{ fontSize: 11.5, marginTop: 3 }}>{r.stage.label}</div>
+                      )}
+                    </td>
                     <td className="num">{r.totals.employees}</td>
                     <td className="num">{formatINR(r.totals.gross)}</td>
                     <td className="num text-warning">{formatINR(r.totals.deductions)}</td>

@@ -9,6 +9,8 @@ import { payrollStatutoryController } from '../controllers/payrollStatutoryContr
 import { payrollLoansController } from '../controllers/payrollLoansController';
 import { payrollTaxController } from '../controllers/payrollTaxController';
 import { payrollDeclarationsController } from '../controllers/payrollDeclarationsController';
+import { payrollPayoutController } from '../controllers/payrollPayoutController';
+import { payrollControlController } from '../controllers/payrollControlController';
 
 const router = Router();
 
@@ -76,6 +78,17 @@ router.put('/declarations/:personId', asyncHandler((req, res) => payrollDeclarat
 router.put('/declarations/:personId/approval', asyncHandler((req, res) => payrollDeclarationsController.saveApproval(req, res)));
 router.post('/declarations/:personId/proofs', asyncHandler((req, res) => payrollDeclarationsController.addProof(req, res)));
 
+// Payout: salary account, automation, journal ledgers, payment mode and salary stop per employee
+router.get('/payout-settings', asyncHandler((req, res) => payrollPayoutController.getPayoutSettings(req, res)));
+router.put('/payout-settings', asyncHandler((req, res) => payrollPayoutController.updatePayoutSettings(req, res)));
+router.put('/ledger-mapping', asyncHandler((req, res) => payrollPayoutController.updateLedgerMapping(req, res)));
+router.get('/people/:personId/pay-settings', asyncHandler((req, res) => payrollPayoutController.getPaySettings(req, res)));
+router.put('/people/:personId/pay-settings', asyncHandler((req, res) => payrollPayoutController.updatePaySettings(req, res)));
+router.get('/payout-batches/:batchId', asyncHandler((req, res) => payrollPayoutController.getBatch(req, res)));
+router.post('/payout-batches/:batchId/paid', asyncHandler((req, res) => payrollPayoutController.markBatchPaid(req, res)));
+router.delete('/payout-batches/:batchId', asyncHandler((req, res) => payrollPayoutController.deleteBatch(req, res)));
+router.get('/payout-batches/:batchId/bank-file', asyncHandler((req, res) => payrollPayoutController.bankFile(req, res)));
+
 // Loans and advances
 router.get('/loans', asyncHandler((req, res) => payrollLoansController.getLoans(req, res)));
 router.post('/loans', asyncHandler((req, res) => payrollLoansController.createLoan(req, res)));
@@ -88,6 +101,10 @@ router.post('/loans/:loanId/foreclose', asyncHandler((req, res) => payrollLoansC
 router.post('/loans/:loanId/revise', asyncHandler((req, res) => payrollLoansController.revise(req, res)));
 
 // Reports across runs
+router.get('/reports/bank-advice', asyncHandler((req, res) => payrollControlController.bankAdvice(req, res)));
+router.get('/reports/hold-release', asyncHandler((req, res) => payrollControlController.holdRelease(req, res)));
+router.get('/reports/duplicates', asyncHandler((req, res) => payrollControlController.duplicates(req, res)));
+router.get('/reports/reimbursements', asyncHandler((req, res) => payrollControlController.reimbursements(req, res)));
 router.get('/reports/form-12bb', asyncHandler((req, res) => payrollDeclarationsController.form12bb(req, res)));
 router.get('/reports/declarations', asyncHandler((req, res) => payrollDeclarationsController.declarationsReport(req, res)));
 router.get('/reports/tax-statement', asyncHandler((req, res) => payrollTaxController.taxStatement(req, res)));
@@ -113,6 +130,20 @@ router.post('/runs/:runId/finalize', asyncHandler((req, res) => payrollControlle
 router.post('/runs/:runId/reopen', asyncHandler((req, res) => payrollController.reopenRun(req, res)));
 router.post('/runs/:runId/release', asyncHandler((req, res) => payrollController.releaseRun(req, res)));
 router.post('/runs/:runId/hold', asyncHandler((req, res) => payrollController.holdRun(req, res)));
+router.post('/runs/:runId/lock-inputs', asyncHandler((req, res) => payrollPayoutController.lockInputs(req, res)));
+router.post('/runs/:runId/unlock-inputs', asyncHandler((req, res) => payrollPayoutController.unlockInputs(req, res)));
+router.get('/runs/:runId/payout', asyncHandler((req, res) => payrollPayoutController.getPayout(req, res)));
+router.post('/runs/:runId/payout-batches', asyncHandler((req, res) => payrollPayoutController.createBatch(req, res)));
+router.get('/runs/:runId/claims', asyncHandler((req, res) => payrollPayoutController.getRunClaims(req, res)));
+router.put('/runs/:runId/claims', asyncHandler((req, res) => payrollPayoutController.setRunClaim(req, res)));
+router.get('/runs/:runId/reports/payment-register', asyncHandler((req, res) => payrollControlController.paymentRegister(req, res)));
+router.get('/runs/:runId/reports/cash-cheque', asyncHandler((req, res) => payrollControlController.cashChequeStatement(req, res)));
+router.get('/runs/:runId/reports/payout-reconciliation', asyncHandler((req, res) => payrollControlController.payoutReconciliation(req, res)));
+router.get('/runs/:runId/reports/journal-voucher', asyncHandler((req, res) => payrollControlController.journalVoucher(req, res)));
+router.get('/runs/:runId/reports/reconciliation', asyncHandler((req, res) => payrollControlController.reconciliation(req, res)));
+router.get('/runs/:runId/reports/headcount', asyncHandler((req, res) => payrollControlController.headcount(req, res)));
+router.get('/runs/:runId/reports/negative-net', asyncHandler((req, res) => payrollControlController.negativeNet(req, res)));
+router.get('/runs/:runId/reports/anomalies', asyncHandler((req, res) => payrollControlController.anomalies(req, res)));
 router.post('/runs/:runId/recalculate', asyncHandler((req, res) => payrollController.recalculateRun(req, res)));
 router.get('/runs/:runId/reports/pf-esi', asyncHandler((req, res) => payrollController.pfEsiStatement(req, res)));
 router.get('/runs/:runId/reports/comparison', asyncHandler((req, res) => payrollController.runComparison(req, res)));
@@ -135,6 +166,9 @@ router.get('/runs/:runId/payslips', asyncHandler((req, res) => payrollController
 router.get('/people/:personId/entries', asyncHandler((req, res) => payrollController.getPersonEntries(req, res)));
 router.put('/entries/:entryId', asyncHandler((req, res) => payrollController.updateEntry(req, res)));
 router.delete('/entries/:entryId', asyncHandler((req, res) => payrollController.removeEntry(req, res)));
+router.post('/entries/:entryId/hold', asyncHandler((req, res) => payrollPayoutController.holdEntry(req, res)));
+router.post('/entries/:entryId/release-hold', asyncHandler((req, res) => payrollPayoutController.releaseEntry(req, res)));
+router.post('/entries/:entryId/remove-from-batch', asyncHandler((req, res) => payrollPayoutController.removeFromBatch(req, res)));
 router.get('/entries/:entryId/payslip', asyncHandler((req, res) => payrollController.getPayslip(req, res)));
 
 export default router;

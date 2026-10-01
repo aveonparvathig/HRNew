@@ -63,6 +63,28 @@ export const payrollAPI = {
   getDeclarationProof: (proofId: string) => apiClient.get(`/payroll/declaration-proofs/${proofId}`),
   deleteDeclarationProof: (proofId: string) => apiClient.delete(`/payroll/declaration-proofs/${proofId}`),
 
+  // Payout: salary account, automation, journal ledgers
+  getPayoutSettings: () => apiClient.get('/payroll/payout-settings'),
+  updatePayoutSettings: (data: any) => apiClient.put('/payroll/payout-settings', data),
+  updateLedgerMapping: (mapping: Record<string, string>) => apiClient.put('/payroll/ledger-mapping', { mapping }),
+  // An employee's payment mode and salary stop
+  getPaySettings: (personId: string) => apiClient.get(`/payroll/people/${personId}/pay-settings`),
+  updatePaySettings: (personId: string, data: any) => apiClient.put(`/payroll/people/${personId}/pay-settings`, data),
+  // Payout of a run
+  getPayout: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payout`),
+  createPayoutBatch: (runId: string, data: any) => apiClient.post(`/payroll/runs/${runId}/payout-batches`, data),
+  getPayoutBatch: (batchId: string) => apiClient.get(`/payroll/payout-batches/${batchId}`),
+  markPayoutBatchPaid: (batchId: string, data: any) => apiClient.post(`/payroll/payout-batches/${batchId}/paid`, data),
+  deletePayoutBatch: (batchId: string) => apiClient.delete(`/payroll/payout-batches/${batchId}`),
+  getBankFile: (batchId: string) => apiClient.get(`/payroll/payout-batches/${batchId}/bank-file`),
+  holdSalary: (entryId: string, reason: string) => apiClient.post(`/payroll/entries/${entryId}/hold`, { reason }),
+  releaseSalary: (entryId: string) => apiClient.post(`/payroll/entries/${entryId}/release-hold`),
+  removeFromBatch: (entryId: string) => apiClient.post(`/payroll/entries/${entryId}/remove-from-batch`),
+  // Expense claims paid with a run's salary
+  getRunClaims: (runId: string) => apiClient.get(`/payroll/runs/${runId}/claims`),
+  setRunClaim: (runId: string, reportId: string, attach: boolean) =>
+    apiClient.put(`/payroll/runs/${runId}/claims`, { reportId, attach }),
+
   // Loans and advances
   getLoans: (personId?: string) => apiClient.get('/payroll/loans', { params: personId ? { personId } : {} }),
   getLoan: (loanId: string) => apiClient.get(`/payroll/loans/${loanId}`),
@@ -76,6 +98,7 @@ export const payrollAPI = {
   // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history
   //       | pt-half-year | loan-statement | loan-register | loan-transactions
   //       | tax-statement | tax-consolidated | pan-status | form-12bb | declarations
+  //       | bank-advice | hold-release | duplicates | reimbursements
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),
@@ -88,6 +111,9 @@ export const payrollAPI = {
   deleteRun: (runId: string) => apiClient.delete(`/payroll/runs/${runId}`),
   finalizeRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/finalize`),
   reopenRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/reopen`),
+  // While a draft's inputs are locked, attendance and one-offs cannot be edited
+  lockInputs: (runId: string) => apiClient.post(`/payroll/runs/${runId}/lock-inputs`),
+  unlockInputs: (runId: string) => apiClient.post(`/payroll/runs/${runId}/unlock-inputs`),
   // Release shows a finalized run's payslips to employees; hold takes them back
   releaseRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/release`),
   holdRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/hold`),
@@ -97,6 +123,8 @@ export const payrollAPI = {
   getRunPayslips: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payslips`),
   // kind: pf-esi | comparison | overrides | input-history | register | summary
   //       | pf-statement | pt-statement | lwf-statement | tds-statement
+  //       | payment-register | cash-cheque | payout-reconciliation | journal-voucher
+  //       | reconciliation | headcount | negative-net | anomalies
   getRunReport: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/reports/${kind}`),
   // Portal upload files — kind: pf-ecr | esi-upload
   getRunFile: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/files/${kind}`),

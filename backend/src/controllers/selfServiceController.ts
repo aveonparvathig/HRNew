@@ -13,6 +13,7 @@ import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import {
   loadDeclaration, saveDeclaration, addProof, fetchProof, removeProof, buildForm12bb,
 } from '../services/payroll/declarations';
+import { claimsOfEntry } from '../services/payroll/payout';
 import { buildTaxStatement } from './payrollTaxController';
 import { buildYtdStatement } from './payrollReportsController';
 import { buildLoanStatement, loansOfPerson } from './payrollLoansController';
@@ -31,14 +32,16 @@ const yearOptions = () => {
   return [now + 1, now, now - 1].map(y => ({ startYear: y, label: financialYearFor(y).label }));
 };
 
-// Payslips an employee may see: finalized and released by HR.
+// Payslips an employee may see: finalized and released by HR. A salary on
+// hold stays hidden until the hold is released.
 const released = { status: 'FINALIZED', releasedAt: { not: null } };
+const notHeld = { payStatus: 'PAY' };
 
 export const selfServiceController = {
   async getPayslips(req: any, res: Response) {
     const me = await actorPerson(req);
     const entries = await prisma.payslipEntry.findMany({
-      where: { organizationId: me.organizationId, personId: me.id, run: released },
+      where: { organizationId: me.organizationId, personId: me.id, run: released, ...notHeld },
       include: { run: { select: { period: true } } },
       orderBy: { run: { period: 'desc' } },
     });
@@ -54,12 +57,16 @@ export const selfServiceController = {
   async getPayslip(req: any, res: Response) {
     const me = await actorPerson(req);
     const entry = await prisma.payslipEntry.findFirst({
-      where: { id: req.params.entryId, organizationId: me.organizationId, personId: me.id, run: released },
+      where: { id: req.params.entryId, organizationId: me.organizationId, personId: me.id, run: released, ...notHeld },
       include: { run: true, person: true, lines: true },
     });
     if (!entry) throw new AppError(404, 'Payslip not found');
     const brand = await orgBrand(me.organizationId);
-    const withLoan = { ...entry, loanBalanceAfter: await loanBalanceAfter(me.organizationId, entry, entry.run.period) };
+    const withLoan = {
+      ...entry,
+      loanBalanceAfter: await loanBalanceAfter(me.organizationId, entry, entry.run.period),
+      claims: entry.reimbursement > 0 ? await claimsOfEntry(entry.id) : [],
+    };
     res.json({
       id: entry.id, period: entry.run.period, personName: entry.person.name,
       html: renderPayslipHtml(brand, entry.run, withLoan, entry.person),

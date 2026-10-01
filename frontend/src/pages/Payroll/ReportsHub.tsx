@@ -16,7 +16,15 @@ const RUN_REPORTS = [
   { kind: 'pt-statement', title: 'Professional Tax', hint: 'Tax deducted from each employee this month.' },
   { kind: 'lwf-statement', title: 'Labour Welfare Fund', hint: 'Employee and employer contributions this month.' },
   { kind: 'tds-statement', title: 'TDS Statement', hint: 'Tax deducted from each employee this month, with the year\'s position.' },
+  { kind: 'payment-register', title: 'Payment Register', hint: 'Net pay by payment mode, with where each payment stands.' },
+  { kind: 'cash-cheque', title: 'Cash and Cheque Statement', hint: 'Salaries not paid by bank transfer, with room to sign.' },
+  { kind: 'payout-reconciliation', title: 'Payout Reconciliation', hint: 'Processed against paid, and what is still outstanding.' },
+  { kind: 'journal-voucher', title: 'Journal Voucher', hint: 'The month as one balanced voucher, ledger by ledger.' },
   { kind: 'comparison', title: 'Month Comparison', hint: 'Gross and net against the previous run.' },
+  { kind: 'reconciliation', title: 'Payroll Reconciliation', hint: 'Why the month differs from the last: joiners, leavers, revisions, attendance.' },
+  { kind: 'headcount', title: 'Employee Reconciliation', hint: 'Who was added and who dropped out since the previous run.' },
+  { kind: 'negative-net', title: 'Negative and Zero Net Pay', hint: 'Employees whose deductions exceed or wipe out their earnings.' },
+  { kind: 'anomalies', title: 'Payroll Anomalies', hint: 'Sudden swings, zero pay and missing statutory numbers.' },
   { kind: 'overrides', title: 'Overrides', hint: 'Manual inputs and values that differ from the employee record.' },
   { kind: 'input-history', title: 'Salary Input History', hint: 'Every recorded change to the run.' },
 ];
@@ -162,6 +170,27 @@ export default function ReportsHub() {
           <button className="report-tile" disabled={!fy} onClick={() => go('pt-half-year', { fy, half })}>
             <strong>Professional Tax — Half-Year</strong>
             <span>Income and tax per employee, and the number of employees in each slab, for the half-yearly return.</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Payout and control</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          The bank transfer advice for a payment batch opens from the run's Payout page.
+        </p>
+        <div className="report-grid">
+          <button className="report-tile" disabled={!fy} onClick={() => go('hold-release', { fy })}>
+            <strong>Hold and Release</strong>
+            <span>Salaries put on hold in the financial year chosen above, and when they were released and paid.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('reimbursements', { fy })}>
+            <strong>Reimbursement Summary</strong>
+            <span>Expense claims settled in the year: with a month's salary, or directly.</span>
+          </button>
+          <button className="report-tile" onClick={() => go('duplicates', {})}>
+            <strong>Duplicate Check</strong>
+            <span>Employees sharing a bank account or a PAN.</span>
           </button>
         </div>
       </div>
