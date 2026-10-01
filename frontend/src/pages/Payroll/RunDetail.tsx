@@ -197,13 +197,15 @@ export default function RunDetail() {
 
       <PageHeader
         title={`Payroll — ${monthLabel(run.period)}`}
-        subtitle={`${t.employees} employees · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
+        subtitle={`FY ${run.financialYear} · ${t.employees} employees · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
         actions={
           <>
             <StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />
             <button className="btn btn-secondary" onClick={handleExport}>⤓ Register</button>
             <Link to={`/payroll/runs/${run.id}/reports/pf-esi`} className="btn btn-secondary">▤ PF &amp; ESI</Link>
             <Link to={`/payroll/runs/${run.id}/reports/comparison`} className="btn btn-secondary">⇄ vs Prev Month</Link>
+            <Link to={`/payroll/runs/${run.id}/reports/overrides`} className="btn btn-secondary">✎ Overrides</Link>
+            <Link to={`/payroll/runs/${run.id}/reports/input-history`} className="btn btn-secondary">◷ Input History</Link>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
             </Link>
@@ -238,6 +240,20 @@ export default function RunDetail() {
         <div className="alert alert-success">
           <span>✓</span><span style={{ flex: 1 }}>{success}</span>
           <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
+        </div>
+      )}
+
+      {run.checks?.length > 0 && (
+        <div className="alert alert-warning" style={{ alignItems: 'flex-start' }}>
+          <span>⚠</span>
+          <div style={{ flex: 1 }}>
+            <strong>{run.checks.length} ESI {run.checks.length === 1 ? 'entry needs' : 'entries need'} a look</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {run.checks.map((c: any) => (
+                <li key={`${c.entryId}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
 

@@ -3,8 +3,25 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { computeEntry, renderPayslipHtml } from '../services/payrollCalc';
 import { orgBrand } from '../services/orgBrand';
+import { financialYearOf } from '../services/payroll/financialYear';
+import { esiCeilingChecks, entryOverrides, standardWorkingDays } from '../services/payroll/checks';
+import { diffFields, fieldLabel, logPayrollAudit } from '../services/payroll/audit';
+import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/reportHtml';
 
-const num = (v: any, fallback = 0) => (v == null || v === '' || isNaN(Number(v)) ? fallback : Number(v));
+// Entry inputs a user can change — the fields the audit trail tracks.
+const ENTRY_INPUT_FIELDS = [
+  'totalWorkingDays', 'empLeaveDays', 'lopDays', 'internetAllowance',
+  'salaryArrearAllowance', 'salaryAdvance', 'tds', 'monthlyPackage',
+  'isEsiEligible', 'isPfApplicable', 'remarks',
+];
+const SETTINGS_FIELDS = [
+  'basicPercentOfPackage', 'daPercentOfBasic', 'hraPercentOfBasic',
+  'transportPercentOfBasic', 'foodPercentOfBasic',
+  'esiEmployeePercent', 'esiEmployerPercent', 'esiWageCeiling',
+  'pfEmployeePercent', 'pfEmployerPercent', 'pfWageCap', 'pfWageFactor',
+];
+
+const num =(v: any, fallback = 0) => (v == null || v === '' || isNaN(Number(v)) ? fallback : Number(v));
 
 async function settingsFor(organizationId: string) {
   return prisma.payrollSettings.upsert({
@@ -65,16 +82,10 @@ export const payrollController = {
 
   async updateSettings(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    await settingsFor(orgId);
+    const before = await settingsFor(orgId);
     const b = req.body;
-    const fields = [
-      'basicPercentOfPackage', 'daPercentOfBasic', 'hraPercentOfBasic',
-      'transportPercentOfBasic', 'foodPercentOfBasic',
-      'esiEmployeePercent', 'esiEmployerPercent', 'esiWageCeiling',
-      'pfEmployeePercent', 'pfEmployerPercent', 'pfWageCap', 'pfWageFactor',
-    ];
     const data: any = {};
-    for (const f of fields) {
+    for (const f of SETTINGS_FIELDS) {
       if (b[f] !== undefined) {
         const v = num(b[f], NaN);
         if (isNaN(v) || v < 0) throw new AppError(400, `Invalid value for ${f}`);
@@ -88,6 +99,8 @@ export const payrollController = {
       where: { organizationId: orgId },
       data,
     });
+    await logPayrollAudit(req, diffFields(before, updated, [...SETTINGS_FIELDS, 'pfEmployerMatchesEmployee'])
+      .map(c => ({ action: 'SETTINGS_UPDATED' as const, ...c })));
     res.json(updated);
   },
 
@@ -102,6 +115,7 @@ export const payrollController = {
     res.json({
       runs: runs.map(r => ({
         id: r.id, period: r.period, status: r.status,
+        financialYear: financialYearOf(r.period).label,
         finalizedAt: r.finalizedAt, notes: r.notes, createdAt: r.createdAt,
         totals: entryTotals(r.entries),
       })),
@@ -154,6 +168,10 @@ export const payrollController = {
         };
       }),
     });
+    await logPayrollAudit(req, [{
+      action: 'RUN_CREATED', runId: run.id, period,
+      newValue: `${employees.length} employees, ${totalWorkingDays} working days`,
+    }]);
     res.status(201).json({ id: run.id, period: run.period, employees: employees.length });
   },
 
@@ -166,9 +184,13 @@ export const payrollController = {
       orderBy: { period: 'desc' },
       include: { entries: true },
     });
+    const profile = await prisma.orgStatutoryProfile.findUnique({ where: { organizationId: orgId } });
+    const orgUsesEsi = Boolean(profile?.esiCode) || run.entries.some((e: any) => e.isEsiEligible);
     res.json({
       ...run,
+      financialYear: financialYearOf(run.period).label,
       entries: sortEntries(run.entries),
+      checks: esiCeilingChecks(sortEntries(run.entries), await settingsFor(orgId), orgUsesEsi),
       totals: entryTotals(run.entries),
       prev: prev ? { id: prev.id, period: prev.period, totals: entryTotals(prev.entries) } : null,
     });
@@ -179,6 +201,7 @@ export const payrollController = {
     const run = await fetchOrgRun(req.params.runId, orgId);
     assertDraft(run);
     await prisma.payrollRun.delete({ where: { id: run.id } });
+    await logPayrollAudit(req, [{ action: 'RUN_DELETED', runId: run.id, period: run.period }]);
     res.json({ message: `Deleted the ${run.period} draft run` });
   },
 
@@ -190,6 +213,7 @@ export const payrollController = {
       where: { id: run.id },
       data: { status: 'FINALIZED', finalizedAt: new Date() },
     });
+    await logPayrollAudit(req, [{ action: 'RUN_FINALIZED', runId: run.id, period: run.period }]);
     res.json(updated);
   },
 
@@ -201,6 +225,7 @@ export const payrollController = {
       where: { id: run.id },
       data: { status: 'DRAFT', finalizedAt: null },
     });
+    await logPayrollAudit(req, [{ action: 'RUN_REOPENED', runId: run.id, period: run.period }]);
     res.json(updated);
   },
 
@@ -238,6 +263,10 @@ export const payrollController = {
         }),
       });
     }
+    await logPayrollAudit(req, [{
+      action: 'RUN_RECALCULATED', runId: run.id, period: run.period,
+      newValue: `${run.entries.length} entries${missing.length ? `, ${missing.length} added` : ''}`,
+    }]);
     res.json({ message: `Recalculated ${run.entries.length} entries${missing.length ? `, added ${missing.length} new employee(s)` : ''}` });
   },
 
@@ -286,6 +315,10 @@ export const payrollController = {
       },
       include: { person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true } } },
     });
+    await logPayrollAudit(req, diffFields(entry, merged, ENTRY_INPUT_FIELDS).map(c => ({
+      action: 'ENTRY_UPDATED' as const, runId: entry.runId, entryId: entry.id,
+      personId: entry.personId, period: entry.run.period, personName: updated.person.name, ...c,
+    })));
     res.json(updated);
   },
 
@@ -474,6 +507,63 @@ export const payrollController = {
     res.json({ html, title: `Salary Comparison — ${label(prev.period)} vs ${label(run.period)}` });
   },
 
+  // Manual inputs and overrides in a run, employee-wise: one-off amounts,
+  // non-standard working days, and packages / statutory flags that differ
+  // from the employee record.
+  async overridesReport(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await prisma.payrollRun.findFirst({
+      where: { id: req.params.runId, organizationId: orgId },
+      include: { entries: { include: { person: { select: {
+        name: true, employeeNo: true, currentMonthlyPackage: true,
+        isEsiEligible: true, isPfApplicable: true,
+      } } } } },
+    });
+    if (!run) throw new AppError(404, 'Payroll run not found');
+    const standard = standardWorkingDays(run.entries);
+    const rows = sortEntries(run.entries)
+      .map((e: any) => ({ e, items: entryOverrides(e, e.person, standard) }))
+      .filter(r => r.items.length > 0 || r.e.remarks);
+    const body = rows.map(({ e, items }, i) => `<tr>
+      <td>${i + 1}</td><td class="nw">${escHtml(e.person.employeeNo)}</td><td class="nw">${escHtml(e.person.name)}</td>
+      <td>${items.map(it => `<div><strong>${escHtml(it.label)}:</strong> ${escHtml(it.value)}${it.note ? ` <span class="muted">(${escHtml(it.note)})</span>` : ''}</div>`).join('') || '<span class="muted">—</span>'}</td>
+      <td>${escHtml(e.remarks) || '<span class="muted">—</span>'}</td></tr>`).join('');
+    const html = reportShell(await orgBrand(orgId), 'Overrides Report', monthLabel(run.period), `
+  <table class="st-table">
+    <tr><th>#</th><th>Code</th><th>Employee</th><th>Manual inputs and overrides</th><th>Remarks</th></tr>
+    ${body || '<tr><td colspan="5">No manual inputs or overrides in this run.</td></tr>'}
+  </table>
+  <p style="font-size:11.5px;color:#6b7280;">${rows.length} of ${run.entries.length} employees. Run standard: ${standard} working days.
+  Package and PF / ESI differences compare against the employee record as it stands today.</p>`);
+    res.json({ html, title: `Overrides Report — ${monthLabel(run.period)}` });
+  },
+
+  // Every recorded change to a run's inputs, oldest first.
+  async inputHistoryReport(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await fetchOrgRun(req.params.runId, orgId);
+    const logs = await prisma.payrollAuditLog.findMany({
+      where: { organizationId: orgId, runId: run.id },
+      orderBy: { createdAt: 'asc' },
+    });
+    const when = (d: Date) => d.toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+    });
+    const body = logs.map(l => `<tr>
+      <td class="nw">${escHtml(when(l.createdAt))}</td><td class="nw">${escHtml(l.userName) || '<span class="muted">—</span>'}</td>
+      <td class="nw">${escHtml(l.action.replace(/_/g, ' ').toLowerCase())}${l.source === 'IMPORT' ? ' <span class="muted">(import)</span>' : ''}</td>
+      <td class="nw">${escHtml(l.personName) || '<span class="muted">—</span>'}</td>
+      <td>${escHtml(fieldLabel(l.field)) || '<span class="muted">—</span>'}</td>
+      <td>${escHtml(l.oldValue) || '<span class="muted">—</span>'}</td>
+      <td>${escHtml(l.newValue) || '<span class="muted">—</span>'}</td></tr>`).join('');
+    const html = reportShell(await orgBrand(orgId), 'Salary Input History', monthLabel(run.period), `
+  <table class="st-table">
+    <tr><th>When</th><th>User</th><th>Action</th><th>Employee</th><th>Field</th><th>Old value</th><th>New value</th></tr>
+    ${body || '<tr><td colspan="7">No changes recorded for this run. Changes made before the audit log was introduced are not listed.</td></tr>'}
+  </table>`);
+    res.json({ html, title: `Salary Input History — ${monthLabel(run.period)}` });
+  },
+
   // ---- Attendance import ---------------------------------------------------
   // Template: current attendance values for every entry in the run, ready to
   // edit in Excel and upload back.
@@ -584,6 +674,11 @@ export const payrollController = {
             ...computed,
           },
         });
+        await logPayrollAudit(req, diffFields(entry, merged, ENTRY_INPUT_FIELDS).map(c => ({
+          action: 'ENTRY_UPDATED' as const, runId: run.id, entryId: entry.id,
+          personId: entry.personId, period: run.period, personName: entry.person.name,
+          source: 'IMPORT' as const, ...c,
+        })));
       }
       results.push({
         row: r, name: entry.person.name,
@@ -600,11 +695,15 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const entry = await prisma.payslipEntry.findFirst({
       where: { id: req.params.entryId, organizationId: orgId },
-      include: { run: true },
+      include: { run: true, person: { select: { name: true } } },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     assertDraft(entry.run);
     await prisma.payslipEntry.delete({ where: { id: entry.id } });
+    await logPayrollAudit(req, [{
+      action: 'ENTRY_REMOVED', runId: entry.runId, entryId: entry.id, personId: entry.personId,
+      period: entry.run.period, personName: entry.person.name,
+    }]);
     res.json({ message: 'Entry removed from this run' });
   },
 

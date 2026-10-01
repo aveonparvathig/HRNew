@@ -3,7 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton } from '../../components/ui';
 
-// Shared print page for run-level reports: pf-esi | comparison
+const REPORT_LABELS: Record<string, string> = {
+  'pf-esi': 'PF & ESI',
+  comparison: 'Comparison',
+  overrides: 'Overrides',
+  'input-history': 'Input History',
+};
+
+// Shared print page for run-level reports
 export default function PayrollReport() {
   const { runId, kind } = useParams<{ runId: string; kind: string }>();
   const [doc, setDoc] = useState<any>(null);
@@ -11,10 +18,7 @@ export default function PayrollReport() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const call = kind === 'comparison'
-      ? payrollAPI.getComparison(runId!)
-      : payrollAPI.getPfEsiStatement(runId!);
-    call
+    payrollAPI.getRunReport(runId!, REPORT_LABELS[kind!] ? kind! : 'pf-esi')
       .then(res => setDoc(res.data))
       .catch(err => setError(err.response?.data?.error || 'Failed to load report'))
       .finally(() => setLoading(false));
@@ -34,7 +38,7 @@ export default function PayrollReport() {
           <span>/</span>
           <Link to={`/payroll/runs/${runId}`}>Run</Link>
           <span>/</span>
-          <span>{kind === 'comparison' ? 'Comparison' : 'PF & ESI'}</span>
+          <span>{REPORT_LABELS[kind!] || REPORT_LABELS['pf-esi']}</span>
         </div>
         <PageHeader
           title={doc.title}

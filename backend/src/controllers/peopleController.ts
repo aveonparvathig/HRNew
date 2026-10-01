@@ -167,6 +167,7 @@ function personData(b: any) {
     agreementSignDate: dateOrNull(b.agreementSignDate),
     currentMonthlyPackage: Number(b.currentMonthlyPackage) || 0,
     reasonForLeaving: str(b.reasonForLeaving),
+    workLocationId: b.workLocationId || null,
     // Bank & statutory
     bankName: str(b.bankName),
     bankAccountNumber: str(b.bankAccountNumber),
@@ -216,6 +217,14 @@ async function validatePipelineFields(orgId: string, b: any) {
   }
 }
 
+async function validateWorkLocation(orgId: string, b: any) {
+  if (!b.workLocationId) return;
+  const location = await prisma.workLocation.findFirst({
+    where: { id: b.workLocationId, organizationId: orgId },
+  });
+  if (!location) throw new AppError(400, 'Work location not found');
+}
+
 export const peopleController = {
   async getMeta(req: any, res: Response) {
     const orgId = req.user?.organizationId;
@@ -237,6 +246,11 @@ export const peopleController = {
       employmentStatuses: EMPLOYMENT_STATUSES,
       bloodGroups: BLOOD_GROUPS,
       maritalStatuses: MARITAL_STATUSES,
+      workLocations: await prisma.workLocation.findMany({
+        where: { organizationId: orgId, isActive: true },
+        select: { id: true, name: true, state: true },
+        orderBy: { name: 'asc' },
+      }),
       nextEmployeeCode: await nextEmployeeCode(orgId),
     });
   },
@@ -382,6 +396,7 @@ export const peopleController = {
     await checkDuplicateName(orgId, b.kind, name);
     await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim());
     await validatePipelineFields(orgId, b);
+    await validateWorkLocation(orgId, b);
     // Added without a pipeline stage = direct employee; with an active
     // stage = candidate in hiring (auto-promotes on Selected/Joined).
     const stage = str(b.stage);
@@ -442,6 +457,7 @@ export const peopleController = {
       await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim(), person.id);
     }
     await validatePipelineFields(orgId, b);
+    await validateWorkLocation(orgId, b);
 
     const fields = personData({ ...person, ...b });
     Object.assign(data, fields);

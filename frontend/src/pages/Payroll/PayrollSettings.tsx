@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, BackButton,
 } from '../../components/ui';
+import StatutoryProfileTab from './StatutoryProfileTab';
+import WorkLocationsTab from './WorkLocationsTab';
+
+const TABS = [
+  { key: 'rates', label: 'Salary & statutory rates' },
+  { key: 'statutory', label: 'Statutory profile' },
+  { key: 'locations', label: 'Work locations' },
+];
 
 const GROUPS: { title: string; hint: string; fields: [string, string, string][] }[] = [
   {
@@ -18,7 +26,7 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
   },
   {
     title: 'ESI',
-    hint: 'Applied only to employees flagged ESI-eligible (a sticky per-employee decision).',
+    hint: 'Applied only to employees flagged ESI-eligible (a sticky per-employee decision). The wage ceiling drives the warnings shown on a payroll run; it does not switch ESI on or off.',
     fields: [
       ['esiEmployeePercent', 'Employee share', '%'],
       ['esiEmployerPercent', 'Employer share', '%'],
@@ -38,6 +46,39 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
 ];
 
 export default function PayrollSettings() {
+  const [params, setParams] = useSearchParams();
+  const tab = TABS.some(t => t.key === params.get('tab')) ? params.get('tab')! : 'rates';
+
+  return (
+    <>
+      <div className="breadcrumb"><BackButton />
+        <Link to="/payroll">Payroll</Link>
+        <span>/</span>
+        <span>Settings</span>
+      </div>
+
+      <PageHeader
+        title="Payroll Settings"
+        subtitle="Salary split, statutory rates, company registrations and work locations."
+      />
+
+      <div className="tabs">
+        {TABS.map(t => (
+          <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`}
+            onClick={() => setParams(t.key === 'rates' ? {} : { tab: t.key }, { replace: true })}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'rates' && <RatesTab />}
+      {tab === 'statutory' && <StatutoryProfileTab />}
+      {tab === 'locations' && <WorkLocationsTab />}
+    </>
+  );
+}
+
+function RatesTab() {
   const [form, setForm] = useState<any>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -69,17 +110,6 @@ export default function PayrollSettings() {
 
   return (
     <>
-      <div className="breadcrumb"><BackButton />
-        <Link to="/payroll">Payroll</Link>
-        <span>/</span>
-        <span>Settings</span>
-      </div>
-
-      <PageHeader
-        title="Payroll Settings"
-        subtitle="Org-level salary split and statutory rates. Defaults reproduce the source salary sheet exactly."
-      />
-
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
 

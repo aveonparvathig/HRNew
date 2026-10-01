@@ -65,6 +65,7 @@ const PROPOSAL_ITEMS = [
 
 const PAYROLL_ITEMS = [
   { to: '/payroll', icon: 'banknote', label: 'Runs', end: true },
+  { to: '/payroll/audit-log', icon: 'history', label: 'Audit Log', end: true },
   { to: '/payroll/settings', icon: 'sliders', label: 'Settings', end: true },
 ];
 

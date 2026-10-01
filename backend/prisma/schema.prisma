@@ -41,6 +41,7 @@ model Organization {
   jobOpenings   JobOpening[]
   proposals     ProposalRecord[]
   payrollRuns   PayrollRun[]
+  workLocations WorkLocation[]
 
   @@map("organizations")
 }
@@ -319,6 +320,8 @@ model Person {
   agreementSignDate String?
   currentMonthlyPackage Float @default(0)
   reasonForLeaving String  @default("")
+  // Drives state-wise statutory rules (Professional Tax, Labour Welfare Fund)
+  workLocationId   String?
 
   // Bank & statutory
   bankName          String  @default("")
@@ -352,6 +355,7 @@ model Person {
 
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   appliedFor     JobOpening?      @relation(fields: [appliedForId], references: [id], onDelete: SetNull)
+  workLocation   WorkLocation?    @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
   interviews     InterviewRound[]
   documents      PersonDocument[]
   payslipEntries PayslipEntry[]
@@ -566,6 +570,84 @@ model PayslipEntry {
   @@unique([runId, personId])
   @@index([organizationId])
   @@map("payslip_entries")
+}
+
+// Company registrations and the people named on statutory returns
+// (quarterly TDS return, Form 16). One row per organization.
+model OrgStatutoryProfile {
+  organizationId String @id
+
+  // Registrations
+  panNumber         String @default("")
+  tanNumber         String @default("")
+  pfCode            String @default("")
+  esiCode           String @default("")
+  ptRegistrationNo  String @default("")
+  lwfRegistrationNo String @default("")
+
+  // TDS return
+  deductorType     String @default("")
+  tdsCircleAddress String @default("")
+
+  // Person responsible for deducting tax
+  responsibleName        String @default("")
+  responsibleDesignation String @default("")
+  responsiblePan         String @default("")
+  responsibleAddress     String @default("")
+  responsibleEmail       String @default("")
+  responsiblePhone       String @default("")
+
+  // Form 16 signatory
+  form16SignatoryName        String @default("")
+  form16SignatoryFatherName  String @default("")
+  form16SignatoryDesignation String @default("")
+  form16SigningPlace         String @default("")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("org_statutory_profiles")
+}
+
+model WorkLocation {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  city           String   @default("")
+  state          String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  people       Person[]
+
+  @@unique([organizationId, name])
+  @@map("work_locations")
+}
+
+// Append-only trail of payroll changes. runId/entryId/personId are plain
+// columns (no foreign keys) and period/personName are snapshots, so the
+// trail survives deleting the run or entry it describes.
+model PayrollAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  runId          String?
+  entryId        String?
+  personId       String?
+  period         String   @default("")
+  personName     String   @default("")
+  userId         String?
+  userName       String   @default("")
+  action         String
+  field          String   @default("")
+  oldValue       String   @default("")
+  newValue       String   @default("")
+  source         String   @default("MANUAL") // MANUAL | IMPORT
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([runId])
+  @@map("payroll_audit_logs")
 }
 
 // ---------------------------------------------------------------------------

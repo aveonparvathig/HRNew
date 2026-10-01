@@ -433,6 +433,7 @@ a:hover { text-decoration: underline; }
 }
 .alert-error { background: var(--danger-soft); color: #B42318; border-color: #F5CDCF; }
 .alert-success { background: var(--success-soft); color: #067647; border-color: #C4EDD6; }
+.alert-warning { background: var(--warning-soft); color: var(--warning); border-color: #F5DDB0; }
 
 /* ============ Table ============ */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); }
