@@ -7,7 +7,9 @@ export type AuditAction =
   | 'SETTINGS_UPDATED' | 'STATUTORY_PROFILE_UPDATED'
   | 'LOCATION_CREATED' | 'LOCATION_UPDATED' | 'LOCATION_DELETED'
   | 'COMPONENT_CREATED' | 'COMPONENT_UPDATED' | 'COMPONENT_DELETED'
-  | 'SALARY_REVISED' | 'SALARY_REVISION_REMOVED';
+  | 'SALARY_REVISED' | 'SALARY_REVISION_REMOVED'
+  | 'PT_POLICY_SAVED' | 'PT_POLICY_DELETED' | 'LWF_POLICY_SAVED' | 'LWF_POLICY_DELETED'
+  | 'REMITTANCE_RECORDED' | 'REMITTANCE_DELETED';
 
 export interface AuditRow {
   action: AuditAction;
@@ -40,6 +42,15 @@ const FIELD_LABELS: Record<string, string> = {
   isEsiEligible: 'ESI eligible',
   isPfApplicable: 'PF applicable',
   remarks: 'Remarks',
+  professionalTax: 'Professional Tax',
+  pfRoundToRupee: 'Round PF to the rupee',
+  esiAutoCoverage: 'Automatic ESI coverage',
+  epsPercent: 'EPS %',
+  epsWageCap: 'EPS wage cap',
+  edliPercent: 'EDLI %',
+  edliWageCap: 'EDLI wage cap',
+  pfAdminPercent: 'PF admin charge %',
+  pfAdminMinimum: 'PF admin charge minimum',
   basicPercentOfPackage: 'Basic % of package',
   daPercentOfBasic: 'DA % of basic',
   hraPercentOfBasic: 'HRA % of basic',

@@ -25,8 +25,22 @@ export const payrollAPI = {
   deleteRevision: (personId: string, revisionId: string) =>
     apiClient.delete(`/payroll/people/${personId}/revisions/${revisionId}`),
 
+  // Professional Tax and Labour Welfare Fund policies
+  getPolicies: () => apiClient.get('/payroll/statutory-policies'),
+  createPtPolicy: (data: any) => apiClient.post('/payroll/pt-policies', data),
+  updatePtPolicy: (policyId: string, data: any) => apiClient.put(`/payroll/pt-policies/${policyId}`, data),
+  deletePtPolicy: (policyId: string) => apiClient.delete(`/payroll/pt-policies/${policyId}`),
+  createLwfPolicy: (data: any) => apiClient.post('/payroll/lwf-policies', data),
+  updateLwfPolicy: (policyId: string, data: any) => apiClient.put(`/payroll/lwf-policies/${policyId}`, data),
+  deleteLwfPolicy: (policyId: string) => apiClient.delete(`/payroll/lwf-policies/${policyId}`),
+
+  // Statutory payments
+  getRemittances: (fy: string) => apiClient.get('/payroll/remittances', { params: fy ? { fy } : {} }),
+  createRemittance: (data: any) => apiClient.post('/payroll/remittances', data),
+  deleteRemittance: (remittanceId: string) => apiClient.delete(`/payroll/remittances/${remittanceId}`),
+
   // Reports across runs
-  // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history
+  // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history | pt-half-year
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),
@@ -44,7 +58,10 @@ export const payrollAPI = {
     apiClient.get(`/payroll/runs/${runId}/export.csv`, { responseType: 'blob' }),
   getRunPayslips: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payslips`),
   // kind: pf-esi | comparison | overrides | input-history | register | summary
+  //       | pf-statement | pt-statement | lwf-statement
   getRunReport: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/reports/${kind}`),
+  // Portal upload files — kind: pf-ecr | esi-upload
+  getRunFile: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/files/${kind}`),
   attendanceTemplate: (runId: string) =>
     apiClient.get(`/payroll/runs/${runId}/attendance-template.xlsx`, { responseType: 'blob' }),
   importAttendance: (runId: string, fileBase64: string, dryRun: boolean) =>

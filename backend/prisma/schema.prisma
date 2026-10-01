@@ -487,12 +487,24 @@ model PayrollSettings {
   esiEmployeePercent Float @default(0.75)
   esiEmployerPercent Float @default(3.25)
   esiWageCeiling     Float @default(21000)
+  // Off: ESI follows each employee's flag. On: new runs cover everyone
+  // whose wage is within the ceiling, and keep them covered until the
+  // contribution period (Apr–Sep / Oct–Mar) ends.
+  esiAutoCoverage    Boolean @default(false)
 
   pfEmployeePercent         Float   @default(12)
   pfEmployerPercent         Float   @default(12)
   pfWageCap                 Float   @default(15000)
   pfWageFactor              Float   @default(60)
   pfEmployerMatchesEmployee Boolean @default(true)
+  pfRoundToRupee            Boolean @default(false)
+  // Employer-side split and charges — reported, not deducted from pay
+  epsPercent     Float @default(8.33)
+  epsWageCap     Float @default(15000)
+  edliPercent    Float @default(0.5)
+  edliWageCap    Float @default(15000)
+  pfAdminPercent Float @default(0.5)
+  pfAdminMinimum Float @default(500)
 
   updatedAt DateTime @updatedAt
 
@@ -551,8 +563,15 @@ model PayslipEntry {
   esiEmployee    Float   @default(0)
   esiEmployer    Float   @default(0)
   isPfApplicable Boolean @default(false)
+  pfWage         Float   @default(0)
   pfEmployee     Float   @default(0)
   pfEmployer     Float   @default(0)
+
+  // State-wise statutory deductions, from the employee's work location
+  professionalTax Float   @default(0)
+  ptOverridden    Boolean @default(false)
+  lwfEmployee     Float   @default(0)
+  lwfEmployer     Float   @default(0)
 
   totalDeductions       Float @default(0)
   netPayable            Float @default(0)
@@ -633,6 +652,75 @@ model SalaryRevision {
 
   @@index([organizationId, personId])
   @@map("salary_revisions")
+}
+
+// Professional Tax rules for one state from a given month. MONTHLY states
+// pick a slab from the month's gross. HALF_YEARLY states (Tamil Nadu) pick
+// one from the half-year's gross (Apr–Sep / Oct–Mar) and recover it either
+// spread over the months or as a lump sum in the listed months.
+model PtPolicy {
+  id             String   @id @default(cuid())
+  organizationId String
+  state          String
+  effectiveFrom  String // "YYYY-MM"
+  frequency      String // MONTHLY | HALF_YEARLY
+  deductionMode  String   @default("SPREAD") // SPREAD | LUMP_SUM (half-yearly only)
+  deductionMonths String  @default("") // LUMP_SUM: month numbers, e.g. "9,3"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  slabs PtSlab[]
+
+  @@unique([organizationId, state, effectiveFrom])
+  @@map("pt_policies")
+}
+
+model PtSlab {
+  id         String @id @default(cuid())
+  policyId   String
+  incomeFrom Float
+  incomeTo   Float? // null = no upper limit
+  amount     Float
+
+  policy PtPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("pt_slabs")
+}
+
+// Labour Welfare Fund contribution for one state from a given month,
+// collected in the listed months (e.g. "12" for once a year in December).
+model LwfPolicy {
+  id              String   @id @default(cuid())
+  organizationId  String
+  state           String
+  effectiveFrom   String // "YYYY-MM"
+  employeeAmount  Float
+  employerAmount  Float
+  deductionMonths String // month numbers, e.g. "12" or "6,12"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, state, effectiveFrom])
+  @@map("lwf_policies")
+}
+
+// A payment made to a statutory authority for a payroll month.
+model Remittance {
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String // "YYYY-MM" the dues belong to
+  type           String // PF | ESI | PT | LWF
+  amount         Float
+  paidOn         String // "YYYY-MM-DD"
+  reference      String   @default("")
+  bankName       String   @default("")
+  remarks        String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, period])
+  @@map("remittances")
 }
 
 // Company registrations and the people named on statutory returns

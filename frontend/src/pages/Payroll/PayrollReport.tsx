@@ -11,12 +11,16 @@ const REPORT_LABELS: Record<string, string> = {
   'input-history': 'Input History',
   register: 'Salary Register',
   summary: 'Salary Summary',
+  'pf-statement': 'PF Statement',
+  'pt-statement': 'Professional Tax',
+  'lwf-statement': 'Labour Welfare Fund',
   // Across runs
   'ytd-statement': 'Year-to-Date Statement',
   'component-statement': 'Component Statement',
   'salary-structure': 'Salary Structure',
   'ctc-breakup': 'CTC Breakup',
   'revision-history': 'Salary Revision History',
+  'pt-half-year': 'Professional Tax — Half-Year',
 };
 
 // Shared print page for payroll reports. With a runId the report is for

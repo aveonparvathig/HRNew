@@ -1,12 +1,17 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { computeEntry, renderPayslipHtml } from '../services/payrollCalc';
-import { computeEntryWithLines, usedColumns, columnValue } from '../services/payroll/lines';
+import { renderPayslipHtml } from '../services/payrollCalc';
+import { usedColumns, columnValue } from '../services/payroll/lines';
+import {
+  loadStatutoryContext, computeFullEntry, esiFlagFor, coveredEarlier,
+} from '../services/payroll/entryCompute';
 import { packageForPeriod } from '../services/payroll/salaryStructure';
 import { orgBrand } from '../services/orgBrand';
 import { financialYearOf } from '../services/payroll/financialYear';
-import { esiCeilingChecks, entryOverrides, standardWorkingDays } from '../services/payroll/checks';
+import {
+  esiCeilingChecks, locationChecks, entryOverrides, standardWorkingDays,
+} from '../services/payroll/checks';
 import { diffFields, fieldLabel, logPayrollAudit } from '../services/payroll/audit';
 import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/reportHtml';
 
@@ -21,7 +26,9 @@ const SETTINGS_FIELDS = [
   'transportPercentOfBasic', 'foodPercentOfBasic',
   'esiEmployeePercent', 'esiEmployerPercent', 'esiWageCeiling',
   'pfEmployeePercent', 'pfEmployerPercent', 'pfWageCap', 'pfWageFactor',
+  'epsPercent', 'epsWageCap', 'edliPercent', 'edliWageCap', 'pfAdminPercent', 'pfAdminMinimum',
 ];
+const SETTINGS_FLAGS = ['pfEmployerMatchesEmployee', 'pfRoundToRupee', 'esiAutoCoverage'];
 
 const num =(v: any, fallback = 0) => (v == null || v === '' || isNaN(Number(v)) ? fallback : Number(v));
 
@@ -38,7 +45,10 @@ async function fetchOrgRun(runId: string, organizationId: string, includeEntries
     where: { id: runId, organizationId },
     include: includeEntries
       ? { entries: { include: {
-        person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true } },
+        person: { select: {
+          id: true, name: true, employeeNo: true, designation: true, department: true,
+          workLocation: { select: { state: true } },
+        } },
         lines: true,
       } } }
       : undefined,
@@ -76,8 +86,34 @@ async function activeEmployees(organizationId: string) {
       employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] },
     },
     omit: { photoData: true },
-    include: { salaryRevisions: true },
+    include: { salaryRevisions: true, workLocation: { select: { state: true } } },
   });
+}
+
+// Statutory inputs of an existing entry: its employee's state and any
+// manually entered Professional Tax.
+const statutoryOptions = (entry: any) => ({
+  personId: entry.personId,
+  state: entry.person?.workLocation?.state,
+  ptOverride: entry.ptOverridden ? entry.professionalTax : null,
+});
+
+// A new entry for an employee: package and statutory flags are snapshots.
+function newEntryData(ctx: any, organizationId: string, runId: string, emp: any, totalWorkingDays: number) {
+  const base = {
+    monthlyPackage: packageForPeriod(emp.currentMonthlyPackage || 0, emp.salaryRevisions, ctx.period),
+    totalWorkingDays,
+    isPfApplicable: emp.isPfApplicable,
+  };
+  const inputs = { ...base, isEsiEligible: esiFlagFor(ctx, emp, base) };
+  return {
+    organizationId, runId, personId: emp.id,
+    monthlyPackage: inputs.monthlyPackage,
+    totalWorkingDays,
+    isEsiEligible: inputs.isEsiEligible,
+    isPfApplicable: emp.isPfApplicable,
+    ...computeFullEntry(ctx, inputs, [], { personId: emp.id, state: emp.workLocation?.state }),
+  };
 }
 
 // Validates the catalogue lines sent for an entry. Zero amounts drop the
@@ -144,14 +180,14 @@ export const payrollController = {
         data[f] = v;
       }
     }
-    if (b.pfEmployerMatchesEmployee !== undefined) {
-      data.pfEmployerMatchesEmployee = Boolean(b.pfEmployerMatchesEmployee);
+    for (const f of SETTINGS_FLAGS) {
+      if (b[f] !== undefined) data[f] = Boolean(b[f]);
     }
     const updated = await prisma.payrollSettings.update({
       where: { organizationId: orgId },
       data,
     });
-    await logPayrollAudit(req, diffFields(before, updated, [...SETTINGS_FIELDS, 'pfEmployerMatchesEmployee'])
+    await logPayrollAudit(req, diffFields(before, updated, [...SETTINGS_FIELDS, ...SETTINGS_FLAGS])
       .map(c => ({ action: 'SETTINGS_UPDATED' as const, ...c })));
     res.json(updated);
   },
@@ -195,30 +231,13 @@ export const payrollController = {
       throw new AppError(400, 'No active employees found. Add employees in People first.');
     }
 
-    const settings = await settingsFor(orgId);
+    const ctx = await loadStatutoryContext(orgId, period);
     const run = await prisma.payrollRun.create({
       data: { organizationId: orgId, period, notes: String(req.body.notes || '') },
     });
     // Snapshot each employee's package & statutory flags, compute the row
     await prisma.payslipEntry.createMany({
-      data: employees.map(emp => {
-        const inputs = {
-          monthlyPackage: packageForPeriod(emp.currentMonthlyPackage || 0, emp.salaryRevisions, period),
-          totalWorkingDays,
-          isEsiEligible: emp.isEsiEligible,
-          isPfApplicable: emp.isPfApplicable,
-        };
-        return {
-          organizationId: orgId,
-          runId: run.id,
-          personId: emp.id,
-          monthlyPackage: inputs.monthlyPackage,
-          totalWorkingDays,
-          isEsiEligible: emp.isEsiEligible,
-          isPfApplicable: emp.isPfApplicable,
-          ...computeEntry(inputs, settings),
-        };
-      }),
+      data: employees.map(emp => newEntryData(ctx, orgId, run.id, emp, totalWorkingDays)),
     });
     await logPayrollAudit(req, [{
       action: 'RUN_CREATED', runId: run.id, period,
@@ -238,11 +257,17 @@ export const payrollController = {
     });
     const profile = await prisma.orgStatutoryProfile.findUnique({ where: { organizationId: orgId } });
     const orgUsesEsi = Boolean(profile?.esiCode) || run.entries.some((e: any) => e.isEsiEligible);
+    const ctx = await loadStatutoryContext(orgId, run.period);
+    const sorted = sortEntries(run.entries);
+    const stillCovered = new Set<string>(sorted.filter((e: any) => coveredEarlier(ctx, e.personId)).map((e: any) => e.personId));
     res.json({
       ...run,
       financialYear: financialYearOf(run.period).label,
       entries: sortEntries(run.entries),
-      checks: esiCeilingChecks(sortEntries(run.entries), await settingsFor(orgId), orgUsesEsi),
+      checks: [
+        ...esiCeilingChecks(sorted, ctx.settings, orgUsesEsi, stillCovered),
+        ...locationChecks(sorted, ctx.ptPolicies.length + ctx.lwfPolicies.length > 0),
+      ],
       totals: entryTotals(run.entries),
       prev: prev ? { id: prev.id, period: prev.period, totals: entryTotals(prev.entries) } : null,
     });
@@ -287,10 +312,10 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const run = await fetchOrgRun(req.params.runId, orgId, true);
     assertDraft(run);
-    const settings = await settingsFor(orgId);
+    const ctx = await loadStatutoryContext(orgId, run.period);
 
     for (const entry of run.entries) {
-      const computed = computeEntryWithLines(entry, settings, entry.lines);
+      const computed = computeFullEntry(ctx, entry, entry.lines, statutoryOptions(entry));
       await prisma.payslipEntry.update({ where: { id: entry.id }, data: computed });
     }
 
@@ -299,20 +324,7 @@ export const payrollController = {
     if (missing.length) {
       const twd = run.entries[0]?.totalWorkingDays || 26;
       await prisma.payslipEntry.createMany({
-        data: missing.map(emp => {
-          const inputs = {
-            monthlyPackage: packageForPeriod(emp.currentMonthlyPackage || 0, emp.salaryRevisions, run.period),
-            totalWorkingDays: twd,
-            isEsiEligible: emp.isEsiEligible,
-            isPfApplicable: emp.isPfApplicable,
-          };
-          return {
-            organizationId: orgId, runId: run.id, personId: emp.id,
-            monthlyPackage: inputs.monthlyPackage, totalWorkingDays: twd,
-            isEsiEligible: emp.isEsiEligible, isPfApplicable: emp.isPfApplicable,
-            ...computeEntry(inputs, settings),
-          };
-        }),
+        data: missing.map(emp => newEntryData(ctx, orgId, run.id, emp, twd)),
       });
     }
     await logPayrollAudit(req, [{
@@ -327,13 +339,26 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const entry = await prisma.payslipEntry.findFirst({
       where: { id: req.params.entryId, organizationId: orgId },
-      include: { run: true, lines: true },
+      include: {
+        run: true, lines: true,
+        person: { select: { workLocation: { select: { state: true } } } },
+      },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     assertDraft(entry.run);
 
     const b = req.body;
     const merged: any = { ...entry };
+    // Professional Tax: a number overrides the computed amount; blank
+    // returns the entry to the computed one.
+    const ptBefore = entry.ptOverridden ? entry.professionalTax : null;
+    let ptOverride: number | null = ptBefore;
+    if (b.professionalTax !== undefined) {
+      ptOverride = b.professionalTax === '' || b.professionalTax === null ? null : num(b.professionalTax, NaN);
+      if (ptOverride !== null && (isNaN(ptOverride) || ptOverride < 0)) {
+        throw new AppError(400, 'Enter a valid Professional Tax amount');
+      }
+    }
     if (b.totalWorkingDays !== undefined) {
       const twd = parseInt(b.totalWorkingDays);
       if (!twd || twd < 1 || twd > 31) throw new AppError(400, 'Working days must be 1-31');
@@ -350,8 +375,10 @@ export const payrollController = {
     const lines = b.lines !== undefined
       ? await resolveLines(orgId, b.lines, entry.lines)
       : entry.lines;
-    const settings = await settingsFor(orgId);
-    const computed = computeEntryWithLines(merged, settings, lines);
+    const ctx = await loadStatutoryContext(orgId, entry.run.period);
+    const computed = computeFullEntry(ctx, merged, lines, {
+      personId: entry.personId, state: entry.person.workLocation?.state, ptOverride,
+    });
     if (b.lines !== undefined) {
       await prisma.$transaction([
         prisma.payslipLine.deleteMany({ where: { entryId: entry.id } }),
@@ -377,6 +404,7 @@ export const payrollController = {
         isEsiEligible: merged.isEsiEligible,
         isPfApplicable: merged.isPfApplicable,
         remarks: merged.remarks,
+        ptOverridden: ptOverride !== null,
         ...computed,
       },
       include: {
@@ -387,6 +415,11 @@ export const payrollController = {
     await logPayrollAudit(req, [
       ...diffFields(entry, merged, ENTRY_INPUT_FIELDS),
       ...(b.lines !== undefined ? lineChanges(entry.lines, lines) : []),
+      ...(ptOverride !== ptBefore ? [{
+        field: 'professionalTax',
+        oldValue: ptBefore === null ? 'Computed' : String(ptBefore),
+        newValue: ptOverride === null ? 'Computed' : String(ptOverride),
+      }] : []),
     ].map(c => ({
       action: 'ENTRY_UPDATED' as const, runId: entry.runId, entryId: entry.id,
       personId: entry.personId, period: entry.run.period, personName: updated.person.name, ...c,
@@ -677,7 +710,10 @@ export const payrollController = {
     }
     const run = await prisma.payrollRun.findFirst({
       where: { id: req.params.runId, organizationId: orgId },
-      include: { entries: { include: { person: { select: { name: true, employeeNo: true } }, lines: true } } },
+      include: { entries: { include: {
+        person: { select: { name: true, employeeNo: true, workLocation: { select: { state: true } } } },
+        lines: true,
+      } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
     assertDraft(run);
@@ -706,7 +742,7 @@ export const payrollController = {
       return isNaN(n) ? undefined : n;
     };
 
-    const settings = await settingsFor(orgId);
+    const ctx = await loadStatutoryContext(orgId, run.period);
     const results: any[] = [];
     let updated = 0, skipped = 0, errors = 0;
     for (let r = 2; r <= ws.rowCount; r++) {
@@ -736,7 +772,7 @@ export const payrollController = {
         .some(f => (merged as any)[f] !== (entry as any)[f]);
       if (!changed) { results.push({ row: r, name: entry.person.name, action: 'skip: no changes' }); skipped++; continue; }
 
-      const computed = computeEntryWithLines(merged, settings, entry.lines);
+      const computed = computeFullEntry(ctx, merged, entry.lines, statutoryOptions(entry));
       if (!dryRun) {
         await prisma.payslipEntry.update({
           where: { id: entry.id },
@@ -852,14 +888,17 @@ export const payrollController = {
     const lineCols = usedColumns(run.entries).filter(c => c.key.startsWith('c:'));
     const earningCols = lineCols.filter(c => c.group === 'EARNING');
     const deductionCols = lineCols.filter(c => c.group === 'DEDUCTION');
+    const hasPt = run.entries.some((e: any) => e.professionalTax);
+    const hasLwf = run.entries.some((e: any) => e.lwfEmployee || e.lwfEmployer);
     const header = [
       'Employee Code', 'Name', 'Designation', 'Department', 'Monthly Package',
       'Working Days', 'Leave Days', 'LOP Days', 'Present Days', 'Pay Days',
       'Basic', 'DA', 'HRA', 'Transport', 'Food', 'Internet', 'Arrear',
       ...earningCols.map(c => esc(c.label)), 'Gross',
       'ESI Employee', 'PF Employee', 'Advance', 'TDS',
+      ...(hasPt ? ['Professional Tax'] : []), ...(hasLwf ? ['LWF Employee'] : []),
       ...deductionCols.map(c => esc(c.label)), 'Total Deductions',
-      'Net Payable', 'ESI Employer', 'PF Employer', 'CTC', 'Remarks',
+      'Net Payable', 'ESI Employer', 'PF Employer', ...(hasLwf ? ['LWF Employer'] : []), 'CTC', 'Remarks',
     ];
     const lines = [header.join(',')];
     for (const e of sortEntries(run.entries)) {
@@ -871,8 +910,9 @@ export const payrollController = {
         e.internetAllowance, e.salaryArrearAllowance,
         ...earningCols.map(c => columnValue(e, c.key)), e.grossSalary,
         e.esiEmployee, e.pfEmployee, e.salaryAdvance, e.tds,
+        ...(hasPt ? [e.professionalTax] : []), ...(hasLwf ? [e.lwfEmployee] : []),
         ...deductionCols.map(c => columnValue(e, c.key)), e.totalDeductions,
-        e.netPayable, e.esiEmployer, e.pfEmployer, e.ctc, esc(e.remarks),
+        e.netPayable, e.esiEmployer, e.pfEmployer, ...(hasLwf ? [e.lwfEmployer] : []), e.ctc, esc(e.remarks),
       ].join(','));
     }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

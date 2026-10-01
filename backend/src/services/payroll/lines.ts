@@ -66,10 +66,13 @@ export const FIXED_DEDUCTIONS: ComponentColumn[] = [
   col('pfEmployee', 'PF (Employee)', 'PF', 'DEDUCTION'),
   col('salaryAdvance', 'Salary Advance', 'Advance', 'DEDUCTION'),
   col('tds', 'TDS', 'TDS', 'DEDUCTION'),
+  col('professionalTax', 'Professional Tax', 'PT', 'DEDUCTION'),
+  col('lwfEmployee', 'Labour Welfare Fund', 'LWF', 'DEDUCTION'),
 ];
 export const FIXED_EMPLOYER: ComponentColumn[] = [
   col('esiEmployer', 'ESI (Employer)', 'ESI Er', 'EMPLOYER'),
   col('pfEmployer', 'PF (Employer)', 'PF Er', 'EMPLOYER'),
+  col('lwfEmployer', 'LWF (Employer)', 'LWF Er', 'EMPLOYER'),
 ];
 const GROSS = col('grossSalary', 'Gross Salary', 'Gross', 'GROSS');
 const TOTAL_DEDUCTIONS = col('totalDeductions', 'Total Deductions', 'Deductions', 'TOTAL_DEDUCTIONS');

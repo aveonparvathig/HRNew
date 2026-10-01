@@ -3,7 +3,7 @@
 // effective month onward take the package that now applies and are
 // recomputed. Finalized runs are never touched.
 import { prisma } from '../../config/database';
-import { computeEntryWithLines } from './lines';
+import { loadStatutoryContext, computeFullEntry } from './entryCompute';
 import { packageForPeriod } from './salaryStructure';
 import { logPayrollAudit } from './audit';
 
@@ -11,7 +11,10 @@ export async function syncDraftPackages(req: any, personId: string, fromPeriod: 
   const organizationId = req.user?.organizationId;
   const person = await prisma.person.findFirst({
     where: { id: personId, organizationId },
-    select: { name: true, currentMonthlyPackage: true, salaryRevisions: true },
+    select: {
+      name: true, currentMonthlyPackage: true, salaryRevisions: true,
+      workLocation: { select: { state: true } },
+    },
   });
   if (!person) return 0;
   const entries = await prisma.payslipEntry.findMany({
@@ -19,17 +22,21 @@ export async function syncDraftPackages(req: any, personId: string, fromPeriod: 
     include: { run: { select: { period: true } }, lines: true },
   });
   if (entries.length === 0) return 0;
-  const settings = await prisma.payrollSettings.upsert({
-    where: { organizationId }, create: { organizationId }, update: {},
-  });
 
   let updated = 0;
   for (const entry of entries) {
     const monthlyPackage = packageForPeriod(person.currentMonthlyPackage, person.salaryRevisions, entry.run.period);
     if (monthlyPackage === entry.monthlyPackage) continue;
+    const ctx = await loadStatutoryContext(organizationId, entry.run.period);
     await prisma.payslipEntry.update({
       where: { id: entry.id },
-      data: { monthlyPackage, ...computeEntryWithLines({ ...entry, monthlyPackage }, settings, entry.lines) },
+      data: {
+        monthlyPackage,
+        ...computeFullEntry(ctx, { ...entry, monthlyPackage }, entry.lines, {
+          personId, state: person.workLocation?.state,
+          ptOverride: entry.ptOverridden ? entry.professionalTax : null,
+        }),
+      },
     });
     await logPayrollAudit(req, [{
       action: 'ENTRY_UPDATED', runId: entry.runId, entryId: entry.id, personId,

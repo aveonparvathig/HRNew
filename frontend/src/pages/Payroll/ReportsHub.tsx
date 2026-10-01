@@ -12,6 +12,9 @@ const RUN_REPORTS = [
   { kind: 'register', title: 'Salary Register', hint: 'One line per employee with every component.' },
   { kind: 'summary', title: 'Salary Summary', hint: 'Component totals, by department and location.' },
   { kind: 'pf-esi', title: 'PF & ESI Statement', hint: 'Employee-wise contributions and remittance totals.' },
+  { kind: 'pf-statement', title: 'PF Statement', hint: 'EPF, pension and insurance wages and shares, with the challan.' },
+  { kind: 'pt-statement', title: 'Professional Tax', hint: 'Tax deducted from each employee this month.' },
+  { kind: 'lwf-statement', title: 'Labour Welfare Fund', hint: 'Employee and employer contributions this month.' },
   { kind: 'comparison', title: 'Month Comparison', hint: 'Gross and net against the previous run.' },
   { kind: 'overrides', title: 'Overrides', hint: 'Manual inputs and values that differ from the employee record.' },
   { kind: 'input-history', title: 'Salary Input History', hint: 'Every recorded change to the run.' },
@@ -26,6 +29,7 @@ export default function ReportsHub() {
   const [fy, setFy] = useState('');
   const [personId, setPersonId] = useState('');
   const [component, setComponent] = useState('netPayable');
+  const [half, setHalf] = useState('1');
 
   useEffect(() => {
     Promise.all([payrollAPI.getReportOptions(), payrollAPI.getRuns()])
@@ -112,6 +116,24 @@ export default function ReportsHub() {
             onClick={() => go('component-statement', { fy, component })}>
             <strong>Component Statement</strong>
             <span>The chosen component for every employee, each month. Pick Net Payable for a year-to-date pay summary, or Bonus for a bonus statement.</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Half-yearly reports</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>For the financial year chosen above.</p>
+        <div className="field" style={{ maxWidth: 280, marginBottom: 16 }}>
+          <label>Half-year</label>
+          <select className="select" value={half} onChange={e => setHalf(e.target.value)}>
+            <option value="1">April – September</option>
+            <option value="2">October – March</option>
+          </select>
+        </div>
+        <div className="report-grid">
+          <button className="report-tile" disabled={!fy} onClick={() => go('pt-half-year', { fy, half })}>
+            <strong>Professional Tax — Half-Year</strong>
+            <span>Income and tax per employee, and the number of employees in each slab, for the half-yearly return.</span>
           </button>
         </div>
       </div>

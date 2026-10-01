@@ -6,10 +6,12 @@ import { PageHeader, LoadingBlock, ErrorAlert, BackButton,
 import StatutoryProfileTab from './StatutoryProfileTab';
 import WorkLocationsTab from './WorkLocationsTab';
 import PayComponentsTab from './PayComponentsTab';
+import StatutoryPoliciesTab from './StatutoryPoliciesTab';
 
 const TABS = [
   { key: 'rates', label: 'Salary & statutory rates' },
   { key: 'components', label: 'Pay components' },
+  { key: 'policies', label: 'PT & LWF' },
   { key: 'statutory', label: 'Statutory profile' },
   { key: 'locations', label: 'Work locations' },
 ];
@@ -28,7 +30,7 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
   },
   {
     title: 'ESI',
-    hint: 'Applied only to employees flagged ESI-eligible (a sticky per-employee decision). The wage ceiling drives the warnings shown on a payroll run; it does not switch ESI on or off.',
+    hint: 'By default ESI applies to employees flagged ESI-eligible, and the wage ceiling only drives the warnings on a payroll run.',
     fields: [
       ['esiEmployeePercent', 'Employee share', '%'],
       ['esiEmployerPercent', 'Employer share', '%'],
@@ -43,6 +45,18 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
       ['pfEmployerPercent', 'Employer share', '%'],
       ['pfWageFactor', 'Wage factor', '%'],
       ['pfWageCap', 'Wage cap', '₹'],
+    ],
+  },
+  {
+    title: 'PF return — pension, insurance and charges',
+    hint: 'Used to split the employer share in the PF statement and ECR file, and to work out what is payable. None of this is deducted from pay.',
+    fields: [
+      ['epsPercent', 'Pension (EPS) share', '%'],
+      ['epsWageCap', 'Pension wage cap', '₹'],
+      ['edliPercent', 'Insurance (EDLI)', '%'],
+      ['edliWageCap', 'Insurance wage cap', '₹'],
+      ['pfAdminPercent', 'Administration charge', '%'],
+      ['pfAdminMinimum', 'Administration charge minimum', '₹'],
     ],
   },
 ];
@@ -75,6 +89,7 @@ export default function PayrollSettings() {
 
       {tab === 'rates' && <RatesTab />}
       {tab === 'components' && <PayComponentsTab />}
+      {tab === 'policies' && <StatutoryPoliciesTab />}
       {tab === 'statutory' && <StatutoryProfileTab />}
       {tab === 'locations' && <WorkLocationsTab />}
     </>
@@ -133,12 +148,33 @@ function RatesTab() {
                 </div>
               ))}
             </div>
+            {g.title === 'ESI' && (
+              <>
+                <label className="checkbox-field" style={{ marginTop: 14 }}>
+                  <input type="checkbox" checked={form.esiAutoCoverage}
+                    onChange={e => setForm({ ...form, esiAutoCoverage: e.target.checked })} />
+                  Decide ESI automatically in new runs
+                </label>
+                <p className="text-muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                  When on, a new run covers every employee whose full-month wage is within the ceiling, and keeps
+                  them covered until the contribution period (April–September or October–March) ends, even after
+                  a raise. The employee flag is then ignored; you can still change ESI on an individual payslip.
+                </p>
+              </>
+            )}
             {g.title === 'Provident Fund' && (
-              <label className="checkbox-field" style={{ marginTop: 14 }}>
-                <input type="checkbox" checked={form.pfEmployerMatchesEmployee}
-                  onChange={e => setForm({ ...form, pfEmployerMatchesEmployee: e.target.checked })} />
-                Employer PF matches the employee share exactly
-              </label>
+              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 14 }}>
+                <label className="checkbox-field">
+                  <input type="checkbox" checked={form.pfEmployerMatchesEmployee}
+                    onChange={e => setForm({ ...form, pfEmployerMatchesEmployee: e.target.checked })} />
+                  Employer PF matches the employee share exactly
+                </label>
+                <label className="checkbox-field">
+                  <input type="checkbox" checked={form.pfRoundToRupee}
+                    onChange={e => setForm({ ...form, pfRoundToRupee: e.target.checked })} />
+                  Round PF to the nearest rupee
+                </label>
+              </div>
             )}
           </div>
         ))}

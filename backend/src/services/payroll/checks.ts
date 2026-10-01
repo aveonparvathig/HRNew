@@ -5,7 +5,7 @@ import { computeEntry } from '../payrollCalc';
 export interface RunCheck {
   entryId: string;
   personName: string;
-  code: 'ESI_ABOVE_CEILING' | 'ESI_NOT_APPLIED';
+  code: 'ESI_ABOVE_CEILING' | 'ESI_NOT_APPLIED' | 'NO_WORK_LOCATION';
   message: string;
 }
 
@@ -26,13 +26,18 @@ export function fullMonthEsiWage(entry: any, settings: any): number {
 // after crossing the ceiling, so these are warnings, never auto-corrections.
 // `orgUsesEsi` suppresses the "not applied" warning for organisations that
 // are not registered for ESI at all.
-export function esiCeilingChecks(entries: any[], settings: any, orgUsesEsi: boolean): RunCheck[] {
+// `stillCovered` holds employees already covered earlier in this
+// contribution period: for them a wage above the ceiling is correct.
+export function esiCeilingChecks(
+  entries: any[], settings: any, orgUsesEsi: boolean, stillCovered: Set<string> = new Set(),
+): RunCheck[] {
   const ceiling = Number(settings.esiWageCeiling || 0);
   if (!ceiling) return [];
   const checks: RunCheck[] = [];
   for (const e of entries) {
     const wage = fullMonthEsiWage(e, settings);
     const personName = e.person?.name || '';
+    if (e.isEsiEligible && wage > ceiling && stillCovered.has(e.personId)) continue;
     if (e.isEsiEligible && wage > ceiling) {
       checks.push({
         entryId: e.id, personName, code: 'ESI_ABOVE_CEILING',
@@ -47,6 +52,18 @@ export function esiCeilingChecks(entries: any[], settings: any, orgUsesEsi: bool
     }
   }
   return checks;
+}
+
+// Professional Tax and Labour Welfare Fund follow the state of the
+// employee's work location; without one they cannot be applied.
+export function locationChecks(entries: any[], orgHasStatePolicies: boolean): RunCheck[] {
+  if (!orgHasStatePolicies) return [];
+  return entries
+    .filter(e => !e.person?.workLocation)
+    .map(e => ({
+      entryId: e.id, personName: e.person?.name || '', code: 'NO_WORK_LOCATION' as const,
+      message: 'No work location is set, so Professional Tax and Labour Welfare Fund are not applied.',
+    }));
 }
 
 export interface OverrideItem {
@@ -71,6 +88,9 @@ export function entryOverrides(entry: any, person: any, standardWorkingDays: num
   ];
   for (const [field, label] of amounts) {
     if (Number(entry[field] || 0) !== 0) items.push({ label, value: inr(entry[field]) });
+  }
+  if (entry.ptOverridden) {
+    items.push({ label: 'Professional Tax', value: inr(entry.professionalTax), note: 'entered by hand' });
   }
   for (const line of entry.lines || []) {
     items.push({ label: line.name, value: inr(line.amount), note: line.remarks || undefined });
