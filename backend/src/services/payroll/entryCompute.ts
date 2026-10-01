@@ -5,6 +5,7 @@ import { prisma } from '../../config/database';
 import { EntryInputs } from '../payrollCalc';
 import { computeEntryWithLines, LineAmount } from './lines';
 import { fullMonthEsiWage } from './checks';
+import { loanDueByPerson } from './loanLedger';
 import {
   halfYearOf, policyInForce, professionalTaxForMonth, lwfForMonth, esiCovered, PriorMonth,
 } from './statutoryCalc';
@@ -20,14 +21,17 @@ export interface StatutoryContext {
   lwfPolicies: any[];
   // Each employee's entries from earlier months of the same half-year
   priorByPerson: Map<string, PriorEntry[]>;
+  // Loan instalments falling due this month, per employee
+  loanDue: Map<string, number>;
 }
 
 export async function loadStatutoryContext(organizationId: string, period: string): Promise<StatutoryContext> {
   const earlier = halfYearOf(period).periods.filter(p => p < period);
-  const [settings, ptPolicies, lwfPolicies, entries] = await Promise.all([
+  const [settings, ptPolicies, lwfPolicies, loanDue, entries] = await Promise.all([
     prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} }),
     prisma.ptPolicy.findMany({ where: { organizationId }, include: { slabs: true } }),
     prisma.lwfPolicy.findMany({ where: { organizationId } }),
+    loanDueByPerson(organizationId, period),
     earlier.length
       ? prisma.payslipEntry.findMany({
         where: { organizationId, run: { period: { in: earlier } } },
@@ -47,7 +51,7 @@ export async function loadStatutoryContext(organizationId: string, period: strin
     });
     priorByPerson.set(e.personId, list);
   }
-  return { period, settings, ptPolicies, lwfPolicies, priorByPerson };
+  return { period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue };
 }
 
 export const coveredEarlier = (ctx: StatutoryContext, personId: string) =>
@@ -67,10 +71,11 @@ export interface ComputeOptions {
 }
 
 // Everything to store on the entry. Statutory amounts need the gross, so
-// the engine runs once without them and once with.
+// the engine runs once without them and once with. Loan instalments come
+// straight from the ledger.
 export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, lines: LineAmount[], opts: ComputeOptions) {
   const bare = computeEntryWithLines(
-    { ...inputs, professionalTax: 0, lwfEmployee: 0, lwfEmployer: 0 }, ctx.settings, lines,
+    { ...inputs, professionalTax: 0, lwfEmployee: 0, lwfEmployer: 0, loanDeduction: 0 }, ctx.settings, lines,
   );
   let professionalTax = 0;
   let lwf = { lwfEmployee: 0, lwfEmployer: 0 };
@@ -86,7 +91,7 @@ export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, lin
   }
   if (opts.ptOverride != null) professionalTax = opts.ptOverride;
 
-  const statutory = { professionalTax, ...lwf };
+  const statutory = { professionalTax, ...lwf, loanDeduction: ctx.loanDue.get(opts.personId) || 0 };
   return {
     ...computeEntryWithLines({ ...inputs, ...statutory }, ctx.settings, lines),
     ...statutory,

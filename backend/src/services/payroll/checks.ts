@@ -5,7 +5,7 @@ import { computeEntry } from '../payrollCalc';
 export interface RunCheck {
   entryId: string;
   personName: string;
-  code: 'ESI_ABOVE_CEILING' | 'ESI_NOT_APPLIED' | 'NO_WORK_LOCATION';
+  code: 'ESI_ABOVE_CEILING' | 'ESI_NOT_APPLIED' | 'NO_WORK_LOCATION' | 'LOAN_OVERDUE';
   message: string;
 }
 

@@ -360,6 +360,7 @@ model Person {
   documents      PersonDocument[]
   payslipEntries PayslipEntry[]
   salaryRevisions SalaryRevision[]
+  loans          Loan[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -506,6 +507,11 @@ model PayrollSettings {
   pfAdminPercent Float @default(0.5)
   pfAdminMinimum Float @default(500)
 
+  // Loan perquisite: interest the employee saves against this benchmark
+  // rate is taxable, unless their loans total no more than the limit.
+  loanBenchmarkRate        Float @default(0)
+  loanPerquisiteExemptLimit Float @default(20000)
+
   updatedAt DateTime @updatedAt
 
   @@map("payroll_settings")
@@ -572,6 +578,9 @@ model PayslipEntry {
   ptOverridden    Boolean @default(false)
   lwfEmployee     Float   @default(0)
   lwfEmployer     Float   @default(0)
+
+  // Loan instalments falling due this month (principal + interest)
+  loanDeduction Float @default(0)
 
   totalDeductions       Float @default(0)
   netPayable            Float @default(0)
@@ -652,6 +661,76 @@ model SalaryRevision {
 
   @@index([organizationId, personId])
   @@map("salary_revisions")
+}
+
+// A loan or salary advance recovered through payroll. The schedule holds
+// one line per month; a line is DUE until the run that deducts it is
+// finalized. Outstanding principal is always derived from transactions.
+model Loan {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  loanNo         String // LN-0001, sequential per organization
+  title          String   @default("")
+  type           String // FLAT | REDUCING | REDUCING_EMI
+  principal      Float // amount first disbursed
+  annualRate     Float    @default(0)
+  instalments    Int // as first agreed
+  loanDate       String // "YYYY-MM-DD"
+  startPeriod    String // "YYYY-MM" of the first deduction
+  status         String   @default("ACTIVE") // ACTIVE | CLOSED
+  closedOn       String?
+  remarks        String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person       Person             @relation(fields: [personId], references: [id], onDelete: Restrict)
+  schedule     LoanScheduleLine[]
+  transactions LoanTransaction[]
+
+  @@unique([organizationId, loanNo])
+  @@index([organizationId, personId])
+  @@map("loans")
+}
+
+model LoanScheduleLine {
+  id        String  @id @default(cuid())
+  loanId    String
+  seq       Int
+  period    String // "YYYY-MM"
+  principal Float
+  interest  Float
+  status    String  @default("DUE") // DUE | PAID | SKIPPED
+  entryId   String? // payslip entry that deducted it
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@unique([loanId, seq])
+  @@index([period, status])
+  @@map("loan_schedule_lines")
+}
+
+model LoanTransaction {
+  id             String   @id @default(cuid())
+  organizationId String
+  loanId         String
+  date           String // "YYYY-MM-DD"
+  period         String   @default("") // payroll month, for instalments
+  type           String // DISBURSAL | INSTALMENT | PREPAYMENT | FORECLOSURE | TOP_UP | REVISION | SKIP
+  principal      Float    @default(0) // movement in principal: + lent, - repaid
+  interest       Float    @default(0) // interest collected
+  balanceAfter   Float // principal outstanding after this transaction
+  remarks        String   @default("")
+  entryId        String?
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+
+  loan Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  @@index([loanId, createdAt])
+  @@index([organizationId, date])
+  @@map("loan_transactions")
 }
 
 // Professional Tax rules for one state from a given month. MONTHLY states

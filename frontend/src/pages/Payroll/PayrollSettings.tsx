@@ -48,6 +48,14 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
     ],
   },
   {
+    title: 'Loans',
+    hint: 'A loan charged below the benchmark rate is a taxable benefit, unless everything lent to the employee is within the exempt limit. Leave the benchmark at 0 if you do not want it worked out.',
+    fields: [
+      ['loanBenchmarkRate', 'Benchmark interest rate', '%'],
+      ['loanPerquisiteExemptLimit', 'Exempt up to', '₹'],
+    ],
+  },
+  {
     title: 'PF return — pension, insurance and charges',
     hint: 'Used to split the employer share in the PF statement and ECR file, and to work out what is payable. None of this is deducted from pay.',
     fields: [

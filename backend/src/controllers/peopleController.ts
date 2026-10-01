@@ -6,7 +6,7 @@ import { orgBrand } from '../services/orgBrand';
 import { loadActor } from '../middleware/roles';
 import { actorName } from '../services/payroll/audit';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
-import { syncDraftPackages } from '../services/payroll/draftSync';
+import { syncDraftEntries } from '../services/payroll/draftSync';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -482,7 +482,7 @@ export const peopleController = {
           createdByName: await actorName(req.user?.userId),
         },
       });
-      await syncDraftPackages(req, person.id, currentPeriodIST());
+      await syncDraftEntries(req, person.id, currentPeriodIST());
     }
     res.json(updated);
   },

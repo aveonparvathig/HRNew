@@ -21,6 +21,9 @@ const REPORT_LABELS: Record<string, string> = {
   'ctc-breakup': 'CTC Breakup',
   'revision-history': 'Salary Revision History',
   'pt-half-year': 'Professional Tax — Half-Year',
+  'loan-statement': 'Loan Statement',
+  'loan-register': 'Loan Register',
+  'loan-transactions': 'Loan Transactions',
 };
 
 // Shared print page for payroll reports. With a runId the report is for

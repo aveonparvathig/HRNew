@@ -5,7 +5,7 @@ import { logPayrollAudit, actorName } from '../services/payroll/audit';
 import {
   packageForPeriod, sortRevisions, currentPeriodIST,
 } from '../services/payroll/salaryStructure';
-import { syncDraftPackages } from '../services/payroll/draftSync';
+import { syncDraftEntries } from '../services/payroll/draftSync';
 
 const str = (v: any) => String(v ?? '').trim();
 
@@ -207,7 +207,7 @@ export const payrollStructureController = {
     res.status(201).json({
       revision: revisionJSON(revision),
       currentMonthlyPackage: current,
-      draftEntriesUpdated: await syncDraftPackages(req, person.id, month),
+      draftEntriesUpdated: await syncDraftEntries(req, person.id, month),
       // Finalized months on or after the effective month keep their old package
       finalizedThrough: finalized?.run.period || null,
     });
@@ -240,7 +240,7 @@ export const payrollStructureController = {
     }]);
     res.json({
       currentMonthlyPackage: current,
-      draftEntriesUpdated: await syncDraftPackages(req, person.id, latest.effectiveFrom.slice(0, 7)),
+      draftEntriesUpdated: await syncDraftEntries(req, person.id, latest.effectiveFrom.slice(0, 7)),
     });
   },
 };

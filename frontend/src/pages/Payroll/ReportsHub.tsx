@@ -139,6 +139,21 @@ export default function ReportsHub() {
       </div>
 
       <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Loans</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>A statement for one loan opens from the loan's own page.</p>
+        <div className="report-grid">
+          <button className="report-tile" onClick={() => go('loan-register', {})}>
+            <strong>Loan Register</strong>
+            <span>Every loan with its terms, what has been repaid and what is outstanding.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('loan-transactions', { fy })}>
+            <strong>Loan Transactions</strong>
+            <span>Loans given, instalments and other payments in the financial year chosen above.</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-pad mb-24">
         <h3 style={{ fontSize: 15, marginBottom: 4 }}>Salary structure</h3>
         <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>From each employee's current package.</p>
         <div className="report-grid">
