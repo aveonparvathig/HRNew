@@ -5,7 +5,9 @@ export type AuditAction =
   | 'RUN_CREATED' | 'RUN_DELETED' | 'RUN_FINALIZED' | 'RUN_REOPENED' | 'RUN_RECALCULATED'
   | 'ENTRY_UPDATED' | 'ENTRY_REMOVED'
   | 'SETTINGS_UPDATED' | 'STATUTORY_PROFILE_UPDATED'
-  | 'LOCATION_CREATED' | 'LOCATION_UPDATED' | 'LOCATION_DELETED';
+  | 'LOCATION_CREATED' | 'LOCATION_UPDATED' | 'LOCATION_DELETED'
+  | 'COMPONENT_CREATED' | 'COMPONENT_UPDATED' | 'COMPONENT_DELETED'
+  | 'SALARY_REVISED' | 'SALARY_REVISION_REMOVED';
 
 export interface AuditRow {
   action: AuditAction;
@@ -17,7 +19,7 @@ export interface AuditRow {
   field?: string;
   oldValue?: string;
   newValue?: string;
-  source?: 'MANUAL' | 'IMPORT';
+  source?: 'MANUAL' | 'IMPORT' | 'REVISION';
 }
 
 export interface FieldChange {
@@ -86,7 +88,7 @@ export function diffFields(before: any, after: any, fields: string[]): FieldChan
   return changes;
 }
 
-async function actorName(userId?: string): Promise<string> {
+export async function actorName(userId?: string): Promise<string> {
   if (!userId) return '';
   const user = await prisma.user.findUnique({
     where: { id: userId },

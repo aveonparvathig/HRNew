@@ -4,6 +4,18 @@ import { OrgBrand } from '../orgBrand';
 export const esc = (v: any) =>
   String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+export const inr = (n: number) =>
+  '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Whole-rupee figure for wide tables; blank-looking dash for zero.
+export const amt = (n: number) =>
+  Math.abs(Number(n || 0)) < 0.005 ? '—' : Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+export const monthShort = (period: string) => {
+  const [y, m] = period.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+};
+
 export const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
@@ -20,6 +32,12 @@ export function reportShell(brand: OrgBrand, title: string, subtitle: string, bo
     .st-table th { background:#eef2ff; color:${accent}; text-align:left; white-space:nowrap; }
     .st-table .nw { white-space:nowrap; }
     .st-table .muted { color:#6b7280; }
+    .st-table .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .st-table th.amt { text-align:right; }
+    .st-table .ctr { text-align:center; white-space:nowrap; }
+    .st-table .tot td { font-weight:700; background:#f8fafc; }
+    .st-table .sub td { font-weight:600; background:#fafbff; }
+    .st-h { font-size:15px; font-weight:700; color:${accent}; margin:18px 0 8px; }
     @media print { @page { size: A4 landscape; margin: 10mm; } .st-table th, .st-table td { font-size: 10.5px; padding: 4px 7px; } }
   </style>
   <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">

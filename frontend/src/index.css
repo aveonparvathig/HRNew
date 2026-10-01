@@ -481,6 +481,32 @@ a:hover { text-decoration: underline; }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
+/* ============ Payroll run ============ */
+.run-reports { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 18px; font-size: 12.5px; }
+.line-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-bottom: 10px; }
+
+/* ============ Report tiles ============ */
+.report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.report-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.report-tile:hover { border-color: var(--primary); background: var(--surface); }
+.report-tile strong { font-size: 13.5px; }
+.report-tile span { font-size: 12px; color: var(--text-3); line-height: 1.45; }
+.report-tile:disabled, .report-tile.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
 /* ============ Empty / Loading ============ */
 .empty-state {
   text-align: center;

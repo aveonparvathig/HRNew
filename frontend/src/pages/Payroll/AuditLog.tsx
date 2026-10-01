@@ -77,7 +77,7 @@ export default function AuditLog() {
                         <td>{r.userName || '—'}</td>
                         <td>
                           {actionLabel(r.action)}
-                          {r.source === 'IMPORT' && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>import</span>}
+                          {r.source !== 'MANUAL' && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>{r.source.toLowerCase()}</span>}
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>{r.period ? monthLabel(r.period) : '—'}</td>
                         <td>{r.personName || '—'}</td>

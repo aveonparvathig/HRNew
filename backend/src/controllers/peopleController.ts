@@ -4,6 +4,9 @@ import { AppError } from '../middleware/errorHandler';
 import { DOC_TYPES, renderLetter } from '../services/letterTemplates';
 import { orgBrand } from '../services/orgBrand';
 import { loadActor } from '../middleware/roles';
+import { actorName } from '../services/payroll/audit';
+import { currentPeriodIST } from '../services/payroll/salaryStructure';
+import { syncDraftPackages } from '../services/payroll/draftSync';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -466,6 +469,21 @@ export const peopleController = {
       data.isEmployee = employeeFromStage(str(b.stage), person.isEmployee);
     }
     const updated = await prisma.person.update({ where: { id: person.id }, data });
+    // A package edited on the profile is a salary revision from this month;
+    // the first package ever set is not.
+    if (person.currentMonthlyPackage > 0 && updated.currentMonthlyPackage !== person.currentMonthlyPackage) {
+      await prisma.salaryRevision.create({
+        data: {
+          organizationId: orgId, personId: person.id,
+          effectiveFrom: `${currentPeriodIST()}-01`,
+          oldMonthlyPackage: person.currentMonthlyPackage,
+          newMonthlyPackage: updated.currentMonthlyPackage,
+          reason: 'Edited on employee profile',
+          createdByName: await actorName(req.user?.userId),
+        },
+      });
+      await syncDraftPackages(req, person.id, currentPeriodIST());
+    }
     res.json(updated);
   },
 

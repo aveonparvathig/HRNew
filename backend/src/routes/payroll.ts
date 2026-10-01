@@ -3,6 +3,8 @@ import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { payrollController } from '../controllers/payrollController';
 import { payrollSetupController } from '../controllers/payrollSetupController';
+import { payrollStructureController } from '../controllers/payrollStructureController';
+import { payrollReportsController } from '../controllers/payrollReportsController';
 
 const router = Router();
 
@@ -25,6 +27,25 @@ router.put('/locations/:locationId', asyncHandler((req, res) => payrollSetupCont
 router.delete('/locations/:locationId', asyncHandler((req, res) => payrollSetupController.deleteLocation(req, res)));
 router.get('/audit-log', asyncHandler((req, res) => payrollSetupController.getAuditLog(req, res)));
 
+// Pay components
+router.get('/components', asyncHandler((req, res) => payrollStructureController.getComponents(req, res)));
+router.post('/components', asyncHandler((req, res) => payrollStructureController.createComponent(req, res)));
+router.put('/components/:componentId', asyncHandler((req, res) => payrollStructureController.updateComponent(req, res)));
+router.delete('/components/:componentId', asyncHandler((req, res) => payrollStructureController.deleteComponent(req, res)));
+
+// Salary revisions
+router.get('/people/:personId/revisions', asyncHandler((req, res) => payrollStructureController.getRevisions(req, res)));
+router.post('/people/:personId/revisions', asyncHandler((req, res) => payrollStructureController.createRevision(req, res)));
+router.delete('/people/:personId/revisions/:revisionId', asyncHandler((req, res) => payrollStructureController.deleteRevision(req, res)));
+
+// Reports across runs
+router.get('/reports/options', asyncHandler((req, res) => payrollReportsController.getOptions(req, res)));
+router.get('/reports/ytd-statement', asyncHandler((req, res) => payrollReportsController.ytdStatement(req, res)));
+router.get('/reports/component-statement', asyncHandler((req, res) => payrollReportsController.componentStatement(req, res)));
+router.get('/reports/salary-structure', asyncHandler((req, res) => payrollReportsController.salaryStructureReport(req, res)));
+router.get('/reports/ctc-breakup', asyncHandler((req, res) => payrollReportsController.ctcBreakup(req, res)));
+router.get('/reports/revision-history', asyncHandler((req, res) => payrollReportsController.revisionHistory(req, res)));
+
 // Runs
 router.get('/runs', asyncHandler((req, res) => payrollController.getRuns(req, res)));
 router.post('/runs', asyncHandler((req, res) => payrollController.createRun(req, res)));
@@ -37,6 +58,8 @@ router.get('/runs/:runId/reports/pf-esi', asyncHandler((req, res) => payrollCont
 router.get('/runs/:runId/reports/comparison', asyncHandler((req, res) => payrollController.runComparison(req, res)));
 router.get('/runs/:runId/reports/overrides', asyncHandler((req, res) => payrollController.overridesReport(req, res)));
 router.get('/runs/:runId/reports/input-history', asyncHandler((req, res) => payrollController.inputHistoryReport(req, res)));
+router.get('/runs/:runId/reports/register', asyncHandler((req, res) => payrollReportsController.salaryRegister(req, res)));
+router.get('/runs/:runId/reports/summary', asyncHandler((req, res) => payrollReportsController.salarySummary(req, res)));
 router.get('/runs/:runId/attendance-template.xlsx', asyncHandler((req, res) => payrollController.attendanceTemplate(req, res)));
 router.post('/runs/:runId/attendance-import', asyncHandler((req, res) => payrollController.importAttendance(req, res)));
 router.get('/runs/:runId/export.csv', asyncHandler((req, res) => payrollController.exportRunCsv(req, res)));

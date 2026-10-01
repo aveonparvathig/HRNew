@@ -26,6 +26,11 @@ export default function RunDetail() {
   const [attFileName, setAttFileName] = useState('');
   const [attResult, setAttResult] = useState<any>(null);
   const [attBusy, setAttBusy] = useState(false);
+  const [components, setComponents] = useState<any[]>([]);
+
+  useEffect(() => {
+    payrollAPI.getComponents().then(res => setComponents(res.data.components)).catch(() => {});
+  }, []);
 
   const handleAttFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +104,7 @@ export default function RunDetail() {
       isEsiEligible: entry.isEsiEligible,
       isPfApplicable: entry.isPfApplicable,
       remarks: entry.remarks,
+      lines: (entry.lines || []).map((l: any) => ({ componentId: l.componentId, amount: l.amount })),
     });
     setEntryModal(entry);
   };
@@ -107,7 +113,11 @@ export default function RunDetail() {
     e.preventDefault();
     setSaving(true);
     try {
-      await payrollAPI.updateEntry(entryModal.id, form);
+      // Blank lines (nothing picked, nothing typed) are dropped rather than rejected
+      await payrollAPI.updateEntry(entryModal.id, {
+        ...form,
+        lines: (form.lines || []).filter((l: any) => l.componentId || Number(l.amount)),
+      });
       setEntryModal(null);
       setError('');
       fetchData();
@@ -178,12 +188,15 @@ export default function RunDetail() {
 
   // ---- Payout composition: where the gross goes ----
   const compSum = (f: string) => run.entries.reduce((s: number, e: any) => s + (e[f] || 0), 0);
+  const otherDeductions = run.entries.reduce((s: number, e: any) =>
+    s + (e.lines || []).filter((l: any) => l.type === 'DEDUCTION').reduce((t: number, l: any) => t + l.amount, 0), 0);
   const segments = [
     { label: 'Net pay', value: t.net, color: 'var(--success-dot, #129D61)' },
     { label: 'PF', value: compSum('pfEmployee'), color: 'var(--primary, #5A5FE0)' },
     { label: 'ESI', value: compSum('esiEmployee'), color: '#0E9CB8' },
     { label: 'Advance', value: compSum('salaryAdvance'), color: '#F79009' },
     { label: 'TDS', value: compSum('tds'), color: '#B42318' },
+    { label: 'Other deductions', value: otherDeductions, color: '#667085' },
   ].filter(s => s.value > 0.5);
   const netShare = t.gross > 0 ? (t.net / t.gross) * 100 : 0;
 
@@ -202,10 +215,6 @@ export default function RunDetail() {
           <>
             <StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />
             <button className="btn btn-secondary" onClick={handleExport}>⤓ Register</button>
-            <Link to={`/payroll/runs/${run.id}/reports/pf-esi`} className="btn btn-secondary">▤ PF &amp; ESI</Link>
-            <Link to={`/payroll/runs/${run.id}/reports/comparison`} className="btn btn-secondary">⇄ vs Prev Month</Link>
-            <Link to={`/payroll/runs/${run.id}/reports/overrides`} className="btn btn-secondary">✎ Overrides</Link>
-            <Link to={`/payroll/runs/${run.id}/reports/input-history`} className="btn btn-secondary">◷ Input History</Link>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
             </Link>
@@ -256,6 +265,16 @@ export default function RunDetail() {
           </div>
         </div>
       )}
+
+      <div className="run-reports">
+        <span className="text-muted">Reports</span>
+        {[
+          ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
+          ['comparison', 'vs Prev Month'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
+        ].map(([kind, label]) => (
+          <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="btn btn-secondary btn-sm">{label}</Link>
+        ))}
+      </div>
 
       <div className="stat-grid">
         <StatCard label="Gross Salary" value={formatINR(t.gross)} icon="▤" tone="primary"
@@ -415,7 +434,48 @@ export default function RunDetail() {
             </div>
 
             <div className="form-section">
-              <div className="form-section-title"><span className="step-dot">3</span> Overrides</div>
+              <div className="form-section-title"><span className="step-dot">3</span> Other earnings &amp; deductions</div>
+              {(form.lines || []).map((line: any, i: number) => {
+                const taken = new Set((form.lines || []).map((l: any) => l.componentId));
+                const setLine = (patch: any) => setForm({
+                  ...form, lines: form.lines.map((l: any, j: number) => (j === i ? { ...l, ...patch } : l)),
+                });
+                return (
+                  <div key={i} className="line-row">
+                    <select className="select" value={line.componentId}
+                      onChange={e => setLine({ componentId: e.target.value })}>
+                      <option value="">Pick a component…</option>
+                      {['EARNING', 'DEDUCTION'].map(type => (
+                        <optgroup key={type} label={type === 'EARNING' ? 'Earnings' : 'Deductions'}>
+                          {components
+                            .filter(c => c.type === type && (c.isActive || c.id === line.componentId)
+                              && (c.id === line.componentId || !taken.has(c.id)))
+                            .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <div className="input-unit"><span className="unit">₹</span>
+                      <input className="input" type="number" min={0} step="0.01" value={line.amount}
+                        onChange={e => setLine({ amount: e.target.value })} />
+                    </div>
+                    <button type="button" className="btn btn-ghost btn-sm" aria-label="Remove line"
+                      onClick={() => setForm({ ...form, lines: form.lines.filter((_: any, j: number) => j !== i) })}>
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+              <button type="button" className="btn btn-secondary btn-sm"
+                onClick={() => setForm({ ...form, lines: [...(form.lines || []), { componentId: '', amount: '' }] })}>
+                + Add line
+              </button>
+              <span className="hint" style={{ display: 'block', marginTop: 8 }}>
+                Bonus, incentive, other deduction and the like. PF and ESI are not calculated on these.
+              </span>
+            </div>
+
+            <div className="form-section">
+              <div className="form-section-title"><span className="step-dot">4</span> Overrides</div>
               <div className="form-grid" style={{ marginBottom: 12 }}>
                 <div className="field">
                   <label>Monthly package (snapshot)</label>

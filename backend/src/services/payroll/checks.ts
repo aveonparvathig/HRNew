@@ -72,6 +72,9 @@ export function entryOverrides(entry: any, person: any, standardWorkingDays: num
   for (const [field, label] of amounts) {
     if (Number(entry[field] || 0) !== 0) items.push({ label, value: inr(entry[field]) });
   }
+  for (const line of entry.lines || []) {
+    items.push({ label: line.name, value: inr(line.amount), note: line.remarks || undefined });
+  }
   if (person) {
     if (Number(entry.monthlyPackage) !== Number(person.currentMonthlyPackage || 0)) {
       items.push({

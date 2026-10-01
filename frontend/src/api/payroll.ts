@@ -13,6 +13,24 @@ export const payrollAPI = {
   getAuditLog: (params: { limit: number; offset: number; runId?: string }) =>
     apiClient.get('/payroll/audit-log', { params }),
 
+  // Pay components
+  getComponents: () => apiClient.get('/payroll/components'),
+  createComponent: (data: any) => apiClient.post('/payroll/components', data),
+  updateComponent: (componentId: string, data: any) => apiClient.put(`/payroll/components/${componentId}`, data),
+  deleteComponent: (componentId: string) => apiClient.delete(`/payroll/components/${componentId}`),
+
+  // Salary revisions
+  getRevisions: (personId: string) => apiClient.get(`/payroll/people/${personId}/revisions`),
+  createRevision: (personId: string, data: any) => apiClient.post(`/payroll/people/${personId}/revisions`, data),
+  deleteRevision: (personId: string, revisionId: string) =>
+    apiClient.delete(`/payroll/people/${personId}/revisions/${revisionId}`),
+
+  // Reports across runs
+  // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history
+  getReportOptions: () => apiClient.get('/payroll/reports/options'),
+  getReport: (kind: string, params: Record<string, string>) =>
+    apiClient.get(`/payroll/reports/${kind}`, { params }),
+
   // Runs
   getRuns: () => apiClient.get('/payroll/runs'),
   createRun: (data: { period: string; totalWorkingDays: number; notes?: string }) =>
@@ -25,7 +43,7 @@ export const payrollAPI = {
   exportRunCsv: (runId: string) =>
     apiClient.get(`/payroll/runs/${runId}/export.csv`, { responseType: 'blob' }),
   getRunPayslips: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payslips`),
-  // kind: pf-esi | comparison | overrides | input-history
+  // kind: pf-esi | comparison | overrides | input-history | register | summary
   getRunReport: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/reports/${kind}`),
   attendanceTemplate: (runId: string) =>
     apiClient.get(`/payroll/runs/${runId}/attendance-template.xlsx`, { responseType: 'blob' }),

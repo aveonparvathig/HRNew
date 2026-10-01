@@ -5,9 +5,11 @@ import { PageHeader, LoadingBlock, ErrorAlert, BackButton,
 } from '../../components/ui';
 import StatutoryProfileTab from './StatutoryProfileTab';
 import WorkLocationsTab from './WorkLocationsTab';
+import PayComponentsTab from './PayComponentsTab';
 
 const TABS = [
   { key: 'rates', label: 'Salary & statutory rates' },
+  { key: 'components', label: 'Pay components' },
   { key: 'statutory', label: 'Statutory profile' },
   { key: 'locations', label: 'Work locations' },
 ];
@@ -72,6 +74,7 @@ export default function PayrollSettings() {
       </div>
 
       {tab === 'rates' && <RatesTab />}
+      {tab === 'components' && <PayComponentsTab />}
       {tab === 'statutory' && <StatutoryProfileTab />}
       {tab === 'locations' && <WorkLocationsTab />}
     </>

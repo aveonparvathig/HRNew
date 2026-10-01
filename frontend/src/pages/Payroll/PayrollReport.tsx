@@ -1,33 +1,51 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton } from '../../components/ui';
 
 const REPORT_LABELS: Record<string, string> = {
+  // For one run
   'pf-esi': 'PF & ESI',
   comparison: 'Comparison',
   overrides: 'Overrides',
   'input-history': 'Input History',
+  register: 'Salary Register',
+  summary: 'Salary Summary',
+  // Across runs
+  'ytd-statement': 'Year-to-Date Statement',
+  'component-statement': 'Component Statement',
+  'salary-structure': 'Salary Structure',
+  'ctc-breakup': 'CTC Breakup',
+  'revision-history': 'Salary Revision History',
 };
 
-// Shared print page for run-level reports
+// Shared print page for payroll reports. With a runId the report is for
+// that run; without one the query string carries the report's parameters.
 export default function PayrollReport() {
-  const { runId, kind } = useParams<{ runId: string; kind: string }>();
+  const { runId, kind } = useParams<{ runId?: string; kind: string }>();
+  const [params] = useSearchParams();
+  const query = params.toString();
   const [doc, setDoc] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    payrollAPI.getRunReport(runId!, REPORT_LABELS[kind!] ? kind! : 'pf-esi')
-      .then(res => setDoc(res.data))
-      .catch(err => setError(err.response?.data?.error || 'Failed to load report'))
+    setLoading(true);
+    const call = runId
+      ? payrollAPI.getRunReport(runId, REPORT_LABELS[kind!] ? kind! : 'pf-esi')
+      : payrollAPI.getReport(kind!, Object.fromEntries(new URLSearchParams(query)));
+    call
+      .then(res => { setDoc(res.data); setError(''); })
+      .catch(err => { setDoc(null); setError(err.response?.data?.error || 'Failed to load report'); })
       .finally(() => setLoading(false));
-  }, [runId, kind]);
+  }, [runId, kind, query]);
+
+  const back = runId ? `/payroll/runs/${runId}` : '/payroll/reports';
 
   if (loading) return <LoadingBlock label="Preparing report…" />;
   if (!doc) {
     return <EmptyState icon="▦" title="Report unavailable" message={error}
-      action={<Link to={`/payroll/runs/${runId}`} className="btn btn-secondary">Back to Run</Link>} />;
+      action={<Link to={back} className="btn btn-secondary">{runId ? 'Back to Run' : 'Back to Reports'}</Link>} />;
   }
 
   return (
@@ -36,7 +54,7 @@ export default function PayrollReport() {
         <div className="breadcrumb"><BackButton />
           <Link to="/payroll">Payroll</Link>
           <span>/</span>
-          <Link to={`/payroll/runs/${runId}`}>Run</Link>
+          <Link to={back}>{runId ? 'Run' : 'Reports'}</Link>
           <span>/</span>
           <span>{REPORT_LABELS[kind!] || REPORT_LABELS['pf-esi']}</span>
         </div>

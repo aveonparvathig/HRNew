@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { computeEntry, renderPayslipHtml } from '../services/payrollCalc';
+import { computeEntryWithLines, usedColumns, columnValue } from '../services/payroll/lines';
+import { packageForPeriod } from '../services/payroll/salaryStructure';
 import { orgBrand } from '../services/orgBrand';
 import { financialYearOf } from '../services/payroll/financialYear';
 import { esiCeilingChecks, entryOverrides, standardWorkingDays } from '../services/payroll/checks';
@@ -35,7 +37,10 @@ async function fetchOrgRun(runId: string, organizationId: string, includeEntries
   const run = await prisma.payrollRun.findFirst({
     where: { id: runId, organizationId },
     include: includeEntries
-      ? { entries: { include: { person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true } } } } }
+      ? { entries: { include: {
+        person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true } },
+        lines: true,
+      } } }
       : undefined,
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
@@ -71,7 +76,54 @@ async function activeEmployees(organizationId: string) {
       employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] },
     },
     omit: { photoData: true },
+    include: { salaryRevisions: true },
   });
+}
+
+// Validates the catalogue lines sent for an entry. Zero amounts drop the
+// line; a component already on the entry may stay even if since deactivated.
+async function resolveLines(organizationId: string, input: any, existing: any[]) {
+  if (!Array.isArray(input)) throw new AppError(400, 'Lines must be a list');
+  const components = await prisma.payComponent.findMany({ where: { organizationId } });
+  const byId = new Map(components.map(c => [c.id, c]));
+  const onEntry = new Set(existing.map(l => l.componentId));
+  const seen = new Set<string>();
+  const lines: any[] = [];
+  for (const raw of input) {
+    const component = byId.get(String(raw?.componentId || ''));
+    if (!component) throw new AppError(400, 'Pick a pay component for every line');
+    if (seen.has(component.id)) throw new AppError(400, `${component.name} is listed twice`);
+    seen.add(component.id);
+    const amount = num(raw.amount, NaN);
+    if (isNaN(amount) || amount < 0) throw new AppError(400, `Enter a valid amount for ${component.name}`);
+    if (amount === 0) continue;
+    if (!component.isActive && !onEntry.has(component.id)) {
+      throw new AppError(400, `${component.name} is inactive`);
+    }
+    const kept = existing.find(l => l.componentId === component.id);
+    lines.push({
+      componentId: component.id,
+      // Keep the snapshot of a line that was already there
+      name: kept?.name || component.name,
+      type: kept?.type || component.type,
+      amount: Math.round(amount * 100) / 100,
+      remarks: String(raw.remarks || ''),
+    });
+  }
+  return lines;
+}
+
+// Audit rows for added, changed and removed catalogue lines.
+function lineChanges(before: any[], after: any[]) {
+  const changes: { field: string; oldValue: string; newValue: string }[] = [];
+  const names = new Map<string, string>();
+  for (const l of [...before, ...after]) names.set(l.componentId, l.name);
+  for (const [componentId, name] of names) {
+    const a = before.find(l => l.componentId === componentId)?.amount ?? 0;
+    const b = after.find(l => l.componentId === componentId)?.amount ?? 0;
+    if (a !== b) changes.push({ field: name, oldValue: String(a), newValue: String(b) });
+  }
+  return changes;
 }
 
 export const payrollController = {
@@ -151,7 +203,7 @@ export const payrollController = {
     await prisma.payslipEntry.createMany({
       data: employees.map(emp => {
         const inputs = {
-          monthlyPackage: emp.currentMonthlyPackage || 0,
+          monthlyPackage: packageForPeriod(emp.currentMonthlyPackage || 0, emp.salaryRevisions, period),
           totalWorkingDays,
           isEsiEligible: emp.isEsiEligible,
           isPfApplicable: emp.isPfApplicable,
@@ -238,7 +290,7 @@ export const payrollController = {
     const settings = await settingsFor(orgId);
 
     for (const entry of run.entries) {
-      const computed = computeEntry(entry, settings);
+      const computed = computeEntryWithLines(entry, settings, entry.lines);
       await prisma.payslipEntry.update({ where: { id: entry.id }, data: computed });
     }
 
@@ -249,7 +301,7 @@ export const payrollController = {
       await prisma.payslipEntry.createMany({
         data: missing.map(emp => {
           const inputs = {
-            monthlyPackage: emp.currentMonthlyPackage || 0,
+            monthlyPackage: packageForPeriod(emp.currentMonthlyPackage || 0, emp.salaryRevisions, run.period),
             totalWorkingDays: twd,
             isEsiEligible: emp.isEsiEligible,
             isPfApplicable: emp.isPfApplicable,
@@ -275,7 +327,7 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const entry = await prisma.payslipEntry.findFirst({
       where: { id: req.params.entryId, organizationId: orgId },
-      include: { run: true },
+      include: { run: true, lines: true },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     assertDraft(entry.run);
@@ -295,8 +347,22 @@ export const payrollController = {
     if (b.isPfApplicable !== undefined) merged.isPfApplicable = Boolean(b.isPfApplicable);
     if (b.remarks !== undefined) merged.remarks = String(b.remarks);
 
+    const lines = b.lines !== undefined
+      ? await resolveLines(orgId, b.lines, entry.lines)
+      : entry.lines;
     const settings = await settingsFor(orgId);
-    const computed = computeEntry(merged, settings);
+    const computed = computeEntryWithLines(merged, settings, lines);
+    if (b.lines !== undefined) {
+      await prisma.$transaction([
+        prisma.payslipLine.deleteMany({ where: { entryId: entry.id } }),
+        prisma.payslipLine.createMany({
+          data: lines.map((l: any) => ({
+            organizationId: orgId, entryId: entry.id, componentId: l.componentId,
+            name: l.name, type: l.type, amount: l.amount, remarks: l.remarks || '',
+          })),
+        }),
+      ]);
+    }
     const updated = await prisma.payslipEntry.update({
       where: { id: entry.id },
       data: {
@@ -313,9 +379,15 @@ export const payrollController = {
         remarks: merged.remarks,
         ...computed,
       },
-      include: { person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true } } },
+      include: {
+        person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true } },
+        lines: true,
+      },
     });
-    await logPayrollAudit(req, diffFields(entry, merged, ENTRY_INPUT_FIELDS).map(c => ({
+    await logPayrollAudit(req, [
+      ...diffFields(entry, merged, ENTRY_INPUT_FIELDS),
+      ...(b.lines !== undefined ? lineChanges(entry.lines, lines) : []),
+    ].map(c => ({
       action: 'ENTRY_UPDATED' as const, runId: entry.runId, entryId: entry.id,
       personId: entry.personId, period: entry.run.period, personName: updated.person.name, ...c,
     })));
@@ -514,10 +586,13 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const run = await prisma.payrollRun.findFirst({
       where: { id: req.params.runId, organizationId: orgId },
-      include: { entries: { include: { person: { select: {
-        name: true, employeeNo: true, currentMonthlyPackage: true,
-        isEsiEligible: true, isPfApplicable: true,
-      } } } } },
+      include: { entries: { include: {
+        person: { select: {
+          name: true, employeeNo: true, currentMonthlyPackage: true,
+          isEsiEligible: true, isPfApplicable: true,
+        } },
+        lines: true,
+      } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
     const standard = standardWorkingDays(run.entries);
@@ -551,7 +626,7 @@ export const payrollController = {
     });
     const body = logs.map(l => `<tr>
       <td class="nw">${escHtml(when(l.createdAt))}</td><td class="nw">${escHtml(l.userName) || '<span class="muted">—</span>'}</td>
-      <td class="nw">${escHtml(l.action.replace(/_/g, ' ').toLowerCase())}${l.source === 'IMPORT' ? ' <span class="muted">(import)</span>' : ''}</td>
+      <td class="nw">${escHtml(l.action.replace(/_/g, ' ').toLowerCase())}${l.source !== 'MANUAL' ? ` <span class="muted">(${escHtml(l.source.toLowerCase())})</span>` : ''}</td>
       <td class="nw">${escHtml(l.personName) || '<span class="muted">—</span>'}</td>
       <td>${escHtml(fieldLabel(l.field)) || '<span class="muted">—</span>'}</td>
       <td>${escHtml(l.oldValue) || '<span class="muted">—</span>'}</td>
@@ -602,7 +677,7 @@ export const payrollController = {
     }
     const run = await prisma.payrollRun.findFirst({
       where: { id: req.params.runId, organizationId: orgId },
-      include: { entries: { include: { person: { select: { name: true, employeeNo: true } } } } },
+      include: { entries: { include: { person: { select: { name: true, employeeNo: true } }, lines: true } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
     assertDraft(run);
@@ -661,7 +736,7 @@ export const payrollController = {
         .some(f => (merged as any)[f] !== (entry as any)[f]);
       if (!changed) { results.push({ row: r, name: entry.person.name, action: 'skip: no changes' }); skipped++; continue; }
 
-      const computed = computeEntry(merged, settings);
+      const computed = computeEntryWithLines(merged, settings, entry.lines);
       if (!dryRun) {
         await prisma.payslipEntry.update({
           where: { id: entry.id },
@@ -712,7 +787,7 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const entry = await prisma.payslipEntry.findFirst({
       where: { id: req.params.entryId, organizationId: orgId },
-      include: { run: true, person: true },
+      include: { run: true, person: true, lines: true },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     const brand = await orgBrand(orgId);
@@ -753,7 +828,7 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const run = await prisma.payrollRun.findFirst({
       where: { id: req.params.runId, organizationId: orgId },
-      include: { entries: { include: { person: true } } },
+      include: { entries: { include: { person: true, lines: true } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
     const brand = await orgBrand(orgId);
@@ -773,11 +848,17 @@ export const payrollController = {
       const s = v == null ? '' : String(v);
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
+    // Catalogue components used in this run slot in before Gross / Total Deductions
+    const lineCols = usedColumns(run.entries).filter(c => c.key.startsWith('c:'));
+    const earningCols = lineCols.filter(c => c.group === 'EARNING');
+    const deductionCols = lineCols.filter(c => c.group === 'DEDUCTION');
     const header = [
       'Employee Code', 'Name', 'Designation', 'Department', 'Monthly Package',
       'Working Days', 'Leave Days', 'LOP Days', 'Present Days', 'Pay Days',
-      'Basic', 'DA', 'HRA', 'Transport', 'Food', 'Internet', 'Arrear', 'Gross',
-      'ESI Employee', 'PF Employee', 'Advance', 'TDS', 'Total Deductions',
+      'Basic', 'DA', 'HRA', 'Transport', 'Food', 'Internet', 'Arrear',
+      ...earningCols.map(c => esc(c.label)), 'Gross',
+      'ESI Employee', 'PF Employee', 'Advance', 'TDS',
+      ...deductionCols.map(c => esc(c.label)), 'Total Deductions',
       'Net Payable', 'ESI Employer', 'PF Employer', 'CTC', 'Remarks',
     ];
     const lines = [header.join(',')];
@@ -787,8 +868,10 @@ export const payrollController = {
         esc(e.person.department), e.monthlyPackage,
         e.totalWorkingDays, e.empLeaveDays, e.lopDays, e.presentDays, e.payDays,
         e.basic, e.da, e.hra, e.transportAllowance, e.foodAllowance,
-        e.internetAllowance, e.salaryArrearAllowance, e.grossSalary,
-        e.esiEmployee, e.pfEmployee, e.salaryAdvance, e.tds, e.totalDeductions,
+        e.internetAllowance, e.salaryArrearAllowance,
+        ...earningCols.map(c => columnValue(e, c.key)), e.grossSalary,
+        e.esiEmployee, e.pfEmployee, e.salaryAdvance, e.tds,
+        ...deductionCols.map(c => columnValue(e, c.key)), e.totalDeductions,
         e.netPayable, e.esiEmployer, e.pfEmployer, e.ctc, esc(e.remarks),
       ].join(','));
     }

@@ -359,6 +359,7 @@ model Person {
   interviews     InterviewRound[]
   documents      PersonDocument[]
   payslipEntries PayslipEntry[]
+  salaryRevisions SalaryRevision[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -566,10 +567,72 @@ model PayslipEntry {
   // Restrict, deliberately: a person with payslip history can never be
   // deleted, only marked inactive.
   person Person     @relation(fields: [personId], references: [id], onDelete: Restrict)
+  lines  PayslipLine[]
 
   @@unique([runId, personId])
   @@index([organizationId])
   @@map("payslip_entries")
+}
+
+// Org-level catalogue of pay components beyond the fixed salary split
+// (bonus, incentive, other deduction, ...). The fixed components — Basic,
+// DA, HRA, Transport, Food, Internet, Arrear, ESI, PF, Advance, TDS — stay
+// as columns on PayslipEntry and are not rows here.
+model PayComponent {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  type           String // EARNING | DEDUCTION
+  taxable        Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines PayslipLine[]
+
+  @@unique([organizationId, code])
+  @@map("pay_components")
+}
+
+// One catalogue component on one payslip. Name and type are snapshots so
+// renaming a component never rewrites an issued payslip.
+model PayslipLine {
+  id             String @id @default(cuid())
+  organizationId String
+  entryId        String
+  componentId    String
+  name           String
+  type           String // EARNING | DEDUCTION
+  amount         Float
+  remarks        String @default("")
+
+  entry     PayslipEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  component PayComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@unique([entryId, componentId])
+  @@index([organizationId])
+  @@map("payslip_lines")
+}
+
+// Salary history. A revision applies to payroll runs for the month of
+// effectiveFrom and later.
+model SalaryRevision {
+  id                String   @id @default(cuid())
+  organizationId    String
+  personId          String
+  effectiveFrom     String // "YYYY-MM-DD", always the first of a month
+  oldMonthlyPackage Float
+  newMonthlyPackage Float
+  reason            String   @default("")
+  createdByName     String   @default("")
+  createdAt         DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@map("salary_revisions")
 }
 
 // Company registrations and the people named on statutory returns
@@ -642,7 +705,7 @@ model PayrollAuditLog {
   field          String   @default("")
   oldValue       String   @default("")
   newValue       String   @default("")
-  source         String   @default("MANUAL") // MANUAL | IMPORT
+  source         String   @default("MANUAL") // MANUAL | IMPORT | REVISION
   createdAt      DateTime @default(now())
 
   @@index([organizationId, createdAt])

@@ -133,20 +133,27 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
   const row = (label: string, amount: number) =>
     `<tr><td>${label}</td><td class="amt">${inr(amount)}</td></tr>`;
 
+  // Catalogue components (bonus, other deduction, ...) follow the fixed ones
+  const lineRows = (type: string) => (entry.lines || [])
+    .filter((l: any) => l.type === type)
+    .sort((a: any, b: any) => a.name.localeCompare(b.name))
+    .map((l: any) => row(esc(l.name), l.amount))
+    .join('');
+
   const earnings = [
     row('Basic', entry.basic), row('Dearness Allowance', entry.da),
     row('House Rent Allowance', entry.hra), row('Transport Allowance', entry.transportAllowance),
     row('Food Allowance', entry.foodAllowance),
     entry.internetAllowance ? row('Internet Allowance', entry.internetAllowance) : '',
     entry.salaryArrearAllowance ? row('Salary Arrear', entry.salaryArrearAllowance) : '',
-  ].join('');
+  ].join('') + lineRows('EARNING');
 
   const deductions = [
     entry.esiEmployee ? row('ESI (Employee)', entry.esiEmployee) : '',
     entry.pfEmployee ? row('PF (Employee)', entry.pfEmployee) : '',
     entry.salaryAdvance ? row('Salary Advance', entry.salaryAdvance) : '',
     entry.tds ? row('TDS', entry.tds) : '',
-  ].join('') || '<tr><td class="muted">No deductions</td><td class="amt">₹0.00</td></tr>';
+  ].join('') + lineRows('DEDUCTION') || '<tr><td class="muted">No deductions</td><td class="amt">₹0.00</td></tr>';
 
   return `
 <div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13.5px;line-height:1.6;">
