@@ -541,6 +541,12 @@ model PayrollSettings {
   gratuityMinYears   Int   @default(5)
   gratuityCap        Float @default(2000000)
 
+  // Statutory bonus: a share of Basic + DA, counted up to a monthly ceiling,
+  // for employees whose Basic + DA is within the eligibility limit
+  bonusPercent          Float @default(8.33)
+  bonusEligibilityLimit Float @default(21000)
+  bonusWageCeiling      Float @default(7000)
+
   // On finalizing a run: release its payslips, and open next month's run
   autoReleaseOnFinalize Boolean @default(false)
   autoCreateNextRun     Boolean @default(false)
@@ -1060,6 +1066,11 @@ model OrgStatutoryProfile {
   esiCode           String @default("")
   ptRegistrationNo  String @default("")
   lwfRegistrationNo String @default("")
+  // Printed on the labour-law registers
+  shopsRegistrationNo String @default("") // Shops and Establishments registration certificate
+  labourIdNumber      String @default("") // LIN, on the central registers
+  natureOfBusiness    String @default("")
+  managerName         String @default("") // manager or person in charge of the establishment
 
   // TDS return
   deductorType     String @default("")

@@ -73,6 +73,15 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
     ],
   },
   {
+    title: 'Statutory bonus',
+    hint: 'For Bonus Forms C and D. Bonus is a share of Basic + DA, each month counted up to the ceiling, for employees whose Basic + DA is within the limit. Use the minimum wage as the ceiling where it is higher.',
+    fields: [
+      ['bonusPercent', 'Bonus (8.33 to 20)', '%'],
+      ['bonusEligibilityLimit', 'Covered up to monthly Basic + DA of', '₹'],
+      ['bonusWageCeiling', 'Monthly Basic + DA counted', '₹'],
+    ],
+  },
+  {
     title: 'PF return — pension, insurance and charges',
     hint: 'Used to split the employer share in the PF statement and ECR file, and to work out what is payable. None of this is deducted from pay.',
     fields: [

@@ -126,7 +126,11 @@ export const payrollAPI = {
   //       | bank-advice | hold-release | duplicates | reimbursements
   //       | tds-challans | tds-return | form-16 | form-16-all | form-12ba
   //       | arrears | pf-arrears | settlement-statement | settlements
+  //       | register-<code>: tn-u, tn-v, tn-w, tn-x, form-a, form-b, form-c, form-d, bonus-c, bonus-d, gratuity-f
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
+  // A labour-law register as an Excel workbook
+  getRegisterWorkbook: (code: string, params: Record<string, string>) =>
+    apiClient.get(`/payroll/registers/${code}/workbook`, { params }),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),
 

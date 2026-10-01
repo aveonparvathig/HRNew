@@ -29,6 +29,36 @@ const RUN_REPORTS = [
   { kind: 'input-history', title: 'Salary Input History', hint: 'Every recorded change to the run.' },
 ];
 
+// Labour-law registers. needs: what each is drawn up for.
+const REGISTERS: { title: string; items: { code: string; title: string; hint: string; needs: 'run' | 'fy' | 'person' | 'none' }[] }[] = [
+  {
+    title: 'Tamil Nadu Shops and Establishments Rules (Forms U to X, in force from March 2022)',
+    items: [
+      { code: 'tn-u', title: 'Form U — Employee Register', hint: 'Everyone on the employee record, with joining, statutory numbers, bank and exit details.', needs: 'none' },
+      { code: 'tn-v', title: 'Form V — Register of Employment', hint: 'Days worked and loss of pay for the month. Daily hours are not tracked and stay blank.', needs: 'run' },
+      { code: 'tn-w', title: 'Form W — Register of Wages', hint: 'Wages, advances, deductions and net pay for the month, with the date and reference of payment.', needs: 'run' },
+      { code: 'tn-x', title: 'Form X — Leave and Social Security', hint: 'Leave taken in the month and gratuity paid on exit. Leave balances are not tracked.', needs: 'run' },
+    ],
+  },
+  {
+    title: 'Central combined registers (Ease of Compliance Rules, 2017)',
+    items: [
+      { code: 'form-a', title: 'Form A — Employee Register', hint: 'The central employee register, for everyone on the employee record.', needs: 'none' },
+      { code: 'form-b', title: 'Form B — Wage Register', hint: 'Earned wages, deductions, net payment and employer share for the month.', needs: 'run' },
+      { code: 'form-c', title: 'Form C — Loans and Recoveries', hint: 'Loans and advances running in the financial year, with their instalment months.', needs: 'fy' },
+      { code: 'form-d', title: 'Form D — Attendance Register', hint: 'Days paid, leave and loss of pay for the month. Daily in and out times stay blank.', needs: 'run' },
+    ],
+  },
+  {
+    title: 'Bonus and gratuity',
+    items: [
+      { code: 'bonus-c', title: 'Bonus Form C', hint: 'Statutory bonus payable to each covered employee for the financial year.', needs: 'fy' },
+      { code: 'bonus-d', title: 'Bonus Form D — Annual Return', hint: 'The annual bonus return, from the Form C figures.', needs: 'fy' },
+      { code: 'gratuity-f', title: 'Gratuity Form F — Nomination', hint: 'The chosen employee\'s nomination form, with their particulars filled in.', needs: 'person' },
+    ],
+  },
+];
+
 export default function ReportsHub() {
   const navigate = useNavigate();
   const [options, setOptions] = useState<any>(null);
@@ -245,6 +275,32 @@ export default function ReportsHub() {
             <span>Loans given, instalments and other payments in the financial year chosen above.</span>
           </button>
         </div>
+      </div>
+
+      <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Labour-law registers</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          In the prescribed column order, filled from payroll; what the system does not record is left blank to fill by hand.
+          Monthly registers use the payroll month chosen at the top, yearly ones the financial year, and Form F the employee.
+          Each opens ready to print, with an Excel copy.
+        </p>
+        {REGISTERS.map(group => (
+          <div key={group.title} style={{ marginBottom: 16 }}>
+            <div className="text-muted" style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>{group.title}</div>
+            <div className="report-grid">
+              {group.items.map(r => {
+                const params: Record<string, string> = r.needs === 'run' ? { runId } : r.needs === 'fy' ? { fy } : r.needs === 'person' ? { personId } : {};
+                const ready = r.needs === 'run' ? Boolean(runId) : r.needs === 'fy' ? Boolean(fy) : r.needs === 'person' ? Boolean(personId) : true;
+                return (
+                  <button key={r.code} className="report-tile" disabled={!ready} onClick={() => go(`register-${r.code}`, params)}>
+                    <strong>{r.title}</strong>
+                    <span>{r.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="card card-pad mb-24">

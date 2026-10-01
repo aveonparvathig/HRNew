@@ -36,6 +36,7 @@ const SETTINGS_FIELDS = [
   'epsPercent', 'epsWageCap', 'edliPercent', 'edliWageCap', 'pfAdminPercent', 'pfAdminMinimum',
   'loanBenchmarkRate', 'loanPerquisiteExemptLimit',
   'lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears', 'gratuityCap',
+  'bonusPercent', 'bonusEligibilityLimit', 'bonusWageCeiling',
 ];
 // Whole numbers
 const SETTINGS_INTEGERS = new Set(['lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears']);
@@ -224,6 +225,7 @@ export const payrollController = {
         const v = num(b[f], NaN);
         if (isNaN(v) || v < 0) throw new AppError(400, `Invalid value for ${f}`);
         if (f === 'settlementDayBasis' && (v < 26 || v > 31)) throw new AppError(400, 'Days in a month must be between 26 and 31');
+        if (f === 'bonusPercent' && (v < 8.33 || v > 20)) throw new AppError(400, 'Bonus must be between 8.33% and 20%');
         data[f] = SETTINGS_INTEGERS.has(f) ? Math.round(v) : v;
       }
     }

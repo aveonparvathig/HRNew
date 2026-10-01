@@ -10,6 +10,7 @@ const str = (v: any) => String(v ?? '').trim();
 
 const PROFILE_TEXT_FIELDS = [
   'pfCode', 'esiCode', 'ptRegistrationNo', 'lwfRegistrationNo',
+  'shopsRegistrationNo', 'labourIdNumber', 'natureOfBusiness', 'managerName',
   'tdsCircleAddress',
   'responsibleName', 'responsibleDesignation', 'responsibleAddress',
   'responsibleEmail', 'responsiblePhone',

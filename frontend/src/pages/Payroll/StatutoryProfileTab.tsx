@@ -18,6 +18,16 @@ const GROUPS: { title: string; hint: string; fields: Field[] }[] = [
     ],
   },
   {
+    title: 'Labour-law registers',
+    hint: 'Printed at the head of the registers of employees, wages and attendance.',
+    fields: [
+      { key: 'shopsRegistrationNo', label: 'Shops and Establishments registration no.' },
+      { key: 'labourIdNumber', label: 'Labour Identification Number (LIN)' },
+      { key: 'natureOfBusiness', label: 'Nature of business', placeholder: 'e.g. Software services' },
+      { key: 'managerName', label: 'Manager or person in charge' },
+    ],
+  },
+  {
     title: 'Person responsible for tax deduction',
     hint: 'Named on the quarterly TDS return.',
     fields: [
