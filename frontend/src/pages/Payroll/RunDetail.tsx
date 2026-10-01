@@ -232,6 +232,7 @@ export default function RunDetail() {
     { label: 'TDS', value: compSum('tds'), color: '#B42318' },
     { label: 'Professional Tax', value: compSum('professionalTax'), color: '#7A5AF8' },
     { label: 'LWF', value: compSum('lwfEmployee'), color: '#15B79E' },
+    { label: 'Loans', value: compSum('loanDeduction'), color: '#DD2590' },
     { label: 'Other deductions', value: otherDeductions, color: '#667085' },
   ].filter(s => s.value > 0.5);
   const netShare = t.gross > 0 ? (t.net / t.gross) * 100 : 0;
@@ -482,6 +483,16 @@ export default function RunDetail() {
                 ))}
               </div>
             </div>
+
+            {entryModal.loanDeduction > 0 && (
+              <div className="alert alert-warning">
+                <span>₹</span>
+                <span>
+                  A loan instalment of <strong>{formatINR(entryModal.loanDeduction)}</strong> is deducted this month.
+                  To skip or change it, open the loan from the <Link to="/payroll/loans">Loans</Link> page.
+                </span>
+              </div>
+            )}
 
             <div className="form-section">
               <div className="form-section-title"><span className="step-dot">3</span> Other earnings &amp; deductions</div>

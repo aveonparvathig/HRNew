@@ -149,7 +149,7 @@ describe('ESI coverage', () => {
   });
 
   const ctx = (over: any = {}): StatutoryContext => ({
-    period: '2026-07', settings: SETTINGS, ptPolicies: [], lwfPolicies: [], priorByPerson: new Map(), ...over,
+    period: '2026-07', settings: SETTINGS, ptPolicies: [], lwfPolicies: [], priorByPerson: new Map(), loanDue: new Map(), ...over,
   });
   const inputs = (monthlyPackage: number) => ({ monthlyPackage, totalWorkingDays: 26 });
 
@@ -245,7 +245,17 @@ describe('engine with statutory inputs', () => {
     ptPolicies: [{ ...HALF_SPREAD, effectiveFrom: '2026-04' }],
     lwfPolicies: [{ state: 'Tamil Nadu', effectiveFrom: '2026-01', employeeAmount: 10, employerAmount: 20, deductionMonths: '12' }],
     priorByPerson: new Map(),
+    loanDue: new Map(),
   };
+
+  it('adds the loan instalments due this month from the ledger', () => {
+    const withLoan = { ...ctx, ptPolicies: [], lwfPolicies: [], loanDue: new Map([['p1', 3334]]) };
+    const r = computeFullEntry(withLoan, inputs, [], { personId: 'p1', state: 'Tamil Nadu' });
+    expect(r.loanDeduction).toBe(3334);
+    expect(r.totalDeductions).toBe(1800 + 3334);
+    expect(r.netPayable).toBe(43200 - 3334);
+    expect(computeFullEntry(withLoan, inputs, [], { personId: 'p2', state: 'Tamil Nadu' }).loanDeduction).toBe(0);
+  });
 
   it('computes a full entry with state policies', () => {
     // December is the third month of Oct–Mar with no earlier entries:

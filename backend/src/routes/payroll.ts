@@ -6,6 +6,7 @@ import { payrollSetupController } from '../controllers/payrollSetupController';
 import { payrollStructureController } from '../controllers/payrollStructureController';
 import { payrollReportsController } from '../controllers/payrollReportsController';
 import { payrollStatutoryController } from '../controllers/payrollStatutoryController';
+import { payrollLoansController } from '../controllers/payrollLoansController';
 
 const router = Router();
 
@@ -53,7 +54,21 @@ router.get('/remittances', asyncHandler((req, res) => payrollStatutoryController
 router.post('/remittances', asyncHandler((req, res) => payrollStatutoryController.createRemittance(req, res)));
 router.delete('/remittances/:remittanceId', asyncHandler((req, res) => payrollStatutoryController.deleteRemittance(req, res)));
 
+// Loans and advances
+router.get('/loans', asyncHandler((req, res) => payrollLoansController.getLoans(req, res)));
+router.post('/loans', asyncHandler((req, res) => payrollLoansController.createLoan(req, res)));
+router.post('/loans/preview', asyncHandler((req, res) => payrollLoansController.previewSchedule(req, res)));
+router.get('/loans/:loanId', asyncHandler((req, res) => payrollLoansController.getLoanDetail(req, res)));
+router.delete('/loans/:loanId', asyncHandler((req, res) => payrollLoansController.deleteLoan(req, res)));
+router.post('/loans/:loanId/skip', asyncHandler((req, res) => payrollLoansController.skipMonth(req, res)));
+router.post('/loans/:loanId/prepay', asyncHandler((req, res) => payrollLoansController.prepay(req, res)));
+router.post('/loans/:loanId/foreclose', asyncHandler((req, res) => payrollLoansController.foreclose(req, res)));
+router.post('/loans/:loanId/revise', asyncHandler((req, res) => payrollLoansController.revise(req, res)));
+
 // Reports across runs
+router.get('/reports/loan-statement', asyncHandler((req, res) => payrollLoansController.loanStatement(req, res)));
+router.get('/reports/loan-register', asyncHandler((req, res) => payrollLoansController.loanRegister(req, res)));
+router.get('/reports/loan-transactions', asyncHandler((req, res) => payrollLoansController.loanTransactions(req, res)));
 router.get('/reports/pt-half-year', asyncHandler((req, res) => payrollStatutoryController.ptHalfYear(req, res)));
 router.get('/reports/options', asyncHandler((req, res) => payrollReportsController.getOptions(req, res)));
 router.get('/reports/ytd-statement', asyncHandler((req, res) => payrollReportsController.ytdStatement(req, res)));

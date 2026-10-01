@@ -68,6 +68,7 @@ export const FIXED_DEDUCTIONS: ComponentColumn[] = [
   col('tds', 'TDS', 'TDS', 'DEDUCTION'),
   col('professionalTax', 'Professional Tax', 'PT', 'DEDUCTION'),
   col('lwfEmployee', 'Labour Welfare Fund', 'LWF', 'DEDUCTION'),
+  col('loanDeduction', 'Loan Instalment', 'Loan', 'DEDUCTION'),
 ];
 export const FIXED_EMPLOYER: ComponentColumn[] = [
   col('esiEmployer', 'ESI (Employer)', 'ESI Er', 'EMPLOYER'),

@@ -9,7 +9,8 @@ export type AuditAction =
   | 'COMPONENT_CREATED' | 'COMPONENT_UPDATED' | 'COMPONENT_DELETED'
   | 'SALARY_REVISED' | 'SALARY_REVISION_REMOVED'
   | 'PT_POLICY_SAVED' | 'PT_POLICY_DELETED' | 'LWF_POLICY_SAVED' | 'LWF_POLICY_DELETED'
-  | 'REMITTANCE_RECORDED' | 'REMITTANCE_DELETED';
+  | 'REMITTANCE_RECORDED' | 'REMITTANCE_DELETED'
+  | 'LOAN_CREATED' | 'LOAN_CHANGED' | 'LOAN_DELETED';
 
 export interface AuditRow {
   action: AuditAction;
@@ -21,7 +22,7 @@ export interface AuditRow {
   field?: string;
   oldValue?: string;
   newValue?: string;
-  source?: 'MANUAL' | 'IMPORT' | 'REVISION';
+  source?: 'MANUAL' | 'IMPORT' | 'REVISION' | 'LOAN';
 }
 
 export interface FieldChange {
@@ -43,6 +44,9 @@ const FIELD_LABELS: Record<string, string> = {
   isPfApplicable: 'PF applicable',
   remarks: 'Remarks',
   professionalTax: 'Professional Tax',
+  loanDeduction: 'Loan instalment',
+  loanBenchmarkRate: 'Loan benchmark rate %',
+  loanPerquisiteExemptLimit: 'Loan perquisite exempt limit',
   pfRoundToRupee: 'Round PF to the rupee',
   esiAutoCoverage: 'Automatic ESI coverage',
   epsPercent: 'EPS %',

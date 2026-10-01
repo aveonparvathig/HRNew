@@ -9,8 +9,9 @@
 //   PF Emp = min((Basic+DA)*wage_factor%, wage_cap) * pf%
 //   Net = Gross - (ESI Emp + PF Emp + Advance + TDS)
 //
-// Beyond the Excel: Professional Tax and Labour Welfare Fund arrive as
-// inputs (they depend on state rules and earlier months) and default to 0,
+// Beyond the Excel: Professional Tax, Labour Welfare Fund and loan
+// instalments arrive as inputs (they depend on state rules, earlier months
+// and the loan ledger) and default to 0,
 // and PF can optionally round to the rupee. With those left at their
 // defaults every figure matches the Excel exactly.
 //
@@ -34,6 +35,7 @@ export interface EntryInputs {
   professionalTax?: number;
   lwfEmployee?: number;
   lwfEmployer?: number;
+  loanDeduction?: number;
 }
 
 export function computeEntry(inp: EntryInputs, s: any) {
@@ -47,6 +49,7 @@ export function computeEntry(inp: EntryInputs, s: any) {
   const professionalTax = Number(inp.professionalTax || 0);
   const lwfEmployee = Number(inp.lwfEmployee || 0);
   const lwfEmployer = Number(inp.lwfEmployer || 0);
+  const loanDeduction = Number(inp.loanDeduction || 0);
 
   const presentDays = twd - empLeave;
   const payDays = twd - lop;
@@ -78,7 +81,7 @@ export function computeEntry(inp: EntryInputs, s: any) {
       : pfRound(cappedBase * s.pfEmployerPercent / 100);
   }
 
-  const totalDeductions = r2(esiEmployee + pfEmployee + advance + tds + professionalTax + lwfEmployee);
+  const totalDeductions = r2(esiEmployee + pfEmployee + advance + tds + professionalTax + lwfEmployee + loanDeduction);
   const netPayable = r2(grossSalary - totalDeductions);
   const employerContributions = r2(esiEmployer + pfEmployer + lwfEmployer);
   const ctc = r2(grossSalary + employerContributions);
@@ -169,6 +172,7 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
     entry.tds ? row('TDS', entry.tds) : '',
     entry.professionalTax ? row('Professional Tax', entry.professionalTax) : '',
     entry.lwfEmployee ? row('Labour Welfare Fund', entry.lwfEmployee) : '',
+    entry.loanDeduction ? row('Loan Instalment', entry.loanDeduction) : '',
   ].join('') + lineRows('DEDUCTION') || '<tr><td class="muted">No deductions</td><td class="amt">₹0.00</td></tr>';
 
   return `
@@ -248,6 +252,7 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
     <div style="font-size:26px;font-weight:800;color:#312e81;">${inr(entry.netPayable)}</div>
   </div>
 
+  ${entry.loanBalanceAfter != null ? `<p style="margin-top:14px;font-size:12.5px;color:#64748b;"><strong>Loan balance after this payslip:</strong> ${inr(entry.loanBalanceAfter)}</p>` : ''}
   ${entry.remarks ? `<p style="margin-top:14px;font-size:12.5px;color:#64748b;"><strong>Remarks:</strong> ${esc(entry.remarks)}</p>` : ''}
 
   <p style="margin-top:26px;font-size:11.5px;color:#94a3b8;">

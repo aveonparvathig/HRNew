@@ -12,7 +12,10 @@ import { financialYearOf } from '../services/payroll/financialYear';
 import {
   esiCeilingChecks, locationChecks, entryOverrides, standardWorkingDays,
 } from '../services/payroll/checks';
-import { diffFields, fieldLabel, logPayrollAudit } from '../services/payroll/audit';
+import { diffFields, fieldLabel, logPayrollAudit, actorName } from '../services/payroll/audit';
+import {
+  postRunInstalments, reverseRunInstalments, overdueLoanChecks, loanBalanceAfter,
+} from '../services/payroll/loanLedger';
 import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/reportHtml';
 
 // Entry inputs a user can change — the fields the audit trail tracks.
@@ -27,6 +30,7 @@ const SETTINGS_FIELDS = [
   'esiEmployeePercent', 'esiEmployerPercent', 'esiWageCeiling',
   'pfEmployeePercent', 'pfEmployerPercent', 'pfWageCap', 'pfWageFactor',
   'epsPercent', 'epsWageCap', 'edliPercent', 'edliWageCap', 'pfAdminPercent', 'pfAdminMinimum',
+  'loanBenchmarkRate', 'loanPerquisiteExemptLimit',
 ];
 const SETTINGS_FLAGS = ['pfEmployerMatchesEmployee', 'pfRoundToRupee', 'esiAutoCoverage'];
 
@@ -267,6 +271,7 @@ export const payrollController = {
       checks: [
         ...esiCeilingChecks(sorted, ctx.settings, orgUsesEsi, stillCovered),
         ...locationChecks(sorted, ctx.ptPolicies.length + ctx.lwfPolicies.length > 0),
+        ...(run.status === 'DRAFT' ? await overdueLoanChecks(orgId, sorted, run.period) : []),
       ],
       totals: entryTotals(run.entries),
       prev: prev ? { id: prev.id, period: prev.period, totals: entryTotals(prev.entries) } : null,
@@ -286,6 +291,8 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const run = await fetchOrgRun(req.params.runId, orgId);
     assertDraft(run);
+    // Loan instalments this run deducted become repayments in the ledger
+    await postRunInstalments(run, await actorName(req.user?.userId));
     const updated = await prisma.payrollRun.update({
       where: { id: run.id },
       data: { status: 'FINALIZED', finalizedAt: new Date() },
@@ -298,6 +305,7 @@ export const payrollController = {
     const orgId = req.user?.organizationId;
     const run = await fetchOrgRun(req.params.runId, orgId);
     if (run.status !== 'FINALIZED') throw new AppError(400, 'Only finalized runs can be reopened');
+    await reverseRunInstalments(run);
     const updated = await prisma.payrollRun.update({
       where: { id: run.id },
       data: { status: 'DRAFT', finalizedAt: null },
@@ -827,13 +835,14 @@ export const payrollController = {
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     const brand = await orgBrand(orgId);
+    const withLoan = { ...entry, loanBalanceAfter: await loanBalanceAfter(orgId, entry, entry.run.period) };
     res.json({
       id: entry.id,
       runId: entry.runId,
       period: entry.run.period,
       status: entry.run.status,
       personName: entry.person.name,
-      html: renderPayslipHtml(brand, entry.run, entry, entry.person),
+      html: renderPayslipHtml(brand, entry.run, withLoan, entry.person),
     });
   },
 
@@ -868,11 +877,15 @@ export const payrollController = {
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
     const brand = await orgBrand(orgId);
-    const slips = sortEntries(run.entries).map((e: any) => ({
-      id: e.id,
-      personName: e.person.name,
-      html: renderPayslipHtml(brand, run, e, e.person),
-    }));
+    const slips = [];
+    for (const e of sortEntries(run.entries) as any[]) {
+      slips.push({
+        id: e.id,
+        personName: e.person.name,
+        html: renderPayslipHtml(brand, run,
+          { ...e, loanBalanceAfter: await loanBalanceAfter(orgId, e, run.period) }, e.person),
+      });
+    }
     res.json({ runId: run.id, period: run.period, status: run.status, slips });
   },
 
@@ -890,6 +903,7 @@ export const payrollController = {
     const deductionCols = lineCols.filter(c => c.group === 'DEDUCTION');
     const hasPt = run.entries.some((e: any) => e.professionalTax);
     const hasLwf = run.entries.some((e: any) => e.lwfEmployee || e.lwfEmployer);
+    const hasLoan = run.entries.some((e: any) => e.loanDeduction);
     const header = [
       'Employee Code', 'Name', 'Designation', 'Department', 'Monthly Package',
       'Working Days', 'Leave Days', 'LOP Days', 'Present Days', 'Pay Days',
@@ -897,6 +911,7 @@ export const payrollController = {
       ...earningCols.map(c => esc(c.label)), 'Gross',
       'ESI Employee', 'PF Employee', 'Advance', 'TDS',
       ...(hasPt ? ['Professional Tax'] : []), ...(hasLwf ? ['LWF Employee'] : []),
+      ...(hasLoan ? ['Loan Instalment'] : []),
       ...deductionCols.map(c => esc(c.label)), 'Total Deductions',
       'Net Payable', 'ESI Employer', 'PF Employer', ...(hasLwf ? ['LWF Employer'] : []), 'CTC', 'Remarks',
     ];
@@ -911,6 +926,7 @@ export const payrollController = {
         ...earningCols.map(c => columnValue(e, c.key)), e.grossSalary,
         e.esiEmployee, e.pfEmployee, e.salaryAdvance, e.tds,
         ...(hasPt ? [e.professionalTax] : []), ...(hasLwf ? [e.lwfEmployee] : []),
+        ...(hasLoan ? [e.loanDeduction] : []),
         ...deductionCols.map(c => columnValue(e, c.key)), e.totalDeductions,
         e.netPayable, e.esiEmployer, e.pfEmployer, ...(hasLwf ? [e.lwfEmployer] : []), e.ctc, esc(e.remarks),
       ].join(','));

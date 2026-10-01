@@ -39,8 +39,18 @@ export const payrollAPI = {
   createRemittance: (data: any) => apiClient.post('/payroll/remittances', data),
   deleteRemittance: (remittanceId: string) => apiClient.delete(`/payroll/remittances/${remittanceId}`),
 
+  // Loans and advances
+  getLoans: (personId?: string) => apiClient.get('/payroll/loans', { params: personId ? { personId } : {} }),
+  getLoan: (loanId: string) => apiClient.get(`/payroll/loans/${loanId}`),
+  previewLoan: (data: any) => apiClient.post('/payroll/loans/preview', data),
+  createLoan: (data: any) => apiClient.post('/payroll/loans', data),
+  deleteLoan: (loanId: string) => apiClient.delete(`/payroll/loans/${loanId}`),
+  // action: skip | prepay | foreclose | revise
+  loanAction: (loanId: string, action: string, data: any) => apiClient.post(`/payroll/loans/${loanId}/${action}`, data),
+
   // Reports across runs
-  // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history | pt-half-year
+  // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history
+  //       | pt-half-year | loan-statement | loan-register | loan-transactions
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),

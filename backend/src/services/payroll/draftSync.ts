@@ -1,13 +1,13 @@
-// Keeps draft payroll runs in step with salary revisions: when an
-// employee's package changes, their entries in draft runs from the
-// effective month onward take the package that now applies and are
-// recomputed. Finalized runs are never touched.
+// Keeps draft payroll runs in step with changes made elsewhere: when an
+// employee's package is revised or their loans change, their entries in
+// draft runs from the affected month onward are recomputed. Finalized
+// runs are never touched.
 import { prisma } from '../../config/database';
 import { loadStatutoryContext, computeFullEntry } from './entryCompute';
 import { packageForPeriod } from './salaryStructure';
 import { logPayrollAudit } from './audit';
 
-export async function syncDraftPackages(req: any, personId: string, fromPeriod: string): Promise<number> {
+export async function syncDraftEntries(req: any, personId: string, fromPeriod: string): Promise<number> {
   const organizationId = req.user?.organizationId;
   const person = await prisma.person.findFirst({
     where: { id: personId, organizationId },
@@ -26,23 +26,29 @@ export async function syncDraftPackages(req: any, personId: string, fromPeriod: 
   let updated = 0;
   for (const entry of entries) {
     const monthlyPackage = packageForPeriod(person.currentMonthlyPackage, person.salaryRevisions, entry.run.period);
-    if (monthlyPackage === entry.monthlyPackage) continue;
     const ctx = await loadStatutoryContext(organizationId, entry.run.period);
-    await prisma.payslipEntry.update({
-      where: { id: entry.id },
-      data: {
-        monthlyPackage,
-        ...computeFullEntry(ctx, { ...entry, monthlyPackage }, entry.lines, {
-          personId, state: person.workLocation?.state,
-          ptOverride: entry.ptOverridden ? entry.professionalTax : null,
-        }),
-      },
+    const computed = computeFullEntry(ctx, { ...entry, monthlyPackage }, entry.lines, {
+      personId, state: person.workLocation?.state,
+      ptOverride: entry.ptOverridden ? entry.professionalTax : null,
     });
-    await logPayrollAudit(req, [{
-      action: 'ENTRY_UPDATED', runId: entry.runId, entryId: entry.id, personId,
-      period: entry.run.period, personName: person.name, source: 'REVISION',
-      field: 'monthlyPackage', oldValue: String(entry.monthlyPackage), newValue: String(monthlyPackage),
-    }]);
+    const packageChanged = monthlyPackage !== entry.monthlyPackage;
+    const loanChanged = computed.loanDeduction !== entry.loanDeduction;
+    if (!packageChanged && !loanChanged) continue;
+    await prisma.payslipEntry.update({ where: { id: entry.id }, data: { monthlyPackage, ...computed } });
+    const common = {
+      action: 'ENTRY_UPDATED' as const, runId: entry.runId, entryId: entry.id, personId,
+      period: entry.run.period, personName: person.name,
+    };
+    await logPayrollAudit(req, [
+      ...(packageChanged ? [{
+        ...common, source: 'REVISION' as const, field: 'monthlyPackage',
+        oldValue: String(entry.monthlyPackage), newValue: String(monthlyPackage),
+      }] : []),
+      ...(loanChanged ? [{
+        ...common, source: 'LOAN' as const, field: 'loanDeduction',
+        oldValue: String(entry.loanDeduction), newValue: String(computed.loanDeduction),
+      }] : []),
+    ]);
     updated++;
   }
   return updated;
