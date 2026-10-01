@@ -252,6 +252,14 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
     <div style="font-size:26px;font-weight:800;color:#312e81;">${inr(entry.netPayable)}</div>
   </div>
 
+  ${entry.reimbursement > 0 ? `
+  <table class="ps-table" style="margin-top:14px;">
+    <tr><th>Expense claims paid with this salary (not taxed)</th><th style="text-align:right;">Amount</th></tr>
+    ${(entry.claims || []).map((c: any) => row(`${esc(c.reportNumber)}${c.title ? ` — ${esc(c.title)}` : ''}`, c.amount)).join('')
+      || row('Expense reimbursement', entry.reimbursement)}
+    <tr><td><strong>Total paid (net salary + claims)</strong></td><td class="amt"><strong>${inr(entry.netPayable + entry.reimbursement)}</strong></td></tr>
+  </table>` : ''}
+
   ${entry.loanBalanceAfter != null ? `<p style="margin-top:14px;font-size:12.5px;color:#64748b;"><strong>Loan balance after this payslip:</strong> ${inr(entry.loanBalanceAfter)}</p>` : ''}
   ${entry.remarks ? `<p style="margin-top:14px;font-size:12.5px;color:#64748b;"><strong>Remarks:</strong> ${esc(entry.remarks)}</p>` : ''}
 

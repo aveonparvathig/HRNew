@@ -333,6 +333,10 @@ model Person {
   esiNumber         String  @default("")
   isEsiEligible     Boolean @default(false)
   isPfApplicable    Boolean @default(false)
+  // How salary is paid, and whether payroll should leave the employee out
+  paymentMode       String  @default("BANK") // BANK | CHEQUE | CASH
+  salaryStopped     Boolean @default(false)
+  salaryStopReason  String  @default("")
 
   // Recruitment pipeline
   source         String    @default("")
@@ -362,6 +366,7 @@ model Person {
   salaryRevisions SalaryRevision[]
   loans          Loan[]
   taxProfiles    EmployeeTaxProfile[]
+  form16PartAs Form16PartA[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -440,9 +445,12 @@ model ExpenseReport {
   submittedOn     String?
   status          String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | REJECTED | REIMBURSED
   currency        String   @default("INR")
+  // Set while the claim is being paid with a month's salary
+  payrollEntryId  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  payrollEntry PayslipEntry? @relation(fields: [payrollEntryId], references: [id], onDelete: SetNull)
   // Restrict, like payslips: an employee with expense history stays on record.
   person Person        @relation(fields: [personId], references: [id], onDelete: Restrict)
   lines  ExpenseLine[]
@@ -450,6 +458,7 @@ model ExpenseReport {
   @@unique([organizationId, reportNumber])
   @@index([organizationId, status])
   @@index([personId])
+  @@index([payrollEntryId])
   @@map("expense_reports")
 }
 
@@ -517,6 +526,20 @@ model PayrollSettings {
   // onward payroll computes it. Blank keeps TDS manual.
   tdsAutoFrom      String @default("")
   defaultTaxRegime String @default("NEW") // NEW | OLD, when an employee has none set
+  // Titles printed on the tax forms. The Income-tax Act, 2025 renumbers
+  // them, so they are data: set them to what the year's rules call them.
+  form24qName  String @default("Form 24Q")
+  form16Name   String @default("Form 16")
+  form12baName String @default("Form 12BA")
+
+  // On finalizing a run: release its payslips, and open next month's run
+  autoReleaseOnFinalize Boolean @default(false)
+  autoCreateNextRun     Boolean @default(false)
+  // The account salaries are paid from, printed on the bank advice
+  payoutBankName      String @default("")
+  payoutBranch        String @default("")
+  payoutAccountNumber String @default("")
+  payoutIfsc          String @default("")
 
   updatedAt DateTime @updatedAt
 
@@ -531,6 +554,8 @@ model PayrollRun {
   finalizedAt    DateTime?
   // Employees see their payslip for this month only once it is released
   releasedAt     DateTime?
+  // While a draft's inputs are locked, attendance and one-offs cannot be edited
+  inputsLockedAt DateTime?
   notes          String    @default("")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -538,6 +563,7 @@ model PayrollRun {
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   entries      PayslipEntry[]
   taxComputations TaxComputation[]
+  payoutBatches PayoutBatch[]
 
   @@unique([organizationId, period])
   @@map("payroll_runs")
@@ -598,10 +624,26 @@ model PayslipEntry {
   employerContributions Float @default(0)
   ctc                   Float @default(0)
 
+  // Approved expense claims paid with this salary. Not part of gross or
+  // net: untaxed, shown separately, and added to the amount transferred.
+  reimbursement Float @default(0)
+
+  // Payout. A held salary is computed but not paid until released.
+  payStatus      String    @default("PAY") // PAY | HOLD
+  holdReason     String    @default("")
+  heldAt         DateTime?
+  holdReleasedAt DateTime?
+  payoutBatchId  String?
+  paidOn         String? // "YYYY-MM-DD", set when its batch is marked paid
+  paymentRef     String    @default("") // cheque number or transfer reference
+
   remarks   String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  payoutBatch PayoutBatch? @relation(fields: [payoutBatchId], references: [id], onDelete: SetNull)
+  expenseReports ExpenseReport[]
+  tdsAllocations TdsChallanAllocation[]
   run    PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   // Restrict, deliberately: a person with payslip history can never be
   // deleted, only marked inactive.
@@ -610,6 +652,7 @@ model PayslipEntry {
 
   @@unique([runId, personId])
   @@index([organizationId])
+  @@index([payoutBatchId])
   @@map("payslip_entries")
 }
 
@@ -823,6 +866,8 @@ model TaxYearControl {
   declarationOpen  Boolean  @default(false)
   proofOpen        Boolean  @default(false)
   employeeCanChooseRegime Boolean @default(false)
+  // Employees can see their Form 16 for the year once HR releases it
+  form16Released          Boolean @default(false)
   updatedAt        DateTime @updatedAt
 
   @@id([organizationId, fyStart])
@@ -1136,4 +1181,103 @@ model FeatureStatus {
   @@unique([clientId, name])
   @@index([organizationId])
   @@map("feature_statuses")
+}
+
+// One payment instruction for a run: the salaries paid together by one mode.
+model PayoutBatch {
+  id             String    @id @default(cuid())
+  organizationId String
+  runId          String
+  batchNo        Int // running number within the organization
+  mode           String // BANK | CHEQUE | CASH
+  payDate        String // "YYYY-MM-DD"
+  reference      String    @default("")
+  status         String    @default("PREPARED") // PREPARED | PAID
+  notes          String    @default("")
+  createdBy      String    @default("")
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  run     PayrollRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
+  entries PayslipEntry[]
+
+  @@unique([organizationId, batchNo])
+  @@index([runId])
+  @@map("payout_batches")
+}
+
+// Ledger account for a line of the payroll journal voucher. The key is a
+// pay column ("basic", "c:<componentId>") or a control account ("pfPayable").
+model LedgerMapping {
+  organizationId String
+  key            String
+  ledgerName     String
+  updatedAt      DateTime @updatedAt
+
+  @@id([organizationId, key])
+  @@map("ledger_mappings")
+}
+
+// A deposit of tax deducted from salaries, as on the bank challan. The
+// quarterly TDS return lists each challan and the employees it covers.
+model TdsChallan {
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String // "YYYY-MM": the salary month whose TDS it deposits
+  fyStart        Int
+  quarter        Int // 1 = Apr–Jun … 4 = Jan–Mar
+  bsrCode        String // 7-digit code of the bank branch
+  challanSerial  String // 5-digit challan serial number
+  depositedOn    String // "YYYY-MM-DD"
+  tds            Float    @default(0) // income tax
+  surcharge      Float    @default(0)
+  cess           Float    @default(0)
+  interest       Float    @default(0)
+  fee            Float    @default(0) // late filing fee
+  others         Float    @default(0)
+  minorHead      String   @default("200") // 200 = TDS payable by taxpayer, 400 = regular assessment
+  remarks        String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+
+  allocations TdsChallanAllocation[]
+
+  @@index([organizationId, fyStart, quarter])
+  @@map("tds_challans")
+}
+
+// How much of a challan covers one employee's TDS for the month.
+model TdsChallanAllocation {
+  id        String @id @default(cuid())
+  challanId String
+  entryId   String
+  personId  String
+  amount    Float
+
+  challan TdsChallan   @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  entry   PayslipEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([challanId, entryId])
+  @@index([entryId])
+  @@map("tds_challan_allocations")
+}
+
+// Form 16 Part A, downloaded from the tax department's portal, kept
+// beside the Part B the system produces.
+model Form16PartA {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  fyStart        Int
+  fileName       String
+  fileData       String // PDF as a data URI
+  uploadedBy     String   @default("")
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, fyStart])
+  @@index([organizationId, fyStart])
+  @@map("form16_part_a")
 }

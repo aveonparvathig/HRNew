@@ -14,6 +14,7 @@ import { payrollAPI } from '../../api/payroll';
 import SalaryRevisionsCard from '../../components/SalaryRevisionsCard';
 import PersonLoansCard from '../../components/PersonLoansCard';
 import PersonTaxCard from '../../components/PersonTaxCard';
+import PersonPayCard from '../../components/PersonPayCard';
 import { EXPENSE_STATUS_TONES } from '../Expenses/ExpensesList';
 
 const DOC_BADGES: Record<string, string> = {
@@ -367,6 +368,7 @@ export default function PersonDetail() {
       )}
       {!isIntern && canManagePeople && person.isEmployee && <PersonTaxCard person={person} />}
       {!isIntern && canManagePeople && person.isEmployee && <PersonLoansCard person={person} />}
+      {!isIntern && canManagePeople && person.isEmployee && <PersonPayCard person={person} />}
 
       {/* Payslip history */}
       {payslips.length > 0 && (

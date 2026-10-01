@@ -11,6 +11,19 @@ const monthLabel = (period: string) => {
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 };
 
+const STAGES: [string, string][] = [
+  ['INPUTS_OPEN', 'Inputs open'], ['INPUTS_LOCKED', 'Inputs locked'], ['FINALIZED', 'Payroll locked'],
+  ['RELEASED', 'Payslips released'], ['PAID', 'Paid'],
+];
+
+// Checks that repeat for many employees are shown as one line with the names.
+const GROUPED_CHECKS: Record<string, string> = {
+  NO_WORK_LOCATION: 'with no work location — Professional Tax and Labour Welfare Fund are not applied to them',
+  NO_BANK_ACCOUNT: 'paid by bank transfer but missing an account number or IFSC',
+  NO_PAN: 'with no valid PAN — tax is deducted at the higher rate without one',
+  NOT_IN_RUN: 'active but not in this run — Recalculate adds them',
+};
+
 export default function RunDetail() {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
@@ -27,6 +40,9 @@ export default function RunDetail() {
   const [attResult, setAttResult] = useState<any>(null);
   const [attBusy, setAttBusy] = useState(false);
   const [components, setComponents] = useState<any[]>([]);
+  const [claims, setClaims] = useState<any>(null);
+  const [holdModal, setHoldModal] = useState<any>(null); // entry whose salary is being held
+  const [holdReason, setHoldReason] = useState('');
 
   useEffect(() => {
     payrollAPI.getComponents().then(res => setComponents(res.data.components)).catch(() => {});
@@ -80,6 +96,7 @@ export default function RunDetail() {
       const res = await payrollAPI.getRunDetail(runId!);
       setRun(res.data);
       setError('');
+      payrollAPI.getRunClaims(runId!).then(c => setClaims(c.data)).catch(() => setClaims(null));
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load run');
     } finally {
@@ -90,6 +107,7 @@ export default function RunDetail() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const isDraft = run?.status === 'DRAFT';
+  const canEdit = isDraft && !run?.inputsLockedAt; // attendance and one-offs are open
 
   const openEntry = (entry: any) => {
     setForm({
@@ -148,6 +166,12 @@ export default function RunDetail() {
     }
   };
 
+  const handleHold = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await act(() => payrollAPI.holdSalary(holdModal.id, holdReason), `${holdModal.person.name}'s salary is on hold.`);
+    setHoldModal(null);
+  };
+
   const handleExport = async () => {
     const res = await payrollAPI.exportRunCsv(run.id);
     const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
@@ -203,6 +227,9 @@ export default function RunDetail() {
   }
 
   const t = run.totals;
+  const blocking = (run.checks || []).filter((c: any) => c.blocking);
+  const warnings = (run.checks || []).filter((c: any) => !c.blocking);
+  const stageIndex = STAGES.findIndex(([key]) => key === run.stage?.key);
 
   // ---- Month-over-month trend chips (vs latest earlier run) ----
   const prevShort = run.prev
@@ -266,17 +293,35 @@ export default function RunDetail() {
             </Link>
             {isDraft ? (
               <>
-                <button className="btn btn-secondary" onClick={() => setAttModal(true)}>
-                  ⤒ Import Attendance
-                </button>
+                {canEdit && (
+                  <button className="btn btn-secondary" onClick={() => setAttModal(true)}>
+                    ⤒ Import Attendance
+                  </button>
+                )}
                 <button className="btn btn-secondary"
                   onClick={() => act(() => payrollAPI.recalculateRun(run.id))}>
                   ↻ Recalculate
                 </button>
+                {canEdit ? (
+                  <button className="btn btn-secondary" title="Freeze attendance and one-offs while the month is reviewed"
+                    onClick={() => act(() => payrollAPI.lockInputs(run.id), 'Inputs locked. Attendance and one-offs cannot be edited until unlocked.')}>
+                    Lock Inputs
+                  </button>
+                ) : (
+                  <button className="btn btn-secondary"
+                    onClick={() => act(() => payrollAPI.unlockInputs(run.id), 'Inputs unlocked.')}>
+                    Unlock Inputs
+                  </button>
+                )}
                 <button className="btn btn-danger" onClick={handleDeleteRun}>Delete</button>
-                <button className="btn btn-primary"
+                <button className="btn btn-primary" disabled={blocking.length > 0}
+                  title={blocking.length ? 'Fix the items marked below first' : undefined}
                   onClick={() => window.confirm('Finalize this run? Entries lock until reopened.')
-                    && act(() => payrollAPI.finalizeRun(run.id), 'Run finalized.')}>
+                    && act(async () => {
+                      const res = await payrollAPI.finalizeRun(run.id);
+                      return { data: { message: res.data.nextRun
+                        ? `Run finalized. ${monthLabel(res.data.nextRun.period)} has been opened as a draft.` : 'Run finalized.' } };
+                    })}>
                   ✓ Finalize
                 </button>
               </>
@@ -289,14 +334,15 @@ export default function RunDetail() {
                 {run.releasedAt ? (
                   <button className="btn btn-secondary"
                     onClick={() => act(() => payrollAPI.holdRun(run.id), 'Payslips withdrawn from employees.')}>
-                    Hold Payslips
+                    Withdraw Payslips
                   </button>
                 ) : (
-                  <button className="btn btn-primary"
+                  <button className="btn btn-secondary"
                     onClick={() => act(() => payrollAPI.releaseRun(run.id), 'Payslips released. Employees can now see them in My Pay.')}>
                     Release Payslips
                   </button>
                 )}
+                <Link to={`/payroll/runs/${run.id}/payout`} className="btn btn-primary">₹ Payout</Link>
               </>
             )}
           </>
@@ -311,25 +357,55 @@ export default function RunDetail() {
         </div>
       )}
 
-      {run.checks?.length > 0 && (
+      {run.stage && (
+        <div className="stage-steps" aria-label={`Stage: ${run.stage.label}`}>
+          {STAGES.filter(([key]) => key !== 'INPUTS_OPEN' || stageIndex === 0).map(([key, label]) => {
+            const index = STAGES.findIndex(s => s[0] === key);
+            const done = key === 'RELEASED' ? run.stage.released : key === 'PAID' ? run.stage.paid : index <= stageIndex;
+            return (
+              <span key={key} className={`stage-step${done ? ' done' : ''}${key === run.stage.key ? ' current' : ''}`}>
+                <span className="stage-dot">{done ? '✓' : ''}</span>
+                {label}
+                {key === 'PAID' && run.stage.finalized && run.stage.payable > 0 && (
+                  <span className="text-muted"> {run.stage.paidCount}/{run.stage.payable}</span>
+                )}
+              </span>
+            );
+          })}
+          {run.stage.heldCount > 0 && <span className="badge badge-warning">{run.stage.heldCount} on hold</span>}
+        </div>
+      )}
+
+      {blocking.length > 0 && (
+        <div className="alert alert-error" style={{ alignItems: 'flex-start' }}>
+          <span>⛔</span>
+          <div style={{ flex: 1 }}>
+            <strong>Fix before finalizing</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {blocking.map((c: any) => (
+                <li key={`${c.entryId}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {warnings.length > 0 && (
         <div className="alert alert-warning" style={{ alignItems: 'flex-start' }}>
           <span>⚠</span>
           <div style={{ flex: 1 }}>
-            <strong>Check before finalizing</strong>
+            <strong>{isDraft ? 'Check before finalizing' : 'Worth checking'}</strong>
             <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
-              {run.checks.filter((c: any) => c.code !== 'NO_WORK_LOCATION').map((c: any) => (
-                <li key={`${c.entryId}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
+              {warnings.filter((c: any) => !GROUPED_CHECKS[c.code]).map((c: any) => (
+                <li key={`${c.entryId}-${c.personName}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
               ))}
-              {/* One line for everyone missing a location, not one each */}
-              {run.checks.some((c: any) => c.code === 'NO_WORK_LOCATION') && (() => {
-                const names = run.checks.filter((c: any) => c.code === 'NO_WORK_LOCATION').map((c: any) => c.personName);
-                return (
-                  <li>
-                    <strong>{names.length} with no work location</strong> — Professional Tax and Labour Welfare
-                    Fund are not applied to them: {names.join(', ')}.
-                  </li>
+              {/* One line per kind for checks that repeat across many employees */}
+              {Object.entries(GROUPED_CHECKS).map(([code, text]) => {
+                const names = warnings.filter((c: any) => c.code === code).map((c: any) => c.personName);
+                return names.length > 0 && (
+                  <li key={code}><strong>{names.length}</strong> {text}: {names.join(', ')}.</li>
                 );
-              })()}
+              })}
             </ul>
           </div>
         </div>
@@ -341,7 +417,9 @@ export default function RunDetail() {
           ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
           ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
           ['tds-statement', 'TDS'],
-          ['comparison', 'vs Prev Month'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
+          ['comparison', 'vs Prev Month'], ['reconciliation', 'Reconciliation'], ['headcount', 'Headcount'],
+          ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
+          ['payment-register', 'Payment Register'], ['journal-voucher', 'Journal Voucher'],
         ].map(([kind, label]) => (
           <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="btn btn-secondary btn-sm">{label}</Link>
         ))}
@@ -397,11 +475,53 @@ export default function RunDetail() {
         </div>
       )}
 
+      {claims?.claims.length > 0 && (
+        <div className="card mb-24">
+          <div className="card-header">
+            <div>
+              <h3>Expense claims</h3>
+              <span className="text-muted" style={{ fontSize: 12.5 }}>
+                {canEdit
+                  ? 'Approved claims can be paid with this month\'s salary: untaxed, shown separately on the payslip, and added to the transfer.'
+                  : `${formatINR(claims.attachedTotal)} of claims ${isDraft ? 'will be' : 'were'} paid with this month's salary.`}
+              </span>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Claim</th><th>Employee</th><th className="num">Amount</th><th>With this salary</th><th /></tr></thead>
+              <tbody>
+                {claims.claims.filter((c: any) => canEdit || c.attached).map((c: any) => (
+                  <tr key={c.id}>
+                    <td><span style={{ fontWeight: 600 }}>{c.reportNumber}</span><div className="text-muted" style={{ fontSize: 11.5 }}>{c.title}</div></td>
+                    <td>{c.person.name}</td>
+                    <td className="num">{formatINR(c.amount)}</td>
+                    <td><span className={`badge ${c.attached ? 'badge-success' : 'badge-neutral'}`}>{c.attached ? 'Yes' : 'No'}</span></td>
+                    <td>
+                      <div className="row-actions">
+                        {canEdit && (
+                          <button className="btn btn-secondary btn-sm"
+                            onClick={() => act(() => payrollAPI.setRunClaim(run.id, c.id, !c.attached),
+                              c.attached ? `${c.reportNumber} removed from this salary.` : `${c.reportNumber} will be paid with this salary.`)}>
+                            {c.attached ? 'Remove' : 'Pay with Salary'}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <h3>Salary register</h3>
           <span className="text-muted" style={{ fontSize: 12.5 }}>
-            {isDraft ? 'Click Edit to adjust attendance & one-offs — the row recomputes instantly.' : 'Finalized — reopen to edit.'}
+            {canEdit ? 'Click Edit to adjust attendance & one-offs — the row recomputes instantly.'
+              : isDraft ? 'Inputs are locked — unlock to edit.' : 'Finalized — reopen to edit.'}
           </span>
         </div>
         <div className="table-wrap">
@@ -420,6 +540,10 @@ export default function RunDetail() {
                 <tr key={e.id}>
                   <td>
                     <span style={{ fontWeight: 600 }}>{e.person.name}</span>
+                    {e.payStatus === 'HOLD' && (
+                      <span className="badge badge-warning" style={{ marginLeft: 8 }} title={e.holdReason}>On hold</span>
+                    )}
+                    {e.paidOn && <span className="badge badge-success" style={{ marginLeft: 8 }}>Paid</span>}
                     <div className="text-muted" style={{ fontSize: 11.5 }}>
                       {[e.person.employeeNo, e.person.designation].filter(Boolean).join(' · ')}
                     </div>
@@ -434,12 +558,28 @@ export default function RunDetail() {
                   <td className="num text-muted">{e.esiEmployee ? formatINR(e.esiEmployee) : '—'}</td>
                   <td className="num text-muted">{e.pfEmployee ? formatINR(e.pfEmployee) : '—'}</td>
                   <td className="num text-warning">{formatINR(e.totalDeductions)}</td>
-                  <td className="num text-success" style={{ fontWeight: 700 }}>{formatINR(e.netPayable)}</td>
+                  <td className={`num ${e.netPayable < 0 ? 'text-danger' : 'text-success'}`} style={{ fontWeight: 700 }}>
+                    {formatINR(e.netPayable)}
+                    {e.reimbursement > 0 && (
+                      <div className="text-muted" style={{ fontSize: 11, fontWeight: 400 }}>+ {formatINR(e.reimbursement)} claims</div>
+                    )}
+                  </td>
                   <td>
                     <div className="row-actions">
                       <Link to={`/payroll/payslips/${e.id}`} className="btn btn-secondary btn-sm">Payslip</Link>
-                      {isDraft && (
+                      {canEdit && (
                         <button className="btn btn-secondary btn-sm" onClick={() => openEntry(e)}>Edit</button>
+                      )}
+                      {e.payStatus === 'HOLD' ? (
+                        <button className="btn btn-secondary btn-sm"
+                          onClick={() => act(() => payrollAPI.releaseSalary(e.id), `${e.person.name}'s salary is released for payment.`)}>
+                          Release
+                        </button>
+                      ) : !e.paidOn && !e.payoutBatchId && (
+                        <button className="btn btn-ghost btn-sm" title="Compute the salary but do not pay it yet"
+                          onClick={() => { setHoldReason(''); setHoldModal(e); }}>
+                          Hold
+                        </button>
                       )}
                     </div>
                   </td>
@@ -614,6 +754,28 @@ export default function RunDetail() {
                   {saving ? 'Saving…' : 'Save & Recompute'}
                 </button>
               </div>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Hold a salary */}
+      <Modal title={holdModal ? `Hold Salary — ${holdModal.person.name}` : ''} open={Boolean(holdModal)}
+        onClose={() => setHoldModal(null)}>
+        {holdModal && (
+          <form onSubmit={handleHold}>
+            <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              The salary of {formatINR(holdModal.netPayable)} stays on the register and in the statutory returns,
+              but is left out of payment batches and hidden from the employee until you release it.
+            </p>
+            <div className="field" style={{ marginBottom: 16 }}>
+              <label>Reason *</label>
+              <input className="input" required autoFocus placeholder="e.g. Exit clearance pending" value={holdReason}
+                onChange={e => setHoldReason(e.target.value)} />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setHoldModal(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary">Hold Salary</button>
             </div>
           </form>
         )}

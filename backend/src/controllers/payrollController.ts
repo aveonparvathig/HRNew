@@ -18,6 +18,8 @@ import {
   postRunInstalments, reverseRunInstalments, overdueLoanChecks, loanBalanceAfter,
 } from '../services/payroll/loanLedger';
 import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/reportHtml';
+import { runStage, nextRunDefaults } from '../services/payroll/payoutCalc';
+import { prePayrollChecksFor, setRunClaimStatus, claimsOfEntry } from '../services/payroll/payout';
 
 // Entry inputs a user can change — the fields the audit trail tracks.
 const ENTRY_INPUT_FIELDS = [
@@ -68,6 +70,14 @@ function assertDraft(run: any) {
   }
 }
 
+// Attendance and one-offs are frozen while a draft's inputs are locked.
+function assertInputsOpen(run: any) {
+  assertDraft(run);
+  if (run.inputsLockedAt) {
+    throw new AppError(400, 'Inputs for this run are locked. Unlock them to make changes.');
+  }
+}
+
 const entryTotals = (entries: any[]) => ({
   employees: entries.length,
   gross: entries.reduce((s, e) => s + e.grossSalary, 0),
@@ -89,6 +99,7 @@ async function activeEmployees(organizationId: string) {
       kind: 'CANDIDATE',
       isEmployee: true,
       employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] },
+      salaryStopped: false,
     },
     omit: { photoData: true },
     include: { salaryRevisions: true, workLocation: { select: { state: true } } },
@@ -168,6 +179,26 @@ function lineChanges(before: any[], after: any[]) {
   return changes;
 }
 
+// A draft run for a month with an entry for every active employee.
+async function createRunFor(req: any, organizationId: string, period: string, totalWorkingDays: number, notes: string, automatic = false) {
+  const employees = await activeEmployees(organizationId);
+  if (employees.length === 0) {
+    throw new AppError(400, 'No active employees found. Add employees in People first.');
+  }
+  const ctx = await loadStatutoryContext(organizationId, period);
+  const run = await prisma.payrollRun.create({ data: { organizationId, period, notes } });
+  // Snapshot each employee's package & statutory flags, compute the row
+  await prisma.payslipEntry.createMany({
+    data: employees.map(emp => newEntryData(ctx, organizationId, run.id, emp, totalWorkingDays)),
+  });
+  await saveTaxWorkings(ctx.tax, organizationId, run.id);
+  await logPayrollAudit(req, [{
+    action: 'RUN_CREATED', runId: run.id, period,
+    newValue: `${employees.length} employees, ${totalWorkingDays} working days${automatic ? ' (opened automatically)' : ''}`,
+  }]);
+  return { run, employees: employees.length };
+}
+
 export const payrollController = {
   // ---- Settings ----------------------------------------------------------
   async getSettings(req: any, res: Response) {
@@ -209,6 +240,7 @@ export const payrollController = {
     res.json({
       runs: runs.map(r => ({
         id: r.id, period: r.period, status: r.status, releasedAt: r.releasedAt,
+        stage: runStage(r, r.entries),
         financialYear: financialYearOf(r.period).label,
         finalizedAt: r.finalizedAt, notes: r.notes, createdAt: r.createdAt,
         totals: entryTotals(r.entries),
@@ -232,25 +264,8 @@ export const payrollController = {
     });
     if (dup) throw new AppError(400, `A payroll run for ${period} already exists`);
 
-    const employees = await activeEmployees(orgId);
-    if (employees.length === 0) {
-      throw new AppError(400, 'No active employees found. Add employees in People first.');
-    }
-
-    const ctx = await loadStatutoryContext(orgId, period);
-    const run = await prisma.payrollRun.create({
-      data: { organizationId: orgId, period, notes: String(req.body.notes || '') },
-    });
-    // Snapshot each employee's package & statutory flags, compute the row
-    await prisma.payslipEntry.createMany({
-      data: employees.map(emp => newEntryData(ctx, orgId, run.id, emp, totalWorkingDays)),
-    });
-    await saveTaxWorkings(ctx.tax, orgId, run.id);
-    await logPayrollAudit(req, [{
-      action: 'RUN_CREATED', runId: run.id, period,
-      newValue: `${employees.length} employees, ${totalWorkingDays} working days`,
-    }]);
-    res.status(201).json({ id: run.id, period: run.period, employees: employees.length });
+    const { run, employees } = await createRunFor(req, orgId, period, totalWorkingDays, String(req.body.notes || ''));
+    res.status(201).json({ id: run.id, period: run.period, employees });
   },
 
   async getRunDetail(req: any, res: Response) {
@@ -271,8 +286,11 @@ export const payrollController = {
       ...run,
       financialYear: financialYearOf(run.period).label,
       tdsAuto: Boolean(ctx.tax),
+      stage: runStage(run, run.entries),
       entries: sortEntries(run.entries),
       checks: [
+        // Pay, bank and roster checks matter only while the month is still open
+        ...(run.status === 'DRAFT' ? await prePayrollChecksFor(orgId, run, Boolean(ctx.tax)) : []),
         ...esiCeilingChecks(sorted, ctx.settings, orgUsesEsi, stillCovered),
         ...locationChecks(sorted, ctx.ptPolicies.length + ctx.lwfPolicies.length > 0),
         ...(run.status === 'DRAFT' ? await overdueLoanChecks(orgId, sorted, run.period) : []),
@@ -293,26 +311,62 @@ export const payrollController = {
 
   async finalizeRun(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    const run = await fetchOrgRun(req.params.runId, orgId);
+    const run = await fetchOrgRun(req.params.runId, orgId, true);
     assertDraft(run);
+    const negative = sortEntries(run.entries).filter((e: any) => e.netPayable < 0);
+    if (negative.length) {
+      throw new AppError(400, `Net pay is negative for ${negative.map((e: any) => e.person.name).join(', ')}. Reduce a deduction or move it to a later month before finalizing.`);
+    }
+    const settings = await settingsFor(orgId);
     // Loan instalments this run deducted become repayments in the ledger
     await postRunInstalments(run, await actorName(req.user?.userId));
+    const now = new Date();
     const updated = await prisma.payrollRun.update({
       where: { id: run.id },
-      data: { status: 'FINALIZED', finalizedAt: new Date() },
+      data: {
+        status: 'FINALIZED', finalizedAt: now,
+        ...(settings.autoReleaseOnFinalize ? { releasedAt: now } : {}),
+      },
     });
-    await logPayrollAudit(req, [{ action: 'RUN_FINALIZED', runId: run.id, period: run.period }]);
-    res.json(updated);
+    // Expense claims attached to this run are now being paid
+    await setRunClaimStatus(run.id, 'REIMBURSED');
+    await logPayrollAudit(req, [
+      { action: 'RUN_FINALIZED', runId: run.id, period: run.period },
+      ...(settings.autoReleaseOnFinalize ? [{ action: 'RUN_RELEASED' as const, runId: run.id, period: run.period, newValue: 'On finalizing' }] : []),
+    ]);
+
+    // Open next month's run, if asked to and it is not there yet
+    let nextRun: { id: string; period: string } | null = null;
+    if (settings.autoCreateNextRun) {
+      const next = nextRunDefaults(run.period, standardWorkingDays(run.entries));
+      const exists = await prisma.payrollRun.findUnique({
+        where: { organizationId_period: { organizationId: orgId, period: next.period } },
+      });
+      if (!exists) {
+        const created = await createRunFor(req, orgId, next.period, next.totalWorkingDays, '', true);
+        nextRun = { id: created.run.id, period: created.run.period };
+      }
+    }
+    res.json({ ...updated, nextRun });
   },
 
   async reopenRun(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const run = await fetchOrgRun(req.params.runId, orgId);
     if (run.status !== 'FINALIZED') throw new AppError(400, 'Only finalized runs can be reopened');
+    const batches = await prisma.payoutBatch.count({ where: { runId: run.id } });
+    if (batches > 0) {
+      throw new AppError(400, 'Salaries of this run are in a payment batch. Delete its payment batches before reopening.');
+    }
+    const deposited = await prisma.tdsChallanAllocation.count({ where: { entry: { runId: run.id } } });
+    if (deposited > 0) {
+      throw new AppError(400, 'Tax deducted in this run is matched to a TDS challan. Delete the challan before reopening.');
+    }
     await reverseRunInstalments(run);
+    await setRunClaimStatus(run.id, 'APPROVED');
     const updated = await prisma.payrollRun.update({
       where: { id: run.id },
-      data: { status: 'DRAFT', finalizedAt: null, releasedAt: null },
+      data: { status: 'DRAFT', finalizedAt: null, releasedAt: null, inputsLockedAt: null },
     });
     await logPayrollAudit(req, [{ action: 'RUN_REOPENED', runId: run.id, period: run.period }]);
     res.json(updated);
@@ -377,7 +431,7 @@ export const payrollController = {
       },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
-    assertDraft(entry.run);
+    assertInputsOpen(entry.run);
 
     const b = req.body;
     const merged: any = { ...entry };
@@ -766,7 +820,7 @@ export const payrollController = {
       } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
-    assertDraft(run);
+    assertInputsOpen(run);
 
     const Excel = await import('exceljs');
     const buffer = Buffer.from(fileBase64.replace(/^data:[^,]+,/, ''), 'base64');
@@ -860,7 +914,7 @@ export const payrollController = {
       include: { run: true, person: { select: { name: true } } },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
-    assertDraft(entry.run);
+    assertInputsOpen(entry.run);
     await prisma.payslipEntry.delete({ where: { id: entry.id } });
     await prisma.taxComputation.deleteMany({ where: { runId: entry.runId, personId: entry.personId } });
     await logPayrollAudit(req, [{
@@ -879,7 +933,11 @@ export const payrollController = {
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     const brand = await orgBrand(orgId);
-    const withLoan = { ...entry, loanBalanceAfter: await loanBalanceAfter(orgId, entry, entry.run.period) };
+    const withLoan = {
+      ...entry,
+      loanBalanceAfter: await loanBalanceAfter(orgId, entry, entry.run.period),
+      claims: entry.reimbursement > 0 ? await claimsOfEntry(entry.id) : [],
+    };
     res.json({
       id: entry.id,
       runId: entry.runId,
@@ -927,7 +985,11 @@ export const payrollController = {
         id: e.id,
         personName: e.person.name,
         html: renderPayslipHtml(brand, run,
-          { ...e, loanBalanceAfter: await loanBalanceAfter(orgId, e, run.period) }, e.person),
+          {
+            ...e,
+            loanBalanceAfter: await loanBalanceAfter(orgId, e, run.period),
+            claims: e.reimbursement > 0 ? await claimsOfEntry(e.id) : [],
+          }, e.person),
       });
     }
     res.json({ runId: run.id, period: run.period, status: run.status, slips });

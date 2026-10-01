@@ -13,7 +13,12 @@ export type AuditAction =
   | 'LOAN_CREATED' | 'LOAN_CHANGED' | 'LOAN_DELETED'
   | 'TAX_CONFIG_UPDATED' | 'TAX_PROFILE_UPDATED'
   | 'DECLARATION_ITEM_SAVED' | 'DECLARATION_WINDOW_CHANGED' | 'DECLARATION_SAVED' | 'DECLARATION_APPROVED'
-  | 'RUN_RELEASED' | 'RUN_HELD';
+  | 'RUN_RELEASED' | 'RUN_HELD'
+  | 'INPUTS_LOCKED' | 'INPUTS_UNLOCKED' | 'SALARY_HELD' | 'SALARY_HOLD_RELEASED'
+  | 'PAY_SETTINGS_UPDATED' | 'PAYOUT_SETTINGS_UPDATED' | 'LEDGER_MAPPING_UPDATED'
+  | 'PAYOUT_BATCH_CREATED' | 'PAYOUT_BATCH_PAID' | 'PAYOUT_BATCH_DELETED' | 'PAYOUT_BATCH_CHANGED'
+  | 'CLAIM_ATTACHED' | 'CLAIM_DETACHED'
+  | 'TDS_CHALLAN_RECORDED' | 'TDS_CHALLAN_DELETED' | 'FORM16_RELEASE_CHANGED' | 'FORM16_PART_A_SAVED';
 
 export interface AuditRow {
   action: AuditAction;
@@ -49,6 +54,18 @@ const FIELD_LABELS: Record<string, string> = {
   professionalTax: 'Professional Tax',
   loanDeduction: 'Loan instalment',
   tdsAutoFrom: 'Compute TDS from',
+  form24qName: 'Name of the quarterly TDS return',
+  form16Name: 'Name of the salary TDS certificate',
+  form12baName: 'Name of the perquisites statement',
+  paymentMode: 'Payment mode',
+  salaryStopped: 'Salary stopped',
+  salaryStopReason: 'Reason for stopping salary',
+  autoReleaseOnFinalize: 'Release payslips on finalizing',
+  autoCreateNextRun: 'Open next month on finalizing',
+  payoutBankName: 'Salary account bank',
+  payoutBranch: 'Salary account branch',
+  payoutAccountNumber: 'Salary account number',
+  payoutIfsc: 'Salary account IFSC',
   declarationOpen: 'Declaration window open',
   proofOpen: 'Proof submission open',
   employeeCanChooseRegime: 'Employees may choose regime',

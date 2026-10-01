@@ -12,6 +12,7 @@ export const selfAPI = {
   deleteProof: (proofId: string) => apiClient.delete(`/self/declaration/proofs/${proofId}`),
 
   getLoans: () => apiClient.get('/self/loans'),
-  // kind: tax-statement | form-12bb | ytd-statement | loan-statement
+  getForm16PartA: (fy: string) => apiClient.get('/self/form16-part-a', { params: { fy } }),
+  // kind: tax-statement | form-12bb | ytd-statement | loan-statement | form-16 | form-12ba
   getReport: (kind: string, params: Record<string, string>) => apiClient.get(`/self/reports/${kind}`, { params }),
 };

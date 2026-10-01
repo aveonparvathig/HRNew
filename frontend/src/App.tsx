@@ -43,6 +43,8 @@ const ReportsHub = lazy(() => import('./pages/Payroll/ReportsHub'));
 const Remittances = lazy(() => import('./pages/Payroll/Remittances'));
 const LoansList = lazy(() => import('./pages/Payroll/LoansList'));
 const LoanDetail = lazy(() => import('./pages/Payroll/LoanDetail'));
+const Payout = lazy(() => import('./pages/Payroll/Payout'));
+const TdsReturns = lazy(() => import('./pages/Payroll/TdsReturns'));
 const Declarations = lazy(() => import('./pages/Payroll/Declarations'));
 const DeclarationDetail = lazy(() => import('./pages/Payroll/DeclarationDetail'));
 const MyPayslips = lazy(() => import('./pages/My/MyPayslips'));
@@ -109,6 +111,7 @@ function App() {
             <Route path="/payroll" element={<RequireRole roles={SA_HR}><RunsList /></RequireRole>} />
             <Route path="/payroll/runs/:runId" element={<RequireRole roles={SA_HR}><RunDetail /></RequireRole>} />
             <Route path="/payroll/runs/:runId/reports/:kind" element={<RequireRole roles={SA_HR}><PayrollReport /></RequireRole>} />
+            <Route path="/payroll/runs/:runId/payout" element={<RequireRole roles={SA_HR}><Payout /></RequireRole>} />
             <Route path="/payroll/runs/:runId/payslips" element={<RequireRole roles={SA_HR}><BulkPayslips /></RequireRole>} />
             <Route path="/payroll/payslips/:entryId" element={<RequireRole roles={SA_HR}><PayslipView /></RequireRole>} />
             <Route path="/payroll/settings" element={<RequireRole roles={SA_HR}><PayrollSettings /></RequireRole>} />
@@ -116,6 +119,7 @@ function App() {
             <Route path="/payroll/remittances" element={<RequireRole roles={SA_HR}><Remittances /></RequireRole>} />
             <Route path="/payroll/loans" element={<RequireRole roles={SA_HR}><LoansList /></RequireRole>} />
             <Route path="/payroll/loans/:loanId" element={<RequireRole roles={SA_HR}><LoanDetail /></RequireRole>} />
+            <Route path="/payroll/tds" element={<RequireRole roles={SA_HR}><TdsReturns /></RequireRole>} />
             <Route path="/payroll/declarations" element={<RequireRole roles={SA_HR}><Declarations /></RequireRole>} />
             <Route path="/payroll/declarations/:personId" element={<RequireRole roles={SA_HR}><DeclarationDetail /></RequireRole>} />
             <Route path="/payroll/reports" element={<RequireRole roles={SA_HR}><ReportsHub /></RequireRole>} />

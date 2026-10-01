@@ -20,6 +20,8 @@ const CONFIG_NUMBERS = [
   'seniorExemption', 'superSeniorExemption', 'section80CLimit', 'housingInterestLimit',
 ];
 const CONFIG_FLAGS = ['rebateMarginalRelief', 'allowsExemptions'];
+// What the tax forms are called; the Income-tax Act, 2025 renumbers them
+const FORM_NAMES = ['form24qName', 'form16Name', 'form12baName'];
 
 function fyInput(value: any): number {
   const year = Number(/^(\d{4})/.exec(String(value || ''))?.[1]);
@@ -146,6 +148,7 @@ export const payrollTaxController = {
       financialYears: [now + 1, now, now - 1].map(y => ({ startYear: y, label: financialYearFor(y).label })),
       configs: [...configs].sort((a, b) => (a.regime === 'NEW' ? -1 : 1) - (b.regime === 'NEW' ? -1 : 1)),
       tdsAutoFrom: settings.tdsAutoFrom, defaultTaxRegime: settings.defaultTaxRegime,
+      form24qName: settings.form24qName, form16Name: settings.form16Name, form12baName: settings.form12baName,
     });
   },
 
@@ -191,10 +194,19 @@ export const payrollTaxController = {
       if (!REGIMES.includes(req.body.defaultTaxRegime)) throw new AppError(400, 'Pick the old or the new regime');
       data.defaultTaxRegime = req.body.defaultTaxRegime;
     }
+    for (const f of FORM_NAMES) {
+      if (req.body[f] === undefined) continue;
+      const name = str(req.body[f]).slice(0, 60);
+      if (!name) throw new AppError(400, 'A form name cannot be blank');
+      data[f] = name;
+    }
     const settings = await prisma.payrollSettings.update({ where: { organizationId }, data });
-    await logPayrollAudit(req, diffFields(before, settings, ['tdsAutoFrom', 'defaultTaxRegime'])
+    await logPayrollAudit(req, diffFields(before, settings, ['tdsAutoFrom', 'defaultTaxRegime', ...FORM_NAMES])
       .map(c => ({ action: 'SETTINGS_UPDATED' as const, ...c })));
-    res.json({ tdsAutoFrom: settings.tdsAutoFrom, defaultTaxRegime: settings.defaultTaxRegime });
+    res.json({
+      tdsAutoFrom: settings.tdsAutoFrom, defaultTaxRegime: settings.defaultTaxRegime,
+      form24qName: settings.form24qName, form16Name: settings.form16Name, form12baName: settings.form12baName,
+    });
   },
 
   // ---- Employee tax details ---------------------------------------------------

@@ -74,6 +74,7 @@ const PAYROLL_ITEMS = [
   { to: '/payroll', icon: 'banknote', label: 'Runs', end: true },
   { to: '/payroll/loans', icon: 'layers', label: 'Loans', end: false },
   { to: '/payroll/declarations', icon: 'pen', label: 'Tax Declarations', end: false },
+  { to: '/payroll/tds', icon: 'calendar', label: 'TDS Returns', end: true },
   { to: '/payroll/reports', icon: 'chart', label: 'Reports', end: false },
   { to: '/payroll/remittances', icon: 'receipt', label: 'Statutory Payments', end: true },
   { to: '/payroll/audit-log', icon: 'history', label: 'Audit Log', end: true },

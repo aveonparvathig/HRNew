@@ -287,5 +287,41 @@ export function computeTds(inp: TdsInputs) {
   };
 }
 
+export interface YearEndInputs {
+  config: TaxConfigLike;
+  fyLabel: string;
+  months: MonthFigures[];     // every month actually paid in the year
+  settings: any;
+  profile: TaxProfileLike;
+  perquisites: number;
+  age: number;
+  hasValidPan: boolean;
+}
+
+// The year as it actually turned out, with nothing projected: what Form 16
+// and the annual return report. `deducted` is the TDS payroll really took.
+export function yearEndTax(inp: YearEndInputs) {
+  const months = [...inp.months].sort((a, b) => a.period.localeCompare(b.period));
+  const last = months[months.length - 1]
+    || { period: '', taxableGross: 0, basic: 0, da: 0, hra: 0, pfEmployee: 0, professionalTax: 0, tds: 0 };
+  const year = yearTax({
+    config: inp.config, fyLabel: inp.fyLabel, period: last.period, monthsAfter: 0,
+    earlier: months.slice(0, -1), current: { ...last, oneTime: 0 },
+    projection: { settings: inp.settings, monthlyPackage: 0, isEsiEligible: false, isPfApplicable: false },
+    profile: inp.profile, perquisites: inp.perquisites, age: inp.age, hasValidPan: inp.hasValidPan,
+  }, last.taxableGross);
+  const deducted = sumOf(months, 'tds');
+  const paid = r2(deducted + inp.profile.prevEmployerTds);
+  return {
+    financialYear: inp.fyLabel,
+    regime: inp.config.regime,
+    monthsPaid: months.length,
+    ...year,
+    salaryPaid: r2(year.income.paidEarlier + year.income.thisMonth),
+    paid: { payroll: deducted, previousEmployer: inp.profile.prevEmployerTds, total: paid },
+    balance: r2(year.tax.total - paid), // positive = short deducted, negative = excess
+  };
+}
+
 export const PAN_FORMAT = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 export const hasValidPan = (pan: string | null | undefined) => PAN_FORMAT.test(String(pan || '').trim().toUpperCase());

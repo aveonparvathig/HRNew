@@ -21,6 +21,7 @@ export default function IncomeTaxTab() {
   const [fy, setFy] = useState('');
   const [general, setGeneral] = useState<any>(null);
   const [configs, setConfigs] = useState<any[]>([]);
+  const [forms, setForms] = useState<any>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [saving, setSaving] = useState('');
@@ -30,6 +31,7 @@ export default function IncomeTaxTab() {
       const res = await payrollAPI.getTaxConfig(fy);
       setData(res.data);
       setGeneral({ tdsAutoFrom: res.data.tdsAutoFrom, defaultTaxRegime: res.data.defaultTaxRegime });
+      setForms({ form24qName: res.data.form24qName, form16Name: res.data.form16Name, form12baName: res.data.form12baName });
       setConfigs(res.data.configs.map((c: any) => ({
         ...c, slabs: c.slabs.map((s: any) => ({ ...s, incomeTo: s.incomeTo ?? '' })),
       })));
@@ -98,6 +100,31 @@ export default function IncomeTaxTab() {
           {saving === 'general' ? 'Saving…' : 'Save'}
         </button>
       </form>
+
+      {forms && (
+        <form className="card card-pad mb-24" onSubmit={e => {
+          e.preventDefault();
+          run('forms', () => payrollAPI.updateTaxSettings(forms), 'Form names saved.');
+        }}>
+          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Names of the tax forms</h3>
+          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+            Printed as the title of each form. The Income-tax Act, 2025 gives the forms new numbers, so set these to
+            what the rules for the year call them.
+          </p>
+          <div className="form-grid" style={{ marginBottom: 14 }}>
+            {[['form24qName', 'Quarterly TDS return on salary'], ['form16Name', 'Salary TDS certificate'], ['form12baName', 'Statement of perquisites']].map(([key, label]) => (
+              <div key={key} className="field">
+                <label>{label}</label>
+                <input className="input" required maxLength={60} value={forms[key]}
+                  onChange={e => setForms({ ...forms, [key]: e.target.value })} />
+              </div>
+            ))}
+          </div>
+          <button type="submit" className="btn btn-primary" disabled={saving === 'forms'}>
+            {saving === 'forms' ? 'Saving…' : 'Save Names'}
+          </button>
+        </form>
+      )}
 
       <div className="alert alert-warning">
         <span>⚠</span>

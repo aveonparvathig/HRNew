@@ -268,6 +268,9 @@ export const expensesController = {
       throw new AppError(400, `Cannot ${action} a ${report.status.toLowerCase()} report`);
     }
     if (OWNER_ACTIONS.has(action)) await requireApprover(req);
+    if (report.payrollEntryId) {
+      throw new AppError(400, 'This claim is being paid with a month\'s salary. Remove it from that payroll run first.');
+    }
     if (action === 'submit') {
       const lineCount = await prisma.expenseLine.count({ where: { reportId: report.id } });
       if (lineCount === 0) throw new AppError(400, 'Add at least one expense line before submitting');

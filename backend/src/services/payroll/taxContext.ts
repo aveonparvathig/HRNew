@@ -58,7 +58,7 @@ export async function taxConfigsFor(organizationId: string, fyStart: number) {
 }
 
 // Gross less catalogue earnings marked not taxable.
-function taxableGrossOf(entry: { grossSalary: number }, lines: any[], nonTaxable: Set<string>): number {
+export function taxableGrossOf(entry: { grossSalary: number }, lines: any[], nonTaxable: Set<string>): number {
   const exempt = (lines || [])
     .filter(l => l.type !== 'DEDUCTION' && l.componentId && nonTaxable.has(l.componentId))
     .reduce((s, l) => s + Number(l.amount || 0), 0);
@@ -66,7 +66,7 @@ function taxableGrossOf(entry: { grossSalary: number }, lines: any[], nonTaxable
 }
 
 // Taxable value for the year of loans charged below the benchmark rate.
-async function loanPerquisites(organizationId: string, settings: any, fyStart: number, period: string) {
+export async function loanPerquisites(organizationId: string, settings: any, fyStart: number, period: string) {
   const result = new Map<string, number>();
   if (!(settings.loanBenchmarkRate > 0)) return result;
   const loans = await prisma.loan.findMany({

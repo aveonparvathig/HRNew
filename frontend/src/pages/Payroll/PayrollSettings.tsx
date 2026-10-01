@@ -9,6 +9,7 @@ import PayComponentsTab from './PayComponentsTab';
 import StatutoryPoliciesTab from './StatutoryPoliciesTab';
 import IncomeTaxTab from './IncomeTaxTab';
 import DeclarationItemsTab from './DeclarationItemsTab';
+import PayoutSettingsTab from './PayoutSettingsTab';
 
 const TABS = [
   { key: 'rates', label: 'Salary & statutory rates' },
@@ -16,6 +17,7 @@ const TABS = [
   { key: 'policies', label: 'PT & LWF' },
   { key: 'tax', label: 'Income tax' },
   { key: 'declarations', label: 'Declaration items' },
+  { key: 'payout', label: 'Payout & journal' },
   { key: 'statutory', label: 'Statutory profile' },
   { key: 'locations', label: 'Work locations' },
 ];
@@ -104,6 +106,7 @@ export default function PayrollSettings() {
       {tab === 'policies' && <StatutoryPoliciesTab />}
       {tab === 'tax' && <IncomeTaxTab />}
       {tab === 'declarations' && <DeclarationItemsTab />}
+      {tab === 'payout' && <PayoutSettingsTab />}
       {tab === 'statutory' && <StatutoryProfileTab />}
       {tab === 'locations' && <WorkLocationsTab />}
     </>
