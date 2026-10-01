@@ -39,6 +39,14 @@ export const payrollAPI = {
   createRemittance: (data: any) => apiClient.post('/payroll/remittances', data),
   deleteRemittance: (remittanceId: string) => apiClient.delete(`/payroll/remittances/${remittanceId}`),
 
+  // Income tax
+  getTaxConfig: (fy: string) => apiClient.get('/payroll/tax-config', { params: fy ? { fy } : {} }),
+  updateTaxConfig: (configId: string, data: any) => apiClient.put(`/payroll/tax-config/${configId}`, data),
+  updateTaxSettings: (data: any) => apiClient.put('/payroll/tax-settings', data),
+  getTaxProfile: (personId: string, fy: string) =>
+    apiClient.get(`/payroll/people/${personId}/tax-profile`, { params: fy ? { fy } : {} }),
+  updateTaxProfile: (personId: string, data: any) => apiClient.put(`/payroll/people/${personId}/tax-profile`, data),
+
   // Loans and advances
   getLoans: (personId?: string) => apiClient.get('/payroll/loans', { params: personId ? { personId } : {} }),
   getLoan: (loanId: string) => apiClient.get(`/payroll/loans/${loanId}`),
@@ -51,6 +59,7 @@ export const payrollAPI = {
   // Reports across runs
   // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history
   //       | pt-half-year | loan-statement | loan-register | loan-transactions
+  //       | tax-statement | tax-consolidated | pan-status
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),
@@ -68,7 +77,7 @@ export const payrollAPI = {
     apiClient.get(`/payroll/runs/${runId}/export.csv`, { responseType: 'blob' }),
   getRunPayslips: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payslips`),
   // kind: pf-esi | comparison | overrides | input-history | register | summary
-  //       | pf-statement | pt-statement | lwf-statement
+  //       | pf-statement | pt-statement | lwf-statement | tds-statement
   getRunReport: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/reports/${kind}`),
   // Portal upload files — kind: pf-ecr | esi-upload
   getRunFile: (runId: string, kind: string) => apiClient.get(`/payroll/runs/${runId}/files/${kind}`),

@@ -1,11 +1,13 @@
 // Full computation of a payslip entry: the salary engine and catalogue
-// lines, plus the statutory amounts that depend on state policies and on
-// earlier months (Professional Tax, Labour Welfare Fund, ESI coverage).
+// lines, plus everything that depends on other records — state policies
+// and earlier months (Professional Tax, Labour Welfare Fund, ESI
+// coverage), the loan ledger, and income tax for the year (TDS).
 import { prisma } from '../../config/database';
 import { EntryInputs } from '../payrollCalc';
 import { computeEntryWithLines, LineAmount } from './lines';
 import { fullMonthEsiWage } from './checks';
 import { loanDueByPerson } from './loanLedger';
+import { TaxContext, loadTaxContext, tdsForEntry } from './taxContext';
 import {
   halfYearOf, policyInForce, professionalTaxForMonth, lwfForMonth, esiCovered, PriorMonth,
 } from './statutoryCalc';
@@ -23,6 +25,8 @@ export interface StatutoryContext {
   priorByPerson: Map<string, PriorEntry[]>;
   // Loan instalments falling due this month, per employee
   loanDue: Map<string, number>;
+  // Present once TDS is computed for this month; null while it is typed by hand
+  tax: TaxContext | null;
 }
 
 export async function loadStatutoryContext(organizationId: string, period: string): Promise<StatutoryContext> {
@@ -51,7 +55,8 @@ export async function loadStatutoryContext(organizationId: string, period: strin
     });
     priorByPerson.set(e.personId, list);
   }
-  return { period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue };
+  const tax = await loadTaxContext(organizationId, period, settings);
+  return { period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue, tax };
 }
 
 export const coveredEarlier = (ctx: StatutoryContext, personId: string) =>
@@ -68,6 +73,7 @@ export interface ComputeOptions {
   personId: string;
   state?: string | null;       // state of the employee's work location
   ptOverride?: number | null;  // a manually entered Professional Tax
+  tdsOverride?: number | null; // under computed TDS, an amount typed over it
 }
 
 // Everything to store on the entry. Statutory amounts need the gross, so
@@ -92,8 +98,20 @@ export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, lin
   if (opts.ptOverride != null) professionalTax = opts.ptOverride;
 
   const statutory = { professionalTax, ...lwf, loanDeduction: ctx.loanDue.get(opts.personId) || 0 };
+  if (!ctx.tax) {
+    // TDS stays whatever was typed on the entry
+    return {
+      ...computeEntryWithLines({ ...inputs, ...statutory }, ctx.settings, lines),
+      ...statutory,
+    };
+  }
+  const beforeTax = computeEntryWithLines({ ...inputs, ...statutory, tds: 0 }, ctx.settings, lines);
+  const tds = tdsForEntry(
+    ctx.tax, ctx.settings, opts.personId, inputs, beforeTax, professionalTax, lines, opts.tdsOverride ?? null,
+  );
   return {
-    ...computeEntryWithLines({ ...inputs, ...statutory }, ctx.settings, lines),
+    ...computeEntryWithLines({ ...inputs, ...statutory, tds }, ctx.settings, lines),
     ...statutory,
+    tds,
   };
 }

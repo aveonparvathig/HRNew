@@ -361,6 +361,7 @@ model Person {
   payslipEntries PayslipEntry[]
   salaryRevisions SalaryRevision[]
   loans          Loan[]
+  taxProfiles    EmployeeTaxProfile[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -512,6 +513,11 @@ model PayrollSettings {
   loanBenchmarkRate        Float @default(0)
   loanPerquisiteExemptLimit Float @default(20000)
 
+  // Income tax: TDS is typed by hand until this month ("YYYY-MM"); from it
+  // onward payroll computes it. Blank keeps TDS manual.
+  tdsAutoFrom      String @default("")
+  defaultTaxRegime String @default("NEW") // NEW | OLD, when an employee has none set
+
   updatedAt DateTime @updatedAt
 
   @@map("payroll_settings")
@@ -529,6 +535,7 @@ model PayrollRun {
 
   organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   entries      PayslipEntry[]
+  taxComputations TaxComputation[]
 
   @@unique([organizationId, period])
   @@map("payroll_runs")
@@ -556,6 +563,8 @@ model PayslipEntry {
   salaryArrearAllowance Float @default(0)
   salaryAdvance         Float @default(0)
   tds                   Float @default(0)
+  // Under computed TDS: true when the amount was typed over the calculation
+  tdsOverridden         Boolean @default(false)
 
   // Computed components.
   basic              Float @default(0)
@@ -661,6 +670,100 @@ model SalaryRevision {
 
   @@index([organizationId, personId])
   @@map("salary_revisions")
+}
+
+// Income-tax rules of one regime for one financial year (fyStart 2026 =
+// FY 2026-27). Everything a Budget can change lives here, not in code.
+model TaxRegimeConfig {
+  id             String @id @default(cuid())
+  organizationId String
+  fyStart        Int
+  regime         String // NEW | OLD
+
+  standardDeduction    Float
+  // Rebate: tax up to rebateMaxAmount is waived when taxable income is
+  // within rebateIncomeLimit; with marginal relief, tax just above the
+  // limit is capped at the income over it.
+  rebateIncomeLimit    Float
+  rebateMaxAmount      Float
+  rebateMarginalRelief Boolean @default(false)
+  cessPercent          Float   @default(4)
+  // Higher tax-free limit for ages 60+ and 80+ (0 = no special limit)
+  seniorExemption      Float   @default(0)
+  superSeniorExemption Float   @default(0)
+  // Old-regime reliefs: HRA exemption, Professional Tax, Chapter VI-A
+  // deductions and interest on a housing loan
+  allowsExemptions     Boolean @default(false)
+  section80CLimit      Float   @default(150000)
+  housingInterestLimit Float   @default(200000)
+
+  updatedAt DateTime @updatedAt
+
+  slabs TaxSlab[]
+
+  @@unique([organizationId, fyStart, regime])
+  @@map("tax_regime_configs")
+}
+
+// A band of taxable income. surchargePercent applies to the whole tax
+// when total income falls in this band.
+model TaxSlab {
+  id               String @id @default(cuid())
+  configId         String
+  incomeFrom       Float
+  incomeTo         Float? // null = no upper limit
+  ratePercent      Float
+  surchargePercent Float  @default(0)
+
+  config TaxRegimeConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId])
+  @@map("tax_slabs")
+}
+
+// What one employee has told payroll for one financial year.
+model EmployeeTaxProfile {
+  id             String @id @default(cuid())
+  organizationId String
+  personId       String
+  fyStart        Int
+  regime         String @default("") // NEW | OLD | "" = organization default
+
+  prevEmployerIncome  Float   @default(0)
+  prevEmployerTds     Float   @default(0)
+  otherIncome         Float   @default(0)
+  annualRentPaid      Float   @default(0)
+  isMetro             Boolean @default(false)
+  section80C          Float   @default(0) // investments other than PF
+  otherDeductions     Float   @default(0) // rest of Chapter VI-A, as allowed
+  housingLoanInterest Float   @default(0)
+
+  updatedAt DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, fyStart])
+  @@index([organizationId, fyStart])
+  @@map("employee_tax_profiles")
+}
+
+// The full working behind the TDS on one payslip, kept so every figure
+// on a tax statement can be traced.
+model TaxComputation {
+  id             String   @id @default(cuid())
+  organizationId String
+  runId          String
+  personId       String
+  fyStart        Int
+  period         String
+  working        Json
+  updatedAt      DateTime @updatedAt
+
+  run PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, personId])
+  @@index([organizationId, personId, fyStart])
+  @@map("tax_computations")
 }
 
 // A loan or salary advance recovered through payroll. The schedule holds
