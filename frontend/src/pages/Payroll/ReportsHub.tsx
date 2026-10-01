@@ -15,6 +15,7 @@ const RUN_REPORTS = [
   { kind: 'pf-statement', title: 'PF Statement', hint: 'EPF, pension and insurance wages and shares, with the challan.' },
   { kind: 'pt-statement', title: 'Professional Tax', hint: 'Tax deducted from each employee this month.' },
   { kind: 'lwf-statement', title: 'Labour Welfare Fund', hint: 'Employee and employer contributions this month.' },
+  { kind: 'tds-statement', title: 'TDS Statement', hint: 'Tax deducted from each employee this month, with the year\'s position.' },
   { kind: 'comparison', title: 'Month Comparison', hint: 'Gross and net against the previous run.' },
   { kind: 'overrides', title: 'Overrides', hint: 'Manual inputs and values that differ from the employee record.' },
   { kind: 'input-history', title: 'Salary Input History', hint: 'Every recorded change to the run.' },
@@ -116,6 +117,25 @@ export default function ReportsHub() {
             onClick={() => go('component-statement', { fy, component })}>
             <strong>Component Statement</strong>
             <span>The chosen component for every employee, each month. Pick Net Payable for a year-to-date pay summary, or Bonus for a bonus statement.</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="card card-pad mb-24">
+        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Income tax</h3>
+        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>For the financial year and employee chosen above. Available once TDS is computed by payroll.</p>
+        <div className="report-grid">
+          <button className="report-tile" disabled={!fy || !personId} onClick={() => go('tax-statement', { fy, personId })}>
+            <strong>Income Tax Statement</strong>
+            <span>The chosen employee's full tax working: income, deductions, tax, what is paid and what is left.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('tax-consolidated', { fy })}>
+            <strong>Income Tax — Consolidated</strong>
+            <span>Every employee's taxable income, tax for the year, deducted so far and still to deduct.</span>
+          </button>
+          <button className="report-tile" onClick={() => go('pan-status', {})}>
+            <strong>PAN Status</strong>
+            <span>Active employees whose PAN is missing or malformed.</span>
           </button>
         </div>
       </div>

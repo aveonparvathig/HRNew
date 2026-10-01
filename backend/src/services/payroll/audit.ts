@@ -10,7 +10,8 @@ export type AuditAction =
   | 'SALARY_REVISED' | 'SALARY_REVISION_REMOVED'
   | 'PT_POLICY_SAVED' | 'PT_POLICY_DELETED' | 'LWF_POLICY_SAVED' | 'LWF_POLICY_DELETED'
   | 'REMITTANCE_RECORDED' | 'REMITTANCE_DELETED'
-  | 'LOAN_CREATED' | 'LOAN_CHANGED' | 'LOAN_DELETED';
+  | 'LOAN_CREATED' | 'LOAN_CHANGED' | 'LOAN_DELETED'
+  | 'TAX_CONFIG_UPDATED' | 'TAX_PROFILE_UPDATED';
 
 export interface AuditRow {
   action: AuditAction;
@@ -45,6 +46,8 @@ const FIELD_LABELS: Record<string, string> = {
   remarks: 'Remarks',
   professionalTax: 'Professional Tax',
   loanDeduction: 'Loan instalment',
+  tdsAutoFrom: 'Compute TDS from',
+  defaultTaxRegime: 'Default tax regime',
   loanBenchmarkRate: 'Loan benchmark rate %',
   loanPerquisiteExemptLimit: 'Loan perquisite exempt limit',
   pfRoundToRupee: 'Round PF to the rupee',

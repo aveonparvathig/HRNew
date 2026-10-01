@@ -14,6 +14,7 @@ const REPORT_LABELS: Record<string, string> = {
   'pf-statement': 'PF Statement',
   'pt-statement': 'Professional Tax',
   'lwf-statement': 'Labour Welfare Fund',
+  'tds-statement': 'TDS Statement',
   // Across runs
   'ytd-statement': 'Year-to-Date Statement',
   'component-statement': 'Component Statement',
@@ -21,6 +22,9 @@ const REPORT_LABELS: Record<string, string> = {
   'ctc-breakup': 'CTC Breakup',
   'revision-history': 'Salary Revision History',
   'pt-half-year': 'Professional Tax — Half-Year',
+  'tax-statement': 'Income Tax Statement',
+  'tax-consolidated': 'Income Tax — Consolidated',
+  'pan-status': 'PAN Status',
   'loan-statement': 'Loan Statement',
   'loan-register': 'Loan Register',
   'loan-transactions': 'Loan Transactions',

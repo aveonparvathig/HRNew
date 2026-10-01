@@ -107,6 +107,7 @@ export default function RunDetail() {
       lines: (entry.lines || []).map((l: any) => ({ componentId: l.componentId, amount: l.amount })),
       professionalTax: entry.professionalTax,
       ptTouched: false,
+      tdsTouched: false,
     });
     setEntryModal(entry);
   };
@@ -118,10 +119,12 @@ export default function RunDetail() {
       // Blank lines (nothing picked, nothing typed) are dropped rather than rejected
       // Professional Tax is sent only when edited: a number overrides the
       // computed amount, blank hands it back to the calculation.
-      const { ptTouched, professionalTax, ...rest } = form;
+      // TDS follows the same rule once payroll computes it.
+      const { ptTouched, professionalTax, tdsTouched, tds, ...rest } = form;
       await payrollAPI.updateEntry(entryModal.id, {
         ...rest,
         ...(ptTouched ? { professionalTax } : {}),
+        ...(!run.tdsAuto || tdsTouched ? { tds } : {}),
         lines: (form.lines || []).filter((l: any) => l.componentId || Number(l.amount)),
       });
       setEntryModal(null);
@@ -318,6 +321,7 @@ export default function RunDetail() {
         {[
           ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
           ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
+          ['tds-statement', 'TDS'],
           ['comparison', 'vs Prev Month'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
         ].map(([kind, label]) => (
           <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="btn btn-secondary btn-sm">{label}</Link>
@@ -471,14 +475,20 @@ export default function RunDetail() {
                   ['internetAllowance', 'Internet allowance'],
                   ['salaryArrearAllowance', 'Salary arrear'],
                   ['salaryAdvance', 'Salary advance (deduct)'],
-                  ['tds', 'TDS (deduct)'],
+                  ['tds', run.tdsAuto ? `TDS — ${entryModal.tdsOverridden ? 'entered by hand' : 'computed'}` : 'TDS (deduct)'],
                 ].map(([k, label]) => (
                   <div key={k} className="field">
                     <label>{label}</label>
                     <div className="input-unit"><span className="unit">₹</span>
                       <input className="input" type="number" min={0} step="0.01" value={form[k]}
-                        onChange={e => setForm({ ...form, [k]: e.target.value })} />
+                        onChange={e => setForm({ ...form, [k]: e.target.value, ...(k === 'tds' ? { tdsTouched: true } : {}) })} />
                     </div>
+                    {k === 'tds' && run.tdsAuto && (
+                      <span className="hint">
+                        Worked out from the year's income. Type an amount to override it; clear the box to go back.{' '}
+                        <Link to={`/payroll/reports/tax-statement?fy=${run.period.slice(5) >= '04' ? run.period.slice(0, 4) : Number(run.period.slice(0, 4)) - 1}&personId=${entryModal.person.id}`}>See the working</Link>
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>

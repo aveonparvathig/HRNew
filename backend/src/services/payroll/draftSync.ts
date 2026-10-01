@@ -6,6 +6,7 @@ import { prisma } from '../../config/database';
 import { loadStatutoryContext, computeFullEntry } from './entryCompute';
 import { packageForPeriod } from './salaryStructure';
 import { logPayrollAudit } from './audit';
+import { saveTaxWorkings } from './taxContext';
 
 export async function syncDraftEntries(req: any, personId: string, fromPeriod: string): Promise<number> {
   const organizationId = req.user?.organizationId;
@@ -30,11 +31,13 @@ export async function syncDraftEntries(req: any, personId: string, fromPeriod: s
     const computed = computeFullEntry(ctx, { ...entry, monthlyPackage }, entry.lines, {
       personId, state: person.workLocation?.state,
       ptOverride: entry.ptOverridden ? entry.professionalTax : null,
+      tdsOverride: entry.tdsOverridden ? entry.tds : null,
     });
     const packageChanged = monthlyPackage !== entry.monthlyPackage;
     const loanChanged = computed.loanDeduction !== entry.loanDeduction;
     if (!packageChanged && !loanChanged) continue;
     await prisma.payslipEntry.update({ where: { id: entry.id }, data: { monthlyPackage, ...computed } });
+    await saveTaxWorkings(ctx.tax, organizationId, entry.runId);
     const common = {
       action: 'ENTRY_UPDATED' as const, runId: entry.runId, entryId: entry.id, personId,
       period: entry.run.period, personName: person.name,

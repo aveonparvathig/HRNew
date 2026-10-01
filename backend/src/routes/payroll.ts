@@ -7,6 +7,7 @@ import { payrollStructureController } from '../controllers/payrollStructureContr
 import { payrollReportsController } from '../controllers/payrollReportsController';
 import { payrollStatutoryController } from '../controllers/payrollStatutoryController';
 import { payrollLoansController } from '../controllers/payrollLoansController';
+import { payrollTaxController } from '../controllers/payrollTaxController';
 
 const router = Router();
 
@@ -54,6 +55,13 @@ router.get('/remittances', asyncHandler((req, res) => payrollStatutoryController
 router.post('/remittances', asyncHandler((req, res) => payrollStatutoryController.createRemittance(req, res)));
 router.delete('/remittances/:remittanceId', asyncHandler((req, res) => payrollStatutoryController.deleteRemittance(req, res)));
 
+// Income tax: rules per financial year, and each employee's tax details
+router.get('/tax-config', asyncHandler((req, res) => payrollTaxController.getTaxConfig(req, res)));
+router.put('/tax-config/:configId', asyncHandler((req, res) => payrollTaxController.updateTaxConfig(req, res)));
+router.put('/tax-settings', asyncHandler((req, res) => payrollTaxController.updateTaxSettings(req, res)));
+router.get('/people/:personId/tax-profile', asyncHandler((req, res) => payrollTaxController.getTaxProfile(req, res)));
+router.put('/people/:personId/tax-profile', asyncHandler((req, res) => payrollTaxController.updateTaxProfile(req, res)));
+
 // Loans and advances
 router.get('/loans', asyncHandler((req, res) => payrollLoansController.getLoans(req, res)));
 router.post('/loans', asyncHandler((req, res) => payrollLoansController.createLoan(req, res)));
@@ -66,6 +74,9 @@ router.post('/loans/:loanId/foreclose', asyncHandler((req, res) => payrollLoansC
 router.post('/loans/:loanId/revise', asyncHandler((req, res) => payrollLoansController.revise(req, res)));
 
 // Reports across runs
+router.get('/reports/tax-statement', asyncHandler((req, res) => payrollTaxController.taxStatement(req, res)));
+router.get('/reports/tax-consolidated', asyncHandler((req, res) => payrollTaxController.taxConsolidated(req, res)));
+router.get('/reports/pan-status', asyncHandler((req, res) => payrollTaxController.panStatus(req, res)));
 router.get('/reports/loan-statement', asyncHandler((req, res) => payrollLoansController.loanStatement(req, res)));
 router.get('/reports/loan-register', asyncHandler((req, res) => payrollLoansController.loanRegister(req, res)));
 router.get('/reports/loan-transactions', asyncHandler((req, res) => payrollLoansController.loanTransactions(req, res)));
@@ -93,6 +104,7 @@ router.get('/runs/:runId/reports/register', asyncHandler((req, res) => payrollRe
 router.get('/runs/:runId/reports/summary', asyncHandler((req, res) => payrollReportsController.salarySummary(req, res)));
 router.get('/runs/:runId/reports/pf-statement', asyncHandler((req, res) => payrollStatutoryController.pfStatement(req, res)));
 router.get('/runs/:runId/reports/pt-statement', asyncHandler((req, res) => payrollStatutoryController.ptStatement(req, res)));
+router.get('/runs/:runId/reports/tds-statement', asyncHandler((req, res) => payrollTaxController.tdsStatement(req, res)));
 router.get('/runs/:runId/reports/lwf-statement', asyncHandler((req, res) => payrollStatutoryController.lwfStatement(req, res)));
 router.get('/runs/:runId/files/pf-ecr', asyncHandler((req, res) => payrollStatutoryController.pfEcr(req, res)));
 router.get('/runs/:runId/files/esi-upload', asyncHandler((req, res) => payrollStatutoryController.esiUpload(req, res)));

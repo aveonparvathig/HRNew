@@ -6,6 +6,7 @@ import { usedColumns, columnValue } from '../services/payroll/lines';
 import {
   loadStatutoryContext, computeFullEntry, esiFlagFor, coveredEarlier,
 } from '../services/payroll/entryCompute';
+import { saveTaxWorkings } from '../services/payroll/taxContext';
 import { packageForPeriod } from '../services/payroll/salaryStructure';
 import { orgBrand } from '../services/orgBrand';
 import { financialYearOf } from '../services/payroll/financialYear';
@@ -100,6 +101,7 @@ const statutoryOptions = (entry: any) => ({
   personId: entry.personId,
   state: entry.person?.workLocation?.state,
   ptOverride: entry.ptOverridden ? entry.professionalTax : null,
+  tdsOverride: entry.tdsOverridden ? entry.tds : null,
 });
 
 // A new entry for an employee: package and statutory flags are snapshots.
@@ -243,6 +245,7 @@ export const payrollController = {
     await prisma.payslipEntry.createMany({
       data: employees.map(emp => newEntryData(ctx, orgId, run.id, emp, totalWorkingDays)),
     });
+    await saveTaxWorkings(ctx.tax, orgId, run.id);
     await logPayrollAudit(req, [{
       action: 'RUN_CREATED', runId: run.id, period,
       newValue: `${employees.length} employees, ${totalWorkingDays} working days`,
@@ -267,6 +270,7 @@ export const payrollController = {
     res.json({
       ...run,
       financialYear: financialYearOf(run.period).label,
+      tdsAuto: Boolean(ctx.tax),
       entries: sortEntries(run.entries),
       checks: [
         ...esiCeilingChecks(sorted, ctx.settings, orgUsesEsi, stillCovered),
@@ -335,6 +339,7 @@ export const payrollController = {
         data: missing.map(emp => newEntryData(ctx, orgId, run.id, emp, twd)),
       });
     }
+    await saveTaxWorkings(ctx.tax, orgId, run.id);
     await logPayrollAudit(req, [{
       action: 'RUN_RECALCULATED', runId: run.id, period: run.period,
       newValue: `${run.entries.length} entries${missing.length ? `, ${missing.length} added` : ''}`,
@@ -384,8 +389,18 @@ export const payrollController = {
       ? await resolveLines(orgId, b.lines, entry.lines)
       : entry.lines;
     const ctx = await loadStatutoryContext(orgId, entry.run.period);
+    // Under computed TDS a typed amount overrides the calculation and a
+    // blank returns to it; otherwise TDS is simply what was typed.
+    const tdsBefore = ctx.tax && entry.tdsOverridden ? entry.tds : null;
+    let tdsOverride: number | null = tdsBefore;
+    if (ctx.tax && b.tds !== undefined) {
+      tdsOverride = b.tds === '' || b.tds === null ? null : num(b.tds, NaN);
+      if (tdsOverride !== null && (isNaN(tdsOverride) || tdsOverride < 0)) {
+        throw new AppError(400, 'Enter a valid TDS amount');
+      }
+    }
     const computed = computeFullEntry(ctx, merged, lines, {
-      personId: entry.personId, state: entry.person.workLocation?.state, ptOverride,
+      personId: entry.personId, state: entry.person.workLocation?.state, ptOverride, tdsOverride,
     });
     if (b.lines !== undefined) {
       await prisma.$transaction([
@@ -413,6 +428,7 @@ export const payrollController = {
         isPfApplicable: merged.isPfApplicable,
         remarks: merged.remarks,
         ptOverridden: ptOverride !== null,
+        tdsOverridden: Boolean(ctx.tax) && tdsOverride !== null,
         ...computed,
       },
       include: {
@@ -420,8 +436,15 @@ export const payrollController = {
         lines: true,
       },
     });
+    await saveTaxWorkings(ctx.tax, orgId, entry.runId);
     await logPayrollAudit(req, [
-      ...diffFields(entry, merged, ENTRY_INPUT_FIELDS),
+      // Under computed TDS only an override or its removal is a change by hand
+      ...diffFields(entry, merged, ENTRY_INPUT_FIELDS.filter(f => f !== 'tds' || !ctx.tax)),
+      ...(ctx.tax && tdsOverride !== tdsBefore ? [{
+        field: 'tds',
+        oldValue: tdsBefore === null ? 'Computed' : String(tdsBefore),
+        newValue: tdsOverride === null ? 'Computed' : String(tdsOverride),
+      }] : []),
       ...(b.lines !== undefined ? lineChanges(entry.lines, lines) : []),
       ...(ptOverride !== ptBefore ? [{
         field: 'professionalTax',
@@ -774,7 +797,7 @@ export const payrollController = {
       if (leave !== undefined) merged.empLeaveDays = leave;
       if (lop !== undefined) merged.lopDays = lop;
       if (advance !== undefined) merged.salaryAdvance = advance;
-      if (tds !== undefined) merged.tds = tds;
+      if (tds !== undefined && !ctx.tax) merged.tds = tds;
 
       const changed = ['totalWorkingDays', 'empLeaveDays', 'lopDays', 'salaryAdvance', 'tds']
         .some(f => (merged as any)[f] !== (entry as any)[f]);
@@ -807,6 +830,7 @@ export const payrollController = {
       });
       updated++;
     }
+    if (!dryRun) await saveTaxWorkings(ctx.tax, orgId, run.id);
     res.json({ dryRun: Boolean(dryRun), summary: { updated, skipped, errors }, results });
   },
 
@@ -819,6 +843,7 @@ export const payrollController = {
     if (!entry) throw new AppError(404, 'Payslip entry not found');
     assertDraft(entry.run);
     await prisma.payslipEntry.delete({ where: { id: entry.id } });
+    await prisma.taxComputation.deleteMany({ where: { runId: entry.runId, personId: entry.personId } });
     await logPayrollAudit(req, [{
       action: 'ENTRY_REMOVED', runId: entry.runId, entryId: entry.id, personId: entry.personId,
       period: entry.run.period, personName: entry.person.name,

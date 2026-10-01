@@ -149,7 +149,7 @@ describe('ESI coverage', () => {
   });
 
   const ctx = (over: any = {}): StatutoryContext => ({
-    period: '2026-07', settings: SETTINGS, ptPolicies: [], lwfPolicies: [], priorByPerson: new Map(), loanDue: new Map(), ...over,
+    period: '2026-07', settings: SETTINGS, ptPolicies: [], lwfPolicies: [], priorByPerson: new Map(), loanDue: new Map(), tax: null, ...over,
   });
   const inputs = (monthlyPackage: number) => ({ monthlyPackage, totalWorkingDays: 26 });
 
@@ -246,6 +246,7 @@ describe('engine with statutory inputs', () => {
     lwfPolicies: [{ state: 'Tamil Nadu', effectiveFrom: '2026-01', employeeAmount: 10, employerAmount: 20, deductionMonths: '12' }],
     priorByPerson: new Map(),
     loanDue: new Map(),
+    tax: null,
   };
 
   it('adds the loan instalments due this month from the ledger', () => {
