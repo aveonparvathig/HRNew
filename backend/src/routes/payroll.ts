@@ -8,6 +8,7 @@ import { payrollReportsController } from '../controllers/payrollReportsControlle
 import { payrollStatutoryController } from '../controllers/payrollStatutoryController';
 import { payrollLoansController } from '../controllers/payrollLoansController';
 import { payrollTaxController } from '../controllers/payrollTaxController';
+import { payrollDeclarationsController } from '../controllers/payrollDeclarationsController';
 
 const router = Router();
 
@@ -60,7 +61,20 @@ router.get('/tax-config', asyncHandler((req, res) => payrollTaxController.getTax
 router.put('/tax-config/:configId', asyncHandler((req, res) => payrollTaxController.updateTaxConfig(req, res)));
 router.put('/tax-settings', asyncHandler((req, res) => payrollTaxController.updateTaxSettings(req, res)));
 router.get('/people/:personId/tax-profile', asyncHandler((req, res) => payrollTaxController.getTaxProfile(req, res)));
-router.put('/people/:personId/tax-profile', asyncHandler((req, res) => payrollTaxController.updateTaxProfile(req, res)));
+
+// Income-tax declarations
+router.get('/declaration-items', asyncHandler((req, res) => payrollDeclarationsController.getItems(req, res)));
+router.post('/declaration-items', asyncHandler((req, res) => payrollDeclarationsController.createItem(req, res)));
+router.put('/declaration-items/:itemId', asyncHandler((req, res) => payrollDeclarationsController.updateItem(req, res)));
+router.delete('/declaration-items/:itemId', asyncHandler((req, res) => payrollDeclarationsController.deleteItem(req, res)));
+router.get('/declarations', asyncHandler((req, res) => payrollDeclarationsController.getOverview(req, res)));
+router.put('/declarations/control', asyncHandler((req, res) => payrollDeclarationsController.updateControl(req, res)));
+router.get('/declaration-proofs/:proofId', asyncHandler((req, res) => payrollDeclarationsController.getProof(req, res)));
+router.delete('/declaration-proofs/:proofId', asyncHandler((req, res) => payrollDeclarationsController.deleteProof(req, res)));
+router.get('/declarations/:personId', asyncHandler((req, res) => payrollDeclarationsController.getDeclaration(req, res)));
+router.put('/declarations/:personId', asyncHandler((req, res) => payrollDeclarationsController.saveDeclaration(req, res)));
+router.put('/declarations/:personId/approval', asyncHandler((req, res) => payrollDeclarationsController.saveApproval(req, res)));
+router.post('/declarations/:personId/proofs', asyncHandler((req, res) => payrollDeclarationsController.addProof(req, res)));
 
 // Loans and advances
 router.get('/loans', asyncHandler((req, res) => payrollLoansController.getLoans(req, res)));
@@ -74,6 +88,8 @@ router.post('/loans/:loanId/foreclose', asyncHandler((req, res) => payrollLoansC
 router.post('/loans/:loanId/revise', asyncHandler((req, res) => payrollLoansController.revise(req, res)));
 
 // Reports across runs
+router.get('/reports/form-12bb', asyncHandler((req, res) => payrollDeclarationsController.form12bb(req, res)));
+router.get('/reports/declarations', asyncHandler((req, res) => payrollDeclarationsController.declarationsReport(req, res)));
 router.get('/reports/tax-statement', asyncHandler((req, res) => payrollTaxController.taxStatement(req, res)));
 router.get('/reports/tax-consolidated', asyncHandler((req, res) => payrollTaxController.taxConsolidated(req, res)));
 router.get('/reports/pan-status', asyncHandler((req, res) => payrollTaxController.panStatus(req, res)));
@@ -95,6 +111,8 @@ router.get('/runs/:runId', asyncHandler((req, res) => payrollController.getRunDe
 router.delete('/runs/:runId', asyncHandler((req, res) => payrollController.deleteRun(req, res)));
 router.post('/runs/:runId/finalize', asyncHandler((req, res) => payrollController.finalizeRun(req, res)));
 router.post('/runs/:runId/reopen', asyncHandler((req, res) => payrollController.reopenRun(req, res)));
+router.post('/runs/:runId/release', asyncHandler((req, res) => payrollController.releaseRun(req, res)));
+router.post('/runs/:runId/hold', asyncHandler((req, res) => payrollController.holdRun(req, res)));
 router.post('/runs/:runId/recalculate', asyncHandler((req, res) => payrollController.recalculateRun(req, res)));
 router.get('/runs/:runId/reports/pf-esi', asyncHandler((req, res) => payrollController.pfEsiStatement(req, res)));
 router.get('/runs/:runId/reports/comparison', asyncHandler((req, res) => payrollController.runComparison(req, res)));

@@ -512,6 +512,44 @@ a:hover { text-decoration: underline; }
   cursor: pointer;
 }
 
+/* ============ Declaration proofs ============ */
+.proof-list { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.proof-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 220px;
+  padding: 2px 4px 2px 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.proof-open, .proof-remove, .proof-add {
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.proof-open {
+  color: var(--primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.proof-open:hover { text-decoration: underline; }
+.proof-remove { padding: 2px 5px; color: var(--text-3); border-radius: 50%; }
+.proof-remove:hover { color: var(--danger); background: var(--danger-soft); }
+.proof-add {
+  padding: 2px 9px;
+  color: var(--text-2);
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+}
+.proof-add:hover { color: var(--primary); border-color: var(--primary); }
+.table .input-sm { width: 120px; padding: 6px 8px; font-size: 13px; text-align: right; }
+
 /* ============ Report tiles ============ */
 .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
 .report-tile {

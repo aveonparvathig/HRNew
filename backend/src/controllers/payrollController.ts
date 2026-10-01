@@ -208,7 +208,7 @@ export const payrollController = {
     });
     res.json({
       runs: runs.map(r => ({
-        id: r.id, period: r.period, status: r.status,
+        id: r.id, period: r.period, status: r.status, releasedAt: r.releasedAt,
         financialYear: financialYearOf(r.period).label,
         finalizedAt: r.finalizedAt, notes: r.notes, createdAt: r.createdAt,
         totals: entryTotals(r.entries),
@@ -312,9 +312,28 @@ export const payrollController = {
     await reverseRunInstalments(run);
     const updated = await prisma.payrollRun.update({
       where: { id: run.id },
-      data: { status: 'DRAFT', finalizedAt: null },
+      data: { status: 'DRAFT', finalizedAt: null, releasedAt: null },
     });
     await logPayrollAudit(req, [{ action: 'RUN_REOPENED', runId: run.id, period: run.period }]);
+    res.json(updated);
+  },
+
+  // Release: employees can now see their payslip and tax statement for
+  // this month. Hold takes that back.
+  async releaseRun(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await fetchOrgRun(req.params.runId, orgId);
+    if (run.status !== 'FINALIZED') throw new AppError(400, 'Finalize the run before releasing its payslips');
+    const updated = await prisma.payrollRun.update({ where: { id: run.id }, data: { releasedAt: new Date() } });
+    await logPayrollAudit(req, [{ action: 'RUN_RELEASED', runId: run.id, period: run.period }]);
+    res.json(updated);
+  },
+
+  async holdRun(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const run = await fetchOrgRun(req.params.runId, orgId);
+    const updated = await prisma.payrollRun.update({ where: { id: run.id }, data: { releasedAt: null } });
+    await logPayrollAudit(req, [{ action: 'RUN_HELD', runId: run.id, period: run.period }]);
     res.json(updated);
   },
 

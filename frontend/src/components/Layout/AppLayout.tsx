@@ -63,9 +63,17 @@ const PROPOSAL_ITEMS = [
   { to: '/proposals/cms-features', icon: 'browser', label: 'CMS Features', end: true },
 ];
 
+// Shown to anyone whose login is linked to a person record
+const MY_PAY_ITEMS = [
+  { to: '/my/payslips', icon: 'banknote', label: 'My Payslips', end: false },
+  { to: '/my/declaration', icon: 'pen', label: 'My Tax Declaration', end: true },
+  { to: '/my/loans', icon: 'layers', label: 'My Loans', end: true },
+];
+
 const PAYROLL_ITEMS = [
   { to: '/payroll', icon: 'banknote', label: 'Runs', end: true },
   { to: '/payroll/loans', icon: 'layers', label: 'Loans', end: false },
+  { to: '/payroll/declarations', icon: 'pen', label: 'Tax Declarations', end: false },
   { to: '/payroll/reports', icon: 'chart', label: 'Reports', end: false },
   { to: '/payroll/remittances', icon: 'receipt', label: 'Statutory Payments', end: true },
   { to: '/payroll/audit-log', icon: 'history', label: 'Audit Log', end: true },
@@ -156,6 +164,18 @@ export default function AppLayout() {
               {item.label}
             </NavLink>
           ))}
+
+          {user?.personId && (
+            <>
+              <div className="sidebar-section">My Pay</div>
+              {MY_PAY_ITEMS.map(item => (
+                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
+                  <Icon name={item.icon} />
+                  {item.label}
+                </NavLink>
+              ))}
+            </>
+          )}
 
           {(isSA || isMarketing) && (
             <>

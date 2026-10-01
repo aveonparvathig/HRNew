@@ -45,7 +45,23 @@ export const payrollAPI = {
   updateTaxSettings: (data: any) => apiClient.put('/payroll/tax-settings', data),
   getTaxProfile: (personId: string, fy: string) =>
     apiClient.get(`/payroll/people/${personId}/tax-profile`, { params: fy ? { fy } : {} }),
-  updateTaxProfile: (personId: string, data: any) => apiClient.put(`/payroll/people/${personId}/tax-profile`, data),
+
+  // Income-tax declarations
+  getDeclarationItems: () => apiClient.get('/payroll/declaration-items'),
+  createDeclarationItem: (data: any) => apiClient.post('/payroll/declaration-items', data),
+  updateDeclarationItem: (itemId: string, data: any) => apiClient.put(`/payroll/declaration-items/${itemId}`, data),
+  deleteDeclarationItem: (itemId: string) => apiClient.delete(`/payroll/declaration-items/${itemId}`),
+  getDeclarations: (fy: string) => apiClient.get('/payroll/declarations', { params: fy ? { fy } : {} }),
+  // The year's windows: declarationOpen, proofOpen, employeeCanChooseRegime
+  updateDeclarationControl: (data: any) => apiClient.put('/payroll/declarations/control', data),
+  getDeclaration: (personId: string, fy: string) =>
+    apiClient.get(`/payroll/declarations/${personId}`, { params: fy ? { fy } : {} }),
+  saveDeclaration: (personId: string, data: any) => apiClient.put(`/payroll/declarations/${personId}`, data),
+  saveDeclarationApproval: (personId: string, data: any) =>
+    apiClient.put(`/payroll/declarations/${personId}/approval`, data),
+  addDeclarationProof: (personId: string, data: any) => apiClient.post(`/payroll/declarations/${personId}/proofs`, data),
+  getDeclarationProof: (proofId: string) => apiClient.get(`/payroll/declaration-proofs/${proofId}`),
+  deleteDeclarationProof: (proofId: string) => apiClient.delete(`/payroll/declaration-proofs/${proofId}`),
 
   // Loans and advances
   getLoans: (personId?: string) => apiClient.get('/payroll/loans', { params: personId ? { personId } : {} }),
@@ -59,7 +75,7 @@ export const payrollAPI = {
   // Reports across runs
   // kind: ytd-statement | component-statement | salary-structure | ctc-breakup | revision-history
   //       | pt-half-year | loan-statement | loan-register | loan-transactions
-  //       | tax-statement | tax-consolidated | pan-status
+  //       | tax-statement | tax-consolidated | pan-status | form-12bb | declarations
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),
@@ -72,6 +88,9 @@ export const payrollAPI = {
   deleteRun: (runId: string) => apiClient.delete(`/payroll/runs/${runId}`),
   finalizeRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/finalize`),
   reopenRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/reopen`),
+  // Release shows a finalized run's payslips to employees; hold takes them back
+  releaseRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/release`),
+  holdRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/hold`),
   recalculateRun: (runId: string) => apiClient.post(`/payroll/runs/${runId}/recalculate`),
   exportRunCsv: (runId: string) =>
     apiClient.get(`/payroll/runs/${runId}/export.csv`, { responseType: 'blob' }),

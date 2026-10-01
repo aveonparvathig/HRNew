@@ -254,6 +254,12 @@ export default function RunDetail() {
         actions={
           <>
             <StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />
+            {!isDraft && (
+              <span className={`badge ${run.releasedAt ? 'badge-success' : 'badge-neutral'}`}
+                title={run.releasedAt ? 'Employees can see this month\'s payslip in My Pay' : 'Employees cannot see this month\'s payslip yet'}>
+                {run.releasedAt ? 'Released to employees' : 'Not released'}
+              </span>
+            )}
             <button className="btn btn-secondary" onClick={handleExport}>⤓ Register</button>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
@@ -275,10 +281,23 @@ export default function RunDetail() {
                 </button>
               </>
             ) : (
-              <button className="btn btn-secondary"
-                onClick={() => act(() => payrollAPI.reopenRun(run.id), 'Run reopened for edits.')}>
-                ↺ Reopen
-              </button>
+              <>
+                <button className="btn btn-secondary"
+                  onClick={() => act(() => payrollAPI.reopenRun(run.id), 'Run reopened for edits.')}>
+                  ↺ Reopen
+                </button>
+                {run.releasedAt ? (
+                  <button className="btn btn-secondary"
+                    onClick={() => act(() => payrollAPI.holdRun(run.id), 'Payslips withdrawn from employees.')}>
+                    Hold Payslips
+                  </button>
+                ) : (
+                  <button className="btn btn-primary"
+                    onClick={() => act(() => payrollAPI.releaseRun(run.id), 'Payslips released. Employees can now see them in My Pay.')}>
+                    Release Payslips
+                  </button>
+                )}
+              </>
             )}
           </>
         }
