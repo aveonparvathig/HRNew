@@ -30,7 +30,7 @@ export default function ClientDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [exportModal, setExportModal] = useState(false);
-  const [exportYear, setExportYear] = useState('');
+  const [exportYears, setExportYears] = useState<string[]>([]); // [] = all periods
   const [exporting, setExporting] = useState<'xlsx' | 'pdf' | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -121,15 +121,23 @@ export default function ClientDetail() {
     }
   };
 
+  const toggleExportYear = (year: string) =>
+    setExportYears(ys => ys.includes(year) ? ys.filter(y => y !== year) : [...ys, year]);
+
+  const yearsParam = () => exportYears.length ? exportYears.join(',') : undefined;
+  const yearsSuffix = () =>
+    exportYears.length === 1 ? `_${exportYears[0]}`
+      : exportYears.length ? `_${exportYears.length}-periods` : '';
+
   const handleExportXlsx = async () => {
     setExporting('xlsx');
     try {
-      const res = await incomeAPI.exportClientXlsx(client.id, exportYear || undefined);
+      const res = await incomeAPI.exportClientXlsx(client.id, yearsParam());
       const url = URL.createObjectURL(new Blob([res.data],
         { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${client.name.replace(/[^\w]+/g, '_')}_statement${exportYear ? '_' + exportYear : ''}.xlsx`;
+      a.download = `${client.name.replace(/[^\w]+/g, '_')}_statement${yearsSuffix()}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       setExportModal(false);
@@ -143,7 +151,7 @@ export default function ClientDetail() {
   const handleExportPdf = async () => {
     setExporting('pdf');
     try {
-      const res = await incomeAPI.getClientStatement(client.id, exportYear || undefined);
+      const res = await incomeAPI.getClientStatement(client.id, yearsParam());
       await downloadHtmlAsPdf(res.data.html, res.data.filename);
       setExportModal(false);
     } catch {
@@ -477,14 +485,32 @@ export default function ClientDetail() {
       <Modal title={`Export Statement — ${client.name}`} open={exportModal}
         onClose={() => setExportModal(false)}>
         <div className="field" style={{ marginBottom: 16 }}>
-          <label>Period</label>
-          <select className="select" value={exportYear} onChange={e => setExportYear(e.target.value)}>
-            <option value="">All periods ({client.billings.length})</option>
+          <label>Periods — pick one or more</label>
+          <div style={{
+            border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px',
+            maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4,
+          }}>
+            <label className="checkbox-field" style={{ fontWeight: 600 }}>
+              <input type="checkbox" checked={exportYears.length === 0}
+                onChange={() => setExportYears([])} />
+              All periods ({client.billings.length})
+            </label>
             {client.billings.map((b: any) => (
-              <option key={b.id} value={b.academicYear}>{b.periodLabel || b.academicYear}</option>
+              <label key={b.id} className="checkbox-field">
+                <input type="checkbox" checked={exportYears.includes(b.academicYear)}
+                  onChange={() => toggleExportYear(b.academicYear)} />
+                {b.periodLabel || b.academicYear}
+                <span className="text-muted" style={{ fontSize: 11.5, marginLeft: 'auto' }}>
+                  {formatINR(b.totalDue)}
+                </span>
+              </label>
             ))}
-          </select>
-          <span className="hint">The statement includes the billing rows and every payment for the selection.</span>
+          </div>
+          <span className="hint">
+            {exportYears.length
+              ? `${exportYears.length} period${exportYears.length > 1 ? 's' : ''} selected — billing rows and payments for the selection.`
+              : 'Everything: all billing rows and every payment.'}
+          </span>
         </div>
         <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
           <button className="btn btn-primary" disabled={exporting !== null} onClick={handleExportPdf}>

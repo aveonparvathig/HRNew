@@ -1534,9 +1534,11 @@ export const incomeController = {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
     await assertClientAccess(req, client.id);
-    const year = String(req.query.year || '').trim(); // '' = all periods
+    // Multi-select: comma-separated academic years ('' = all periods)
+    const years = String(req.query.years || req.query.year || '')
+      .split(',').map(s => s.trim()).filter(Boolean);
     const billings = await prisma.clientBilling.findMany({
-      where: { clientId: client.id, ...(year ? { academicYear: year } : {}) },
+      where: { clientId: client.id, ...(years.length ? { academicYear: { in: years } } : {}) },
       include: { payments: true },
       orderBy: { yearStart: 'asc' },
     });
@@ -1613,7 +1615,8 @@ export const incomeController = {
 
     const buffer = await wb.xlsx.writeBuffer();
     const safeName = String(client.name).replace(/[^\w]+/g, '_').slice(0, 60);
-    const suffix = year ? `_${year.replace(/[^\w]+/g, '-')}` : '';
+    const suffix = years.length === 1 ? `_${years[0].replace(/[^\w]+/g, '-')}`
+      : years.length ? `_${years.length}-periods` : '';
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}_statement${suffix}_${todayStr()}.xlsx"`);
     res.send(Buffer.from(buffer as any));
@@ -1625,9 +1628,10 @@ export const incomeController = {
     const orgId = req.user?.organizationId;
     const client = await fetchOrgClient(req.params.clientId, orgId);
     await assertClientAccess(req, client.id);
-    const year = String(req.query.year || '').trim();
+    const years = String(req.query.years || req.query.year || '')
+      .split(',').map(s => s.trim()).filter(Boolean);
     const billings = await prisma.clientBilling.findMany({
-      where: { clientId: client.id, ...(year ? { academicYear: year } : {}) },
+      where: { clientId: client.id, ...(years.length ? { academicYear: { in: years } } : {}) },
       include: { payments: true },
       orderBy: { yearStart: 'asc' },
     });
@@ -1645,7 +1649,10 @@ export const incomeController = {
         maximumFractionDigits: 2,
       });
     };
-    const periodTitle = year ? rows[0]?.periodLabel || year : 'All periods';
+    const selectedLabels = [...new Set(rows.map(b => b.periodLabel))];
+    const periodTitle = !years.length ? 'All periods'
+      : selectedLabels.length <= 3 ? selectedLabels.join(', ')
+      : `${years.length} periods`;
 
     const billingRows = rows.map(b => `<tr>
       <td>${esc(b.periodLabel)}</td><td>${esc(b.engineer) || '—'}</td>
@@ -1706,7 +1713,8 @@ export const incomeController = {
   </table>
 </div>`;
     const safeName = String(client.name).replace(/[^\w]+/g, '_').slice(0, 60);
-    const suffix = year ? `_${year.replace(/[^\w]+/g, '-')}` : '';
+    const suffix = years.length === 1 ? `_${years[0].replace(/[^\w]+/g, '-')}`
+      : years.length ? `_${years.length}-periods` : '';
     res.json({ html, filename: `${safeName}_statement${suffix}.pdf`, title: `Statement — ${client.name}` });
   },
 
