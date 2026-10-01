@@ -8,7 +8,16 @@ const REPORT_LABELS: Record<string, string> = {
   'form-12bb': 'Form 12BB',
   'ytd-statement': 'Year-to-Date Statement',
   'loan-statement': 'Loan Statement',
+  'form-16': 'Form 16',
+  'form-12ba': 'Statement of Perquisites',
 };
+
+// Part A of Form 16 is a PDF from the tax department, uploaded by HR.
+async function openPartA(fy: string) {
+  const { data: doc } = await selfAPI.getForm16PartA(fy);
+  const bytes = Uint8Array.from(atob(doc.fileData.split(',')[1]), c => c.charCodeAt(0));
+  window.open(URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' })), '_blank');
+}
 
 // Print page for the signed-in employee's own documents: a payslip
 // (/my/payslips/:entryId) or one of their reports (/my/reports/:kind).
@@ -50,8 +59,21 @@ export default function MyDocument() {
         </div>
         <PageHeader
           title={entryId ? `Payslip — ${doc.personName}` : doc.title}
-          actions={<button className="btn btn-primary" onClick={() => window.print()}>🖨 Print / Save as PDF</button>}
+          actions={<>
+            {kind === 'form-16' && (
+              <>
+                {doc.partA && (
+                  <button className="btn btn-secondary" onClick={() => openPartA(String(doc.fyStart)).catch(() => setError('Could not open Part A'))}>
+                    Part A (PDF)
+                  </button>
+                )}
+                <Link to={`/my/reports/form-12ba?fy=${doc.fyStart}`} className="btn btn-secondary">Perquisites Statement</Link>
+              </>
+            )}
+            <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print / Save as PDF</button>
+          </>}
         />
+        {error && <div className="alert alert-error"><span>⚠</span>{error}</div>}
       </div>
 
       <div className={`letter-sheet print-area${entryId ? '' : ' sheet-wide'}`}>

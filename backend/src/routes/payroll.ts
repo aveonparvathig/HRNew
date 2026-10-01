@@ -11,6 +11,7 @@ import { payrollTaxController } from '../controllers/payrollTaxController';
 import { payrollDeclarationsController } from '../controllers/payrollDeclarationsController';
 import { payrollPayoutController } from '../controllers/payrollPayoutController';
 import { payrollControlController } from '../controllers/payrollControlController';
+import { payrollReturnsController } from '../controllers/payrollReturnsController';
 
 const router = Router();
 
@@ -89,6 +90,17 @@ router.post('/payout-batches/:batchId/paid', asyncHandler((req, res) => payrollP
 router.delete('/payout-batches/:batchId', asyncHandler((req, res) => payrollPayoutController.deleteBatch(req, res)));
 router.get('/payout-batches/:batchId/bank-file', asyncHandler((req, res) => payrollPayoutController.bankFile(req, res)));
 
+// TDS deposits, quarterly returns and Form 16
+router.get('/tds', asyncHandler((req, res) => payrollReturnsController.getOverview(req, res)));
+router.post('/tds/challans', asyncHandler((req, res) => payrollReturnsController.createChallan(req, res)));
+router.delete('/tds/challans/:challanId', asyncHandler((req, res) => payrollReturnsController.deleteChallan(req, res)));
+router.get('/tds/return-workbook', asyncHandler((req, res) => payrollReturnsController.returnWorkbook(req, res)));
+router.get('/form16', asyncHandler((req, res) => payrollReturnsController.getForm16List(req, res)));
+router.put('/form16/release', asyncHandler((req, res) => payrollReturnsController.setForm16Released(req, res)));
+router.get('/form16/:personId/part-a', asyncHandler((req, res) => payrollReturnsController.getPartA(req, res)));
+router.put('/form16/:personId/part-a', asyncHandler((req, res) => payrollReturnsController.uploadPartA(req, res)));
+router.delete('/form16/:personId/part-a', asyncHandler((req, res) => payrollReturnsController.deletePartA(req, res)));
+
 // Loans and advances
 router.get('/loans', asyncHandler((req, res) => payrollLoansController.getLoans(req, res)));
 router.post('/loans', asyncHandler((req, res) => payrollLoansController.createLoan(req, res)));
@@ -105,6 +117,11 @@ router.get('/reports/bank-advice', asyncHandler((req, res) => payrollControlCont
 router.get('/reports/hold-release', asyncHandler((req, res) => payrollControlController.holdRelease(req, res)));
 router.get('/reports/duplicates', asyncHandler((req, res) => payrollControlController.duplicates(req, res)));
 router.get('/reports/reimbursements', asyncHandler((req, res) => payrollControlController.reimbursements(req, res)));
+router.get('/reports/tds-challans', asyncHandler((req, res) => payrollReturnsController.challanReport(req, res)));
+router.get('/reports/tds-return', asyncHandler((req, res) => payrollReturnsController.returnSummary(req, res)));
+router.get('/reports/form-16', asyncHandler((req, res) => payrollReturnsController.form16(req, res)));
+router.get('/reports/form-16-all', asyncHandler((req, res) => payrollReturnsController.form16All(req, res)));
+router.get('/reports/form-12ba', asyncHandler((req, res) => payrollReturnsController.form12ba(req, res)));
 router.get('/reports/form-12bb', asyncHandler((req, res) => payrollDeclarationsController.form12bb(req, res)));
 router.get('/reports/declarations', asyncHandler((req, res) => payrollDeclarationsController.declarationsReport(req, res)));
 router.get('/reports/tax-statement', asyncHandler((req, res) => payrollTaxController.taxStatement(req, res)));

@@ -17,6 +17,16 @@ import { claimsOfEntry } from '../services/payroll/payout';
 import { buildTaxStatement } from './payrollTaxController';
 import { buildYtdStatement } from './payrollReportsController';
 import { buildLoanStatement, loansOfPerson } from './payrollLoansController';
+import { buildForm16, buildForm12ba } from './payrollReturnsController';
+import { yearControlFor } from '../services/payroll/declarations';
+
+// Form 16 is for the employee only once HR has released the year's.
+async function assertForm16Released(organizationId: string, fyStart: number) {
+  const control = await yearControlFor(organizationId, fyStart);
+  if (!control.form16Released) {
+    throw new AppError(404, `Form 16 for FY ${financialYearFor(fyStart).label} has not been issued yet.`);
+  }
+}
 
 const currentFyStart = () => financialYearOf(currentPeriodIST()).startYear;
 
@@ -114,8 +124,18 @@ export const selfServiceController = {
     res.json({ loans: await loansOfPerson(me.organizationId, me.id) });
   },
 
+  // Part A of the employee's own Form 16, as uploaded by HR.
+  async getForm16PartA(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const fyStart = fyInput(req.query.fy);
+    await assertForm16Released(me.organizationId, fyStart);
+    const doc = await prisma.form16PartA.findFirst({ where: { personId: me.id, organizationId: me.organizationId, fyStart } });
+    if (!doc) throw new AppError(404, 'Part A is not available yet');
+    res.json({ fileName: doc.fileName, fileData: doc.fileData });
+  },
+
   // ---- Own reports ----------------------------------------------------------------
-  // kind: tax-statement | form-12bb | ytd-statement | loan-statement
+  // kind: tax-statement | form-12bb | ytd-statement | loan-statement | form-16 | form-12ba
   async getReport(req: any, res: Response) {
     const me = await actorPerson(req);
     const fyStart = fyInput(req.query.fy);
@@ -128,6 +148,14 @@ export const selfServiceController = {
         return res.json(await buildYtdStatement(me.organizationId, me.id, fyStart, true));
       case 'loan-statement':
         return res.json(await buildLoanStatement(me.organizationId, String(req.query.loanId || ''), me.id));
+      case 'form-16': {
+        await assertForm16Released(me.organizationId, fyStart);
+        const partA = await prisma.form16PartA.count({ where: { personId: me.id, fyStart } });
+        return res.json({ ...(await buildForm16(me.organizationId, me.id, fyStart)), partA: partA > 0, fyStart });
+      }
+      case 'form-12ba':
+        await assertForm16Released(me.organizationId, fyStart);
+        return res.json(await buildForm12ba(me.organizationId, me.id, fyStart));
       default:
         throw new AppError(404, 'Report not found');
     }

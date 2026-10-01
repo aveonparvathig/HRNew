@@ -358,6 +358,10 @@ export const payrollController = {
     if (batches > 0) {
       throw new AppError(400, 'Salaries of this run are in a payment batch. Delete its payment batches before reopening.');
     }
+    const deposited = await prisma.tdsChallanAllocation.count({ where: { entry: { runId: run.id } } });
+    if (deposited > 0) {
+      throw new AppError(400, 'Tax deducted in this run is matched to a TDS challan. Delete the challan before reopening.');
+    }
     await reverseRunInstalments(run);
     await setRunClaimStatus(run.id, 'APPROVED');
     const updated = await prisma.payrollRun.update({

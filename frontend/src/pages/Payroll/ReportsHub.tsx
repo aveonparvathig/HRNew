@@ -149,6 +149,18 @@ export default function ReportsHub() {
             <strong>Income Tax Declarations</strong>
             <span>Every employee's regime, rent, deductions declared against approved, and proofs attached.</span>
           </button>
+          <button className="report-tile" disabled={!fy || !personId} onClick={() => go('form-16', { fy, personId })}>
+            <strong>Form 16 Part B</strong>
+            <span>The chosen employee's annual salary and tax certificate, from the year's finalized payroll.</span>
+          </button>
+          <button className="report-tile" disabled={!fy || !personId} onClick={() => go('form-12ba', { fy, personId })}>
+            <strong>Statement of Perquisites</strong>
+            <span>Form 12BA for the chosen employee.</span>
+          </button>
+          <button className="report-tile" disabled={!fy} onClick={() => go('tds-challans', { fy })}>
+            <strong>TDS Challan Report</strong>
+            <span>Each deposit of tax in the year and the employees it covers. Quarterly returns are on the TDS Returns page.</span>
+          </button>
           <button className="report-tile" onClick={() => go('pan-status', {})}>
             <strong>PAN Status</strong>
             <span>Active employees whose PAN is missing or malformed.</span>

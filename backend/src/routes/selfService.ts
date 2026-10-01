@@ -23,6 +23,7 @@ router.get('/declaration/proofs/:proofId', asyncHandler((req, res) => selfServic
 router.delete('/declaration/proofs/:proofId', asyncHandler((req, res) => selfServiceController.deleteProof(req, res)));
 
 router.get('/loans', asyncHandler((req, res) => selfServiceController.getLoans(req, res)));
+router.get('/form16-part-a', asyncHandler((req, res) => selfServiceController.getForm16PartA(req, res)));
 router.get('/reports/:kind', asyncHandler((req, res) => selfServiceController.getReport(req, res)));
 
 export default router;

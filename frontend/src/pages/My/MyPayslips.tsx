@@ -38,6 +38,7 @@ export default function MyPayslips() {
           </select>
           <Link to={`/my/reports/ytd-statement?fy=${fy}`} className="btn btn-secondary">Year-to-Date</Link>
           <Link to={`/my/reports/tax-statement?fy=${fy}`} className="btn btn-secondary">Tax Statement</Link>
+          <Link to={`/my/reports/form-16?fy=${fy}`} className="btn btn-secondary">Form 16</Link>
         </>}
       />
 

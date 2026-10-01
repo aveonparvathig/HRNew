@@ -366,6 +366,7 @@ model Person {
   salaryRevisions SalaryRevision[]
   loans          Loan[]
   taxProfiles    EmployeeTaxProfile[]
+  form16PartAs Form16PartA[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -525,6 +526,11 @@ model PayrollSettings {
   // onward payroll computes it. Blank keeps TDS manual.
   tdsAutoFrom      String @default("")
   defaultTaxRegime String @default("NEW") // NEW | OLD, when an employee has none set
+  // Titles printed on the tax forms. The Income-tax Act, 2025 renumbers
+  // them, so they are data: set them to what the year's rules call them.
+  form24qName  String @default("Form 24Q")
+  form16Name   String @default("Form 16")
+  form12baName String @default("Form 12BA")
 
   // On finalizing a run: release its payslips, and open next month's run
   autoReleaseOnFinalize Boolean @default(false)
@@ -637,6 +643,7 @@ model PayslipEntry {
 
   payoutBatch PayoutBatch? @relation(fields: [payoutBatchId], references: [id], onDelete: SetNull)
   expenseReports ExpenseReport[]
+  tdsAllocations TdsChallanAllocation[]
   run    PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
   // Restrict, deliberately: a person with payslip history can never be
   // deleted, only marked inactive.
@@ -859,6 +866,8 @@ model TaxYearControl {
   declarationOpen  Boolean  @default(false)
   proofOpen        Boolean  @default(false)
   employeeCanChooseRegime Boolean @default(false)
+  // Employees can see their Form 16 for the year once HR releases it
+  form16Released          Boolean @default(false)
   updatedAt        DateTime @updatedAt
 
   @@id([organizationId, fyStart])
@@ -1208,4 +1217,67 @@ model LedgerMapping {
 
   @@id([organizationId, key])
   @@map("ledger_mappings")
+}
+
+// A deposit of tax deducted from salaries, as on the bank challan. The
+// quarterly TDS return lists each challan and the employees it covers.
+model TdsChallan {
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String // "YYYY-MM": the salary month whose TDS it deposits
+  fyStart        Int
+  quarter        Int // 1 = Apr–Jun … 4 = Jan–Mar
+  bsrCode        String // 7-digit code of the bank branch
+  challanSerial  String // 5-digit challan serial number
+  depositedOn    String // "YYYY-MM-DD"
+  tds            Float    @default(0) // income tax
+  surcharge      Float    @default(0)
+  cess           Float    @default(0)
+  interest       Float    @default(0)
+  fee            Float    @default(0) // late filing fee
+  others         Float    @default(0)
+  minorHead      String   @default("200") // 200 = TDS payable by taxpayer, 400 = regular assessment
+  remarks        String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+
+  allocations TdsChallanAllocation[]
+
+  @@index([organizationId, fyStart, quarter])
+  @@map("tds_challans")
+}
+
+// How much of a challan covers one employee's TDS for the month.
+model TdsChallanAllocation {
+  id        String @id @default(cuid())
+  challanId String
+  entryId   String
+  personId  String
+  amount    Float
+
+  challan TdsChallan   @relation(fields: [challanId], references: [id], onDelete: Cascade)
+  entry   PayslipEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@unique([challanId, entryId])
+  @@index([entryId])
+  @@map("tds_challan_allocations")
+}
+
+// Form 16 Part A, downloaded from the tax department's portal, kept
+// beside the Part B the system produces.
+model Form16PartA {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  fyStart        Int
+  fileName       String
+  fileData       String // PDF as a data URI
+  uploadedBy     String   @default("")
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, fyStart])
+  @@index([organizationId, fyStart])
+  @@map("form16_part_a")
 }

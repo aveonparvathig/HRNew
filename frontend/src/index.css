@@ -531,6 +531,14 @@ a:hover { text-decoration: underline; }
 .stage-step.current { color: var(--text); font-weight: 600; }
 .stage-step.current:not(.done) .stage-dot { border-color: var(--primary); }
 
+/* ============ TDS returns ============ */
+.quarter-box { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
+.quarter-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
+.quarter-issues { margin: 10px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; }
+.link-button { padding: 0; background: none; border: none; font: inherit; color: var(--primary); cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
+.btn.disabled { opacity: 0.5; pointer-events: none; }
+
 /* ============ Declaration proofs ============ */
 .proof-list { display: inline-flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .proof-chip {

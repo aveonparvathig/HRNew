@@ -85,6 +85,17 @@ export const payrollAPI = {
   setRunClaim: (runId: string, reportId: string, attach: boolean) =>
     apiClient.put(`/payroll/runs/${runId}/claims`, { reportId, attach }),
 
+  // TDS deposits, quarterly return and Form 16
+  getTds: (fy: string) => apiClient.get('/payroll/tds', { params: fy ? { fy } : {} }),
+  createTdsChallan: (data: any) => apiClient.post('/payroll/tds/challans', data),
+  deleteTdsChallan: (challanId: string) => apiClient.delete(`/payroll/tds/challans/${challanId}`),
+  getTdsReturnWorkbook: (fy: string, quarter: number) => apiClient.get('/payroll/tds/return-workbook', { params: { fy, quarter } }),
+  getForm16List: (fy: string) => apiClient.get('/payroll/form16', { params: fy ? { fy } : {} }),
+  setForm16Released: (fyStart: number, released: boolean) => apiClient.put('/payroll/form16/release', { fyStart, released }),
+  getForm16PartA: (personId: string, fy: string) => apiClient.get(`/payroll/form16/${personId}/part-a`, { params: { fy } }),
+  uploadForm16PartA: (personId: string, data: any) => apiClient.put(`/payroll/form16/${personId}/part-a`, data),
+  deleteForm16PartA: (personId: string, fy: string) => apiClient.delete(`/payroll/form16/${personId}/part-a`, { params: { fy } }),
+
   // Loans and advances
   getLoans: (personId?: string) => apiClient.get('/payroll/loans', { params: personId ? { personId } : {} }),
   getLoan: (loanId: string) => apiClient.get(`/payroll/loans/${loanId}`),
@@ -99,6 +110,7 @@ export const payrollAPI = {
   //       | pt-half-year | loan-statement | loan-register | loan-transactions
   //       | tax-statement | tax-consolidated | pan-status | form-12bb | declarations
   //       | bank-advice | hold-release | duplicates | reimbursements
+  //       | tds-challans | tds-return | form-16 | form-16-all | form-12ba
   getReportOptions: () => apiClient.get('/payroll/reports/options'),
   getReport: (kind: string, params: Record<string, string>) =>
     apiClient.get(`/payroll/reports/${kind}`, { params }),
