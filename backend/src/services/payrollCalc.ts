@@ -9,6 +9,11 @@
 //   PF Emp = min((Basic+DA)*wage_factor%, wage_cap) * pf%
 //   Net = Gross - (ESI Emp + PF Emp + Advance + TDS)
 //
+// Beyond the Excel: Professional Tax and Labour Welfare Fund arrive as
+// inputs (they depend on state rules and earlier months) and default to 0,
+// and PF can optionally round to the rupee. With those left at their
+// defaults every figure matches the Excel exactly.
+//
 // Excel ROUND() = round half away from zero; ROUNDUP() = ceiling here.
 
 const r0 = (n: number) => Math.round(n); // half-up for non-negative amounts
@@ -26,6 +31,9 @@ export interface EntryInputs {
   tds?: number;
   isEsiEligible?: boolean;
   isPfApplicable?: boolean;
+  professionalTax?: number;
+  lwfEmployee?: number;
+  lwfEmployer?: number;
 }
 
 export function computeEntry(inp: EntryInputs, s: any) {
@@ -36,6 +44,9 @@ export function computeEntry(inp: EntryInputs, s: any) {
   const arrear = Number(inp.salaryArrearAllowance || 0);
   const advance = Number(inp.salaryAdvance || 0);
   const tds = Number(inp.tds || 0);
+  const professionalTax = Number(inp.professionalTax || 0);
+  const lwfEmployee = Number(inp.lwfEmployee || 0);
+  const lwfEmployer = Number(inp.lwfEmployer || 0);
 
   const presentDays = twd - empLeave;
   const payDays = twd - lop;
@@ -54,25 +65,28 @@ export function computeEntry(inp: EntryInputs, s: any) {
   const esiEmployee = inp.isEsiEligible ? ceil0(esiBase * s.esiEmployeePercent / 100) : 0;
   const esiEmployer = inp.isEsiEligible ? ceil0(esiBase * s.esiEmployerPercent / 100) : 0;
 
+  let pfWage = 0;
   let pfEmployee = 0;
   let pfEmployer = 0;
   if (inp.isPfApplicable) {
+    const pfRound = s.pfRoundToRupee ? r0 : r2;
+    pfWage = r2(Math.min((basic + da) * s.pfWageFactor / 100, s.pfWageCap));
     const cappedBase = Math.min((basic + da) * s.pfWageFactor / 100, s.pfWageCap);
-    pfEmployee = r2(cappedBase * s.pfEmployeePercent / 100);
+    pfEmployee = pfRound(cappedBase * s.pfEmployeePercent / 100);
     pfEmployer = s.pfEmployerMatchesEmployee
       ? pfEmployee
-      : r2(cappedBase * s.pfEmployerPercent / 100);
+      : pfRound(cappedBase * s.pfEmployerPercent / 100);
   }
 
-  const totalDeductions = r2(esiEmployee + pfEmployee + advance + tds);
+  const totalDeductions = r2(esiEmployee + pfEmployee + advance + tds + professionalTax + lwfEmployee);
   const netPayable = r2(grossSalary - totalDeductions);
-  const employerContributions = r2(esiEmployer + pfEmployer);
+  const employerContributions = r2(esiEmployer + pfEmployer + lwfEmployer);
   const ctc = r2(grossSalary + employerContributions);
 
   return {
     presentDays, payDays,
     basic, da, hra, transportAllowance, foodAllowance, grossSalary,
-    esiEmployee, esiEmployer, pfEmployee, pfEmployer,
+    esiEmployee, esiEmployer, pfWage, pfEmployee, pfEmployer,
     totalDeductions, netPayable, employerContributions, ctc,
   };
 }
@@ -133,20 +147,29 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
   const row = (label: string, amount: number) =>
     `<tr><td>${label}</td><td class="amt">${inr(amount)}</td></tr>`;
 
+  // Catalogue components (bonus, other deduction, ...) follow the fixed ones
+  const lineRows = (type: string) => (entry.lines || [])
+    .filter((l: any) => l.type === type)
+    .sort((a: any, b: any) => a.name.localeCompare(b.name))
+    .map((l: any) => row(esc(l.name), l.amount))
+    .join('');
+
   const earnings = [
     row('Basic', entry.basic), row('Dearness Allowance', entry.da),
     row('House Rent Allowance', entry.hra), row('Transport Allowance', entry.transportAllowance),
     row('Food Allowance', entry.foodAllowance),
     entry.internetAllowance ? row('Internet Allowance', entry.internetAllowance) : '',
     entry.salaryArrearAllowance ? row('Salary Arrear', entry.salaryArrearAllowance) : '',
-  ].join('');
+  ].join('') + lineRows('EARNING');
 
   const deductions = [
     entry.esiEmployee ? row('ESI (Employee)', entry.esiEmployee) : '',
     entry.pfEmployee ? row('PF (Employee)', entry.pfEmployee) : '',
     entry.salaryAdvance ? row('Salary Advance', entry.salaryAdvance) : '',
     entry.tds ? row('TDS', entry.tds) : '',
-  ].join('') || '<tr><td class="muted">No deductions</td><td class="amt">₹0.00</td></tr>';
+    entry.professionalTax ? row('Professional Tax', entry.professionalTax) : '',
+    entry.lwfEmployee ? row('Labour Welfare Fund', entry.lwfEmployee) : '',
+  ].join('') + lineRows('DEDUCTION') || '<tr><td class="muted">No deductions</td><td class="amt">₹0.00</td></tr>';
 
   return `
 <div style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:13.5px;line-height:1.6;">
@@ -211,6 +234,7 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
         <tr><th>Employer Contributions</th><th style="text-align:right;">Amount</th></tr>
         ${entry.esiEmployer ? row('ESI (Employer)', entry.esiEmployer) : ''}
         ${entry.pfEmployer ? row('PF (Employer)', entry.pfEmployer) : ''}
+        ${entry.lwfEmployer ? row('Labour Welfare Fund (Employer)', entry.lwfEmployer) : ''}
         <tr><td>CTC (this month)</td><td class="amt">${inr(entry.ctc)}</td></tr>
       </table>
     </div>

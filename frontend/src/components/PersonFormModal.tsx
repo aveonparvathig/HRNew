@@ -18,6 +18,7 @@ const EMPTY = {
   employeeNo: '', designation: '', department: '', joinDate: '', leavingDate: '',
   employmentStatus: 'ACTIVE', biometricId: '', agreementSigned: false,
   agreementSignDate: '', currentMonthlyPackage: '', reasonForLeaving: '',
+  workLocationId: '',
   // personal
   photoData: '', dateOfBirth: '', bloodGroup: '', maritalStatus: '',
   parentSpouseName: '', aadharNo: '',
@@ -230,6 +231,8 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                 <F {...fp} label="Employment status" k="employmentStatus" options={meta.employmentStatuses || []} />
                 <F {...fp} label="Monthly package" k="currentMonthlyPackage" unit="₹" />
                 <F {...fp} label="Biometric ID" k="biometricId" />
+                <F {...fp} label="Work location" k="workLocationId"
+                  options={(meta.workLocations || []).map((l: any) => ({ value: l.id, label: `${l.name} — ${l.state}` }))} />
                 {isExit && <F {...fp} label="Relieving date" k="leavingDate" type="date" />}
               </div>
               {isExit && (

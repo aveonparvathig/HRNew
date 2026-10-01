@@ -11,6 +11,7 @@ import { formatINR, formatDate } from '../../utils/format';
 import { PEOPLE_STAGE_TONES, stageLabel } from './PeopleList';
 import { expensesAPI } from '../../api/expenses';
 import { payrollAPI } from '../../api/payroll';
+import SalaryRevisionsCard from '../../components/SalaryRevisionsCard';
 import { EXPENSE_STATUS_TONES } from '../Expenses/ExpensesList';
 
 const DOC_BADGES: Record<string, string> = {
@@ -357,6 +358,10 @@ export default function PersonDetail() {
             </table>
           </div>
         </div>
+      )}
+
+      {!isIntern && canManagePeople && person.isEmployee && (
+        <SalaryRevisionsCard person={person} onChanged={fetchData} />
       )}
 
       {/* Payslip history */}

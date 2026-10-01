@@ -4,6 +4,9 @@ import { AppError } from '../middleware/errorHandler';
 import { DOC_TYPES, renderLetter } from '../services/letterTemplates';
 import { orgBrand } from '../services/orgBrand';
 import { loadActor } from '../middleware/roles';
+import { actorName } from '../services/payroll/audit';
+import { currentPeriodIST } from '../services/payroll/salaryStructure';
+import { syncDraftPackages } from '../services/payroll/draftSync';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -167,6 +170,7 @@ function personData(b: any) {
     agreementSignDate: dateOrNull(b.agreementSignDate),
     currentMonthlyPackage: Number(b.currentMonthlyPackage) || 0,
     reasonForLeaving: str(b.reasonForLeaving),
+    workLocationId: b.workLocationId || null,
     // Bank & statutory
     bankName: str(b.bankName),
     bankAccountNumber: str(b.bankAccountNumber),
@@ -216,6 +220,14 @@ async function validatePipelineFields(orgId: string, b: any) {
   }
 }
 
+async function validateWorkLocation(orgId: string, b: any) {
+  if (!b.workLocationId) return;
+  const location = await prisma.workLocation.findFirst({
+    where: { id: b.workLocationId, organizationId: orgId },
+  });
+  if (!location) throw new AppError(400, 'Work location not found');
+}
+
 export const peopleController = {
   async getMeta(req: any, res: Response) {
     const orgId = req.user?.organizationId;
@@ -237,6 +249,11 @@ export const peopleController = {
       employmentStatuses: EMPLOYMENT_STATUSES,
       bloodGroups: BLOOD_GROUPS,
       maritalStatuses: MARITAL_STATUSES,
+      workLocations: await prisma.workLocation.findMany({
+        where: { organizationId: orgId, isActive: true },
+        select: { id: true, name: true, state: true },
+        orderBy: { name: 'asc' },
+      }),
       nextEmployeeCode: await nextEmployeeCode(orgId),
     });
   },
@@ -382,6 +399,7 @@ export const peopleController = {
     await checkDuplicateName(orgId, b.kind, name);
     await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim());
     await validatePipelineFields(orgId, b);
+    await validateWorkLocation(orgId, b);
     // Added without a pipeline stage = direct employee; with an active
     // stage = candidate in hiring (auto-promotes on Selected/Joined).
     const stage = str(b.stage);
@@ -442,6 +460,7 @@ export const peopleController = {
       await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim(), person.id);
     }
     await validatePipelineFields(orgId, b);
+    await validateWorkLocation(orgId, b);
 
     const fields = personData({ ...person, ...b });
     Object.assign(data, fields);
@@ -450,6 +469,21 @@ export const peopleController = {
       data.isEmployee = employeeFromStage(str(b.stage), person.isEmployee);
     }
     const updated = await prisma.person.update({ where: { id: person.id }, data });
+    // A package edited on the profile is a salary revision from this month;
+    // the first package ever set is not.
+    if (person.currentMonthlyPackage > 0 && updated.currentMonthlyPackage !== person.currentMonthlyPackage) {
+      await prisma.salaryRevision.create({
+        data: {
+          organizationId: orgId, personId: person.id,
+          effectiveFrom: `${currentPeriodIST()}-01`,
+          oldMonthlyPackage: person.currentMonthlyPackage,
+          newMonthlyPackage: updated.currentMonthlyPackage,
+          reason: 'Edited on employee profile',
+          createdByName: await actorName(req.user?.userId),
+        },
+      });
+      await syncDraftPackages(req, person.id, currentPeriodIST());
+    }
     res.json(updated);
   },
 

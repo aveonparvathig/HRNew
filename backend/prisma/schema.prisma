@@ -41,6 +41,7 @@ model Organization {
   jobOpenings   JobOpening[]
   proposals     ProposalRecord[]
   payrollRuns   PayrollRun[]
+  workLocations WorkLocation[]
 
   @@map("organizations")
 }
@@ -319,6 +320,8 @@ model Person {
   agreementSignDate String?
   currentMonthlyPackage Float @default(0)
   reasonForLeaving String  @default("")
+  // Drives state-wise statutory rules (Professional Tax, Labour Welfare Fund)
+  workLocationId   String?
 
   // Bank & statutory
   bankName          String  @default("")
@@ -352,9 +355,11 @@ model Person {
 
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   appliedFor     JobOpening?      @relation(fields: [appliedForId], references: [id], onDelete: SetNull)
+  workLocation   WorkLocation?    @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
   interviews     InterviewRound[]
   documents      PersonDocument[]
   payslipEntries PayslipEntry[]
+  salaryRevisions SalaryRevision[]
   expenseReports ExpenseReport[]
   user           User?
 
@@ -482,12 +487,24 @@ model PayrollSettings {
   esiEmployeePercent Float @default(0.75)
   esiEmployerPercent Float @default(3.25)
   esiWageCeiling     Float @default(21000)
+  // Off: ESI follows each employee's flag. On: new runs cover everyone
+  // whose wage is within the ceiling, and keep them covered until the
+  // contribution period (Apr–Sep / Oct–Mar) ends.
+  esiAutoCoverage    Boolean @default(false)
 
   pfEmployeePercent         Float   @default(12)
   pfEmployerPercent         Float   @default(12)
   pfWageCap                 Float   @default(15000)
   pfWageFactor              Float   @default(60)
   pfEmployerMatchesEmployee Boolean @default(true)
+  pfRoundToRupee            Boolean @default(false)
+  // Employer-side split and charges — reported, not deducted from pay
+  epsPercent     Float @default(8.33)
+  epsWageCap     Float @default(15000)
+  edliPercent    Float @default(0.5)
+  edliWageCap    Float @default(15000)
+  pfAdminPercent Float @default(0.5)
+  pfAdminMinimum Float @default(500)
 
   updatedAt DateTime @updatedAt
 
@@ -546,8 +563,15 @@ model PayslipEntry {
   esiEmployee    Float   @default(0)
   esiEmployer    Float   @default(0)
   isPfApplicable Boolean @default(false)
+  pfWage         Float   @default(0)
   pfEmployee     Float   @default(0)
   pfEmployer     Float   @default(0)
+
+  // State-wise statutory deductions, from the employee's work location
+  professionalTax Float   @default(0)
+  ptOverridden    Boolean @default(false)
+  lwfEmployee     Float   @default(0)
+  lwfEmployer     Float   @default(0)
 
   totalDeductions       Float @default(0)
   netPayable            Float @default(0)
@@ -562,10 +586,219 @@ model PayslipEntry {
   // Restrict, deliberately: a person with payslip history can never be
   // deleted, only marked inactive.
   person Person     @relation(fields: [personId], references: [id], onDelete: Restrict)
+  lines  PayslipLine[]
 
   @@unique([runId, personId])
   @@index([organizationId])
   @@map("payslip_entries")
+}
+
+// Org-level catalogue of pay components beyond the fixed salary split
+// (bonus, incentive, other deduction, ...). The fixed components — Basic,
+// DA, HRA, Transport, Food, Internet, Arrear, ESI, PF, Advance, TDS — stay
+// as columns on PayslipEntry and are not rows here.
+model PayComponent {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String
+  name           String
+  type           String // EARNING | DEDUCTION
+  taxable        Boolean  @default(true)
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  lines PayslipLine[]
+
+  @@unique([organizationId, code])
+  @@map("pay_components")
+}
+
+// One catalogue component on one payslip. Name and type are snapshots so
+// renaming a component never rewrites an issued payslip.
+model PayslipLine {
+  id             String @id @default(cuid())
+  organizationId String
+  entryId        String
+  componentId    String
+  name           String
+  type           String // EARNING | DEDUCTION
+  amount         Float
+  remarks        String @default("")
+
+  entry     PayslipEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  component PayComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@unique([entryId, componentId])
+  @@index([organizationId])
+  @@map("payslip_lines")
+}
+
+// Salary history. A revision applies to payroll runs for the month of
+// effectiveFrom and later.
+model SalaryRevision {
+  id                String   @id @default(cuid())
+  organizationId    String
+  personId          String
+  effectiveFrom     String // "YYYY-MM-DD", always the first of a month
+  oldMonthlyPackage Float
+  newMonthlyPackage Float
+  reason            String   @default("")
+  createdByName     String   @default("")
+  createdAt         DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@map("salary_revisions")
+}
+
+// Professional Tax rules for one state from a given month. MONTHLY states
+// pick a slab from the month's gross. HALF_YEARLY states (Tamil Nadu) pick
+// one from the half-year's gross (Apr–Sep / Oct–Mar) and recover it either
+// spread over the months or as a lump sum in the listed months.
+model PtPolicy {
+  id             String   @id @default(cuid())
+  organizationId String
+  state          String
+  effectiveFrom  String // "YYYY-MM"
+  frequency      String // MONTHLY | HALF_YEARLY
+  deductionMode  String   @default("SPREAD") // SPREAD | LUMP_SUM (half-yearly only)
+  deductionMonths String  @default("") // LUMP_SUM: month numbers, e.g. "9,3"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  slabs PtSlab[]
+
+  @@unique([organizationId, state, effectiveFrom])
+  @@map("pt_policies")
+}
+
+model PtSlab {
+  id         String @id @default(cuid())
+  policyId   String
+  incomeFrom Float
+  incomeTo   Float? // null = no upper limit
+  amount     Float
+
+  policy PtPolicy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+  @@map("pt_slabs")
+}
+
+// Labour Welfare Fund contribution for one state from a given month,
+// collected in the listed months (e.g. "12" for once a year in December).
+model LwfPolicy {
+  id              String   @id @default(cuid())
+  organizationId  String
+  state           String
+  effectiveFrom   String // "YYYY-MM"
+  employeeAmount  Float
+  employerAmount  Float
+  deductionMonths String // month numbers, e.g. "12" or "6,12"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([organizationId, state, effectiveFrom])
+  @@map("lwf_policies")
+}
+
+// A payment made to a statutory authority for a payroll month.
+model Remittance {
+  id             String   @id @default(cuid())
+  organizationId String
+  period         String // "YYYY-MM" the dues belong to
+  type           String // PF | ESI | PT | LWF
+  amount         Float
+  paidOn         String // "YYYY-MM-DD"
+  reference      String   @default("")
+  bankName       String   @default("")
+  remarks        String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, period])
+  @@map("remittances")
+}
+
+// Company registrations and the people named on statutory returns
+// (quarterly TDS return, Form 16). One row per organization.
+model OrgStatutoryProfile {
+  organizationId String @id
+
+  // Registrations
+  panNumber         String @default("")
+  tanNumber         String @default("")
+  pfCode            String @default("")
+  esiCode           String @default("")
+  ptRegistrationNo  String @default("")
+  lwfRegistrationNo String @default("")
+
+  // TDS return
+  deductorType     String @default("")
+  tdsCircleAddress String @default("")
+
+  // Person responsible for deducting tax
+  responsibleName        String @default("")
+  responsibleDesignation String @default("")
+  responsiblePan         String @default("")
+  responsibleAddress     String @default("")
+  responsibleEmail       String @default("")
+  responsiblePhone       String @default("")
+
+  // Form 16 signatory
+  form16SignatoryName        String @default("")
+  form16SignatoryFatherName  String @default("")
+  form16SignatoryDesignation String @default("")
+  form16SigningPlace         String @default("")
+
+  updatedAt DateTime @updatedAt
+
+  @@map("org_statutory_profiles")
+}
+
+model WorkLocation {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  city           String   @default("")
+  state          String
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  people       Person[]
+
+  @@unique([organizationId, name])
+  @@map("work_locations")
+}
+
+// Append-only trail of payroll changes. runId/entryId/personId are plain
+// columns (no foreign keys) and period/personName are snapshots, so the
+// trail survives deleting the run or entry it describes.
+model PayrollAuditLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  runId          String?
+  entryId        String?
+  personId       String?
+  period         String   @default("")
+  personName     String   @default("")
+  userId         String?
+  userName       String   @default("")
+  action         String
+  field          String   @default("")
+  oldValue       String   @default("")
+  newValue       String   @default("")
+  source         String   @default("MANUAL") // MANUAL | IMPORT | REVISION
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([runId])
+  @@map("payroll_audit_logs")
 }
 
 // ---------------------------------------------------------------------------

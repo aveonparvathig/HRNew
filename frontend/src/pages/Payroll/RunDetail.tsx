@@ -26,6 +26,11 @@ export default function RunDetail() {
   const [attFileName, setAttFileName] = useState('');
   const [attResult, setAttResult] = useState<any>(null);
   const [attBusy, setAttBusy] = useState(false);
+  const [components, setComponents] = useState<any[]>([]);
+
+  useEffect(() => {
+    payrollAPI.getComponents().then(res => setComponents(res.data.components)).catch(() => {});
+  }, []);
 
   const handleAttFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -99,6 +104,9 @@ export default function RunDetail() {
       isEsiEligible: entry.isEsiEligible,
       isPfApplicable: entry.isPfApplicable,
       remarks: entry.remarks,
+      lines: (entry.lines || []).map((l: any) => ({ componentId: l.componentId, amount: l.amount })),
+      professionalTax: entry.professionalTax,
+      ptTouched: false,
     });
     setEntryModal(entry);
   };
@@ -107,7 +115,15 @@ export default function RunDetail() {
     e.preventDefault();
     setSaving(true);
     try {
-      await payrollAPI.updateEntry(entryModal.id, form);
+      // Blank lines (nothing picked, nothing typed) are dropped rather than rejected
+      // Professional Tax is sent only when edited: a number overrides the
+      // computed amount, blank hands it back to the calculation.
+      const { ptTouched, professionalTax, ...rest } = form;
+      await payrollAPI.updateEntry(entryModal.id, {
+        ...rest,
+        ...(ptTouched ? { professionalTax } : {}),
+        lines: (form.lines || []).filter((l: any) => l.componentId || Number(l.amount)),
+      });
       setEntryModal(null);
       setError('');
       fetchData();
@@ -137,6 +153,34 @@ export default function RunDetail() {
     a.download = `payroll-${run.period}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  // PF ECR text file / ESI contribution sheet for the government portals
+  const downloadFile = async (kind: 'pf-ecr' | 'esi-upload') => {
+    try {
+      const { data: file } = await payrollAPI.getRunFile(run.id, kind);
+      const missing = kind === 'pf-ecr' ? 'UAN' : 'ESI number';
+      const left = file.skipped.length ? ` Left out for want of a ${missing}: ${file.skipped.join(', ')}.` : '';
+      if (file.members === 0) {
+        setSuccess('');
+        setError(`No ${kind === 'pf-ecr' ? 'PF' : 'ESI'} members to include in the file.${left}`);
+        return;
+      }
+      const blob = file.base64
+        ? new Blob([Uint8Array.from(atob(file.base64), c => c.charCodeAt(0))],
+          { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        : new Blob([file.content], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = file.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      setError('');
+      setSuccess(`${file.filename} downloaded with ${file.members} member${file.members === 1 ? '' : 's'}.${left}`);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Could not prepare the file');
+    }
   };
 
   const handleDeleteRun = async () => {
@@ -178,12 +222,17 @@ export default function RunDetail() {
 
   // ---- Payout composition: where the gross goes ----
   const compSum = (f: string) => run.entries.reduce((s: number, e: any) => s + (e[f] || 0), 0);
+  const otherDeductions = run.entries.reduce((s: number, e: any) =>
+    s + (e.lines || []).filter((l: any) => l.type === 'DEDUCTION').reduce((t: number, l: any) => t + l.amount, 0), 0);
   const segments = [
     { label: 'Net pay', value: t.net, color: 'var(--success-dot, #129D61)' },
     { label: 'PF', value: compSum('pfEmployee'), color: 'var(--primary, #5A5FE0)' },
     { label: 'ESI', value: compSum('esiEmployee'), color: '#0E9CB8' },
     { label: 'Advance', value: compSum('salaryAdvance'), color: '#F79009' },
     { label: 'TDS', value: compSum('tds'), color: '#B42318' },
+    { label: 'Professional Tax', value: compSum('professionalTax'), color: '#7A5AF8' },
+    { label: 'LWF', value: compSum('lwfEmployee'), color: '#15B79E' },
+    { label: 'Other deductions', value: otherDeductions, color: '#667085' },
   ].filter(s => s.value > 0.5);
   const netShare = t.gross > 0 ? (t.net / t.gross) * 100 : 0;
 
@@ -197,13 +246,11 @@ export default function RunDetail() {
 
       <PageHeader
         title={`Payroll — ${monthLabel(run.period)}`}
-        subtitle={`${t.employees} employees · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
+        subtitle={`FY ${run.financialYear} · ${t.employees} employees · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
         actions={
           <>
             <StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />
             <button className="btn btn-secondary" onClick={handleExport}>⤓ Register</button>
-            <Link to={`/payroll/runs/${run.id}/reports/pf-esi`} className="btn btn-secondary">▤ PF &amp; ESI</Link>
-            <Link to={`/payroll/runs/${run.id}/reports/comparison`} className="btn btn-secondary">⇄ vs Prev Month</Link>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
             </Link>
@@ -241,13 +288,51 @@ export default function RunDetail() {
         </div>
       )}
 
+      {run.checks?.length > 0 && (
+        <div className="alert alert-warning" style={{ alignItems: 'flex-start' }}>
+          <span>⚠</span>
+          <div style={{ flex: 1 }}>
+            <strong>Check before finalizing</strong>
+            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+              {run.checks.filter((c: any) => c.code !== 'NO_WORK_LOCATION').map((c: any) => (
+                <li key={`${c.entryId}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
+              ))}
+              {/* One line for everyone missing a location, not one each */}
+              {run.checks.some((c: any) => c.code === 'NO_WORK_LOCATION') && (() => {
+                const names = run.checks.filter((c: any) => c.code === 'NO_WORK_LOCATION').map((c: any) => c.personName);
+                return (
+                  <li>
+                    <strong>{names.length} with no work location</strong> — Professional Tax and Labour Welfare
+                    Fund are not applied to them: {names.join(', ')}.
+                  </li>
+                );
+              })()}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <div className="run-reports">
+        <span className="text-muted">Reports</span>
+        {[
+          ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
+          ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
+          ['comparison', 'vs Prev Month'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
+        ].map(([kind, label]) => (
+          <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="btn btn-secondary btn-sm">{label}</Link>
+        ))}
+        <span className="text-muted" style={{ marginLeft: 8 }}>Portal files</span>
+        <button className="btn btn-secondary btn-sm" onClick={() => downloadFile('pf-ecr')}>⤓ PF ECR</button>
+        <button className="btn btn-secondary btn-sm" onClick={() => downloadFile('esi-upload')}>⤓ ESI Sheet</button>
+      </div>
+
       <div className="stat-grid">
         <StatCard label="Gross Salary" value={formatINR(t.gross)} icon="▤" tone="primary"
           trend={trendChip(t.gross, run.prev?.totals?.gross)}
           sub={`${t.employees} employees on the roster`} />
         <StatCard label="Deductions" value={formatINR(t.deductions)}
           trend={trendChip(t.deductions, run.prev?.totals?.deductions, true)}
-          sub="ESI + PF + advances + TDS" icon="−" tone="warning" />
+          sub="ESI, PF, taxes, advances and other deductions" icon="−" tone="warning" />
         <StatCard label="Net Payable" value={formatINR(t.net)} icon="₹" tone="success"
           trend={trendChip(t.net, run.prev?.totals?.net)}
           sub={t.gross > 0 ? `${netShare.toFixed(1)}% of gross reaches employees` : undefined} />
@@ -399,7 +484,48 @@ export default function RunDetail() {
             </div>
 
             <div className="form-section">
-              <div className="form-section-title"><span className="step-dot">3</span> Overrides</div>
+              <div className="form-section-title"><span className="step-dot">3</span> Other earnings &amp; deductions</div>
+              {(form.lines || []).map((line: any, i: number) => {
+                const taken = new Set((form.lines || []).map((l: any) => l.componentId));
+                const setLine = (patch: any) => setForm({
+                  ...form, lines: form.lines.map((l: any, j: number) => (j === i ? { ...l, ...patch } : l)),
+                });
+                return (
+                  <div key={i} className="line-row">
+                    <select className="select" value={line.componentId}
+                      onChange={e => setLine({ componentId: e.target.value })}>
+                      <option value="">Pick a component…</option>
+                      {['EARNING', 'DEDUCTION'].map(type => (
+                        <optgroup key={type} label={type === 'EARNING' ? 'Earnings' : 'Deductions'}>
+                          {components
+                            .filter(c => c.type === type && (c.isActive || c.id === line.componentId)
+                              && (c.id === line.componentId || !taken.has(c.id)))
+                            .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </optgroup>
+                      ))}
+                    </select>
+                    <div className="input-unit"><span className="unit">₹</span>
+                      <input className="input" type="number" min={0} step="0.01" value={line.amount}
+                        onChange={e => setLine({ amount: e.target.value })} />
+                    </div>
+                    <button type="button" className="btn btn-ghost btn-sm" aria-label="Remove line"
+                      onClick={() => setForm({ ...form, lines: form.lines.filter((_: any, j: number) => j !== i) })}>
+                      ✕
+                    </button>
+                  </div>
+                );
+              })}
+              <button type="button" className="btn btn-secondary btn-sm"
+                onClick={() => setForm({ ...form, lines: [...(form.lines || []), { componentId: '', amount: '' }] })}>
+                + Add line
+              </button>
+              <span className="hint" style={{ display: 'block', marginTop: 8 }}>
+                Bonus, incentive, other deduction and the like. PF and ESI are not calculated on these.
+              </span>
+            </div>
+
+            <div className="form-section">
+              <div className="form-section-title"><span className="step-dot">4</span> Overrides</div>
               <div className="form-grid" style={{ marginBottom: 12 }}>
                 <div className="field">
                   <label>Monthly package (snapshot)</label>
@@ -407,6 +533,14 @@ export default function RunDetail() {
                     <input className="input" type="number" min={0} step="0.01" value={form.monthlyPackage}
                       onChange={e => setForm({ ...form, monthlyPackage: e.target.value })} />
                   </div>
+                </div>
+                <div className="field">
+                  <label>Professional Tax{entryModal.ptOverridden ? ' (entered by hand)' : ''}</label>
+                  <div className="input-unit"><span className="unit">₹</span>
+                    <input className="input" type="number" min={0} step="0.01" value={form.professionalTax}
+                      onChange={e => setForm({ ...form, professionalTax: e.target.value, ptTouched: true })} />
+                  </div>
+                  <span className="hint">Worked out from the state policy. Type an amount to override it; clear the box to go back.</span>
                 </div>
                 <div className="field">
                   <label>Remarks</label>
