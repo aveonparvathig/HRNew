@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   payAmount, paymentModeOf, hasBankDetails, runStage, prePayrollChecks, bankFileCsv,
   jvAccounts, journalVoucher, payrollReconciliation, headcountMovement, payrollAnomalies,
-  duplicateGroups, nextRunDefaults,
+  duplicateGroups, nextRunDefaults, payableOutside, paidOutside, outsidePayDate,
 } from '../payroll/payoutCalc';
 import { computeEntry } from '../payrollCalc';
 
@@ -262,5 +262,32 @@ describe('next run', () => {
     expect(nextRunDefaults('2026-10', 31)).toEqual({ period: '2026-11', totalWorkingDays: 30 });
     expect(nextRunDefaults('2027-01', 31)).toEqual({ period: '2027-02', totalWorkingDays: 28 });
     expect(nextRunDefaults('2027-01', 30)).toEqual({ period: '2027-02', totalWorkingDays: 28 }); // February has only 28
+  });
+});
+
+describe('paid outside the system', () => {
+  const entries = [
+    entry('1', 'Asha', 30000),
+    entry('2', 'Bala', 30000, { payStatus: 'HOLD' }),
+    entry('3', 'Chitra', 30000, { payoutBatchId: 'b1' }),
+    entry('4', 'Deepa', 30000, { paidOn: '2026-06-30', payoutBatchId: 'b1' }),
+    entry('5', 'Eswar', 30000, { paidOn: '2026-06-30' }),
+    entry('6', 'Farid', 30000, { netPayable: 0 }),
+  ];
+
+  it('takes only salaries that are unpaid, not held and not in a batch', () => {
+    expect(payableOutside(entries).map(e => e.person.name)).toEqual(['Asha']);
+  });
+
+  it('recognises salaries paid with no batch behind them', () => {
+    expect(paidOutside(entries).map(e => e.person.name)).toEqual(['Eswar']);
+  });
+
+  it('offers the month’s last day for a month that is over, today otherwise', () => {
+    expect(outsidePayDate('2026-06', '2026-10-02')).toBe('2026-06-30');
+    expect(outsidePayDate('2026-02', '2026-10-02')).toBe('2026-02-28');
+    expect(outsidePayDate('2028-02', '2028-10-02')).toBe('2028-02-29');
+    expect(outsidePayDate('2026-10', '2026-10-02')).toBe('2026-10-02');
+    expect(outsidePayDate('2026-09', '2026-09-30')).toBe('2026-09-30');
   });
 });

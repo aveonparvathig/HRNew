@@ -18,6 +18,7 @@ const regimeLabel = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New 
 const CONFIG_NUMBERS = [
   'standardDeduction', 'rebateIncomeLimit', 'rebateMaxAmount', 'cessPercent',
   'seniorExemption', 'superSeniorExemption', 'section80CLimit', 'housingInterestLimit',
+  'professionalTaxLimit',
 ];
 const CONFIG_FLAGS = ['rebateMarginalRelief', 'allowsExemptions'];
 // What the tax forms are called; the Income-tax Act, 2025 renumbers them

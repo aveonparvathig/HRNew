@@ -24,6 +24,7 @@ export interface TaxConfigLike {
   allowsExemptions: boolean;
   section80CLimit: number;
   housingInterestLimit: number;
+  professionalTaxLimit: number; // 0 = no limit
   slabs: TaxSlabLike[];
 }
 
@@ -34,7 +35,7 @@ export const DEFAULT_TAX_CONFIGS: TaxConfigLike[] = [
     regime: 'NEW', standardDeduction: 75000,
     rebateIncomeLimit: 1200000, rebateMaxAmount: 60000, rebateMarginalRelief: true,
     cessPercent: 4, seniorExemption: 0, superSeniorExemption: 0,
-    allowsExemptions: false, section80CLimit: 150000, housingInterestLimit: 200000,
+    allowsExemptions: false, section80CLimit: 150000, housingInterestLimit: 200000, professionalTaxLimit: 2500,
     slabs: [
       { incomeFrom: 0, incomeTo: 400000, ratePercent: 0, surchargePercent: 0 },
       { incomeFrom: 400001, incomeTo: 800000, ratePercent: 5, surchargePercent: 0 },
@@ -52,7 +53,7 @@ export const DEFAULT_TAX_CONFIGS: TaxConfigLike[] = [
     regime: 'OLD', standardDeduction: 50000,
     rebateIncomeLimit: 500000, rebateMaxAmount: 12500, rebateMarginalRelief: false,
     cessPercent: 4, seniorExemption: 300000, superSeniorExemption: 500000,
-    allowsExemptions: true, section80CLimit: 150000, housingInterestLimit: 200000,
+    allowsExemptions: true, section80CLimit: 150000, housingInterestLimit: 200000, professionalTaxLimit: 2500,
     slabs: [
       { incomeFrom: 0, incomeTo: 250000, ratePercent: 0, surchargePercent: 0 },
       { incomeFrom: 250001, incomeTo: 500000, ratePercent: 5, surchargePercent: 0 },
@@ -220,9 +221,12 @@ function yearTax(inp: TdsInputs, currentGross: number) {
       (profile.isMetro ? 0.5 : 0.4) * salaryForHra,
     )))
     : 0;
-  const professionalTax = config.allowsExemptions
-    ? r2(sumOf(months, 'professionalTax') + inp.current.professionalTax * n)
-    : 0;
+  // Professional Tax paid and expected, up to the year's limit. The limit
+  // also keeps a half-yearly deduction from being projected over every
+  // month still to come.
+  const ptForYear = r2(sumOf(months, 'professionalTax') + inp.current.professionalTax * n);
+  const professionalTax = !config.allowsExemptions ? 0
+    : config.professionalTaxLimit > 0 ? Math.min(ptForYear, config.professionalTaxLimit) : ptForYear;
   const standardDeduction = Math.min(config.standardDeduction, Math.max(0, grossSalary - hraExemption));
   const incomeFromSalary = Math.max(0, r2(grossSalary - hraExemption - standardDeduction - professionalTax));
 

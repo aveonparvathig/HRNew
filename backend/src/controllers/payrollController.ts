@@ -370,6 +370,10 @@ export const payrollController = {
     if (batches > 0) {
       throw new AppError(400, 'Salaries of this run are in a payment batch. Delete its payment batches before reopening.');
     }
+    const paid = await prisma.payslipEntry.count({ where: { runId: run.id, paidOn: { not: null } } });
+    if (paid > 0) {
+      throw new AppError(400, 'Salaries of this run are marked as paid. Undo that on the Payout page before reopening.');
+    }
     const arrears = await prisma.arrearItem.count({ where: { status: 'OPEN', sourceEntry: { runId: run.id } } });
     if (arrears > 0) {
       throw new AppError(400, 'Arrears have been raised for this month. Cancel them on the Arrears page before reopening.');
