@@ -16,6 +16,7 @@ import PersonLoansCard from '../../components/PersonLoansCard';
 import PersonTaxCard from '../../components/PersonTaxCard';
 import PersonPayCard from '../../components/PersonPayCard';
 import { EXPENSE_STATUS_TONES } from '../Expenses/ExpensesList';
+import { confirmDialog } from '../../components/feedback';
 
 const DOC_BADGES: Record<string, string> = {
   EMPLOYMENT_OFFER: 'badge-info',
@@ -95,7 +96,7 @@ export default function PersonDetail() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete ${person.name} and their interview records?`)) return;
+    if (!await confirmDialog(`Delete ${person.name} and their interview records?`)) return;
     try {
       await peopleAPI.deletePerson(person.id);
       navigate('/people');
@@ -129,7 +130,7 @@ export default function PersonDetail() {
   };
 
   const handleDeleteInterview = async (interview: any) => {
-    if (!window.confirm(`Remove "${interview.roundName}"?`)) return;
+    if (!await confirmDialog(`Remove "${interview.roundName}"?`)) return;
     try {
       await peopleAPI.deleteInterview(interview.id);
       fetchData();

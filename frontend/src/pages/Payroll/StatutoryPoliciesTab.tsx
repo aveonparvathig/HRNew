@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
 import { formatINR } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -87,7 +88,7 @@ export default function StatutoryPoliciesTab() {
   };
 
   const remove = async (label: string, call: () => Promise<any>) => {
-    if (!window.confirm(`Delete the ${label}?`)) return;
+    if (!await confirmDialog(`Delete the ${label}?`)) return;
     try {
       await call();
       fetchData();

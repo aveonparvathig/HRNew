@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
-import { PageHeader, LoadingBlock, ErrorAlert, BackButton } from '../../components/ui';
+import { PageHeader, LoadingBlock, ErrorAlert, BackButton, SuccessAlert } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -187,12 +188,7 @@ export default function SettlementForm() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
       {locked && (
         <div className="alert alert-warning">
           <span>🔒</span>
@@ -303,7 +299,7 @@ export default function SettlementForm() {
           {saved && !locked && loansLater > 0 && (
             <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} disabled={busy === 'loans'}
               onClick={async () => {
-                if (!window.confirm(`Bring the whole loan balance into ${monthLabel(saved.period)} so the last payslip recovers it?`)) return;
+                if (!await confirmDialog(`Bring the whole loan balance into ${monthLabel(saved.period)} so the last payslip recovers it?`)) return;
                 if (await act('loans', () => payrollAPI.recoverSettlementLoans(saved.id))) reload(saved.id);
               }}>
               Recover the Loan Balance in {monthLabel(form.period)}
@@ -329,7 +325,7 @@ export default function SettlementForm() {
               {saved && (
                 <button type="button" className="btn btn-danger" disabled={busy === 'delete'}
                   onClick={async () => {
-                    if (!window.confirm('Delete this settlement? Its lines come off the draft payslip.')) return;
+                    if (!await confirmDialog('Delete this settlement? Its lines come off the draft payslip.')) return;
                     if (await act('delete', () => payrollAPI.deleteSettlement(saved.id))) navigate('/payroll/adjustments?tab=settlements');
                   }}>
                   Delete

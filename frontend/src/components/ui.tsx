@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
-import { useRef } from 'react';
+import type { ReactNode, RefObject } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from './feedback';
 
 export function BackButton({ fallback = '/dashboard' }: { fallback?: string }) {
   const navigate = useNavigate();
@@ -20,6 +21,12 @@ export function PageHeader({ title, subtitle, actions }: {
   subtitle?: string;
   actions?: ReactNode;
 }) {
+  // The browser tab and history entries carry the page's name
+  useEffect(() => {
+    document.title = `${title} · Aveon HR`;
+    return () => { document.title = 'Aveon HR'; };
+  }, [title]);
+
   return (
     <div className="page-header">
       <div>
@@ -98,12 +105,54 @@ export function LoadingBlock({ label = 'Loading…' }: { label?: string }) {
   );
 }
 
+// A message that appears where the user cannot see it (scrolled away, or
+// behind an open dialog) is repeated as a toast, so the result of an action
+// is never missed and the page does not jump.
+function useAnnounce(textRef: RefObject<HTMLElement | null>, tone: 'success' | 'error') {
+  const last = useRef('');
+  useEffect(() => {
+    const el = textRef.current;
+    const text = el?.textContent?.trim() || '';
+    if (el && text && text !== last.current) {
+      const box = el.getBoundingClientRect();
+      const onScreen = box.bottom > 0 && box.top < window.innerHeight;
+      const dialog = document.querySelector('.modal-overlay');
+      const covered = Boolean(dialog && !dialog.contains(el));
+      if (!onScreen || covered) toast[tone](text);
+    }
+    last.current = text;
+  });
+}
+
 export function ErrorAlert({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  useAnnounce(textRef, 'error');
   if (!message) return null;
   return (
-    <div className="alert alert-error">
+    <div className="alert alert-error" role="alert">
       <span>⚠</span>
-      <span style={{ flex: 1 }}>{message}</span>
+      <span style={{ flex: 1 }} ref={textRef}>{message}</span>
+      {onDismiss && (
+        <button className="modal-close" onClick={onDismiss} aria-label="Dismiss">✕</button>
+      )}
+    </div>
+  );
+}
+
+// The result of an action. Pass the text as `message`, or richer content
+// (a link to what was created) as children.
+export function SuccessAlert({ message, children, onDismiss }: {
+  message?: string;
+  children?: ReactNode;
+  onDismiss?: () => void;
+}) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  useAnnounce(textRef, 'success');
+  if (!message && !children) return null;
+  return (
+    <div className="alert alert-success" role="status">
+      <span>✓</span>
+      <span style={{ flex: 1 }} ref={textRef}>{children ?? message}</span>
       {onDismiss && (
         <button className="modal-close" onClick={onDismiss} aria-label="Dismiss">✕</button>
       )}
@@ -122,6 +171,41 @@ export function Modal({ title, open, onClose, children, size }: {
   // otherwise selecting text in an input and releasing outside the dialog
   // registers as a backdrop click and throws away the user's work.
   const pressedBackdrop = useRef(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; });
+
+  // While open: Escape closes, Tab stays inside the dialog, the page behind
+  // does not scroll, and focus returns to where it was on close.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.contains(document.activeElement)) dialog.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { closeRef.current(); return; }
+      if (e.key !== 'Tab' || !dialog) return;
+      const stops = Array.from(dialog.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )).filter(el => el.offsetParent !== null);
+      if (stops.length === 0) return;
+      const first = stops[0];
+      const lastStop = stops[stops.length - 1];
+      if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        e.preventDefault(); lastStop.focus();
+      } else if (!e.shiftKey && document.activeElement === lastStop) {
+        e.preventDefault(); first.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    document.body.classList.add('modal-open');
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      if (!document.querySelector('.modal-overlay')) document.body.classList.remove('modal-open');
+      previous?.focus?.();
+    };
+  }, [open]);
+
   if (!open) return null;
   return (
     <div className="modal-overlay"
@@ -130,13 +214,57 @@ export function Modal({ title, open, onClose, children, size }: {
         if (pressedBackdrop.current && e.target === e.currentTarget) onClose();
         pressedBackdrop.current = false;
       }}>
-      <div className={`modal ${size === 'lg' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()}>
+      <div className={`modal ${size === 'lg' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()}
+        ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="modal-body">{children}</div>
       </div>
+    </div>
+  );
+}
+
+// A button that opens a short list of links or actions. Children are
+// elements with the class "menu-item"; "menu-heading" titles a group.
+export function Menu({ label, children, wide }: { label: ReactNode; children: ReactNode; wide?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // The panel opens under the button's left edge unless that would run off
+  // the right of the window
+  const toggle = () => {
+    const left = ref.current?.getBoundingClientRect().left ?? 0;
+    setAlignRight(left + (wide ? 400 : 240) > window.innerWidth - 12);
+    setOpen(o => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="menu" ref={ref}>
+      <button className="btn btn-secondary" aria-haspopup="menu" aria-expanded={open} onClick={toggle}>
+        {label}
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"
+          strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <div className={`menu-panel${wide ? ' menu-wide' : ''}${alignRight ? ' menu-right' : ''}`} role="menu" onClick={() => setOpen(false)}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }

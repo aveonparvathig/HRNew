@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, Modal, StatusBadge } from '../../components/ui';
+import { confirmDialog } from '../../components/feedback';
 
 const EMPTY = { name: '', type: 'EARNING', taxable: true, isActive: true };
 
@@ -47,7 +48,7 @@ export default function PayComponentsTab() {
   };
 
   const handleDelete = async (component: any) => {
-    if (!window.confirm(`Delete the component "${component.name}"?`)) return;
+    if (!await confirmDialog(`Delete the component "${component.name}"?`)) return;
     try {
       await payrollAPI.deleteComponent(component.id);
       fetchData();

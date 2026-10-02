@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, Modal, StatusBadge } from '../../components/ui';
 import { formatINR } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const EMPTY = { name: '', section: '', sectionNew: '', group: 'OTHER', maxAmount: '', deductPercent: 100, isActive: true };
 
@@ -52,7 +53,7 @@ export default function DeclarationItemsTab() {
   };
 
   const handleDelete = async (item: any) => {
-    if (!window.confirm(`Delete "${item.name}"?`)) return;
+    if (!await confirmDialog(`Delete "${item.name}"?`)) return;
     try {
       await payrollAPI.deleteDeclarationItem(item.id);
       fetchData();

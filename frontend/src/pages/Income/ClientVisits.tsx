@@ -6,6 +6,7 @@ import {
   PageHeader, StatCard, ErrorAlert, LoadingBlock, EmptyState, Modal, BackButton,
 } from '../../components/ui';
 import { formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 const today = () => new Date().toISOString().split('T')[0];
@@ -84,7 +85,7 @@ export default function ClientVisits() {
   };
 
   const handleDelete = async (v: any) => {
-    if (!window.confirm(`Delete the ${formatDate(v.visitDate)} visit to ${v.client?.name}?`)) return;
+    if (!await confirmDialog(`Delete the ${formatDate(v.visitDate)} visit to ${v.client?.name}?`)) return;
     try {
       await incomeAPI.deleteVisit(v.id);
       fetchData();

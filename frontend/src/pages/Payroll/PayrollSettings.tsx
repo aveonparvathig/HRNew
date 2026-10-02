@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
-import { PageHeader, LoadingBlock, ErrorAlert, BackButton,
-} from '../../components/ui';
+import { PageHeader, LoadingBlock, ErrorAlert, BackButton, SuccessAlert } from '../../components/ui';
 import StatutoryProfileTab from './StatutoryProfileTab';
 import WorkLocationsTab from './WorkLocationsTab';
 import PayComponentsTab from './PayComponentsTab';
@@ -166,7 +165,7 @@ function RatesTab() {
   return (
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <form onSubmit={handleSave}>
         {GROUPS.map(g => (

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { orgAPI } from '../../api/org';
-import { PageHeader, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { PageHeader, LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 
 // Logos keep transparency: resize to max 512px, PNG
 function resizeLogo(file: File): Promise<string> {
@@ -72,7 +72,7 @@ export default function CompanyProfile() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <form onSubmit={handleSave}>
         <div className="card card-pad mb-24">

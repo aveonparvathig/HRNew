@@ -1,91 +1,17 @@
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { LoadingBlock } from '../ui';
+import CommandPalette from '../CommandPalette';
+import { HOME_ITEM, ICON_PATHS, Icon, activeNav, navSectionsFor } from './nav';
 
-// Stroke icon set (18px grid) — the design system replaces glyph characters.
-const ICON_PATHS: Record<string, React.ReactNode> = {
-  dashboard: <><rect x="3" y="3" width="8" height="10" rx="1.5" /><rect x="14" y="3" width="7" height="6" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="8" height="5" rx="1.5" /></>,
-  chart: <><path d="M4 20V10" /><path d="M10 20V4" /><path d="M16 20v-6" /><path d="M21 20H3" /></>,
-  analytics: <><circle cx="12" cy="12" r="9" /><path d="M12 3v9l6.4 6.4" /></>,
-  building: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M9 8h2M13 8h2M9 12h2M13 12h2M9 16h6" /></>,
-  layers: <><path d="m12 3 9 5-9 5-9-5 9-5Z" /><path d="m3 13 9 5 9-5" /></>,
-  calendar: <><rect x="3" y="5" width="18" height="16" rx="2" /><path d="M8 3v4M16 3v4M3 10h18" /></>,
-  transfer: <><path d="M8 4v12m0 0-3-3m3 3 3-3" /><path d="M16 20V8m0 0-3 3m3-3 3 3" /></>,
-  users: <><circle cx="9" cy="8" r="3.5" /><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" /><circle cx="17" cy="9" r="2.5" /><path d="M21 19c0-2.2-1.8-4-4-4" /></>,
-  kanban: <><rect x="3" y="4" width="5" height="16" rx="1.5" /><rect x="10" y="4" width="5" height="10" rx="1.5" /><rect x="17" y="4" width="5" height="13" rx="1.5" /></>,
-  briefcase: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /></>,
-  receipt: <><path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z" /><path d="M9 8h6M9 12h6" /></>,
-  pen: <><path d="M14 3v5h5" /><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" /><path d="M9 14l2 2 4-4" /></>,
-  history: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
-  browser: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v5" /></>,
-  banknote: <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M7 12h.01M17 12h.01" /></>,
-  sliders: <><path d="M4 8h10M18 8h2M4 16h2M10 16h10" /><circle cx="16" cy="8" r="2.5" /><circle cx="8" cy="16" r="2.5" /></>,
-  home: <><path d="m3 10 9-7 9 7" /><path d="M5 8.5V21h14V8.5" /><path d="M10 21v-6h4v6" /></>,
-  logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>,
-  pin: <><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z" /><circle cx="12" cy="10" r="2.5" /></>,
-  megaphone: <><path d="m3 11 14-6v14L3 13v-2Z" /><path d="M17 8a4 4 0 0 1 0 8" /><path d="M6.5 13.5V19a1.5 1.5 0 0 0 3 0v-4.5" /></>,
+// Which sidebar sections the user opened or closed by hand
+const NAV_STATE_KEY = 'nav-sections';
+const readNavState = (): Record<string, boolean> => {
+  try { return JSON.parse(localStorage.getItem(NAV_STATE_KEY) || '{}') || {}; } catch { return {}; }
 };
 
-function Icon({ name }: { name: string }) {
-  return (
-    <svg className="nav-icon" width="17" height="17" viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-      {ICON_PATHS[name]}
-    </svg>
-  );
-}
-
-const NAV_ITEMS = [
-  { to: '/dashboard', icon: 'dashboard', label: 'Dashboard', end: true },
-];
-
-const INCOME_ITEMS = [
-  { to: '/income', icon: 'chart', label: 'Overview', end: true },
-  { to: '/income/analytics', icon: 'analytics', label: 'Analytics', end: true },
-  { to: '/income/clients', icon: 'building', label: 'Clients', end: false },
-  { to: '/income/implementation', icon: 'layers', label: 'Implementation', end: true },
-  { to: '/income/implementation/visits', icon: 'pin', label: 'Client Visits', end: true },
-  { to: '/income/academic-years', icon: 'calendar', label: 'Billing Periods', end: true },
-  { to: '/income/import-export', icon: 'transfer', label: 'Import / Export', end: true },
-];
-
-const PEOPLE_ITEMS = [
-  { to: '/people', icon: 'users', label: 'People', end: true },
-  { to: '/people/pipeline', icon: 'kanban', label: 'Pipeline', end: true },
-  { to: '/people/openings', icon: 'briefcase', label: 'Job Openings', end: true },
-  { to: '/recruitment', icon: 'megaphone', label: 'Recruitment', end: false },
-  { to: '/expenses', icon: 'receipt', label: 'Expenses', end: false },
-];
-
-const PROPOSAL_ITEMS = [
-  { to: '/proposals', icon: 'pen', label: 'Builder', end: true },
-  { to: '/proposals/history', icon: 'history', label: 'History', end: true },
-  { to: '/proposals/cms-features', icon: 'browser', label: 'CMS Features', end: true },
-];
-
-// Shown to anyone whose login is linked to a person record
-const MY_PAY_ITEMS = [
-  { to: '/my/payslips', icon: 'banknote', label: 'My Payslips', end: false },
-  { to: '/my/declaration', icon: 'pen', label: 'My Tax Declaration', end: true },
-  { to: '/my/loans', icon: 'layers', label: 'My Loans', end: true },
-];
-
-const PAYROLL_ITEMS = [
-  { to: '/payroll', icon: 'banknote', label: 'Runs', end: true },
-  { to: '/payroll/loans', icon: 'layers', label: 'Loans', end: false },
-  { to: '/payroll/adjustments', icon: 'transfer', label: 'Arrears & Settlements', end: false },
-  { to: '/payroll/declarations', icon: 'pen', label: 'Tax Declarations', end: false },
-  { to: '/payroll/tds', icon: 'calendar', label: 'TDS Returns', end: true },
-  { to: '/payroll/reports', icon: 'chart', label: 'Reports', end: false },
-  { to: '/payroll/remittances', icon: 'receipt', label: 'Statutory Payments', end: true },
-  { to: '/payroll/audit-log', icon: 'history', label: 'Audit Log', end: true },
-  { to: '/payroll/settings', icon: 'sliders', label: 'Settings', end: true },
-];
-
-const ORG_ITEMS = [
-  { to: '/organization', icon: 'home', label: 'Company Profile', end: true },
-  { to: '/organization/team', icon: 'users', label: 'Team', end: true },
-];
+const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 export default function AppLayout() {
   const navigate = useNavigate();
@@ -93,39 +19,73 @@ export default function AppLayout() {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
   const [navOpen, setNavOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [navState, setNavState] = useState<Record<string, boolean>>(readNavState);
+  const navRef = useRef<HTMLElement>(null);
 
-  // Role-based navigation: the API enforces these same rules server-side
-  const role = user?.role || 'SUPER_ADMIN';
-  const isSA = role === 'SUPER_ADMIN';
-  const isHR = role === 'HR';
-  const isMarketing = role === 'MARKETING';
-  const showIncome = isSA || role === 'EMPLOYEE';
-  const incomeItems = INCOME_ITEMS.filter(i =>
-    isSA || !['/income/academic-years', '/income/import-export'].includes(i.to));
-  const peopleItems = PEOPLE_ITEMS.filter(i =>
-    (isSA || isHR) ? true
-      : isMarketing ? i.to === '/expenses' // marketing: own expenses only
-      : ['/people', '/expenses'].includes(i.to));
+  const sections = useMemo(() => navSectionsFor(user), [user]);
+  const active = activeNav(sections, location.pathname);
+  const activeKey = active?.key ?? null;
+  // A short menu is shown whole; a long one opens only the section in use
+  const linkCount = sections.reduce((n, s) => n + s.items.length, 0);
+  const isOpen = (key: string) => navState[key] ?? (linkCount <= 12 || key === activeKey);
 
-  // Close the drawer whenever navigation happens
-  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+  const toggleSection = (key: string) => {
+    const next = { ...navState, [key]: !isOpen(key) };
+    setNavState(next);
+    try { localStorage.setItem(NAV_STATE_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+  };
+
+  // Arriving in a section the user had closed opens it again
+  useEffect(() => {
+    if (!activeKey) return;
+    setNavState(state => (state[activeKey] === false ? { ...state, [activeKey]: true } : state));
+  }, [activeKey]);
+
+  // Each page starts at the top; the drawer closes whenever navigation happens
+  useEffect(() => {
+    setNavOpen(false);
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
+  // The current link is brought into view in a long menu
+  useEffect(() => {
+    navRef.current?.querySelector('.nav-link.active')?.scrollIntoView({ block: 'nearest' });
+  }, [location.pathname, activeKey]);
+
+  // Ctrl+K (⌘K on a Mac) opens the quick search from anywhere
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchOpen(open => !open);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const initials = (user?.email?.[0] || 'U').toUpperCase();
+  const initials = (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
 
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main">Skip to content</a>
+
       <header className="mobile-topbar">
         <button className="hamburger" onClick={() => setNavOpen(true)} aria-label="Open menu">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
             strokeWidth="2.2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <span className="brand-mark">₹</span>
-        Aveon HR
+        <span style={{ flex: 1 }}>Aveon HR</span>
+        <button className="hamburger" onClick={() => setSearchOpen(true)} aria-label="Search">
+          <Icon name="search" size={20} className="" />
+        </button>
       </header>
 
       {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
@@ -139,81 +99,37 @@ export default function AppLayout() {
           </span>
         </div>
 
-        <nav className="sidebar-nav">
-          {NAV_ITEMS.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
+        <button className="sidebar-search" onClick={() => { setNavOpen(false); setSearchOpen(true); }}>
+          <Icon name="search" size={15} />
+          <span>Search</span>
+          <kbd>{isMac ? '⌘K' : 'Ctrl K'}</kbd>
+        </button>
 
-          {showIncome && (
-            <>
-              <div className="sidebar-section">Income</div>
-              {incomeItems.map(item => (
-                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-                  <Icon name={item.icon} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </>
-          )}
+        <nav className="sidebar-nav" ref={navRef} aria-label="Main">
+          <NavLink to={HOME_ITEM.to} end className="nav-link">
+            <Icon name={HOME_ITEM.icon} />
+            {HOME_ITEM.label}
+          </NavLink>
 
-          <div className="sidebar-section">{isMarketing ? 'Expenses' : 'People'}</div>
-          {peopleItems.map(item => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-              <Icon name={item.icon} />
-              {item.label}
-            </NavLink>
-          ))}
-
-          {user?.personId && (
-            <>
-              <div className="sidebar-section">My Pay</div>
-              {MY_PAY_ITEMS.map(item => (
-                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-                  <Icon name={item.icon} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          {(isSA || isMarketing) && (
-            <>
-              <div className="sidebar-section">Sales</div>
-              {PROPOSAL_ITEMS.map(item => (
-                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-                  <Icon name={item.icon} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          {(isSA || isHR) && (
-            <>
-              <div className="sidebar-section">Payroll</div>
-              {PAYROLL_ITEMS.map(item => (
-                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-                  <Icon name={item.icon} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </>
-          )}
-
-          {isSA && (
-            <>
-              <div className="sidebar-section">Organization</div>
-              {ORG_ITEMS.map(item => (
-                <NavLink key={item.to} to={item.to} end={item.end} className="nav-link">
-                  <Icon name={item.icon} />
-                  {item.label}
-                </NavLink>
-              ))}
-            </>
-          )}
+          {sections.map(section => {
+            const open = isOpen(section.key);
+            return (
+              <div key={section.key} className="nav-group">
+                <button className={`sidebar-section${section.key === activeKey ? ' current' : ''}`}
+                  onClick={() => toggleSection(section.key)} aria-expanded={open}>
+                  <span>{section.label}</span>
+                  <Icon name="chevron" size={13} className={`section-chevron${open ? ' open' : ''}`} />
+                </button>
+                {open && section.items.map(item => (
+                  <Link key={item.to} to={item.to} className={`nav-link${item.to === active?.to ? ' active' : ''}`}
+                    aria-current={item.to === active?.to ? 'page' : undefined}>
+                    <Icon name={item.icon} />
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            );
+          })}
         </nav>
 
         <div className="sidebar-footer">
@@ -234,7 +150,7 @@ export default function AppLayout() {
               </div>
             </>
           )}
-          <button className="icon-btn" onClick={handleLogout} title="Sign out">
+          <button className="icon-btn" onClick={handleLogout} title="Sign out" aria-label="Sign out">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               {ICON_PATHS.logout}
@@ -244,10 +160,15 @@ export default function AppLayout() {
       </aside>
 
       <div className="app-main">
-        <main className="app-content">
-          <Outlet />
+        <main className="app-content" id="main">
+          {/* A page's code loads on first visit; the menu stays put meanwhile */}
+          <Suspense fallback={<LoadingBlock label="Loading…" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
+
+      {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
     </div>
   );
 }

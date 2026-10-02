@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import { formatINR, collectionTone } from '../../utils/format';
 import { useRole } from '../../store/authStore';
+import { confirmDialog } from '../../components/feedback';
 
 const GST_RATE = 0.18;
 const AGREEMENT_SUGGESTIONS = ['Agreement signed', 'MOU signed', 'Renewal due', 'Pending'];
@@ -183,7 +184,7 @@ export default function ClientsList() {
 
   const handleToggleActive = async (client: any) => {
     const verb = client.isActive ? 'mark inactive (discontinued)' : 'mark active';
-    if (!window.confirm(`${verb.charAt(0).toUpperCase() + verb.slice(1)}: "${client.name}"?`)) return;
+    if (!await confirmDialog(`${verb.charAt(0).toUpperCase() + verb.slice(1)}: "${client.name}"?`)) return;
     try {
       await incomeAPI.toggleClientActive(client.id);
       fetchClients();

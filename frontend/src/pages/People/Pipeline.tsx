@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
 import {
-  PageHeader, EmptyState, LoadingBlock, ErrorAlert,
+  PageHeader, EmptyState, LoadingBlock, ErrorAlert, SuccessAlert,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 
@@ -57,11 +57,7 @@ export default function Pipeline() {
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       {success && (
-        <div className="alert alert-success">
-          <span>✓</span>
-          <span style={{ flex: 1 }}>{success} They now appear under People → Employees.</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
+        <SuccessAlert message={`${success} They now appear under People → Employees.`} onDismiss={() => setSuccess('')} />
       )}
 
       {/* Stage summary chips */}

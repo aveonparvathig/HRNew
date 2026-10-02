@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { ErrorAlert } from './ui';
+import { ErrorAlert, SuccessAlert } from './ui';
 import { formatINR } from '../utils/format';
+import { confirmDialog } from './feedback';
 
 // The calls differ between HR (any employee) and an employee (their own);
 // the page supplies them.
@@ -118,7 +119,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
           </button>
           {canUpload && (
             <button type="button" className="proof-remove" aria-label={`Remove ${p.fileName}`}
-              onClick={() => window.confirm(`Remove ${p.fileName}?`)
+              onClick={async () => await confirmDialog(`Remove ${p.fileName}?`)
                 && run('remove', () => actions.deleteProof(p.id), 'Proof removed.')}>✕</button>
           )}
         </span>
@@ -156,7 +157,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
     <>
       <div ref={messages}>
         <ErrorAlert message={error} onDismiss={() => setError('')} />
-        {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+        <SuccessAlert message={success} />
       </div>
 
       {!isHr && (

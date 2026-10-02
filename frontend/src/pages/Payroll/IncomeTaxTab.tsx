@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
-import { LoadingBlock, ErrorAlert } from '../../components/ui';
+import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 
 const NUMBER_FIELDS: [string, string, string, boolean][] = [
   // key, label, unit, old-regime reliefs only
@@ -67,7 +67,7 @@ export default function IncomeTaxTab() {
   return (
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <form className="card card-pad mb-24" onSubmit={e => {
         e.preventDefault();

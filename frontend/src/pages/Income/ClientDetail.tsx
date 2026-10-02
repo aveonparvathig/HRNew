@@ -8,6 +8,7 @@ import BillingFormModal from '../../components/BillingFormModal';
 import { formatINR, formatDate } from '../../utils/format';
 import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
+import { confirmDialog } from '../../components/feedback';
 
 const INVOICE_LABELS: Record<string, string> = {
   PROFORMA: 'Proforma generated',
@@ -80,7 +81,7 @@ export default function ClientDetail() {
   };
 
   const handleDeleteBilling = async (billing: any) => {
-    if (!window.confirm(`Delete the ${billing.periodLabel || billing.academicYear} billing period?`)) return;
+    if (!await confirmDialog(`Delete the ${billing.periodLabel || billing.academicYear} billing period?`)) return;
     try {
       await incomeAPI.deleteBilling(billing.id);
       fetchAll();
@@ -112,7 +113,7 @@ export default function ClientDetail() {
   };
 
   const handleDeletePayment = async (payment: any) => {
-    if (!window.confirm(`Delete this ${formatINR(payment.amount)} payment entry?`)) return;
+    if (!await confirmDialog(`Delete this ${formatINR(payment.amount)} payment entry?`)) return;
     try {
       await incomeAPI.deletePayment(payment.id);
       fetchAll();

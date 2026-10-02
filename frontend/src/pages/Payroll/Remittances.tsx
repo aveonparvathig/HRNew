@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, BackButton, Modal } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const TYPE_LABELS: Record<string, string> = {
   PF: 'Provident Fund', ESI: 'ESI', PT: 'Professional Tax', LWF: 'Labour Welfare Fund',
@@ -49,7 +50,7 @@ export default function Remittances() {
   };
 
   const handleDelete = async (payment: any) => {
-    if (!window.confirm(`Remove the ${TYPE_LABELS[payment.type]} payment of ${formatINR(payment.amount)}?`)) return;
+    if (!await confirmDialog(`Remove the ${TYPE_LABELS[payment.type]} payment of ${formatINR(payment.amount)}?`)) return;
     try {
       await payrollAPI.deleteRemittance(payment.id);
       fetchData();

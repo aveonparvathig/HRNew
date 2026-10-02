@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton, SuccessAlert,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -83,7 +84,7 @@ export default function LoanDetail() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete ${loan.loanNo}? Nothing has been repaid yet, so no history is lost.`)) return;
+    if (!await confirmDialog(`Delete ${loan.loanNo}? Nothing has been repaid yet, so no history is lost.`)) return;
     try {
       await payrollAPI.deleteLoan(loan.id);
       navigate('/payroll/loans');
@@ -140,12 +141,7 @@ export default function LoanDetail() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="stat-grid">
         <StatCard label="Lent" value={formatINR(loan.totalLent)} icon="▤" tone="primary" />

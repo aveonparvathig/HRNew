@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
-import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton } from '../../components/ui';
+import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton, SuccessAlert } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const regimeName = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New regime');
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
@@ -102,7 +103,7 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
   };
 
   const handleDelete = async (c: any) => {
-    if (!window.confirm(`Delete challan ${c.challanSerial} of ${formatDate(c.depositedOn)}?`)) return;
+    if (!await confirmDialog(`Delete challan ${c.challanSerial} of ${formatDate(c.depositedOn)}?`)) return;
     try {
       await payrollAPI.deleteTdsChallan(c.id);
       setSuccess('Challan deleted.');
@@ -149,12 +150,7 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="card mb-24">
         <div className="card-header">
@@ -412,12 +408,7 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
       {(data.monthsRun < 12 || data.draftMonths.length > 0) && data.rows.length > 0 && (
         <div className="alert alert-warning">
           <span>◷</span>
@@ -483,7 +474,7 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                         <span className="proof-chip">
                           <button type="button" className="proof-open" onClick={() => openPartA(r)}>{r.partA.fileName}</button>
                           <button type="button" className="proof-remove" aria-label="Remove Part A"
-                            onClick={() => window.confirm(`Remove Part A of ${r.person.name}?`)
+                            onClick={async () => await confirmDialog(`Remove Part A of ${r.person.name}?`)
                               && act(() => payrollAPI.deleteForm16PartA(r.person.id, String(data.fyStart)), 'Part A removed.')}>✕</button>
                         </span>
                       ) : (
