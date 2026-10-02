@@ -18,6 +18,7 @@ import { payrollArrearsController } from '../controllers/payrollArrearsControlle
 import { payrollRegistersController, REGISTER_CODES } from '../controllers/payrollRegistersController';
 import { payrollFilesController, pdfFormat } from '../controllers/payrollFilesController';
 import { applyInputCutoffs } from '../services/payroll/inputCutoff';
+import { applyDuePositions } from '../services/positions';
 
 const router = Router();
 
@@ -33,6 +34,10 @@ router.use(readOnlyFor('PAYROLL_VIEWER'));
 // Draft runs past their input cutoff date are locked before anything else
 router.use((req: any, _res: Response, next: NextFunction) => {
   applyInputCutoffs(req.user?.organizationId).then(() => next()).catch(next);
+});
+// Position changes dated ahead take effect on their day
+router.use((req: any, _res: Response, next: NextFunction) => {
+  applyDuePositions(req.user?.organizationId).then(() => next()).catch(next);
 });
 // Any report comes back as a PDF file when asked with ?format=pdf
 router.use(pdfFormat);

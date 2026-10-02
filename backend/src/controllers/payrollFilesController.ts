@@ -24,6 +24,7 @@ import {
 } from '../services/payroll/payslipDocs';
 import { journalVoucherBy } from '../services/payroll/payoutCalc';
 import { RELEASE_MAILS, isReleaseMail } from '../services/payroll/payslipFiles';
+import { stampRun } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
@@ -254,6 +255,8 @@ export const payrollFilesController = {
       include: { entries: { include: { person: { include: { workLocation: { select: { name: true } } } }, lines: true, payoutBatch: true } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
+    // Split by the department and location of the run's month
+    await stampRun(organizationId, run, { location: true });
     const [mappings, overrides, settings] = await Promise.all([
       prisma.ledgerMapping.findMany({ where: { organizationId } }),
       prisma.ledgerOverride.findMany({ where: { organizationId } }),

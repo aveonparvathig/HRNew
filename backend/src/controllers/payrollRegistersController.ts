@@ -12,6 +12,9 @@ import {
   Register, RegisterColumn, Establishment, WageEntry, LoanRow, BonusEmployee,
   tnFormU, tnFormV, tnFormW, tnFormX, formA, formB, formC, formD, bonusFormC, headcount, dmy,
 } from '../services/payroll/registerCalc';
+import { periodEndDate } from '../services/positionCalc';
+import { todayIST } from '../services/payroll/loanLedger';
+import { stampPositions, stampRun } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -73,6 +76,7 @@ async function runEntries(organizationId: string, runId: string) {
     include: { entries: { where: { consultantSection: '' }, include: { person: { select: PERSON_FIELDS }, lines: { include: { component: { select: { code: true } } } } } } },
   });
   if (!run) throw new AppError(400, 'Pick a payroll month');
+  await stampRun(organizationId, run, { location: true });
   const monthStart = `${run.period}-01`;
   const monthEnd = `${run.period}-31`;
   const loans = await prisma.loan.findMany({
@@ -117,6 +121,9 @@ async function bonusEmployees(organizationId: string, fyStart: number): Promise<
       lines: { include: { component: { select: { code: true } } } },
     },
   });
+  // The designation held at the end of the year, or today while the year runs
+  const asOf = [periodEndDate(`${fyStart + 1}-03`), todayIST()].sort()[0];
+  await stampPositions(organizationId, entries.map(e => ({ personId: e.personId, person: e.person, on: asOf })));
   const map = new Map<string, BonusEmployee>();
   for (const e of entries) {
     const b = map.get(e.personId) || {

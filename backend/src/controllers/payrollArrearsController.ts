@@ -25,6 +25,7 @@ import { newEntryData } from './payrollController';
 import { settingsForPerson } from '../services/payroll/structures';
 import { takeNumber } from '../services/numberSeries';
 import { noticeDaysFor } from '../services/orgChart';
+import { stampPositions } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -466,6 +467,8 @@ export const payrollArrearsController = {
   async settlementStatement(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const s = await fetchSettlement(str(req.query.settlementId), organizationId);
+    // The designation held on the last working day
+    await stampPositions(organizationId, [{ personId: s.personId, person: s.person, on: s.lastWorkingDate }]);
     const brand = await orgBrand(organizationId);
     const e: any = s.entry;
     const service = serviceLength(s.person.joinDate, s.lastWorkingDate);

@@ -7,9 +7,14 @@ import { LIST_TYPES, cleanLabel, initialListValues, labelKey, listType, sameLabe
 
 // The person column a list feeds. Records hold the label itself.
 const PERSON_FIELD: Record<string, string> = {
-  DEPARTMENT: 'department', DESIGNATION: 'designation', BANK: 'bankName', EMPLOYMENT_TYPE: 'employmentType',
+  DEPARTMENT: 'department', DESIGNATION: 'designation', GRADE: 'grade', BANK: 'bankName', EMPLOYMENT_TYPE: 'employmentType',
   BLOOD_GROUP: 'bloodGroup', MARITAL_STATUS: 'maritalStatus',
   LEAVING_REASON: 'reasonForLeaving', STOP_REASON: 'salaryStopReason',
+};
+
+// The lists a position record holds a value of, by its column
+const POSITION_FIELD: Record<string, 'department' | 'designation' | 'grade'> = {
+  DEPARTMENT: 'department', DESIGNATION: 'designation', GRADE: 'grade',
 };
 
 const distinct = (rows: any[], field: string) =>
@@ -23,6 +28,13 @@ async function usedValues(organizationId: string, type: string): Promise<string[
     out.push(...distinct(await prisma.person.findMany({
       where: { organizationId, NOT: { [field]: '' } }, select: { [field]: true } as any, distinct: [field as any],
     }), field));
+  }
+  const held = POSITION_FIELD[type];
+  if (held) {
+    // Values an employee held earlier and no longer does
+    out.push(...distinct(await prisma.positionChange.findMany({
+      where: { organizationId, NOT: { [held]: '' } }, select: { [held]: true } as any, distinct: [held],
+    }), held));
   }
   if (type === 'DEPARTMENT') {
     out.push(...distinct(await prisma.jobOpening.findMany({
@@ -137,6 +149,15 @@ async function relabelRecords(organizationId: string, type: string, from: string
     const ids = (people as any[]).filter(p => sameLabel(p[field], from) && p[field] !== to).map(p => p.id);
     if (ids.length) await prisma.person.updateMany({ where: { id: { in: ids } }, data: { [field]: to } });
     moved += (people as any[]).filter(p => sameLabel(p[field], from)).length;
+  }
+  // Position history carries the same labels
+  const held = POSITION_FIELD[type];
+  if (held) {
+    const rows = await prisma.positionChange.findMany({
+      where: { organizationId, NOT: { [held]: '' } }, select: { id: true, [held]: true } as any,
+    });
+    const ids = (rows as any[]).filter(r => sameLabel(r[held], from) && r[held] !== to).map(r => r.id);
+    if (ids.length) await prisma.positionChange.updateMany({ where: { id: { in: ids } }, data: { [held]: to } });
   }
   // Structure templates assigned to the value, and a department's own ledgers
   const scope = type === 'DESIGNATION' || type === 'DEPARTMENT' ? type : null;

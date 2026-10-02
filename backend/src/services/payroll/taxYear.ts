@@ -10,6 +10,9 @@ import { PerquisiteLike, typedPerquisites } from './perquisiteCalc';
 import { MonthFigures, EMPTY_TAX_PROFILE, ageAtYearEnd, hasValidPan, yearEndTax } from './taxCalc';
 import { LandlordLike, cleanLandlords, declarationTotals, effectiveTaxProfile } from './declarationCalc';
 import { form16PartB } from './tdsReturnCalc';
+import { periodEndDate } from '../positionCalc';
+import { todayIST } from './loanLedger';
+import { stampPositions } from '../positions';
 
 export interface AnnualTax {
   person: {
@@ -62,6 +65,9 @@ export async function annualTaxFor(organizationId: string, fyStart: number, pers
     prisma.payComponent.findMany({ where: { organizationId, taxable: false, type: 'EARNING' }, select: { id: true } }),
     prisma.payrollRun.findMany({ where: { organizationId, period: { in: periods } }, select: { period: true, status: true } }),
   ]);
+  // The designation held at the end of the year, or today while the year runs
+  const asOf = [periodEndDate(fy.end), todayIST()].sort()[0];
+  await stampPositions(organizationId, entries.map(e => ({ personId: e.personId, person: e.person, on: asOf })));
   const [perquisites, typed] = await Promise.all([
     loanPerquisites(organizationId, settings, fyStart, fy.end),
     typedPerquisiteValues(organizationId, fyStart, personId),

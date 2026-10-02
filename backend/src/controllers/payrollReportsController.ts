@@ -19,6 +19,7 @@ import {
 import { loadStructures, recurringNow, settingsForPerson } from '../services/payroll/structures';
 import { withSplit } from '../services/payroll/structureCalc';
 import { withRecurring, withEmployerNps } from '../services/payroll/salaryStructure';
+import { stampRun } from '../services/positions';
 
 const days = (n: number) => { const v = Number(n || 0); return v % 1 === 0 ? String(v) : v.toFixed(1); };
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
@@ -38,6 +39,7 @@ async function fetchRun(runId: string, organizationId: string) {
     } } },
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
+  await stampRun(organizationId, run, { location: true });
   return run;
 }
 
