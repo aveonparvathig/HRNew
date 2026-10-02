@@ -46,6 +46,11 @@ async function usedValues(organizationId: string, type: string): Promise<string[
       where: { organizationId }, select: { bankName: true }, distinct: ['bankName'],
     }), 'bankName'));
   }
+  if (type === 'DOCUMENT_CATEGORY') {
+    out.push(...distinct(await prisma.employeeDocument.findMany({
+      where: { organizationId }, select: { category: true }, distinct: ['category'],
+    }), 'category'));
+  }
   if (type === 'HOLD_REASON') {
     out.push(...distinct(await prisma.payslipEntry.findMany({
       where: { run: { organizationId }, NOT: { holdReason: '' } }, select: { holdReason: true }, distinct: ['holdReason'],
@@ -149,6 +154,13 @@ async function relabelRecords(organizationId: string, type: string, from: string
     const ids = (people as any[]).filter(p => sameLabel(p[field], from) && p[field] !== to).map(p => p.id);
     if (ids.length) await prisma.person.updateMany({ where: { id: { in: ids } }, data: { [field]: to } });
     moved += (people as any[]).filter(p => sameLabel(p[field], from)).length;
+  }
+  // Files are filed under the category's label
+  if (type === 'DOCUMENT_CATEGORY') {
+    const files = await prisma.employeeDocument.findMany({ where: { organizationId }, select: { id: true, category: true } });
+    const ids = files.filter(f => sameLabel(f.category, from) && f.category !== to).map(f => f.id);
+    if (ids.length) await prisma.employeeDocument.updateMany({ where: { id: { in: ids } }, data: { category: to } });
+    moved += files.filter(f => sameLabel(f.category, from)).length;
   }
   // Position history carries the same labels
   const held = POSITION_FIELD[type];

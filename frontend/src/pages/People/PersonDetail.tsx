@@ -14,6 +14,7 @@ import { payrollAPI } from '../../api/payroll';
 import SalaryRevisionsCard from '../../components/SalaryRevisionsCard';
 import PersonStructureCard from '../../components/PersonStructureCard';
 import PositionHistoryCard from '../../components/PositionHistoryCard';
+import EmployeeFilesCard from '../../components/EmployeeFilesCard';
 import PersonLoansCard from '../../components/PersonLoansCard';
 import PersonTaxCard from '../../components/PersonTaxCard';
 import PersonPayCard from '../../components/PersonPayCard';
@@ -65,6 +66,9 @@ export default function PersonDetail() {
   const [saving, setSaving] = useState(false);
   const [expenseReports, setExpenseReports] = useState<any[]>([]);
   const [payslips, setPayslips] = useState<any[]>([]);
+
+  // HR opens a letter on its own page; an employee opens their own under My Documents
+  const letterPath = (d: any) => (canManagePeople ? `/people/documents/${d.id}` : `/my/documents/${d.id}`);
 
   const fetchData = useCallback(async () => {
     try {
@@ -316,10 +320,10 @@ export default function PersonDetail() {
         )}
       </div>
 
-      {/* Documents (generated letters) */}
+      {/* Letters written from the templates */}
       <div className="card mb-24">
         <div className="card-header">
-          <h3>Documents ({(person.documents || []).length})</h3>
+          <h3>Letters ({(person.documents || []).length})</h3>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {canManagePeople && (meta?.docTypes || [])
               .filter((t: any) => t.kinds.includes(person.kind))
@@ -333,28 +337,44 @@ export default function PersonDetail() {
         </div>
         {(person.documents || []).length === 0 ? (
           <EmptyState icon="▤" title="No letters issued yet"
-            message="Generate an offer letter, appointment order or experience certificate — it stays on the record." />
+            message={canManagePeople ? 'Generate an offer letter, appointment order or experience certificate — it stays on the record.' : 'Letters HR shares with you appear here.'} />
         ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Letter</th><th>Type</th><th>Issued</th><th /></tr>
+                <tr><th>Letter</th><th>Type</th><th>Issued</th>{canManagePeople && <th>Employee sees it</th>}<th /></tr>
               </thead>
               <tbody>
                 {person.documents.map((d: any) => (
                   <tr key={d.id}>
                     <td>
-                      <Link to={`/people/documents/${d.id}`} style={{ fontWeight: 600 }}>{d.title}</Link>
+                      <Link to={letterPath(d)} style={{ fontWeight: 600 }}>{d.title}</Link>
                     </td>
                     <td>
                       <span className={`badge ${DOC_BADGES[d.docType] || 'badge-neutral'}`}>
-                        {(meta?.docTypes || []).find((t: any) => t.value === d.docType)?.label || d.docType}
+                        {(meta?.docTypes || []).find((t: any) => t.value === d.docType)?.label || d.title.split(' — ')[0]}
                       </span>
                     </td>
                     <td className="text-muted">{formatDate(d.createdAt)}</td>
+                    {canManagePeople && (
+                      <td>
+                        <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                          <input type="checkbox" checked={Boolean(d.visibleToEmployee)} aria-label={`Show ${d.title} to the employee`}
+                            onChange={async () => {
+                              try {
+                                await peopleAPI.updateDocument(d.id, { visibleToEmployee: !d.visibleToEmployee });
+                                fetchData();
+                              } catch (err: any) {
+                                setError(err.response?.data?.error || 'Could not change it');
+                              }
+                            }} />
+                          {d.visibleToEmployee ? 'Yes' : 'No'}
+                        </label>
+                      </td>
+                    )}
                     <td>
                       <div className="row-actions">
-                        <Link to={`/people/documents/${d.id}`} className="btn btn-secondary btn-sm">View</Link>
+                        <Link to={letterPath(d)} className="btn btn-secondary btn-sm">View</Link>
                       </div>
                     </td>
                   </tr>
@@ -364,6 +384,8 @@ export default function PersonDetail() {
           </div>
         )}
       </div>
+
+      {canManagePeople && <EmployeeFilesCard person={person} />}
 
       {/* Expense reports */}
       {expenseReports.length > 0 && (

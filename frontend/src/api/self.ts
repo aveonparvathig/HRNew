@@ -14,6 +14,11 @@ export const selfAPI = {
   getProof: (proofId: string) => apiClient.get(`/self/declaration/proofs/${proofId}`),
   deleteProof: (proofId: string) => apiClient.delete(`/self/declaration/proofs/${proofId}`),
 
+  // Letters and files HR has shared with the employee
+  getDocuments: () => apiClient.get('/self/documents'),
+  getDocumentLetter: (docId: string) => apiClient.get(`/self/documents/letters/${docId}`),
+  getDocumentFile: (fileId: string) => apiClient.get(`/self/documents/files/${fileId}`),
+
   getLoans: () => apiClient.get('/self/loans'),
   getForm16PartA: (fy: string) => apiClient.get('/self/form16-part-a', { params: { fy } }),
   // Form 16 as one PDF (Part A + Part B): downloadFile('/self/form16.pdf', { fy })

@@ -4,7 +4,7 @@ import {
   isValidGstin, gstinCheckChar, gstinDetails, GST_STATE_CODES, STATES, IMAGE_DATA_URI,
 } from '../masters';
 import { INDIAN_STATES } from '../payroll/constants';
-import { renderLetter } from '../letterTemplates';
+import { builtInTemplate, renderLetter } from '../letterEngine';
 
 describe('value lists', () => {
   it('has unique list types', () => {
@@ -96,7 +96,8 @@ describe('signature on letters', () => {
     brandPrimary: '#4f46e5', brandAccent: '#312e81', signatoryName: 'R. Kumar', signatoryDesignation: 'Director',
     signatureData: SIG, logoPosition: 'LEFT',
   };
-  const letter = (formData: any) => renderLetter('EXPERIENCE_EMPLOYEE', brand, {
+  const EXPERIENCE = builtInTemplate('EXPERIENCE_EMPLOYEE')!;
+  const letter = (formData: any) => renderLetter(EXPERIENCE, brand, {
     recipientName: 'Asha', letterDate: '2026-10-01', ...formData,
   });
 
@@ -107,7 +108,7 @@ describe('signature on letters', () => {
 
   it('leaves it out when the letter names another signatory, or none is stored', () => {
     expect(letter({ signatoryName: 'S. Priya' })).not.toContain(SIG);
-    expect(renderLetter('EXPERIENCE_EMPLOYEE', { ...brand, signatureData: '' }, { recipientName: 'Asha', letterDate: '2026-10-01' }))
+    expect(renderLetter(EXPERIENCE, { ...brand, signatureData: '' }, { recipientName: 'Asha', letterDate: '2026-10-01' }))
       .not.toContain('data:image');
   });
 });

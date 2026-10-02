@@ -657,6 +657,20 @@ a:hover { text-decoration: underline; }
 .stage-step.current:not(.done) .stage-dot { border-color: var(--primary); }
 
 /* ============ TDS returns ============ */
+/* Letter template editor: the text beside the fields and marks it may use */
+.template-editor { display: grid; grid-template-columns: minmax(0, 1fr) 250px; gap: 16px; align-items: start; }
+.template-body { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.55; resize: vertical; }
+.template-help { font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; max-height: 420px; overflow-y: auto; }
+.template-help strong { display: block; margin-bottom: 6px; }
+.template-fields { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 12px; }
+.template-field { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 2px 9px; font: inherit; font-size: 11.5px; cursor: pointer; color: var(--text); }
+.template-field:hover { border-color: var(--primary); color: var(--primary); }
+.template-marks { margin: 0; }
+.template-marks div { margin-bottom: 7px; }
+.template-marks dt { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11px; word-break: break-word; }
+.template-marks dd { margin: 0; color: var(--text-3); }
+@media (max-width: 860px) { .template-editor { grid-template-columns: 1fr; } }
+
 /* Headcount by month on the dashboard: one bar a month */
 .trend-bars { display: flex; align-items: flex-end; gap: 8px; height: 190px; margin-top: 16px; }
 .trend-col { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }

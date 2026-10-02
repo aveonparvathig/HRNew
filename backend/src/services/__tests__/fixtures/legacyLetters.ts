@@ -1,5 +1,6 @@
-// Letter HTML generators - self-contained inline-styled documents,
-// stored verbatim so history shows exactly what was issued.
+// The five letters as they were written into the program before letter
+// templates became editable. Kept as the reference: the starting templates
+// must produce the same letters (see letterEngine.test.ts). Not used by the app.
 
 export const DOC_TYPES: Record<string, { label: string; kinds: string[] }> = {
   EMPLOYMENT_OFFER: { label: 'Offer Letter', kinds: ['CANDIDATE'] },

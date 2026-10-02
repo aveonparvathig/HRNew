@@ -6,6 +6,7 @@ import BankAccountsTab from './BankAccountsTab';
 import ListsTab from './ListsTab';
 import MailSettingsTab from './MailSettingsTab';
 import NumberSeriesTab from './NumberSeriesTab';
+import StorageSettingsTab from './StorageSettingsTab';
 import StatutoryProfileTab from '../Payroll/StatutoryProfileTab';
 
 // Identity and branding are the Super Admin's; HR keeps the registrations,
@@ -18,6 +19,7 @@ const TABS = [
   { key: 'lists', label: 'Lists', ownerOnly: false },
   { key: 'numbering', label: 'Numbering', ownerOnly: false },
   { key: 'email', label: 'Email', ownerOnly: true },
+  { key: 'storage', label: 'File storage', ownerOnly: true },
   { key: 'branding', label: 'Branding', ownerOnly: true },
 ];
 
@@ -57,6 +59,7 @@ export default function CompanySettings() {
       {tab === 'lists' && <ListsTab />}
       {tab === 'numbering' && <NumberSeriesTab />}
       {tab === 'email' && <MailSettingsTab />}
+      {tab === 'storage' && <StorageSettingsTab />}
       {tab === 'branding' && <OrgProfileForm section="branding" />}
     </>
   );

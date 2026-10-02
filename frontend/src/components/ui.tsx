@@ -18,7 +18,7 @@ export function BackButton({ fallback = '/dashboard' }: { fallback?: string }) {
 
 export function PageHeader({ title, subtitle, actions }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }) {
   // The browser tab and history entries carry the page's name

@@ -23,6 +23,8 @@ import { buildForm16, buildForm12ba, form16File } from './payrollReturnsControll
 import { sendFile } from '../services/payroll/payslipDocs';
 import { yearControlFor } from '../services/payroll/declarations';
 import { stampEntry } from '../services/positions';
+import { letterPdf } from '../services/letters';
+import { loadFile } from '../services/fileStore';
 
 // Form 16 is for the employee only once HR has released the year's.
 async function assertForm16Released(organizationId: string, fyStart: number) {
@@ -132,6 +134,47 @@ export const selfServiceController = {
       bySelf: true, uploadedBy: me.name,
     });
     res.status(201).json(proof);
+  },
+
+  // ---- My documents -----------------------------------------------------------
+  // Letters and files HR has made visible to the employee. Nothing else
+  // of theirs is listed or can be opened.
+  async getDocuments(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const mine = { organizationId: me.organizationId, personId: me.id, visibleToEmployee: true };
+    const [letters, files] = await Promise.all([
+      prisma.personDocument.findMany({ where: mine, select: { id: true, title: true, createdAt: true }, orderBy: { createdAt: 'desc' } }),
+      prisma.employeeDocument.findMany({
+        where: mine, orderBy: [{ category: 'asc' }, { createdAt: 'desc' }],
+        select: { id: true, category: true, title: true, documentDate: true, fileName: true, mimeType: true, sizeBytes: true, createdAt: true },
+      }),
+    ]);
+    res.json({ letters, files });
+  },
+
+  async getLetter(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const doc = await prisma.personDocument.findFirst({
+      where: { id: req.params.docId, organizationId: me.organizationId, personId: me.id, visibleToEmployee: true },
+      select: { id: true, title: true, html: true, createdAt: true },
+    });
+    if (!doc) throw new AppError(404, 'Document not found');
+    if (req.query.format === 'pdf' || req.path.endsWith('/pdf')) {
+      const file = await letterPdf(doc);
+      sendFile(res, file.filename, 'application/pdf', file.pdf);
+      return;
+    }
+    res.json(doc);
+  },
+
+  async getFile(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const file = await prisma.employeeDocument.findFirst({
+      where: { id: req.params.fileId, organizationId: me.organizationId, personId: me.id, visibleToEmployee: true },
+      select: { fileName: true, mimeType: true, fileData: true, storage: true, storageKey: true },
+    });
+    if (!file) throw new AppError(404, 'Document not found');
+    res.json({ fileName: file.fileName, mimeType: file.mimeType, fileData: await loadFile(me.organizationId, file) });
   },
 
   async getProof(req: any, res: Response) {

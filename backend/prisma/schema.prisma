@@ -418,6 +418,7 @@ model Person {
   workLocation   WorkLocation?    @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
   interviews     InterviewRound[]
   documents      PersonDocument[]
+  files          EmployeeDocument[]
   payslipEntries PayslipEntry[]
   salaryRevisions SalaryRevision[]
   loans          Loan[]
@@ -489,16 +490,74 @@ model PersonDocument {
   id             String   @id @default(cuid())
   organizationId String
   personId       String
-  docType        String // EMPLOYMENT_OFFER | APPOINTMENT | INTERNSHIP_OFFER | EXPERIENCE_EMPLOYEE | EXPERIENCE_INTERNSHIP
+  docType        String // the code of the letter template it was written from
   title          String
   formData       Json     @default("{}") // snapshot - prefills the next letter of the same type
   html           String // the letter exactly as issued
+  // The template as it stood is not kept: the html is. This only says which one.
+  templateId     String?
+  // Shown to the employee under My Documents
+  visibleToEmployee Boolean @default(false)
+  createdByName  String   @default("")
   createdAt      DateTime @default(now())
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@index([personId, docType])
   @@map("person_documents")
+}
+
+// A letter HR can issue, as editable text. Each company starts with the
+// built-in ones (offer, appointment, confirmation, experience, relieving
+// and the two for interns), made on first use; a built-in one can be
+// reworded or switched off but not deleted. See services/letterEngine.ts
+// for what the text may hold.
+model LetterTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String // EMPLOYMENT_OFFER … for the built-in ones, else made from the name
+  name           String
+  audience       String   @default("CANDIDATE") // CANDIDATE (employees and candidates) | INTERN
+  subject        String   @default("")
+  salutation     String   @default("")
+  body           String
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  updatedByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, code])
+  @@map("letter_templates")
+}
+
+// A file kept against an employee: an identity proof, a certificate, a
+// signed letter. The file itself is either in the row (a data URI) or in
+// the company's object storage, as the row says.
+model EmployeeDocument {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  category       String // a value of the DOCUMENT_CATEGORY list
+  title          String
+  documentDate   String? // "YYYY-MM-DD": the date on the document, when it has one
+  fileName       String
+  mimeType       String
+  sizeBytes      Int
+  fileData       String   @default("") // data URI; empty when the file is in object storage
+  // Where this file is: DB (fileData) or S3 (storageKey in the bucket of
+  // StorageSettings). A file stays where it was put until it is moved.
+  storage        String   @default("DB")
+  storageKey     String   @default("")
+  visibleToEmployee Boolean @default(false)
+  uploadedByName String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@map("employee_documents")
 }
 
 model InterviewRound {
@@ -689,6 +748,25 @@ model MailSettings {
   updatedAt      DateTime @updatedAt
 
   @@map("mail_settings")
+}
+
+// Where a company's uploaded files go. No row, or provider DB = in the
+// database. S3 = an object store that speaks the S3 interface (Amazon S3,
+// Cloudflare R2, Backblaze B2, DigitalOcean Spaces, MinIO).
+model StorageSettings {
+  organizationId String   @id
+  provider       String   @default("DB") // DB | S3
+  endpoint       String   @default("") // '' = Amazon S3 itself
+  region         String   @default("")
+  bucket         String   @default("")
+  accessKeyId    String   @default("")
+  secretEnc      String   @default("") // encrypted, see services/secretBox.ts
+  prefix         String   @default("") // a folder inside the bucket
+  forcePathStyle Boolean  @default(false)
+  updatedByName  String   @default("")
+  updatedAt      DateTime @updatedAt
+
+  @@map("storage_settings")
 }
 
 // Every mail the system tried to send.

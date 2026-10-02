@@ -27,6 +27,9 @@ const PersonDetail = lazy(() => import('./pages/People/PersonDetail'));
 const Pipeline = lazy(() => import('./pages/People/Pipeline'));
 const JobOpenings = lazy(() => import('./pages/People/JobOpenings'));
 const LetterView = lazy(() => import('./pages/People/LetterView'));
+const Letters = lazy(() => import('./pages/People/Letters'));
+const MyDocuments = lazy(() => import('./pages/My/MyDocuments'));
+const MyLetter = lazy(() => import('./pages/My/MyLetter'));
 const ProposalBuilder = lazy(() => import('./pages/Proposals/ProposalBuilder'));
 const ProposalHistory = lazy(() => import('./pages/Proposals/ProposalHistory'));
 const ProposalView = lazy(() => import('./pages/Proposals/ProposalView'));
@@ -110,6 +113,7 @@ function App() {
             <Route path="/people/pipeline" element={<RequireRole roles={SA_HR}><Pipeline /></RequireRole>} />
             <Route path="/people/openings" element={<RequireRole roles={SA_HR}><JobOpenings /></RequireRole>} />
             <Route path="/people/documents/:docId" element={<RequireRole roles={SA_HR}><LetterView /></RequireRole>} />
+            <Route path="/people/letters" element={<RequireRole roles={SA_HR}><Letters /></RequireRole>} />
             <Route path="/people/:personId" element={<PersonDetail />} />
             <Route path="/proposals" element={<RequireRole roles={SA_MKT}><ProposalBuilder /></RequireRole>} />
             <Route path="/proposals/history" element={<RequireRole roles={SA_MKT}><ProposalHistory /></RequireRole>} />
@@ -143,6 +147,8 @@ function App() {
             <Route path="/my/payslips/:entryId" element={<MyDocument />} />
             <Route path="/my/declaration" element={<MyDeclaration />} />
             <Route path="/my/loans" element={<MyLoans />} />
+            <Route path="/my/documents" element={<MyDocuments />} />
+            <Route path="/my/documents/:docId" element={<MyLetter />} />
             <Route path="/my/reports/:kind" element={<MyDocument />} />
             <Route path="/organization" element={<RequireRole roles={SA_HR}><CompanySettings /></RequireRole>} />
             <Route path="/organization/team" element={<RequireRole roles={SA}><Team /></RequireRole>} />
