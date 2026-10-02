@@ -18,14 +18,14 @@ const MODULES = [
 ];
 
 // Which module cards each role sees (mirrors the API policy)
-const ALL = ['SUPER_ADMIN', 'HR', 'EMPLOYEE', 'MARKETING'];
+const ALL = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER', 'EMPLOYEE', 'MARKETING'];
 const MODULE_ROLES: Record<string, string[]> = {
   '/income': ['SUPER_ADMIN', 'EMPLOYEE'],
   '/recruitment': ['SUPER_ADMIN', 'HR'],
-  '/people': ['SUPER_ADMIN', 'HR', 'EMPLOYEE'],
+  '/people': ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER', 'EMPLOYEE'],
   '/expenses': ALL,
   '/proposals': ['SUPER_ADMIN', 'MARKETING'],
-  '/payroll': ['SUPER_ADMIN', 'HR'],
+  '/payroll': ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'],
   '/my/payslips': ALL, // shown only when the login is linked to a person
   '/organization': ['SUPER_ADMIN', 'HR'],
 };
@@ -103,7 +103,7 @@ export default function Dashboard() {
   const user = useAuthStore(state => state.user);
   const firstName = user?.firstName || user?.email?.split('@')[0] || 'there';
   const role = user?.role || 'SUPER_ADMIN';
-  const staff = role === 'SUPER_ADMIN' || role === 'HR';
+  const staff = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'].includes(role);
   const modules = MODULES.filter(m =>
     (MODULE_ROLES[m.to] || []).includes(role) && (m.to !== '/my/payslips' || Boolean(user?.personId)));
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

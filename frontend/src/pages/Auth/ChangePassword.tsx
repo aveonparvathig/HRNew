@@ -1,39 +1,43 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
 import { useAuthStore } from '../../store/authStore';
+import { ErrorAlert } from '../../components/ui';
+import { toast } from '../../components/feedback';
 
+// Change your own password. Shown on its own, before anything else, when
+// the password is a temporary one or has expired.
 export default function ChangePassword() {
   const navigate = useNavigate();
   const user = useAuthStore(s => s.user);
-  const setUser = useAuthStore(s => (s as any).setUser || (() => {}));
+  const setUser = useAuthStore(s => s.setUser);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
+  const [rules, setRules] = useState({ minLength: 8, historyCount: 0, expiryDays: 0 });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const forced = Boolean(user?.mustChangePassword);
+  const expired = Boolean(user?.passwordExpired);
+
+  useEffect(() => {
+    apiClient.get('/auth/password-rules').then(res => setRules(res.data)).catch(() => { /* the server checks anyway */ });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 8) { setError('New password must be at least 8 characters'); return; }
-    if (newPassword !== confirm) { setError('Passwords do not match'); return; }
+    if (newPassword.length < rules.minLength) { setError(`The new password must be at least ${rules.minLength} characters`); return; }
+    if (newPassword !== confirm) { setError('The two new passwords do not match'); return; }
     setSaving(true);
     setError('');
     try {
       await apiClient.post('/auth/change-password', { currentPassword, newPassword });
-      // Clear the forced flag locally and continue into the app
-      const stored = JSON.parse(localStorage.getItem('auth-storage') || '{}');
-      if (stored?.state?.user) {
-        stored.state.user.mustChangePassword = false;
-        localStorage.setItem('auth-storage', JSON.stringify(stored));
-      }
-      if (typeof setUser === 'function' && user) setUser({ ...user, mustChangePassword: false });
+      if (user) setUser({ ...user, mustChangePassword: false, passwordExpired: false });
+      toast.success('Password changed.');
       navigate('/dashboard');
-      window.location.reload();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to change password');
+      setError(err.response?.data?.error || 'Failed to change the password');
     } finally {
       setSaving(false);
     }
@@ -46,31 +50,36 @@ export default function ChangePassword() {
           {forced ? 'Set your new password' : 'Change password'}
         </h2>
         <p className="text-muted" style={{ fontSize: 13, marginBottom: 18 }}>
-          {forced
-            ? 'Your account uses a temporary password — choose your own to continue.'
+          {expired ? 'Your password has expired. Choose a new one to continue.'
+            : forced ? 'Your account uses a temporary password. Choose your own to continue.'
             : 'Enter your current password, then the new one.'}
         </p>
-        {error && <div className="alert alert-error"><span>⚠</span>{error}</div>}
+        <ErrorAlert message={error} />
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div className="field">
-            <label>{forced ? 'Temporary password' : 'Current password'}</label>
-            <input className="input" type="password" required autoFocus
+            <label>{forced && !expired ? 'Temporary password' : 'Current password'}</label>
+            <input className="input" type="password" required autoFocus autoComplete="current-password"
               value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
           </div>
           <div className="field">
             <label>New password</label>
-            <input className="input" type="password" required minLength={8}
+            <input className="input" type="password" required minLength={rules.minLength} autoComplete="new-password"
               value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-            <span className="hint">At least 8 characters</span>
+            <span className="hint">
+              At least {rules.minLength} characters.
+              {rules.historyCount > 0 && ` Not one of your last ${rules.historyCount} passwords.`}
+              {rules.expiryDays > 0 && ` It will need changing again in ${rules.expiryDays} days.`}
+            </span>
           </div>
           <div className="field">
             <label>Confirm new password</label>
-            <input className="input" type="password" required
+            <input className="input" type="password" required autoComplete="new-password"
               value={confirm} onChange={e => setConfirm(e.target.value)} />
           </div>
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? 'Saving…' : 'Change password'}
           </button>
+          {!forced && <Link to="/dashboard" className="btn btn-ghost">Cancel</Link>}
         </form>
       </div>
     </div>

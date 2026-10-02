@@ -10,6 +10,7 @@ interface User {
   role: string;
   personId?: string | null;
   mustChangePassword?: boolean;
+  passwordExpired?: boolean; // the forced change is for an expired password, not a temporary one
 }
 
 interface AuthStore {
@@ -71,6 +72,7 @@ export function useRole() {
     isEmployee: role === 'EMPLOYEE',
     isMarketing: role === 'MARKETING',
     canManagePeople: role === 'SUPER_ADMIN' || role === 'HR',
+    isPayrollViewer: role === 'PAYROLL_VIEWER',
     personId: user?.personId || null,
   };
 }

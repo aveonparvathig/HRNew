@@ -2,7 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from './errorHandler';
 
-export type Role = 'SUPER_ADMIN' | 'HR' | 'EMPLOYEE' | 'MARKETING';
+export type Role = 'SUPER_ADMIN' | 'HR' | 'PAYROLL_VIEWER' | 'EMPLOYEE' | 'MARKETING';
 
 // Fetch the caller's live role + person link once per request, so role
 // changes and deactivation take effect immediately without re-login.
@@ -23,6 +23,20 @@ export const requireRole = (...roles: Role[]) =>
       .then(actor => {
         if (!roles.includes(actor.role)) {
           throw new AppError(403, 'You do not have access to this section');
+        }
+        next();
+      })
+      .catch(next);
+  };
+
+// A role that may open a section but change nothing in it: anything other
+// than reading is refused.
+export const readOnlyFor = (...roles: Role[]) =>
+  (req: any, _res: Response, next: NextFunction) => {
+    loadActor(req)
+      .then(actor => {
+        if (roles.includes(actor.role) && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+          throw new AppError(403, 'Your login can view payroll but not change it');
         }
         next();
       })

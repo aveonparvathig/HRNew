@@ -32,6 +32,11 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
+// Behind the host's proxy the caller's address is in X-Forwarded-For.
+// TRUST_PROXY is the number of proxies in front (1 on the usual hosts);
+// without it every caller would look like the proxy itself.
+app.set('trust proxy', Number(process.env.TRUST_PROXY ?? (process.env.NODE_ENV === 'production' ? 1 : 0)));
+
 app.use(cors(corsOptions));
 
 // Health check endpoint

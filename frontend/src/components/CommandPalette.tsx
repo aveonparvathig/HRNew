@@ -33,6 +33,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
 
   const role = user?.role || 'SUPER_ADMIN';
   const staff = role === 'SUPER_ADMIN' || role === 'HR';
+  const payroll = staff || role === 'PAYROLL_VIEWER';
 
   const pages = useMemo<Result[]>(() => {
     const sections = navSectionsFor(user);
@@ -64,7 +65,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
         }))));
       }).catch(() => { /* search still works for pages */ });
     }
-    if (staff) {
+    if (payroll) {
       payrollAPI.getRuns().then(res => {
         if (!live) return;
         setRuns((res.data?.runs || []).map((r: any) => ({
@@ -74,7 +75,7 @@ export default function CommandPalette({ onClose }: { onClose: () => void }) {
       }).catch(() => { /* as above */ });
     }
     return () => { live = false; };
-  }, [role, staff]);
+  }, [role, payroll]);
 
   const results = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);

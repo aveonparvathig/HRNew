@@ -20,6 +20,10 @@ router.get('/team', asyncHandler((req, res) => orgController.getTeam(req, res)))
 router.post('/team', asyncHandler((req, res) => orgController.addMember(req, res)));
 router.put('/team/:memberId', asyncHandler((req, res) => orgController.updateMember(req, res)));
 router.post('/team/:memberId/reset-password', asyncHandler((req, res) => orgController.resetMemberPassword(req, res)));
+router.post('/team/:memberId/unlock', asyncHandler((req, res) => orgController.unlockMember(req, res)));
+router.get('/security', asyncHandler((req, res) => orgController.getSecurity(req, res)));
+router.put('/security', asyncHandler((req, res) => orgController.updateSecurity(req, res)));
+router.get('/login-history', asyncHandler((req, res) => orgController.getLoginHistory(req, res)));
 router.post('/team/generate-logins', asyncHandler((req, res) => orgController.generateEmployeeLogins(req, res)));
 
 export default router;

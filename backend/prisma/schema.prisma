@@ -59,18 +59,26 @@ model User {
   // Signup creates the org's first user, hence SUPER_ADMIN by default.
   // SUPER_ADMIN: everything · HR: people/recruitment/payroll/expenses ·
   // EMPLOYEE: own clients (income), people directory, own expenses ·
-  // MARKETING: proposals they generated + own expenses.
-  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN | HR | EMPLOYEE | MARKETING
+  // MARKETING: proposals they generated + own expenses ·
+  // PAYROLL_VIEWER: reads payroll and people, changes nothing (auditors).
+  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN | HR | PAYROLL_VIEWER | EMPLOYEE | MARKETING
   isActive       Boolean  @default(true)
   // Employee logins link to their Person record — "own data" scoping key
   personId           String?  @unique
   mustChangePassword Boolean  @default(false)
+  // Sign-in security: wrong passwords in a row, the lock they led to
+  // (year 9999 = until an admin unlocks), and when the password was set
+  failedAttempts     Int       @default(0)
+  lockedUntil        DateTime?
+  passwordChangedAt  DateTime?
+  lastLoginAt        DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   person          Person?          @relation(fields: [personId], references: [id], onDelete: SetNull)
   refreshTokens   RefreshToken[]
+  passwordHistory PasswordHistory[]
   proposalRecords ProposalRecord[]
   clientVisits    ClientVisit[]
 
@@ -80,6 +88,51 @@ model User {
 
 // Refresh tokens survive restarts and are revocable; only the SHA-256 hash
 // is stored so a database leak never exposes a usable token.
+// The organization's sign-in rules. Defaults are what the app did before
+// the rules existed, so nothing changes until a rule is switched on.
+model PasswordPolicy {
+  organizationId     String   @id
+  minLength          Int      @default(8)
+  lockoutAttempts    Int      @default(0) // 0 = accounts never lock
+  lockoutMinutes     Int      @default(30) // 0 = until an admin unlocks
+  expiryDays         Int      @default(0) // 0 = passwords never expire
+  expiryReminderDays Int      @default(7)
+  historyCount       Int      @default(0) // 0 = an old password may be reused
+  tempPasswordDays   Int      @default(0) // 0 = a temporary password never expires
+  updatedAt          DateTime @updatedAt
+
+  @@map("password_policies")
+}
+
+// Hashes of a user's earlier passwords, to refuse reuse.
+model PasswordHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  hash      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_history")
+}
+
+// One sign-in attempt on a known account.
+model LoginEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  email          String
+  result         String // SUCCESS | WRONG_PASSWORD | LOCKED | DISABLED | TEMP_EXPIRED
+  ip             String   @default("")
+  userAgent      String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([userId])
+  @@map("login_events")
+}
+
 model RefreshToken {
   id        String   @id @default(cuid())
   tokenHash String   @unique
