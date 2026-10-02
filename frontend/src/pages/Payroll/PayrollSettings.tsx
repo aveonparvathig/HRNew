@@ -51,6 +51,13 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
     ],
   },
   {
+    title: 'Payroll inputs',
+    hint: 'Attendance and one-off inputs of a draft run can lock on their own once a day of the month has passed. A run you unlock afterwards stays unlocked, and a month run after its cutoff date is left open.',
+    fields: [
+      ['inputCutoffDay', 'Lock inputs after day of the month (0 = by hand only, 31 = month end)', '#'],
+    ],
+  },
+  {
     title: 'Loans',
     hint: 'A loan charged below the benchmark rate is a taxable benefit, unless everything lent to the employee is within the exempt limit. Leave the benchmark at 0 if you do not want it worked out.',
     fields: [

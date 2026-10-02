@@ -5,7 +5,7 @@ export const esc = (v: any) =>
   String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 export const inr = (n: number) =>
-  '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  (Number(n || 0) < 0 ? '−' : '') + '₹' + Math.abs(Number(n || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // Whole-rupee figure for wide tables; blank-looking dash for zero.
 export const amt = (n: number) =>

@@ -617,6 +617,9 @@ model PayrollSettings {
   payslipFileContext String @default("EMPNO") // EMPNO | NAME | EMPNO_NAME
   payslipEmailTo     String @default("OFFICIAL") // OFFICIAL | PERSONAL; the other is used when blank
   jvFilePrefix       String @default("JV") // journal voucher download
+  // Day of the month after which a draft run's inputs lock on their own
+  // (0 = locked by hand only; 31 = the month's last day)
+  inputCutoffDay     Int    @default(0)
 
   updatedAt DateTime @updatedAt
 
@@ -672,6 +675,9 @@ model PayrollRun {
   releasedAt     DateTime?
   // While a draft's inputs are locked, attendance and one-offs cannot be edited
   inputsLockedAt DateTime?
+  // The automatic cutoff has had its turn: inputs unlocked by hand after
+  // it stay unlocked
+  cutoffApplied  Boolean   @default(false)
   notes          String    @default("")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -940,6 +946,8 @@ model DeclarationItem {
   group          String // SECTION_80C | OTHER
   maxAmount      Float? // cap on this item; null = no cap of its own
   deductPercent  Float    @default(100) // share of the amount that is deductible
+  // An amount on this item needs a proof attached
+  proofRequired  Boolean  @default(false)
   isActive       Boolean  @default(true)
   sortOrder      Int      @default(0)
   createdAt      DateTime @default(now())
@@ -994,6 +1002,12 @@ model TaxYearControl {
   employeeCanChooseRegime Boolean @default(false)
   // Employees can see their Form 16 for the year once HR releases it
   form16Released          Boolean @default(false)
+  // One-off dates: the declaration window closes after this day, and proof
+  // submission opens from this month. Each clears itself once it has acted.
+  declarationLockOn       String? // "YYYY-MM-DD"
+  proofOpenFrom           String? // "YYYY-MM"
+  // Employees see a tax estimate that counts salary not yet released
+  employeeTaxEstimate     Boolean @default(false)
   updatedAt        DateTime @updatedAt
 
   @@id([organizationId, fyStart])
@@ -1468,11 +1482,13 @@ model ArrearItem {
   id             String    @id @default(cuid())
   organizationId String
   personId       String
-  kind           String // REVISION | LOP_REVERSAL
+  // REVISION (amounts are negative for a back-dated cut that is recovered)
+  // | LOP_REVERSAL | LOP_RECOVERY (loss of pay added to a past month)
+  kind           String
   sourcePeriod   String // "YYYY-MM" the month being corrected
   sourceEntryId  String
   revisionId     String?
-  lopDays        Float     @default(0) // days reversed (LOP_REVERSAL)
+  lopDays        Float     @default(0) // days reversed (LOP_REVERSAL) or added (LOP_RECOVERY)
   fromPackage    Float     @default(0)
   toPackage      Float     @default(0)
 

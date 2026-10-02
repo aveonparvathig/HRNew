@@ -76,6 +76,27 @@ export function runStage(run: any, entries: any[]): RunStage {
 }
 
 // ---------------------------------------------------------------------------
+// Automatic input cutoff
+// ---------------------------------------------------------------------------
+// The last day a month's inputs stay open: day `day` of the month itself,
+// or the month's last day where it is shorter. Null when the cutoff is off.
+export function cutoffDate(period: string, day: number): string | null {
+  if (!(day > 0)) return null;
+  const [y, m] = period.split('-').map(Number);
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return `${period}-${String(Math.min(Math.round(day), last)).padStart(2, '0')}`;
+}
+
+// What the cutoff asks of a draft run today. A run made after its own
+// cutoff date (a month run late) is left open: MISSED, not LOCK.
+export function cutoffDue(period: string, day: number, today: string, createdOn: string): 'OFF' | 'WAIT' | 'LOCK' | 'MISSED' {
+  const date = cutoffDate(period, day);
+  if (!date) return 'OFF';
+  if (today <= date) return 'WAIT';
+  return createdOn > date ? 'MISSED' : 'LOCK';
+}
+
+// ---------------------------------------------------------------------------
 // Pre-payroll checks
 // ---------------------------------------------------------------------------
 export interface PayrollCheck {

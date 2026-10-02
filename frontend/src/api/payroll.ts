@@ -22,6 +22,9 @@ export const payrollAPI = {
   // Salary revisions
   getRevisions: (personId: string) => apiClient.get(`/payroll/people/${personId}/revisions`),
   createRevision: (personId: string, data: any) => apiClient.post(`/payroll/people/${personId}/revisions`, data),
+  // Take back what a back-dated cut overpaid in finalized months
+  recoverRevision: (personId: string, revisionId: string) =>
+    apiClient.post(`/payroll/people/${personId}/revisions/${revisionId}/recover`),
   deleteRevision: (personId: string, revisionId: string) =>
     apiClient.delete(`/payroll/people/${personId}/revisions/${revisionId}`),
 
@@ -104,6 +107,8 @@ export const payrollAPI = {
   getArrears: () => apiClient.get('/payroll/arrears'),
   getLopMonths: (personId: string) => apiClient.get(`/payroll/people/${personId}/lop-months`),
   reverseLop: (data: any) => apiClient.post('/payroll/arrears/lop-reversal', data),
+  // Loss of pay added to a finalized month; the pay is taken back on the next payslip
+  addRetroLop: (data: any) => apiClient.post('/payroll/arrears/retro-lop', data),
   cancelArrear: (arrearId: string, reason: string) => apiClient.post(`/payroll/arrears/${arrearId}/cancel`, { reason }),
   getSettlements: () => apiClient.get('/payroll/settlements'),
   previewSettlement: (personId: string, data: any) => apiClient.post(`/payroll/people/${personId}/settlement-preview`, data),

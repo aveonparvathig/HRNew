@@ -15,6 +15,9 @@ const STATE_BADGE: Record<string, string> = {
   CANCELLED: 'badge-neutral', NOT_APPLIED: 'badge-warning',
 };
 
+// Rupees with a leading minus for money taken back
+const signedINR = (n: number) => (n < 0 ? `−${formatINR(-n)}` : formatINR(n));
+
 // Pay owed for months already finalized, and the settlement of people who leave.
 export default function Adjustments() {
   const [params, setParams] = useSearchParams();
@@ -78,14 +81,18 @@ function ArrearsTab() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await payrollAPI.reverseLop({ entryId: form.entryId, days: form.days, reason: form.reason });
+      const adding = form.mode === 'ADD';
+      const body = { entryId: form.entryId, days: form.days, reason: form.reason };
+      const res = adding ? await payrollAPI.addRetroLop(body) : await payrollAPI.reverseLop(body);
       setForm(null);
       setError('');
-      setSuccess(`${formatINR(res.data.gross)} raised as an arrear. ${res.data.paidIn
-        ? `It is on the ${monthLabel(res.data.paidIn)} draft payslip.` : 'It will be paid with the next payroll run.'}`);
+      const where = res.data.paidIn ? `It is on the ${monthLabel(res.data.paidIn)} draft payslip.` : '';
+      setSuccess(adding
+        ? `${formatINR(-res.data.gross)} of pay will be taken back. ${where || 'It will be recovered with the next payroll run.'}`
+        : `${formatINR(res.data.gross)} raised as an arrear. ${where || 'It will be paid with the next payroll run.'}`);
       fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Could not reverse the loss of pay');
+      setError(err.response?.data?.error || 'Could not change the loss of pay');
       setForm(null);
     } finally {
       setSaving(false);
@@ -93,11 +100,11 @@ function ArrearsTab() {
   };
 
   const handleCancel = async (a: any) => {
-    const reason = window.prompt(`Cancel the ${formatINR(a.gross)} arrear of ${a.person.name} for ${monthLabel(a.sourcePeriod)}? Give a reason.`);
+    const reason = window.prompt(`Cancel the ${formatINR(Math.abs(a.gross))} ${a.recovery ? 'recovery' : 'arrear'} of ${a.person.name} for ${monthLabel(a.sourcePeriod)}? Give a reason.`);
     if (!reason) return;
     try {
       await payrollAPI.cancelArrear(a.id, reason);
-      setSuccess('Arrear cancelled.');
+      setSuccess(a.recovery ? 'Recovery cancelled.' : 'Arrear cancelled.');
       fetchData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Could not cancel the arrear');
@@ -108,14 +115,21 @@ function ArrearsTab() {
 
   const rows = data.arrears.filter((a: any) =>
     filter === 'ALL' || (filter === 'OPEN' ? ['WAITING', 'IN_DRAFT'].includes(a.state) : a.state === filter));
-  const picked = months?.entries.find((m: any) => m.entryId === form?.entryId);
+  // The form reverses loss of pay (months that have some) or adds it (months with paid days)
+  const adding = form?.mode === 'ADD';
+  const monthOptions: any[] = months ? (adding ? months.paidMonths : months.entries) : [];
+  const picked = monthOptions.find((m: any) => m.entryId === form?.entryId);
+  const limit = adding ? picked?.canAdd : picked?.left;
 
   return (
     <>
       <PageHeader
         title="Arrears"
-        subtitle="Pay owed for months that are already finalized. It is paid with the next payroll run, with PF and ESI on it."
-        actions={<button className="btn btn-primary" onClick={() => setForm({ personId: '', entryId: '', days: '', reason: '' })}>Reverse Loss of Pay</button>}
+        subtitle="Corrections to months that are already finalized. They are paid, or taken back, with the next payroll run, with PF and ESI on them."
+        actions={<>
+          <button className="btn btn-secondary" onClick={() => setForm({ mode: 'ADD', personId: '', entryId: '', days: '', reason: '' })}>Add Loss of Pay</button>
+          <button className="btn btn-primary" onClick={() => setForm({ mode: 'REVERSE', personId: '', entryId: '', days: '', reason: '' })}>Reverse Loss of Pay</button>
+        </>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
@@ -124,14 +138,17 @@ function ArrearsTab() {
       <div className="stat-grid">
         <StatCard label="To be paid" value={formatINR(data.totals.open.amount)} icon="₹" tone="warning"
           sub={`${data.totals.open.count} arrear${data.totals.open.count === 1 ? '' : 's'}, ${data.totals.waiting} waiting for a run`} />
-        <StatCard label="Paid" value={data.totals.paid} icon="✓" tone="success" sub="Arrears paid through payroll" />
+        <StatCard label="To be recovered" value={formatINR(data.totals.recovering.amount)} icon="↩" tone="danger"
+          sub={data.totals.recovering.count ? `${data.totals.recovering.count} recover${data.totals.recovering.count === 1 ? 'y' : 'ies'} of pay already given` : 'Nothing to take back'} />
+        <StatCard label="Settled" value={data.totals.paid} icon="✓" tone="success" sub="Paid or recovered through payroll" />
       </div>
 
       <div className="alert alert-warning">
         <span>ⓘ</span>
         <span>
-          A salary revision dated back into finalized months raises arrears on its own. Loss of pay can be reversed
-          up to {data.lopReversalMonths} months back. A back-dated cut in salary is not recovered automatically.
+          A salary revision dated back into finalized months raises arrears on its own. Loss of pay can be reversed,
+          or added, up to {data.lopReversalMonths} months back. A back-dated cut in salary is recovered only when you
+          say so, at the time the revision is saved.
         </span>
       </div>
 
@@ -139,7 +156,7 @@ function ArrearsTab() {
         <div className="card-header">
           <h3>Arrears</h3>
           <div className="segmented">
-            {[['OPEN', 'To be paid'], ['PAID', 'Paid'], ['CANCELLED', 'Cancelled'], ['ALL', 'All']].map(([value, label]) => (
+            {[['OPEN', 'Open'], ['PAID', 'Settled'], ['CANCELLED', 'Cancelled'], ['ALL', 'All']].map(([value, label]) => (
               <button key={value} className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}>{label}</button>
             ))}
           </div>
@@ -150,7 +167,7 @@ function ArrearsTab() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Employee</th><th>For the month</th><th>Why</th><th className="num">Arrear</th><th className="num">PF + ESI</th><th className="num">Net</th><th>Status</th><th /></tr>
+                <tr><th>Employee</th><th>For the month</th><th>Why</th><th className="num">Pay</th><th className="num">PF + ESI</th><th className="num">Net</th><th>Status</th><th /></tr>
               </thead>
               <tbody>
                 {rows.map((a: any) => (
@@ -161,16 +178,17 @@ function ArrearsTab() {
                     </td>
                     <td>{monthLabel(a.sourcePeriod)}</td>
                     <td>
-                      {a.kind === 'LOP_REVERSAL'
-                        ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} reversed`
+                      {a.kind === 'LOP_REVERSAL' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} reversed`
+                        : a.kind === 'LOP_RECOVERY' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} added`
                         : `Package ${formatINR(a.fromPackage)} → ${formatINR(a.toPackage)}`}
+                      {a.recovery && <span className="badge badge-danger" style={{ marginLeft: 6 }}>Recovery</span>}
                       {a.reason && <div className="text-muted" style={{ fontSize: 11.5 }}>{a.reason}</div>}
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(a.gross)}</td>
-                    <td className="num text-muted">{a.pfEmployee + a.esiEmployee ? formatINR(a.pfEmployee + a.esiEmployee) : '—'}</td>
-                    <td className="num">{formatINR(a.net)}</td>
+                    <td className="num" style={{ fontWeight: 600, color: a.recovery ? 'var(--danger)' : undefined }}>{signedINR(a.gross)}</td>
+                    <td className="num text-muted">{a.pfEmployee + a.esiEmployee ? signedINR(a.pfEmployee + a.esiEmployee) : '—'}</td>
+                    <td className="num" style={{ color: a.recovery ? 'var(--danger)' : undefined }}>{signedINR(a.net)}</td>
                     <td>
-                      <span className={`badge ${STATE_BADGE[a.state]}`}>{a.label}</span>
+                      <span className={`badge ${STATE_BADGE[a.state]}`}>{a.recovery ? a.label.replace('Paid with', 'Recovered with') : a.label}</span>
                     </td>
                     <td>
                       <div className="row-actions">
@@ -188,7 +206,7 @@ function ArrearsTab() {
         )}
       </div>
 
-      <Modal title="Reverse Loss of Pay" open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={adding ? 'Add Loss of Pay to a Past Month' : 'Reverse Loss of Pay'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={handleReverse}>
             <div className="field" style={{ marginBottom: 14 }}>
@@ -199,42 +217,48 @@ function ArrearsTab() {
                 {employees.map(p => <option key={p.id} value={p.id}>{p.name}{p.employeeNo ? ` (${p.employeeNo})` : ''}</option>)}
               </select>
             </div>
-            {form.personId && months && months.entries.length === 0 && (
+            {form.personId && months && monthOptions.length === 0 && (
               <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
-                No finalized month from {monthLabel(months.from)} has loss of pay left to reverse.
+                {adding
+                  ? `No finalized month from ${monthLabel(months.from)} has paid days to mark as loss of pay.`
+                  : `No finalized month from ${monthLabel(months.from)} has loss of pay left to reverse.`}
               </p>
             )}
-            {months?.entries.length > 0 && (
+            {monthOptions.length > 0 && (
               <div className="form-grid" style={{ marginBottom: 14 }}>
                 <div className="field">
                   <label>Month *</label>
                   <select className="select" required value={form.entryId}
                     onChange={e => setForm({ ...form, entryId: e.target.value, days: '' })}>
                     <option value="">Pick a month…</option>
-                    {months.entries.map((m: any) => (
-                      <option key={m.entryId} value={m.entryId}>{monthLabel(m.period)} — {m.left} LOP day{m.left === 1 ? '' : 's'}</option>
+                    {monthOptions.map((m: any) => (
+                      <option key={m.entryId} value={m.entryId}>{monthLabel(m.period)} — {m.left} LOP day{m.left === 1 ? '' : 's'} now</option>
                     ))}
                   </select>
                 </div>
                 <div className="field">
-                  <label>Days to reverse *</label>
-                  <input className="input" type="number" required min={0.5} max={picked?.left} step="0.5" value={form.days}
+                  <label>{adding ? 'Days of loss of pay to add *' : 'Days to reverse *'}</label>
+                  <input className="input" type="number" required min={0.5} max={limit} step="0.5" value={form.days}
                     onChange={e => setForm({ ...form, days: e.target.value })} />
-                  {picked && <span className="hint">Up to {picked.left}.</span>}
+                  {picked && <span className="hint">Up to {limit}.</span>}
                 </div>
                 <div className="field" style={{ gridColumn: '1 / -1' }}>
-                  <label>Reason</label>
-                  <input className="input" placeholder="e.g. Leave approved late" value={form.reason}
+                  <label>Reason{adding ? ' *' : ''}</label>
+                  <input className="input" required={adding} placeholder={adding ? 'e.g. Absence reported after payroll closed' : 'e.g. Leave approved late'} value={form.reason}
                     onChange={e => setForm({ ...form, reason: e.target.value })} />
                 </div>
               </div>
             )}
             <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
-              The month's payslip is not changed. The pay for these days is added to the next payslip as Salary Arrears.
+              {adding
+                ? 'The month\'s payslip is not changed. The pay for these days is taken back on the next payslip as Salary Recovery, and the PF and ESI deducted on that pay are returned.'
+                : 'The month\'s payslip is not changed. The pay for these days is added to the next payslip as Salary Arrears.'}
             </p>
             <div className="form-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving || !form.entryId}>{saving ? 'Saving…' : 'Reverse'}</button>
+              <button type="submit" className={`btn ${adding ? 'btn-danger-solid' : 'btn-primary'}`} disabled={saving || !form.entryId}>
+                {saving ? 'Saving…' : adding ? 'Add and Recover' : 'Reverse'}
+              </button>
             </div>
           </form>
         )}

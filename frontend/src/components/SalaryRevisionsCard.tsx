@@ -47,11 +47,28 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
         res.data.arrears?.months
           ? `Payroll up to ${monthLabel(res.data.finalizedThrough)} is already finalized: ${formatINR(res.data.arrears.amount)} of arrears for ${res.data.arrears.months} month${res.data.arrears.months === 1 ? '' : 's'} ${res.data.arrears.paidIn ? `is on the ${monthLabel(res.data.arrears.paidIn)} draft payslip` : 'will be paid with the next payroll run'}.`
           : res.data.finalizedThrough ? `Payroll up to ${monthLabel(res.data.finalizedThrough)} is already finalized and keeps the old package.` : '',
-        res.data.arrears?.reductions ? 'A back-dated reduction is not recovered automatically.' : '',
       ].filter(Boolean).join(' '));
       setForm({ newMonthlyPackage: '', effectiveMonth: thisMonth(), reason: '' });
       fetchData();
       onChanged();
+      // A cut dated back into finalized months overpaid them. Taking the
+      // money back is asked, never assumed.
+      const cut = res.data.arrears;
+      if (cut?.reductions) {
+        const months = `${cut.reductions} finalized month${cut.reductions === 1 ? '' : 's'}`;
+        const recover = await confirmDialog({
+          title: `Recover ${formatINR(cut.reductionAmount)} overpaid?`,
+          message: `The lower package applies to ${months} already paid at the old one. Recovering takes the difference back on the next payslip, with the PF and ESI deducted on it returned. Otherwise those months stand as paid.`,
+          confirmLabel: 'Recover', cancelLabel: 'Leave as paid', danger: true,
+        });
+        if (recover) {
+          const done = await payrollAPI.recoverRevision(person.id, res.data.revision.id);
+          setNotice(`${formatINR(done.data.reductionAmount)} overpaid in ${months} ${done.data.paidIn ? `is on the ${monthLabel(done.data.paidIn)} draft payslip as Salary Recovery` : 'will be recovered with the next payroll run'}. Cancel it under Payroll → Arrears if it should not be taken.`);
+          onChanged();
+        } else {
+          setNotice(n => [n, `${formatINR(cut.reductionAmount)} overpaid in ${months} is left as paid.`].filter(Boolean).join(' '));
+        }
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to save the revision');
       setOpen(false);

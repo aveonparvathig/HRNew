@@ -124,6 +124,11 @@ const FIELD_LABELS: Record<string, string> = {
   payslipFileContext: 'Payslip file name identifies the employee by',
   payslipEmailTo: 'Payslips are emailed to',
   jvFilePrefix: 'Journal voucher file name starts with',
+  inputCutoffDay: 'Inputs lock after day of the month',
+  declarationLockOn: 'Declaration window closes after',
+  proofOpenFrom: 'Proof submission opens from',
+  employeeTaxEstimate: 'Employees see a tax estimate',
+  proofRequired: 'Proof required',
   tdsCircleAddress: 'Tax office address',
 };
 

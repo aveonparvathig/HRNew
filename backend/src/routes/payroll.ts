@@ -15,6 +15,7 @@ import { payrollReturnsController } from '../controllers/payrollReturnsControlle
 import { payrollArrearsController } from '../controllers/payrollArrearsController';
 import { payrollRegistersController, REGISTER_CODES } from '../controllers/payrollRegistersController';
 import { payrollFilesController, pdfFormat } from '../controllers/payrollFilesController';
+import { applyInputCutoffs } from '../services/payroll/inputCutoff';
 
 const router = Router();
 
@@ -27,6 +28,10 @@ router.use(authMiddleware);
 router.use(requireRole('SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'));
 // The viewer role reads every payroll page and report and changes nothing
 router.use(readOnlyFor('PAYROLL_VIEWER'));
+// Draft runs past their input cutoff date are locked before anything else
+router.use((req: any, _res: Response, next: NextFunction) => {
+  applyInputCutoffs(req.user?.organizationId).then(() => next()).catch(next);
+});
 // Any report comes back as a PDF file when asked with ?format=pdf
 router.use(pdfFormat);
 
@@ -61,6 +66,7 @@ router.delete('/components/:componentId', asyncHandler((req, res) => payrollStru
 router.get('/people/:personId/revisions', asyncHandler((req, res) => payrollStructureController.getRevisions(req, res)));
 router.post('/people/:personId/revisions', asyncHandler((req, res) => payrollStructureController.createRevision(req, res)));
 router.delete('/people/:personId/revisions/:revisionId', asyncHandler((req, res) => payrollStructureController.deleteRevision(req, res)));
+router.post('/people/:personId/revisions/:revisionId/recover', asyncHandler((req, res) => payrollStructureController.recoverRevision(req, res)));
 
 // Professional Tax and Labour Welfare Fund policies
 router.get('/statutory-policies', asyncHandler((req, res) => payrollStatutoryController.getPolicies(req, res)));
@@ -121,6 +127,7 @@ router.delete('/form16/:personId/part-a', asyncHandler((req, res) => payrollRetu
 // Arrears and final settlements
 router.get('/arrears', asyncHandler((req, res) => payrollArrearsController.getArrears(req, res)));
 router.post('/arrears/lop-reversal', asyncHandler((req, res) => payrollArrearsController.reverseLop(req, res)));
+router.post('/arrears/retro-lop', asyncHandler((req, res) => payrollArrearsController.addRetroLop(req, res)));
 router.post('/arrears/:arrearId/cancel', asyncHandler((req, res) => payrollArrearsController.cancelArrear(req, res)));
 router.get('/people/:personId/lop-months', asyncHandler((req, res) => payrollArrearsController.getLopMonths(req, res)));
 router.get('/settlements', asyncHandler((req, res) => payrollArrearsController.getSettlements(req, res)));

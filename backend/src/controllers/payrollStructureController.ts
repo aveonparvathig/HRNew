@@ -194,6 +194,20 @@ export const payrollStructureController = {
     });
   },
 
+  // Take back what a back-dated cut overpaid in months already finalized.
+  // Asked for separately, after the revision is saved and the amount seen.
+  async recoverRevision(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const person = await fetchOrgEmployee(req.params.personId, orgId);
+    const revision = await prisma.salaryRevision.findFirst({
+      where: { id: req.params.revisionId, organizationId: orgId, personId: person.id },
+    });
+    if (!revision) throw new AppError(404, 'Revision not found');
+    const result = await raiseRevisionArrears(req, person.id, revision.effectiveFrom.slice(0, 7), revision.id, { recover: true });
+    if (!result.recovered) throw new AppError(400, 'Nothing was overpaid under this revision, or it is already being recovered');
+    res.status(201).json(result);
+  },
+
   // Only the latest revision can be removed, so the chain stays consistent.
   async deleteRevision(req: any, res: Response) {
     const orgId = req.user?.organizationId;

@@ -4,7 +4,7 @@ import { LoadingBlock, ErrorAlert, Modal, StatusBadge } from '../../components/u
 import { formatINR } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
 
-const EMPTY = { name: '', section: '', sectionNew: '', group: 'OTHER', maxAmount: '', deductPercent: 100, isActive: true };
+const EMPTY = { name: '', section: '', sectionNew: '', group: 'OTHER', maxAmount: '', deductPercent: 100, proofRequired: false, isActive: true };
 
 // The investments and expenses an employee can declare for income tax.
 export default function DeclarationItemsTab() {
@@ -30,7 +30,7 @@ export default function DeclarationItemsTab() {
     setForm(item
       ? {
         name: item.name, section: item.section, sectionNew: item.sectionNew, group: item.group,
-        maxAmount: item.maxAmount ?? '', deductPercent: item.deductPercent, isActive: item.isActive,
+        maxAmount: item.maxAmount ?? '', deductPercent: item.deductPercent, proofRequired: item.proofRequired, isActive: item.isActive,
       }
       : EMPTY);
     setEditing(item || {});
@@ -106,7 +106,10 @@ export default function DeclarationItemsTab() {
                   <td style={{ fontWeight: 600 }}>{i.name}</td>
                   <td>{i.group === 'SECTION_80C' ? 'Section 80C pool' : 'Own limit'}</td>
                   <td className="num">{i.maxAmount == null ? 'No limit' : formatINR(i.maxAmount)}</td>
-                  <td className="num">{i.deductPercent}%</td>
+                  <td className="num">
+                    {i.deductPercent}%
+                    {i.proofRequired && <div className="text-muted" style={{ fontSize: 11.5 }}>proof needed</div>}
+                  </td>
                   <td className="num">{i.usedCount || '—'}</td>
                   <td><StatusBadge status={i.isActive ? 'active' : 'inactive'} /></td>
                   <td>
@@ -168,6 +171,16 @@ export default function DeclarationItemsTab() {
               <span className="hint">100 unless only part of the amount is deductible, as with some donations.</span>
             </div>
           </div>
+          <label className="checkbox-field" style={{ marginBottom: 14, alignItems: 'flex-start' }}>
+            <input type="checkbox" style={{ marginTop: 2 }} checked={Boolean(form.proofRequired)}
+              onChange={e => setForm({ ...form, proofRequired: e.target.checked })} />
+            <span>
+              A proof is required
+              <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
+                While proof submission is open, an employee cannot save an amount here without a proof attached, and HR cannot approve one.
+              </span>
+            </span>
+          </label>
           {editing?.id && (
             <label className="checkbox-field" style={{ marginBottom: 14 }}>
               <input type="checkbox" checked={form.isActive}

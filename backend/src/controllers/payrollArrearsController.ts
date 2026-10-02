@@ -12,7 +12,7 @@ import { regenerateSchedule, assertPeriodOpen, todayIST } from '../services/payr
 import { outstandingPrincipal } from '../services/payroll/loanCalc';
 import { writeManagedLines } from '../services/payroll/payComponents';
 import {
-  recomputeEntry, attachOpenArrears, reversibleLopMonths, reverseLop, cancelArrear,
+  recomputeEntry, attachOpenArrears, reversibleLopMonths, reverseLop, addRetroLop, cancelArrear,
 } from '../services/payroll/arrears';
 import {
   sumArrears, serviceLength, gratuityAmount, leaveEncashmentAmount, noticeAmounts,
@@ -67,6 +67,7 @@ const arrearJSON = (item: any) => ({
   lopDays: item.lopDays, fromPackage: item.fromPackage, toPackage: item.toPackage,
   gross: item.gross, pfEmployee: item.pfEmployee, esiEmployee: item.esiEmployee,
   net: r2(item.gross - item.pfEmployee - item.esiEmployee),
+  recovery: item.gross < 0, // pay taken back, not paid
   reason: item.reason, createdByName: item.createdByName, createdAt: item.createdAt,
   runId: item.paidEntry?.runId || null, ...arrearState(item),
 });
@@ -263,7 +264,8 @@ export const payrollArrearsController = {
       arrears: rows,
       lopReversalMonths: settings.lopReversalMonths,
       totals: {
-        open: { count: open.length, amount: r2(open.reduce((s, r) => s + r.gross, 0)) },
+        open: { count: open.filter(r => !r.recovery).length, amount: r2(open.filter(r => !r.recovery).reduce((s, r) => s + r.gross, 0)) },
+        recovering: { count: open.filter(r => r.recovery).length, amount: r2(open.filter(r => r.recovery).reduce((s, r) => s - r.gross, 0)) },
         waiting: rows.filter(r => r.state === 'WAITING').length,
         paid: rows.filter(r => r.state === 'PAID').length,
       },
@@ -280,6 +282,16 @@ export const payrollArrearsController = {
     if (!isFinite(days) || days <= 0) throw new AppError(400, 'Enter the number of days to reverse');
     const { item, paidIn } = await reverseLop(req, str(req.body.entryId), Math.round(days * 2) / 2, str(req.body.reason));
     res.status(201).json({ gross: item.gross, paidIn });
+  },
+
+  // Loss of pay added to a finalized month; the pay comes back on the next payslip.
+  async addRetroLop(req: any, res: Response) {
+    const days = Number(req.body.days);
+    if (!isFinite(days) || days <= 0) throw new AppError(400, 'Enter the number of days of loss of pay');
+    const reason = str(req.body.reason);
+    if (!reason) throw new AppError(400, 'Give a reason: this takes back pay already given');
+    const { item, paidIn } = await addRetroLop(req, str(req.body.entryId), Math.round(days * 2) / 2, reason);
+    res.status(201).json({ gross: item.gross, net: r2(item.gross - item.pfEmployee - item.esiEmployee), paidIn });
   },
 
   async cancelArrear(req: any, res: Response) {
@@ -558,7 +570,9 @@ export const payrollArrearsController = {
     const rows = items.map((a, i) => `<tr>
       <td>${i + 1}</td><td class="nw">${a.paidEntry ? esc(monthLabel(a.paidEntry.run.period)) + (a.paidEntry.run.status === 'DRAFT' ? ' <span class="muted">(draft)</span>' : '') : '<span class="muted">waiting</span>'}</td>
       <td class="nw">${esc(a.person.employeeNo)}</td><td class="nw">${esc(a.person.name)}</td><td class="nw">${esc(monthLabel(a.sourcePeriod))}</td>
-      <td>${a.kind === 'LOP_REVERSAL' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} reversed` : `Package ${amt(a.fromPackage)} → ${amt(a.toPackage)}`}${a.reason && reversals ? `<div class="muted" style="font-size:10.5px;">${esc(a.reason)}</div>` : ''}</td>
+      <td>${a.kind === 'LOP_REVERSAL' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} reversed`
+        : a.kind === 'LOP_RECOVERY' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} added`
+        : `Package ${amt(a.fromPackage)} → ${amt(a.toPackage)}`}${a.reason && reversals ? `<div class="muted" style="font-size:10.5px;">${esc(a.reason)}</div>` : ''}</td>
       <td class="amt">${amt(a.basic)}</td><td class="amt">${amt(a.da)}</td><td class="amt">${amt(a.hra)}</td><td class="amt">${amt(a.transportAllowance)}</td><td class="amt">${amt(a.foodAllowance)}</td>
       <td class="amt"><strong>${amt(a.gross)}</strong></td><td class="amt">${amt(a.pfEmployee)}</td><td class="amt">${amt(a.esiEmployee)}</td>
       <td class="amt">${amt(r2(a.gross - a.pfEmployee - a.esiEmployee))}</td></tr>`).join('');

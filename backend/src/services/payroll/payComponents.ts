@@ -35,6 +35,12 @@ const MANAGED: Record<string, { name: string; type: string; taxable: boolean }> 
   SALARY_ARREARS: { name: 'Salary Arrears', type: 'EARNING', taxable: true },
   PF_ON_ARREARS: { name: 'PF on Arrears', type: 'DEDUCTION', taxable: true },
   ESI_ON_ARREARS: { name: 'ESI on Arrears', type: 'DEDUCTION', taxable: true },
+  // Pay taken back for a past month. The amounts are negative: the
+  // earning lowers gross (and so taxable salary), and the PF and ESI
+  // already deducted on that pay come back.
+  SALARY_RECOVERY: { name: 'Salary Recovery', type: 'EARNING', taxable: true },
+  PF_ON_RECOVERY: { name: 'PF on Recovery', type: 'DEDUCTION', taxable: true },
+  ESI_ON_RECOVERY: { name: 'ESI on Recovery', type: 'DEDUCTION', taxable: true },
   LEAVE_ENCASHMENT: { name: 'Leave Encashment', type: 'EARNING', taxable: true },
   GRATUITY: { name: 'Gratuity', type: 'EARNING', taxable: false },
   NOTICE_PAY: { name: 'Notice Pay', type: 'EARNING', taxable: true },
@@ -57,8 +63,8 @@ export async function managedComponent(organizationId: string, code: string) {
   });
 }
 
-// Write the lines a feature owns on a payslip: one per code with an amount,
-// none where the amount is nil. A line typed by hand for the same component
+// Write the lines a feature owns on a payslip: one per code with an amount
+// (negative for a recovery), none where the amount is nil. A line typed by hand for the same component
 // is taken over. The entry must be recomputed afterwards.
 export async function writeManagedLines(
   organizationId: string, entryId: string, source: 'ARREAR' | 'SETTLEMENT', amounts: Record<string, number>,
@@ -66,11 +72,11 @@ export async function writeManagedLines(
   for (const [code, raw] of Object.entries(amounts)) {
     const amount = Math.round(Number(raw || 0) * 100) / 100;
     // A component joins the catalogue only when a line first needs it
-    const component = amount > 0
+    const component = amount !== 0
       ? await managedComponent(organizationId, code)
       : await prisma.payComponent.findUnique({ where: { organizationId_code: { organizationId, code } } });
     if (!component) continue;
-    if (amount > 0) {
+    if (amount !== 0) {
       await prisma.payslipLine.upsert({
         where: { entryId_componentId: { entryId, componentId: component.id } },
         create: { organizationId, entryId, componentId: component.id, name: component.name, type: component.type, amount, source },

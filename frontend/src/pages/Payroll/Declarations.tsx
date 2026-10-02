@@ -10,6 +10,7 @@ const WINDOWS: [string, string, string][] = [
   ['declarationOpen', 'Employees can edit their declaration', 'Turn off to lock declarations; HR can still edit.'],
   ['proofOpen', 'Employees can attach proofs', 'Usually opened towards the end of the year.'],
   ['employeeCanChooseRegime', 'Employees can choose their tax regime', 'When off, only HR sets the regime.'],
+  ['employeeTaxEstimate', 'Employees can see a tax estimate before payslips are released', 'Their tax statement then counts the latest payroll month even while it is unreleased, marked as an estimate.'],
 ];
 
 // Every employee's income-tax declaration for a year, and the year's windows.
@@ -31,7 +32,7 @@ export default function Declarations() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const setWindow = async (key: string, value: boolean) => {
+  const setWindow = async (key: string, value: boolean | string) => {
     try {
       await payrollAPI.updateDeclarationControl({ fyStart: data.fyStart, [key]: value });
       fetchData();
@@ -82,6 +83,26 @@ export default function Declarations() {
               <span>{label}<span className="text-muted" style={{ display: 'block', fontSize: 12 }}>{hint}</span></span>
             </label>
           ))}
+        </div>
+        <div className="form-grid" style={{ marginTop: 16 }}>
+          <div className="field">
+            <label>Close the declaration window after</label>
+            <input className="input" type="date" disabled={!data.control.declarationOpen} value={data.control.declarationLockOn || ''}
+              onChange={e => setWindow('declarationLockOn', e.target.value)} />
+            <span className="hint">
+              {data.control.declarationOpen
+                ? 'Employees can edit up to the end of this day; the window then closes by itself. Leave blank to close it by hand.'
+                : 'Open the window first to give it a closing date.'}
+            </span>
+          </div>
+          <div className="field">
+            <label>Open proof submission from</label>
+            <input className="input" type="month" disabled={data.control.proofOpen} value={data.control.proofOpenFrom || ''}
+              onChange={e => setWindow('proofOpenFrom', e.target.value)} />
+            <span className="hint">
+              {data.control.proofOpen ? 'Proof submission is open now.' : 'Proofs open by themselves on the first day of this month. Leave blank to open them by hand.'}
+            </span>
+          </div>
         </div>
       </div>
 

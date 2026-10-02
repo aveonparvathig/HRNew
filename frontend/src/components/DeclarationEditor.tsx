@@ -269,6 +269,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
                       </td>
                       <td>
                         {l.name}
+                        {l.proofRequired && <span className="badge badge-neutral" style={{ marginLeft: 6 }} title="An amount here needs a proof attached">proof needed</span>}
                         {l.deductPercent < 100 && !l.name.includes('%')
                           && <span className="text-muted"> ({l.deductPercent}% deductible)</span>}
                       </td>
