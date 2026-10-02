@@ -3,7 +3,7 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { orgBrand } from '../services/orgBrand';
+import { orgBrand, signatureImg } from '../services/orgBrand';
 import { logPayrollAudit, actorName } from '../services/payroll/audit';
 import { financialYearFor, financialYearOf, periodsOfFinancialYear } from '../services/payroll/financialYear';
 import { currentPeriodIST, salaryStructure } from '../services/payroll/salaryStructure';
@@ -511,7 +511,7 @@ export const payrollArrearsController = {
   ${s.remarks ? `<p style="font-size:12.5px;"><strong>Remarks:</strong> ${esc(s.remarks)}</p>` : ''}
   <div style="display:flex;justify-content:space-between;margin-top:46px;font-size:12.5px;">
     <div>____________________________<br/>Employee: I accept this as full and final settlement of my dues.</div>
-    <div style="text-align:right;">____________________________<br/>For ${esc(brand.name)}</div>
+    <div style="text-align:right;">${brand.signatureData ? `<div style="display:flex;justify-content:flex-end;">${signatureImg(brand.signatureData)}</div>` : ''}____________________________<br/>For ${esc(brand.name)}${brand.signatoryName ? `<br/>${esc(brand.signatoryName)}${brand.signatoryDesignation ? `, ${esc(brand.signatoryDesignation)}` : ''}` : ''}</div>
   </div>`);
     res.json({ html, title: `${title} — ${s.person.name}` });
   },

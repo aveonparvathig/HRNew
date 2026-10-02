@@ -11,6 +11,7 @@ import peopleRoutes from './routes/people';
 import proposalRoutes from './routes/proposals';
 import payrollRoutes from './routes/payroll';
 import orgRoutes from './routes/org';
+import mastersRoutes from './routes/masters';
 import expenseRoutes from './routes/expenses';
 import selfServiceRoutes from './routes/selfService';
 
@@ -59,6 +60,7 @@ app.use('/api/people', peopleRoutes);
 app.use('/api/proposals', proposalRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/org', orgRoutes);
+app.use('/api/masters', mastersRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/self', selfServiceRoutes);
 

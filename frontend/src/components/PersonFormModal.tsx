@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { peopleAPI } from '../api/people';
 import { Modal, ErrorAlert } from './ui';
+import ListSelect from './ListSelect';
 
 interface Props {
   open: boolean;
@@ -54,11 +55,13 @@ function resizePhoto(file: File): Promise<string> {
 }
 
 // Hoisted so the component type is stable across renders (inputs keep focus)
-function F({ form, set, label, k, type = 'text', placeholder = '', options = null, unit = '', span2 = false }: any) {
+function F({ form, set, label, k, type = 'text', placeholder = '', options = null, unit = '', span2 = false, list = '' }: any) {
   return (
     <div className="field" style={span2 ? { gridColumn: '1 / -1' } : undefined}>
       <label>{label}</label>
-      {options ? (
+      {list ? (
+        <ListSelect listType={list} value={form[k] || ''} onChange={v => set(k, v)} />
+      ) : options ? (
         <select className="select" value={form[k] || ''} onChange={e => set(k, e.target.value)}>
           <option value="">—</option>
           {options.map((o: any) => typeof o === 'string'
@@ -194,8 +197,8 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
           <div className="form-grid">
             <F {...fp} label="Gender" k="gender" options={['Male', 'Female', 'Other']} />
             {!isIntern && <F {...fp} label="Date of birth" k="dateOfBirth" type="date" />}
-            {!isIntern && <F {...fp} label="Blood group" k="bloodGroup" options={meta.bloodGroups || []} />}
-            {!isIntern && <F {...fp} label="Marital status" k="maritalStatus" options={meta.maritalStatuses || []} />}
+            {!isIntern && <F {...fp} label="Blood group" k="bloodGroup" list="BLOOD_GROUP" />}
+            {!isIntern && <F {...fp} label="Marital status" k="maritalStatus" list="MARITAL_STATUS" />}
             {!isIntern && <F {...fp} label="Father / spouse name" k="parentSpouseName" />}
             {!isIntern && <F {...fp} label="Aadhaar no." k="aadharNo" placeholder="XXXX XXXX XXXX" />}
           </div>
@@ -225,8 +228,8 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
               <div className="form-section-title"><span className="step-dot">3</span> Employment</div>
               <div className="form-grid" style={{ marginBottom: 14 }}>
                 <F {...fp} label="Employee code" k="employeeNo" placeholder="EMP-0001" />
-                <F {...fp} label="Designation" k="designation" placeholder="e.g. Software Engineer" />
-                <F {...fp} label="Department" k="department" placeholder="e.g. Delivery" />
+                <F {...fp} label="Designation" k="designation" list="DESIGNATION" />
+                <F {...fp} label="Department" k="department" list="DEPARTMENT" />
                 <F {...fp} label="Date of joining" k="joinDate" type="date" />
                 <F {...fp} label="Employment status" k="employmentStatus" options={meta.employmentStatuses || []} />
                 <F {...fp} label="Monthly package" k="currentMonthlyPackage" unit="₹" />
@@ -236,10 +239,8 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                 {isExit && <F {...fp} label="Relieving date" k="leavingDate" type="date" />}
               </div>
               {isExit && (
-                <div className="field" style={{ marginBottom: 14 }}>
-                  <label>Reason for leaving</label>
-                  <textarea className="input" rows={2} value={form.reasonForLeaving}
-                    onChange={e => set('reasonForLeaving', e.target.value)} />
+                <div className="form-grid" style={{ marginBottom: 14 }}>
+                  <F {...fp} label="Reason for leaving" k="reasonForLeaving" list="LEAVING_REASON" />
                 </div>
               )}
               <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -261,9 +262,9 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
             <div className="form-section">
               <div className="form-section-title"><span className="step-dot">4</span> Bank &amp; statutory</div>
               <div className="form-grid" style={{ marginBottom: 14 }}>
-                <F {...fp} label="Bank name" k="bankName" />
+                <F {...fp} label="Bank name" k="bankName" list="BANK" />
                 <F {...fp} label="Account number" k="bankAccountNumber" />
-                <F {...fp} label="IFSC code" k="ifscCode" />
+                <F {...fp} label="IFSC code" k="ifscCode" placeholder="HDFC0001234" />
                 <F {...fp} label="PAN number" k="panNumber" />
                 <F {...fp} label="PF number" k="pfNumber" />
                 <F {...fp} label="PF UAN" k="pfUan" />

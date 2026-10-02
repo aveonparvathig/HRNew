@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { payrollAPI } from '../api/payroll';
 import { Modal, ErrorAlert } from './ui';
+import ListSelect from './ListSelect';
 import { formatINR } from '../utils/format';
 
 const monthLabel = (period: string) => {
@@ -105,8 +106,8 @@ export default function PersonPayCard({ person }: { person: any }) {
             {form.salaryStopped && (
               <div className="field" style={{ marginBottom: 14 }}>
                 <label>Reason *</label>
-                <input className="input" required placeholder="e.g. On unpaid sabbatical" value={form.salaryStopReason}
-                  onChange={e => setForm({ ...form, salaryStopReason: e.target.value })} />
+                <ListSelect listType="STOP_REASON" required value={form.salaryStopReason} placeholder="Pick a reason"
+                  onChange={v => setForm({ ...form, salaryStopReason: v })} />
               </div>
             )}
             <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>

@@ -21,6 +21,34 @@ export const monthLabel = (period: string) => {
   return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 };
 
+// The head of a report: company on one side and the report's title on the
+// other, or everything centred, as the company's logo position says.
+function reportHeader(brand: OrgBrand, title: string, subtitle: string, primary: string, accent: string): string {
+  const logo = brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:48px;max-width:140px;object-fit:contain;"/>` : '';
+  const company = `<div>
+        <div style="font-size:22px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
+        ${brand.addressLine ? `<div style="font-size:11.5px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
+      </div>`;
+  const heading = (align: string) => `<div style="text-align:${align};">
+      <div style="font-size:16px;font-weight:700;">${esc(title)}</div>
+      <div style="font-size:12.5px;color:#555;">${esc(subtitle)}</div>
+    </div>`;
+  const rule = `border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;`;
+  if (brand.logoPosition === 'CENTER') {
+    return `<div style="${rule}text-align:center;">
+    ${logo ? `<div style="margin-bottom:6px;display:flex;justify-content:center;">${logo}</div>` : ''}
+    ${company}
+    <div style="margin-top:8px;">${heading('center')}</div>
+  </div>`;
+  }
+  const right = brand.logoPosition === 'RIGHT';
+  const block = `<div style="display:flex;align-items:center;gap:14px;${right ? 'flex-direction:row-reverse;text-align:right;' : ''}">${logo}${company}</div>`;
+  return `<div style="${rule}display:flex;justify-content:space-between;align-items:flex-end;${right ? 'flex-direction:row-reverse;' : ''}">
+    ${block}
+    ${heading(right ? 'left' : 'right')}
+  </div>`;
+}
+
 export function reportShell(brand: OrgBrand, title: string, subtitle: string, body: string): string {
   const primary = brand.brandPrimary || '#4f46e5';
   const accent = brand.brandAccent || '#312e81';
@@ -40,19 +68,7 @@ export function reportShell(brand: OrgBrand, title: string, subtitle: string, bo
     .st-h { font-size:15px; font-weight:700; color:${accent}; margin:18px 0 8px; }
     @media print { @page { size: A4 landscape; margin: 10mm; } .st-table th, .st-table td { font-size: 10.5px; padding: 4px 7px; } }
   </style>
-  <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end;">
-    <div style="display:flex;align-items:center;gap:14px;">
-      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:48px;max-width:140px;object-fit:contain;"/>` : ''}
-      <div>
-        <div style="font-size:22px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
-        ${brand.addressLine ? `<div style="font-size:11.5px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
-      </div>
-    </div>
-    <div style="text-align:right;">
-      <div style="font-size:16px;font-weight:700;">${esc(title)}</div>
-      <div style="font-size:12.5px;color:#555;">${esc(subtitle)}</div>
-    </div>
-  </div>
+  ${reportHeader(brand, title, subtitle, primary, accent)}
   ${body}
 </div>`;
 }

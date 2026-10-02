@@ -2,6 +2,8 @@ import { Response } from 'express';
 import * as bcrypt from 'bcryptjs';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
+import { INDIAN_STATES } from '../services/payroll/constants';
+import { IMAGE_DATA_URI, LOGO_POSITIONS, MAX_SIGNATURE_CHARS } from '../services/masters';
 
 const str = (v: any) => String(v ?? '');
 
@@ -43,7 +45,7 @@ export const orgController = {
       where: { id: req.user?.organizationId },
     });
     if (!org) throw new AppError(404, 'Organization not found');
-    res.json(org);
+    res.json({ ...org, states: INDIAN_STATES });
   },
 
   async updateProfile(req: any, res: Response) {
@@ -55,10 +57,32 @@ export const orgController = {
       if (!name) throw new AppError(400, 'Organization name is required');
       data.name = name;
     }
-    for (const f of ['tagline', 'address', 'city', 'state', 'country', 'phone',
+    for (const f of ['tagline', 'address', 'city', 'country', 'phone',
       'email', 'website', 'jurisdiction', 'logoData',
       'signatoryName', 'signatoryDesignation']) {
       if (b[f] !== undefined) data[f] = str(b[f]);
+    }
+    // In India the state is one of the list, so it always matches the
+    // state on work locations and tax policies. A state already saved is
+    // not questioned until it is changed.
+    if (b.state !== undefined) {
+      const state = str(b.state).trim();
+      const before = await prisma.organization.findUnique({ where: { id: req.user?.organizationId }, select: { state: true, country: true } });
+      const country = str(b.country ?? before?.country).trim().toLowerCase();
+      if (state && state !== before?.state && (country === 'india' || !country) && !INDIAN_STATES.includes(state)) {
+        throw new AppError(400, 'Pick the state from the list');
+      }
+      data.state = state;
+    }
+    if (b.signatureData !== undefined) {
+      const image = str(b.signatureData);
+      if (image && !IMAGE_DATA_URI.test(image)) throw new AppError(400, 'The signature must be a PNG or JPG image');
+      if (image.length > MAX_SIGNATURE_CHARS) throw new AppError(400, 'The signature image is too large. Use a smaller picture.');
+      data.signatureData = image;
+    }
+    if (b.logoPosition !== undefined) {
+      if (!LOGO_POSITIONS.includes(b.logoPosition)) throw new AppError(400, 'Pick left, centre or right for the logo');
+      data.logoPosition = b.logoPosition;
     }
     for (const f of ['brandPrimary', 'brandAccent']) {
       if (b[f] !== undefined) {

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, BackButton, SuccessAlert } from '../../components/ui';
-import StatutoryProfileTab from './StatutoryProfileTab';
 import WorkLocationsTab from './WorkLocationsTab';
 import PayComponentsTab from './PayComponentsTab';
 import StatutoryPoliciesTab from './StatutoryPoliciesTab';
@@ -17,7 +16,6 @@ const TABS = [
   { key: 'tax', label: 'Income tax' },
   { key: 'declarations', label: 'Declaration items' },
   { key: 'payout', label: 'Payout & journal' },
-  { key: 'statutory', label: 'Statutory profile' },
   { key: 'locations', label: 'Work locations' },
 ];
 
@@ -97,6 +95,8 @@ const GROUPS: { title: string; hint: string; fields: [string, string, string][] 
 export default function PayrollSettings() {
   const [params, setParams] = useSearchParams();
   const tab = TABS.some(t => t.key === params.get('tab')) ? params.get('tab')! : 'rates';
+  // Old links to the statutory profile land on its new home
+  if (params.get('tab') === 'statutory') return <Navigate to="/organization?tab=registrations" replace />;
 
   return (
     <>
@@ -108,7 +108,8 @@ export default function PayrollSettings() {
 
       <PageHeader
         title="Payroll Settings"
-        subtitle="Salary split, statutory rates, company registrations and work locations."
+        subtitle="Salary split, statutory rates, tax rules and work locations."
+        actions={<Link to="/organization?tab=registrations" className="btn btn-secondary">Company registrations</Link>}
       />
 
       <div className="tabs">
@@ -126,7 +127,6 @@ export default function PayrollSettings() {
       {tab === 'tax' && <IncomeTaxTab />}
       {tab === 'declarations' && <DeclarationItemsTab />}
       {tab === 'payout' && <PayoutSettingsTab />}
-      {tab === 'statutory' && <StatutoryProfileTab />}
       {tab === 'locations' && <WorkLocationsTab />}
     </>
   );

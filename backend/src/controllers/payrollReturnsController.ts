@@ -3,7 +3,7 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { orgBrand, OrgBrand } from '../services/orgBrand';
+import { orgBrand, OrgBrand, signatureImg } from '../services/orgBrand';
 import { logPayrollAudit, actorName } from '../services/payroll/audit';
 import { financialYearFor, financialYearOf, periodsOfFinancialYear } from '../services/payroll/financialYear';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
@@ -228,7 +228,7 @@ function form16Html(brand: OrgBrand, statutory: any, formName: string, a: Annual
       is true, complete and correct and is based on the books of account, documents, TDS statements and other available records.</p>
     <div style="display:flex;justify-content:space-between;margin-top:34px;">
       <div>Place: ${esc(statutory.form16SigningPlace) || '____________________'}<br/>Date: ____________________</div>
-      <div style="text-align:right;">____________________________<br/>Signature of the person responsible for deducting tax<br/>${esc(statutory.form16SignatoryName)}</div>
+      <div style="text-align:right;">${statutory.form16SignatureData ? `<div style="display:flex;justify-content:flex-end;">${signatureImg(statutory.form16SignatureData)}</div>` : ''}____________________________<br/>Signature of the person responsible for deducting tax<br/>${esc(statutory.form16SignatoryName)}</div>
     </div>
   </div>
   <p style="font-size:11px;color:#6b7280;margin-top:14px;">Covers ${a.working.monthsPaid} salary month${a.working.monthsPaid === 1 ? '' : 's'} paid in the year.
@@ -289,7 +289,7 @@ function form12baHtml(brand: OrgBrand, statutory: any, formName: string, a: Annu
       given above is based on the books of account, documents and other relevant records, and is true and correct.</p>
     <div style="display:flex;justify-content:space-between;margin-top:34px;">
       <div>Place: ${esc(statutory.form16SigningPlace) || '____________________'}<br/>Date: ____________________</div>
-      <div style="text-align:right;">____________________________<br/>Signature of the person responsible for deducting tax</div>
+      <div style="text-align:right;">${statutory.form16SignatureData ? `<div style="display:flex;justify-content:flex-end;">${signatureImg(statutory.form16SignatureData)}</div>` : ''}____________________________<br/>Signature of the person responsible for deducting tax</div>
     </div>
   </div>
   <p style="font-size:11px;color:#6b7280;margin-top:14px;">Payroll tracks concessional loans; add any other perquisite by hand. Section references are those of the Income-tax Act, 1961.</p>`;

@@ -33,7 +33,9 @@ function shell(orgName: string, d: any, subject: string, salutation: string, bod
   const contact = [b.phone, b.email, b.website].filter(Boolean).join(' · ');
   return `
 <div style="font-family:'Times New Roman',Times,serif;color:#1a1a2e;font-size:14px;line-height:1.7;">
-  <div style="border-bottom:3px solid ${primary};padding-bottom:14px;margin-bottom:8px;display:flex;align-items:center;gap:16px;">
+  <div style="border-bottom:3px solid ${primary};padding-bottom:14px;margin-bottom:8px;display:flex;align-items:center;gap:16px;${
+    b.logoPosition === 'CENTER' ? 'flex-direction:column;text-align:center;gap:8px;'
+      : b.logoPosition === 'RIGHT' ? 'flex-direction:row-reverse;text-align:right;' : ''}">
     ${b.logoData ? `<img src="${b.logoData}" alt="" style="height:56px;max-width:150px;object-fit:contain;"/>` : ''}
     <div>
       <div style="font-size:26px;font-weight:bold;color:${accent};letter-spacing:0.5px;">${esc(orgName)}</div>
@@ -56,7 +58,8 @@ function shell(orgName: string, d: any, subject: string, salutation: string, bod
   ${body}
   <table style="width:100%;margin-top:56px;"><tr>
     <td>
-      <div style="margin-bottom:52px;">Yours sincerely,<br/>For <strong>${esc(orgName)}</strong></div>
+      <div style="margin-bottom:${d._signature ? 6 : 52}px;">Yours sincerely,<br/>For <strong>${esc(orgName)}</strong></div>
+      ${d._signature ? `<img src="${d._signature}" alt="" style="height:46px;max-width:220px;object-fit:contain;display:block;"/>` : ''}
       <div style="border-top:1px solid #999;display:inline-block;padding-top:6px;min-width:220px;">
         <strong>${esc(d.signatoryName || '')}</strong><br/>
         <span style="font-size:13px;color:#555;">${esc(d.signatoryTitle || 'Authorised Signatory')}</span>
@@ -199,6 +202,10 @@ export function renderLetter(docType: string, brand: any, formData: any): string
     orgAddress: formData.orgAddress || brand.addressLine || '',
     signatoryName: formData.signatoryName || brand.signatoryName || '',
     signatoryTitle: formData.signatoryTitle || brand.signatoryDesignation || 'Authorised Signatory',
+    // The stored signature is the default signatory's: it is printed only
+    // when the letter is signed by them, not by someone named on the letter.
+    _signature: brand.signatureData && (!formData.signatoryName || formData.signatoryName === brand.signatoryName)
+      ? brand.signatureData : '',
   };
   return renderer(brand.name, d);
 }

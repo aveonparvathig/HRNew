@@ -119,7 +119,7 @@ export default function Payout() {
   const earlierCount = outside.earlierMonths.length;
   const finalized = run.status === 'FINALIZED';
   const rows = data.entries.filter((r: any) => filter === 'ALL' || r.state === filter);
-  const hasAccount = Boolean(data.account.payoutAccountNumber);
+  const hasAccount = data.bankAccounts.length > 0;
 
   return (
     <>
@@ -170,7 +170,10 @@ export default function Payout() {
           <div className="report-grid">
             {data.unpaidByMode.map((m: any) => (
               <button key={m.mode} className="report-tile" disabled={m.count === 0}
-                onClick={() => setBatchForm({ mode: m.mode, label: m.label, count: m.count, amount: m.amount, payDate: data.today, reference: '', notes: '' })}>
+                onClick={() => setBatchForm({
+                  mode: m.mode, label: m.label, count: m.count, amount: m.amount, payDate: data.today, reference: '', notes: '',
+                  bankAccountId: m.mode === 'BANK' ? data.bankAccounts[0]?.id || '' : '',
+                })}>
                 <strong>{m.label} — {formatINR(m.amount)}</strong>
                 <span>
                   {m.count} {m.count === 1 ? 'salary' : 'salaries'} ready. Create a batch.
@@ -222,7 +225,10 @@ export default function Payout() {
                 {data.batches.map((b: any) => (
                   <tr key={b.id}>
                     <td style={{ fontWeight: 600 }}>#{b.batchNo}<div className="text-muted" style={{ fontSize: 11.5, fontWeight: 400 }}>{b.createdBy}</div></td>
-                    <td>{b.modeLabel}</td>
+                    <td>
+                      {b.modeLabel}
+                      {b.bankAccount && <div className="text-muted" style={{ fontSize: 11.5 }}>from {b.bankAccount}</div>}
+                    </td>
                     <td>{formatDate(b.payDate)}</td>
                     <td>{b.reference || <span className="text-muted">—</span>}</td>
                     <td className="num">{b.count}</td>
@@ -257,7 +263,7 @@ export default function Payout() {
         {data.batches.some((b: any) => b.mode === 'BANK') && !hasAccount && (
           <p className="text-muted" style={{ fontSize: 12.5, padding: '12px 22px' }}>
             The bank advice needs the account salaries are paid from. Add it in{' '}
-            <Link to="/payroll/settings?tab=payout">Payroll Settings → Payout</Link>.
+            <Link to="/organization?tab=bank">Company Settings → Bank accounts</Link>.
           </p>
         )}
       </div>
@@ -350,6 +356,18 @@ export default function Payout() {
                   placeholder={batchForm.mode === 'BANK' ? 'Bank reference, if known' : ''}
                   onChange={e => setBatchForm({ ...batchForm, reference: e.target.value })} />
               </div>
+              {batchForm.mode === 'BANK' && data.bankAccounts.length > 0 && (
+                <div className="field" style={{ gridColumn: '1 / -1' }}>
+                  <label>Paid from</label>
+                  <select className="select" value={batchForm.bankAccountId}
+                    onChange={e => setBatchForm({ ...batchForm, bankAccountId: e.target.value })}>
+                    {data.bankAccounts.map((a: any) => (
+                      <option key={a.id} value={a.id}>{a.name}{a.isDefault ? ' (default)' : ''}</option>
+                    ))}
+                  </select>
+                  <span className="hint">The company account the bank transfer advice asks the bank to debit.</span>
+                </div>
+              )}
               <div className="field" style={{ gridColumn: '1 / -1' }}>
                 <label>Notes</label>
                 <input className="input" value={batchForm.notes}
