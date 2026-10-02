@@ -1052,6 +1052,9 @@ model PtPolicy {
   id             String   @id @default(cuid())
   organizationId String
   state          String
+  // The town (local body) the slabs belong to, matched to a work
+  // location's city; blank = the whole state
+  locality       String   @default("")
   effectiveFrom  String // "YYYY-MM"
   frequency      String // MONTHLY | HALF_YEARLY
   deductionMode  String   @default("SPREAD") // SPREAD | LUMP_SUM (half-yearly only)
@@ -1061,7 +1064,7 @@ model PtPolicy {
 
   slabs PtSlab[]
 
-  @@unique([organizationId, state, effectiveFrom])
+  @@unique([organizationId, state, locality, effectiveFrom])
   @@map("pt_policies")
 }
 
@@ -1163,6 +1166,8 @@ model WorkLocation {
   city           String   @default("")
   state          String
   isActive       Boolean  @default(true)
+  // No Professional Tax for employees here, whatever the state's policy
+  excludeFromPt  Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

@@ -8,7 +8,7 @@ import {
   financialYearFor, financialYearOf, periodsOfFinancialYear,
 } from '../services/payroll/financialYear';
 import {
-  halfYearOf, parseMonths, pfBreakup, pfAdminCharge, policyInForce,
+  halfYearOf, parseMonths, pfBreakup, pfAdminCharge, ptPolicyInForce, ptAreaLabel, townKey,
 } from '../services/payroll/statutoryCalc';
 import {
   esc, amt, inr, monthLabel, monthShort, reportShell,
@@ -33,7 +33,7 @@ async function fetchRun(runId: string, organizationId: string) {
     include: { entries: { include: {
       person: { select: {
         id: true, name: true, employeeNo: true, pfUan: true, pfNumber: true, esiNumber: true,
-        leavingDate: true, workLocation: { select: { name: true, state: true } },
+        leavingDate: true, workLocation: { select: { name: true, state: true, city: true } },
       } },
     } } },
   });
@@ -81,8 +81,11 @@ function ptInput(b: any) {
       throw new AppError(400, 'Slabs must not overlap, and only the last one can be open-ended');
     }
   }
+  const locality = str(b.locality).replace(/\s+/g, ' ');
+  if (locality.length > 80) throw new AppError(400, 'Keep the town under 80 characters');
   return {
     state: stateInput(b.state),
+    locality,
     effectiveFrom: periodInput(b.effectiveFrom, 'Pick the month the policy applies from'),
     frequency, deductionMode,
     deductionMonths: deductionMode === 'LUMP_SUM' ? monthsInput(b.deductionMonths, true) : '',
@@ -104,8 +107,17 @@ function lwfInput(b: any) {
   };
 }
 
-const duplicateMessage = (what: string, input: { state: string; effectiveFrom: string }) =>
-  `A ${what} policy for ${input.state} from ${monthLabel(input.effectiveFrom)} already exists`;
+const duplicateMessage = (what: string, input: { state: string; locality?: string; effectiveFrom: string }) =>
+  `A ${what} policy for ${ptAreaLabel(input)} from ${monthLabel(input.effectiveFrom)} already exists`;
+
+// Another Professional Tax policy for the same place and starting month.
+// Towns are compared without case, so "Coimbatore" and "coimbatore" clash.
+async function ptDuplicate(organizationId: string, input: { state: string; locality: string; effectiveFrom: string }, excludeId?: string) {
+  const same = await prisma.ptPolicy.findMany({
+    where: { organizationId, state: input.state, effectiveFrom: input.effectiveFrom, ...(excludeId ? { id: { not: excludeId } } : {}) },
+  });
+  return same.find(p => townKey(p.locality) === townKey(input.locality));
+}
 
 const monthList = (csv: string) => parseMonths(csv).map(m => MONTH_NAMES[m - 1]).join(', ');
 
@@ -144,30 +156,47 @@ export const payrollStatutoryController = {
       prisma.ptPolicy.findMany({
         where: { organizationId },
         include: { slabs: { orderBy: { incomeFrom: 'asc' } } },
-        orderBy: [{ state: 'asc' }, { effectiveFrom: 'desc' }],
+        orderBy: [{ state: 'asc' }, { locality: 'asc' }, { effectiveFrom: 'desc' }],
       }),
       prisma.lwfPolicy.findMany({ where: { organizationId }, orderBy: [{ state: 'asc' }, { effectiveFrom: 'desc' }] }),
-      prisma.workLocation.findMany({ where: { organizationId }, select: { state: true } }),
+      prisma.workLocation.findMany({
+        where: { organizationId }, select: { name: true, state: true, city: true, excludeFromPt: true, isActive: true },
+      }),
     ]);
+    // The towns work locations are in, by state: what a town policy can be for
+    const towns: Record<string, string[]> = {};
+    for (const l of locations) {
+      if (!townKey(l.city)) continue;
+      const list = towns[l.state] || (towns[l.state] = []);
+      if (!list.some(t => townKey(t) === townKey(l.city))) list.push(l.city.trim());
+    }
     res.json({
-      ptPolicies, lwfPolicies,
+      ptPolicies: ptPolicies.map(p => ({
+        ...p,
+        // Locations a town policy applies to; none means it is not in use
+        locations: townKey(p.locality)
+          ? locations.filter(l => l.state === p.state && townKey(l.city) === townKey(p.locality)).map(l => l.name)
+          : null,
+      })),
+      lwfPolicies,
       states: INDIAN_STATES,
       // States where employees actually work, to suggest in the forms
       locationStates: [...new Set(locations.map(l => l.state))],
+      towns,
+      excludedLocations: locations.filter(l => l.excludeFromPt).map(l => l.name),
     });
   },
 
   async createPtPolicy(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const { slabs, ...input } = ptInput(req.body);
-    const dup = await prisma.ptPolicy.findFirst({ where: { organizationId, state: input.state, effectiveFrom: input.effectiveFrom } });
-    if (dup) throw new AppError(400, duplicateMessage('Professional Tax', input));
+    if (await ptDuplicate(organizationId, input)) throw new AppError(400, duplicateMessage('Professional Tax', input));
     const policy = await prisma.ptPolicy.create({
       data: { organizationId, ...input, slabs: { create: slabs } },
       include: { slabs: { orderBy: { incomeFrom: 'asc' } } },
     });
     await logPayrollAudit(req, [{
-      action: 'PT_POLICY_SAVED', field: `${input.state} from ${monthLabel(input.effectiveFrom)}`,
+      action: 'PT_POLICY_SAVED', field: `${ptAreaLabel(input)} from ${monthLabel(input.effectiveFrom)}`,
       newValue: `${slabs.length} slabs`,
     }]);
     res.status(201).json(policy);
@@ -178,17 +207,14 @@ export const payrollStatutoryController = {
     const existing = await prisma.ptPolicy.findFirst({ where: { id: req.params.policyId, organizationId } });
     if (!existing) throw new AppError(404, 'Policy not found');
     const { slabs, ...input } = ptInput(req.body);
-    const dup = await prisma.ptPolicy.findFirst({
-      where: { organizationId, state: input.state, effectiveFrom: input.effectiveFrom, id: { not: existing.id } },
-    });
-    if (dup) throw new AppError(400, duplicateMessage('Professional Tax', input));
+    if (await ptDuplicate(organizationId, input, existing.id)) throw new AppError(400, duplicateMessage('Professional Tax', input));
     const policy = await prisma.ptPolicy.update({
       where: { id: existing.id },
       data: { ...input, slabs: { deleteMany: {}, create: slabs } },
       include: { slabs: { orderBy: { incomeFrom: 'asc' } } },
     });
     await logPayrollAudit(req, [{
-      action: 'PT_POLICY_SAVED', field: `${input.state} from ${monthLabel(input.effectiveFrom)}`,
+      action: 'PT_POLICY_SAVED', field: `${ptAreaLabel(input)} from ${monthLabel(input.effectiveFrom)}`,
       newValue: `${slabs.length} slabs`,
     }]);
     res.json(policy);
@@ -200,7 +226,7 @@ export const payrollStatutoryController = {
     if (!existing) throw new AppError(404, 'Policy not found');
     await prisma.ptPolicy.delete({ where: { id: existing.id } });
     await logPayrollAudit(req, [{
-      action: 'PT_POLICY_DELETED', field: `${existing.state} from ${monthLabel(existing.effectiveFrom)}`,
+      action: 'PT_POLICY_DELETED', field: `${ptAreaLabel(existing)} from ${monthLabel(existing.effectiveFrom)}`,
     }]);
     res.json({ message: 'Policy deleted' });
   },
@@ -400,21 +426,30 @@ export const payrollStatutoryController = {
     const organizationId = req.user?.organizationId;
     const run = await fetchRun(req.params.runId, organizationId);
     const rows = [...run.entries].sort(byName).filter(e => e.professionalTax > 0);
-    const states = [...new Set(rows.map(e => e.person.workLocation?.state || 'Unassigned'))].sort();
+    // Each town with its own policy is paid separately; the rest go to the state
+    const policies = await prisma.ptPolicy.findMany({ where: { organizationId } });
+    const areaOf = (e: any) => {
+      const l = e.person.workLocation;
+      if (!l) return 'No work location';
+      const policy = ptPolicyInForce(policies, l.state, l.city, run.period);
+      return policy ? ptAreaLabel(policy) : l.state;
+    };
+    const states = [...new Set(rows.map(areaOf))].sort();
     const body = rows.map((e, i) => `<tr>
       <td>${i + 1}</td><td class="nw">${esc(e.person.employeeNo)}</td><td class="nw">${esc(e.person.name)}</td>
       <td>${esc(e.person.workLocation ? `${e.person.workLocation.name}, ${e.person.workLocation.state}` : '—')}</td>
+      <td>${esc(areaOf(e))}</td>
       <td class="amt">${inr(e.grossSalary)}</td>
       <td class="amt">${inr(e.professionalTax)}${e.ptOverridden ? ' <span class="muted">(manual)</span>' : ''}</td></tr>`).join('');
     const html = reportShell(await orgBrand(organizationId), 'Professional Tax Statement', monthLabel(run.period), `
   <table class="st-table">
-    <tr><th>#</th><th>Code</th><th>Employee</th><th>Location</th><th class="amt">Gross</th><th class="amt">Professional Tax</th></tr>
-    ${body || '<tr><td colspan="6">No Professional Tax was deducted in this run.</td></tr>'}
-    <tr class="tot"><td colspan="4">Total (${rows.length} employees)</td><td class="amt">${inr(sum(rows, e => e.grossSalary))}</td><td class="amt">${inr(sum(rows, e => e.professionalTax))}</td></tr>
+    <tr><th>#</th><th>Code</th><th>Employee</th><th>Location</th><th>Paid to</th><th class="amt">Gross</th><th class="amt">Professional Tax</th></tr>
+    ${body || '<tr><td colspan="7">No Professional Tax was deducted in this run.</td></tr>'}
+    <tr class="tot"><td colspan="5">Total (${rows.length} employees)</td><td class="amt">${inr(sum(rows, e => e.grossSalary))}</td><td class="amt">${inr(sum(rows, e => e.professionalTax))}</td></tr>
   </table>
   ${states.length > 1 ? `<table class="st-table" style="width:auto;min-width:40%;">
-    <tr><th>State</th><th class="amt">Employees</th><th class="amt">Professional Tax</th></tr>
-    ${states.map(s => { const list = rows.filter(e => (e.person.workLocation?.state || 'Unassigned') === s); return `<tr><td>${esc(s)}</td><td class="amt">${list.length}</td><td class="amt">${inr(sum(list, e => e.professionalTax))}</td></tr>`; }).join('')}
+    <tr><th>Paid to</th><th class="amt">Employees</th><th class="amt">Professional Tax</th></tr>
+    ${states.map(s => { const list = rows.filter(e => areaOf(e) === s); return `<tr><td>${esc(s)}</td><td class="amt">${list.length}</td><td class="amt">${inr(sum(list, e => e.professionalTax))}</td></tr>`; }).join('')}
   </table>` : ''}`);
     res.json({ html, title: `Professional Tax Statement — ${monthLabel(run.period)}` });
   },
@@ -449,13 +484,19 @@ export const payrollStatutoryController = {
       where: { organizationId, run: { period: { in: half.periods } } },
       include: {
         run: { select: { period: true } },
-        person: { select: { name: true, employeeNo: true, workLocation: { select: { state: true } } } },
+        person: { select: { name: true, employeeNo: true, workLocation: { select: { state: true, city: true } } } },
       },
     });
-    const people = new Map<string, { name: string; code: string; state: string; gross: number; tax: number[] }>();
+    // The policy each employee falls under at the end of the half
+    const policies = await prisma.ptPolicy.findMany({ where: { organizationId }, include: { slabs: { orderBy: { incomeFrom: 'asc' } } } });
+    const lastPeriod = half.periods[5];
+    const people = new Map<string, { name: string; code: string; state: string; policyId: string; gross: number; tax: number[] }>();
     for (const e of entries) {
+      const l = e.person.workLocation;
+      const policy = l ? ptPolicyInForce(policies, l.state, l.city, lastPeriod) : undefined;
       const row = people.get(e.personId) || {
-        name: e.person.name, code: e.person.employeeNo, state: e.person.workLocation?.state || '',
+        name: e.person.name, code: e.person.employeeNo,
+        state: policy ? ptAreaLabel(policy) : l?.state || '', policyId: policy?.id || '',
         gross: 0, tax: half.periods.map(() => 0),
       };
       row.gross = r2(row.gross + e.grossSalary);
@@ -465,14 +506,13 @@ export const payrollStatutoryController = {
     const rows = [...people.values()].sort((a, b) => a.name.localeCompare(b.name));
     const taxOf = (r: { tax: number[] }) => r2(r.tax.reduce((s, v) => s + v, 0));
 
-    // Slab distribution per state with a half-yearly policy
-    const policies = await prisma.ptPolicy.findMany({ where: { organizationId }, include: { slabs: { orderBy: { incomeFrom: 'asc' } } } });
-    const lastPeriod = half.periods[5];
-    const slabTables = [...new Set(rows.map(r => r.state).filter(Boolean))].sort().map(state => {
-      const policy = policyInForce(policies, state, lastPeriod);
-      if (!policy) return '';
-      const inState = rows.filter(r => r.state === state);
-      return `<div class="st-h">${esc(state)} — employees by slab</div>
+    // Slab distribution for each town or state that has a policy
+    const slabTables = policies
+      .filter(p => rows.some(r => r.policyId === p.id))
+      .sort((a, b) => ptAreaLabel(a).localeCompare(ptAreaLabel(b)))
+      .map(policy => {
+      const inState = rows.filter(r => r.policyId === policy.id);
+      return `<div class="st-h">${esc(ptAreaLabel(policy))} — employees by slab</div>
   <table class="st-table" style="width:auto;min-width:55%;">
     <tr><th>Half-year income</th><th class="amt">Tax per employee</th><th class="amt">Employees</th><th class="amt">Tax deducted</th></tr>
     ${policy.slabs.map(s => {
@@ -488,7 +528,7 @@ export const payrollStatutoryController = {
       <td class="amt">${inr(r.gross)}</td>${r.tax.map(v => `<td class="amt">${amt(v)}</td>`).join('')}<td class="amt"><strong>${inr(taxOf(r))}</strong></td></tr>`).join('');
     const html = reportShell(await orgBrand(organizationId), 'Professional Tax — Half-Year', half.label, `
   <table class="st-table">
-    <tr><th>#</th><th>Code</th><th>Employee</th><th>State</th><th class="amt">Half-year gross</th>${half.periods.map(p => `<th class="amt">${esc(monthShort(p))}</th>`).join('')}<th class="amt">Tax</th></tr>
+    <tr><th>#</th><th>Code</th><th>Employee</th><th>Town or state</th><th class="amt">Half-year gross</th>${half.periods.map(p => `<th class="amt">${esc(monthShort(p))}</th>`).join('')}<th class="amt">Tax</th></tr>
     ${body || `<tr><td colspan="12">No payslips in ${esc(half.label)}.</td></tr>`}
     <tr class="tot"><td colspan="4">Total (${rows.length} employees)</td><td class="amt">${inr(sum(rows, r => r.gross))}</td>
       ${half.periods.map((_, i) => `<td class="amt">${amt(sum(rows, r => r.tax[i]))}</td>`).join('')}<td class="amt">${inr(sum(rows, taxOf))}</td></tr>

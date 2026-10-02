@@ -2,7 +2,7 @@
 // loss-of-pay reversals, and paying them as lines on a draft payslip.
 import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
-import { loadStatutoryContext, computeFullEntry } from './entryCompute';
+import { loadStatutoryContext, computeFullEntry, locationOptions, LOCATION_FOR_PAYROLL } from './entryCompute';
 import { saveTaxWorkings } from './taxContext';
 import { packageForPeriod, currentPeriodIST } from './salaryStructure';
 import { logPayrollAudit, actorName } from './audit';
@@ -19,14 +19,14 @@ const settingsFor = (organizationId: string) =>
 export async function recomputeEntry(organizationId: string, entryId: string, patch: Record<string, any> = {}) {
   const entry = await prisma.payslipEntry.findFirst({
     where: { id: entryId, organizationId },
-    include: { run: true, lines: true, person: { select: { workLocation: { select: { state: true } } } } },
+    include: { run: true, lines: true, person: { select: { workLocation: { select: LOCATION_FOR_PAYROLL } } } },
   });
   if (!entry) throw new AppError(404, 'Payslip entry not found');
   if (entry.run.status !== 'DRAFT') throw new AppError(400, 'This run is finalized. Reopen it to make changes.');
   const ctx = await loadStatutoryContext(organizationId, entry.run.period);
   const merged = { ...entry, ...patch };
   const computed = computeFullEntry(ctx, merged, entry.lines, {
-    personId: entry.personId, state: entry.person.workLocation?.state,
+    personId: entry.personId, ...locationOptions(entry.person.workLocation),
     ptOverride: entry.ptOverridden ? entry.professionalTax : null,
     tdsOverride: entry.tdsOverridden ? entry.tds : null,
   });

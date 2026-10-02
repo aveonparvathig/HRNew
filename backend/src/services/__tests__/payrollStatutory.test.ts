@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { computeEntry } from '../payrollCalc';
 import {
   halfYearOf, slabAmount, professionalTaxForMonth, lwfForMonth, policyInForce,
-  esiCovered, pfBreakup, pfAdminCharge, parseMonths,
+  esiCovered, pfBreakup, pfAdminCharge, parseMonths, ptPolicyInForce, ptAreaLabel,
 } from '../payroll/statutoryCalc';
-import { computeFullEntry, esiFlagFor, StatutoryContext } from '../payroll/entryCompute';
+import { computeFullEntry, esiFlagFor, locationOptions, StatutoryContext } from '../payroll/entryCompute';
 import { esiCeilingChecks, locationChecks } from '../payroll/checks';
 
 const SETTINGS = {
@@ -286,5 +286,65 @@ describe('engine with statutory inputs', () => {
     const withBonus = computeFullEntry({ ...ctx, period: '2027-03', lwfPolicies: [] }, low,
       [{ type: 'EARNING', amount: 20000 }], { personId: 'p1', state: 'Tamil Nadu' });
     expect(withBonus.professionalTax).toBe(120); // 25,000
+  });
+});
+
+describe('Professional Tax by town', () => {
+  const state = { ...HALF_SPREAD, id: 'tn', locality: '' };
+  const town = {
+    ...HALF_SPREAD, id: 'cbe', locality: 'Coimbatore',
+    slabs: [{ incomeFrom: 0, incomeTo: 60000, amount: 0 }, { incomeFrom: 60001, incomeTo: null, amount: 1250 }],
+  };
+  const policies = [state, town];
+
+  it('uses the town’s policy for a work location in that town, else the state’s', () => {
+    expect(ptPolicyInForce(policies, 'Tamil Nadu', 'Coimbatore', '2026-12')?.id).toBe('cbe');
+    expect(ptPolicyInForce(policies, 'Tamil Nadu', '  coimbatore ', '2026-12')?.id).toBe('cbe');
+    expect(ptPolicyInForce(policies, 'Tamil Nadu', 'Chennai', '2026-12')?.id).toBe('tn');
+    expect(ptPolicyInForce(policies, 'Tamil Nadu', '', '2026-12')?.id).toBe('tn');
+    expect(ptPolicyInForce(policies, 'Kerala', 'Coimbatore', '2026-12')).toBeUndefined();
+  });
+
+  it('falls back to the state until the town’s policy starts', () => {
+    const later = [state, { ...town, effectiveFrom: '2026-10' }];
+    expect(ptPolicyInForce(later, 'Tamil Nadu', 'Coimbatore', '2026-09')?.id).toBe('tn');
+    expect(ptPolicyInForce(later, 'Tamil Nadu', 'Coimbatore', '2026-10')?.id).toBe('cbe');
+  });
+
+  it('never applies a town’s policy to the rest of the state', () => {
+    expect(ptPolicyInForce([town], 'Tamil Nadu', 'Chennai', '2026-12')).toBeUndefined();
+    expect(ptPolicyInForce([town], 'Tamil Nadu', null, '2026-12')).toBeUndefined();
+  });
+
+  it('names what a policy covers', () => {
+    expect(ptAreaLabel(town)).toBe('Coimbatore, Tamil Nadu');
+    expect(ptAreaLabel(state)).toBe('Tamil Nadu');
+  });
+
+  const ctx: StatutoryContext = {
+    period: '2026-12', settings: SETTINGS, ptPolicies: policies, lwfPolicies: [],
+    priorByPerson: new Map(), loanDue: new Map(), tax: null,
+  };
+  const inputs = { monthlyPackage: 45000, totalWorkingDays: 26 };
+
+  it('computes the payslip from the town’s slabs', () => {
+    // December, four months left in the half: 1,80,000 → state 1,200, town 1,250
+    expect(computeFullEntry(ctx, inputs, [], { personId: 'p1', state: 'Tamil Nadu', town: 'Chennai' }).professionalTax).toBe(300);
+    expect(computeFullEntry(ctx, inputs, [], { personId: 'p1', state: 'Tamil Nadu', town: 'Coimbatore' }).professionalTax).toBe(313);
+  });
+
+  it('deducts nothing at a location excluded from Professional Tax', () => {
+    const r = computeFullEntry(
+      { ...ctx, lwfPolicies: [{ state: 'Tamil Nadu', effectiveFrom: '2026-01', employeeAmount: 20, employerAmount: 40, deductionMonths: '12' }] },
+      inputs, [], { personId: 'p1', state: 'Tamil Nadu', town: 'Coimbatore', excludeFromPt: true },
+    );
+    expect(r.professionalTax).toBe(0);
+    expect(r.lwfEmployee).toBe(20); // the Labour Welfare Fund is not affected
+  });
+
+  it('reads the options from a work location', () => {
+    expect(locationOptions({ state: 'Tamil Nadu', city: 'Coimbatore', excludeFromPt: true }))
+      .toEqual({ state: 'Tamil Nadu', town: 'Coimbatore', excludeFromPt: true });
+    expect(locationOptions(null)).toEqual({ state: undefined, town: undefined, excludeFromPt: false });
   });
 });

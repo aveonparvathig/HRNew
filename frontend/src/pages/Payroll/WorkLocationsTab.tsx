@@ -26,7 +26,7 @@ export default function WorkLocationsTab() {
 
   const open = (location?: any) => {
     setForm(location
-      ? { name: location.name, city: location.city, state: location.state, isActive: location.isActive }
+      ? { name: location.name, city: location.city, state: location.state, isActive: location.isActive, excludeFromPt: location.excludeFromPt }
       : EMPTY);
     setEditing(location || {});
   };
@@ -68,8 +68,8 @@ export default function WorkLocationsTab() {
           <div>
             <h3>Work locations</h3>
             <span className="text-muted" style={{ fontSize: 12.5 }}>
-              The state of an employee's location decides Professional Tax and Labour Welfare Fund rules.
-              Assign a location on each employee's profile.
+              The state of an employee's location decides Professional Tax and Labour Welfare Fund rules; where
+              the town sets its own Professional Tax, the city decides the slabs. Assign a location on each employee's profile.
             </span>
           </div>
           <button className="btn btn-primary" onClick={() => open()}>+ Add Location</button>
@@ -88,7 +88,10 @@ export default function WorkLocationsTab() {
                   <tr key={l.id}>
                     <td style={{ fontWeight: 600 }}>{l.name}</td>
                     <td>{l.city || '—'}</td>
-                    <td>{l.state}</td>
+                    <td>
+                      {l.state}
+                      {l.excludeFromPt && <div className="text-muted" style={{ fontSize: 11.5 }}>No Professional Tax</div>}
+                    </td>
                     <td className="num">{l.employeeCount}</td>
                     <td><StatusBadge status={l.isActive ? 'active' : 'inactive'} /></td>
                     <td>
@@ -118,6 +121,7 @@ export default function WorkLocationsTab() {
               <label>City</label>
               <input className="input" value={form.city}
                 onChange={e => setForm({ ...form, city: e.target.value })} />
+              <span className="hint">The town whose Professional Tax slabs apply, where the local body sets them.</span>
             </div>
             <div className="field">
               <label>State *</label>
@@ -128,6 +132,11 @@ export default function WorkLocationsTab() {
               </select>
             </div>
           </div>
+          <label className="checkbox-field" style={{ marginBottom: 14 }}>
+            <input type="checkbox" checked={Boolean(form.excludeFromPt)}
+              onChange={e => setForm({ ...form, excludeFromPt: e.target.checked })} />
+            No Professional Tax here: employees at this location are left out, whatever the state's policy
+          </label>
           {editing?.id && (
             <label className="checkbox-field" style={{ marginBottom: 14 }}>
               <input type="checkbox" checked={form.isActive}

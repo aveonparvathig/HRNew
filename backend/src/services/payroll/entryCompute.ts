@@ -9,7 +9,7 @@ import { fullMonthEsiWage } from './checks';
 import { loanDueByPerson } from './loanLedger';
 import { TaxContext, loadTaxContext, tdsForEntry } from './taxContext';
 import {
-  halfYearOf, policyInForce, professionalTaxForMonth, lwfForMonth, esiCovered, PriorMonth,
+  halfYearOf, policyInForce, ptPolicyInForce, professionalTaxForMonth, lwfForMonth, esiCovered, PriorMonth,
 } from './statutoryCalc';
 
 interface PriorEntry extends PriorMonth {
@@ -72,9 +72,18 @@ export function esiFlagFor(ctx: StatutoryContext, person: { id: string; isEsiEli
 export interface ComputeOptions {
   personId: string;
   state?: string | null;       // state of the employee's work location
+  town?: string | null;        // its town, for Professional Tax set by the local body
+  excludeFromPt?: boolean;     // the location pays no Professional Tax
   ptOverride?: number | null;  // a manually entered Professional Tax
   tdsOverride?: number | null; // under computed TDS, an amount typed over it
 }
+
+// What a work location tells the computation. Select these columns
+// wherever an employee's location is loaded for payroll.
+export const LOCATION_FOR_PAYROLL = { state: true, city: true, excludeFromPt: true } as const;
+export const locationOptions = (location: { state: string; city: string; excludeFromPt: boolean } | null | undefined) => ({
+  state: location?.state, town: location?.city, excludeFromPt: Boolean(location?.excludeFromPt),
+});
 
 // Everything to store on the entry. Statutory amounts need the gross, so
 // the engine runs once without them and once with. Loan instalments come
@@ -86,7 +95,7 @@ export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, lin
   let professionalTax = 0;
   let lwf = { lwfEmployee: 0, lwfEmployer: 0 };
   if (opts.state) {
-    const ptPolicy = policyInForce(ctx.ptPolicies, opts.state, ctx.period);
+    const ptPolicy = opts.excludeFromPt ? undefined : ptPolicyInForce(ctx.ptPolicies, opts.state, opts.town, ctx.period);
     if (ptPolicy) {
       professionalTax = professionalTaxForMonth(
         ptPolicy, ctx.period, bare.grossSalary, ctx.priorByPerson.get(opts.personId) || [],

@@ -117,6 +117,7 @@ const FIELD_LABELS: Record<string, string> = {
   ptRegistrationNo: 'Professional Tax registration no.',
   lwfRegistrationNo: 'Labour Welfare Fund no.',
   gstNumber: 'GST number',
+  excludeFromPt: 'Excluded from Professional Tax',
   tdsCircleAddress: 'Tax office address',
 };
 
