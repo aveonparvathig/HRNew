@@ -1,5 +1,21 @@
 import apiClient from './client';
 
+// A file picked on a form, as the data URI the API stores.
+export const readFileAsDataUri = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('Could not read the file'));
+  reader.readAsDataURL(file);
+});
+
+// Opens a stored file (a data URI) in a new tab.
+export function openDataFile(fileData: string) {
+  const [head, body] = fileData.split(',');
+  const type = /data:([^;]+)/.exec(head)?.[1] || 'application/octet-stream';
+  const bytes = Uint8Array.from(atob(body), c => c.charCodeAt(0));
+  window.open(URL.createObjectURL(new Blob([bytes], { type })), '_blank');
+}
+
 // Fetch a file from the API and hand it to the browser to save. The
 // server names the file. Returns the response headers, which carry counts
 // for some downloads (X-Included, X-Skipped).

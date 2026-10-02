@@ -29,6 +29,11 @@ router.post('/declaration/proofs', asyncHandler((req, res) => selfServiceControl
 router.get('/declaration/proofs/:proofId', asyncHandler((req, res) => selfServiceController.getProof(req, res)));
 router.delete('/declaration/proofs/:proofId', asyncHandler((req, res) => selfServiceController.deleteProof(req, res)));
 
+router.get('/documents', asyncHandler((req, res) => selfServiceController.getDocuments(req, res)));
+router.get('/documents/letters/:docId/pdf', asyncHandler((req, res) => selfServiceController.getLetter(req, res)));
+router.get('/documents/letters/:docId', asyncHandler((req, res) => selfServiceController.getLetter(req, res)));
+router.get('/documents/files/:fileId', asyncHandler((req, res) => selfServiceController.getFile(req, res)));
+
 router.get('/loans', asyncHandler((req, res) => selfServiceController.getLoans(req, res)));
 router.get('/form16-part-a', asyncHandler((req, res) => selfServiceController.getForm16PartA(req, res)));
 router.get('/form16.pdf', asyncHandler((req, res) => selfServiceController.getForm16File(req, res)));

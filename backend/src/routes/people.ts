@@ -6,6 +6,8 @@ import { orgChartController } from '../controllers/orgChartController';
 import { positionsController } from '../controllers/positionsController';
 import { applyDuePositions } from '../services/positions';
 import { hrDashboardController } from '../controllers/hrDashboardController';
+import { lettersController } from '../controllers/lettersController';
+import { employeeFilesController } from '../controllers/employeeFilesController';
 
 const router = Router();
 
@@ -36,6 +38,15 @@ router.get('/confirmations', staffOnly, asyncHandler((req, res) => orgChartContr
 router.get('/hr-dashboard', staffOnly, asyncHandler((req, res) => hrDashboardController.getDashboard(req, res)));
 router.post('/transfer-reports', staffOnly, asyncHandler((req, res) => orgChartController.transferReports(req, res)));
 
+// Letter templates, and the same letter for several people (before /:personId routes)
+router.get('/letter-templates', staffOnly, asyncHandler((req, res) => lettersController.getTemplates(req, res)));
+router.post('/letter-templates', staffOnly, asyncHandler((req, res) => lettersController.createTemplate(req, res)));
+router.put('/letter-templates/:templateId', staffOnly, asyncHandler((req, res) => lettersController.updateTemplate(req, res)));
+router.post('/letter-templates/:templateId/reset', staffOnly, asyncHandler((req, res) => lettersController.resetTemplate(req, res)));
+router.delete('/letter-templates/:templateId', staffOnly, asyncHandler((req, res) => lettersController.deleteTemplate(req, res)));
+router.post('/letters/preview', staffOnly, asyncHandler((req, res) => lettersController.preview(req, res)));
+router.post('/letters', staffOnly, asyncHandler((req, res) => lettersController.createLetters(req, res)));
+
 // Employee register export
 router.get('/export/employees.csv', staffOnly, asyncHandler((req, res) => peopleController.exportEmployeesCsv(req, res)));
 router.get('/export/employees.xlsx', staffOnly, asyncHandler((req, res) => peopleController.exportEmployeesXlsx(req, res)));
@@ -56,10 +67,20 @@ router.post('/:personId/positions', staffOnly, asyncHandler((req, res) => positi
 router.delete('/positions/:changeId', staffOnly, asyncHandler((req, res) => positionsController.deletePosition(req, res)));
 
 // Documents (generated letters)
-router.get('/documents/:docId', staffOnly, asyncHandler((req, res) => peopleController.getDocument(req, res)));
+router.get('/documents/:docId', staffOnly, asyncHandler((req, res) => lettersController.getLetter(req, res)));
+router.put('/documents/:docId', staffOnly, asyncHandler((req, res) => lettersController.updateLetter(req, res)));
+router.get('/documents/:docId/file', staffOnly, asyncHandler((req, res) => lettersController.letterFile(req, res)));
+router.post('/documents/:docId/email', staffOnly, asyncHandler((req, res) => lettersController.emailLetter(req, res)));
 router.delete('/documents/:docId', staffOnly, asyncHandler((req, res) => peopleController.deleteDocument(req, res)));
-router.get('/:personId/document-prefill', staffOnly, asyncHandler((req, res) => peopleController.getDocumentPrefill(req, res)));
-router.post('/:personId/documents', staffOnly, asyncHandler((req, res) => peopleController.createDocument(req, res)));
+router.get('/:personId/document-prefill', staffOnly, asyncHandler((req, res) => lettersController.getPrefill(req, res)));
+router.post('/:personId/documents', staffOnly, asyncHandler((req, res) => lettersController.createLetter(req, res)));
+
+// Uploaded files: identity proofs, certificates, signed letters
+router.get('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFilesController.getFile(req, res)));
+router.put('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFilesController.updateFile(req, res)));
+router.delete('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFilesController.deleteFile(req, res)));
+router.get('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.getFiles(req, res)));
+router.post('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.uploadFile(req, res)));
 
 // Interview rounds
 router.post('/:personId/interviews', staffOnly, asyncHandler((req, res) => peopleController.addInterview(req, res)));

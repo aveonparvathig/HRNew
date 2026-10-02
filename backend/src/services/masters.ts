@@ -20,6 +20,10 @@ export const LIST_TYPES: ListType[] = [
     type: 'EMPLOYMENT_TYPE', label: 'Employment type', usedFor: 'Employee profile',
     defaults: ['Permanent', 'Contract', 'Trainee', 'Part-time'],
   },
+  {
+    type: 'DOCUMENT_CATEGORY', label: 'Document category', usedFor: 'Files kept against an employee',
+    defaults: ['Identity', 'Education', 'Previous employment', 'Address proof', 'Company letters', 'Other'],
+  },
   { type: 'BANK', label: 'Bank', usedFor: 'Employee bank details, company accounts', defaults: [] },
   { type: 'BLOOD_GROUP', label: 'Blood group', usedFor: 'Employee profile', defaults: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
   { type: 'MARITAL_STATUS', label: 'Marital status', usedFor: 'Employee profile', defaults: ['Single', 'Married', 'Other'] },

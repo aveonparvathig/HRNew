@@ -59,6 +59,7 @@ const INCOME_ITEMS: NavItem[] = [
 const PEOPLE_ITEMS: NavItem[] = [
   { to: '/people', icon: 'users', label: 'People' },
   { to: '/people/org-chart', icon: 'layers', label: 'Organization Chart' },
+  { to: '/people/letters', icon: 'pen', label: 'Letters', also: ['/people/documents'] },
   { to: '/people/pipeline', icon: 'kanban', label: 'Pipeline' },
   { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
   { to: '/recruitment', icon: 'megaphone', label: 'Recruitment' },
@@ -76,6 +77,7 @@ const MY_PAY_ITEMS: NavItem[] = [
   { to: '/my/payslips', icon: 'banknote', label: 'My Payslips' },
   { to: '/my/declaration', icon: 'pen', label: 'My Tax Declaration' },
   { to: '/my/loans', icon: 'layers', label: 'My Loans' },
+  { to: '/my/documents', icon: 'receipt', label: 'My Documents' },
 ];
 
 const PAYROLL_ITEMS: NavItem[] = [

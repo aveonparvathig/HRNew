@@ -1,21 +1,21 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { DOC_TYPES, renderLetter } from '../services/letterTemplates';
-import { orgBrand } from '../services/orgBrand';
 import { loadActor } from '../middleware/roles';
 import { actorName } from '../services/payroll/audit';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import { syncDraftEntries } from '../services/payroll/draftSync';
 import { cleanIfsc, isValidIfsc } from '../services/masters';
 import { ensureListValues, listValuesFor } from '../services/listValues';
-import { nextEmployeeCode, noteEmployeeCodeUsed, peekNumber, takeNumber } from '../services/numberSeries';
+import { nextEmployeeCode, noteEmployeeCodeUsed } from '../services/numberSeries';
 import { CONSULTANT_SECTIONS, TAX_TREATMENTS, isConsultantSection, npsPercentInput, taxTreatmentInput } from '../services/payroll/consultantCalc';
 import { confirmationState, jobDetailsInput } from '../services/orgChart';
 import { assertManager } from './orgChartController';
 import { todayIST } from '../services/payroll/loanLedger';
 import { POSITION_REASONS } from '../services/positionCalc';
 import { ensureStartingPosition, followProfileEdit } from '../services/positions';
+import { letterTypesFor } from '../services/letters';
+import { removeStored } from '../services/fileStore';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -294,9 +294,8 @@ export const peopleController = {
       interviewResults: INTERVIEW_RESULTS,
       openingStatuses: OPENING_STATUSES,
       openOpenings: openings,
-      docTypes: Object.entries(DOC_TYPES).map(([value, t]) => ({
-        value, label: t.label, kinds: t.kinds,
-      })),
+      // The letters that can be issued: the company's templates that are switched on
+      docTypes: await letterTypesFor(orgId),
       employmentStatuses: EMPLOYMENT_STATUSES,
       taxTreatments: TAX_TREATMENTS, consultantSections: CONSULTANT_SECTIONS,
       // The editable lists a person's form picks from, active values only
@@ -498,7 +497,7 @@ export const peopleController = {
         appliedFor: { select: { id: true, title: true, department: true } },
         interviews: { orderBy: { createdAt: 'asc' } },
         documents: {
-          select: { id: true, docType: true, title: true, createdAt: true },
+          select: { id: true, docType: true, title: true, createdAt: true, visibleToEmployee: true },
           orderBy: { createdAt: 'desc' },
         },
         manager: { select: { id: true, name: true, employeeNo: true, designation: true } },
@@ -518,8 +517,11 @@ export const peopleController = {
       return;
     }
     const settings = await prisma.payrollSettings.findUnique({ where: { organizationId: orgId }, select: { noticePeriodDays: true } });
+    const staff = ['SUPER_ADMIN', 'HR'].includes(actor.role);
     res.json({
       ...person,
+      // Letters not shared with the employee are HR's alone
+      documents: staff ? person.documents : person.documents.filter(d => d.visibleToEmployee),
       // Where the employee stands on confirmation, and the notice the company asks for by default
       confirmation: person.isEmployee ? confirmationState(person, todayIST()) : null,
       companyNoticeDays: settings?.noticePeriodDays ?? 30,
@@ -618,6 +620,9 @@ export const peopleController = {
   async deletePerson(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const person = await fetchOrgPerson(req.params.personId, orgId);
+    const stored = await prisma.employeeDocument.findMany({
+      where: { personId: person.id, storage: 'S3' }, select: { storage: true, storageKey: true },
+    });
     try {
       await prisma.person.delete({ where: { id: person.id } });
     } catch (err: any) {
@@ -627,6 +632,7 @@ export const peopleController = {
       }
       throw err;
     }
+    await removeStored(orgId, stored);
     res.json({ message: `Deleted ${person.name}` });
   },
 
@@ -745,88 +751,6 @@ export const peopleController = {
   },
 
   // ---- Documents (generated letters) -------------------------------------
-  async getDocumentPrefill(req: any, res: Response) {
-    const orgId = req.user?.organizationId;
-    const person = await fetchOrgPerson(req.params.personId, orgId);
-    const docType = String(req.query.docType || '');
-    if (!DOC_TYPES[docType]) throw new AppError(400, 'Invalid document type');
-
-    // Last letter of the same type wins (its formData is the richest source)
-    const last = await prisma.personDocument.findFirst({
-      where: { personId: person.id, docType },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const brand = await orgBrand(orgId);
-    const personDefaults: any = {
-      recipientName: person.name,
-      recipientAddress: person.address,
-      signatoryName: brand.signatoryName,
-      signatoryTitle: brand.signatoryDesignation,
-      designation: person.designation,
-      joiningDate: person.joinDate,
-      joinDate: person.joinDate,
-      leavingDate: person.leavingDate,
-      internshipRole: person.internshipRole,
-      startDate: person.startDate,
-      endDate: person.endDate,
-      collegeName: person.collegeName,
-      course: person.course,
-      rollNumber: person.rollNumber,
-      letterDate: new Date().toISOString().split('T')[0],
-    };
-    // The next reference of the letter series, when one is set up; it is
-    // taken only when the letter is issued with it
-    const nextRef = await peekNumber(orgId, 'LETTER');
-    res.json({
-      prefill: {
-        ...personDefaults,
-        ...(last ? { ...(last.formData as any), letterDate: personDefaults.letterDate, recipientName: person.name } : {}),
-        ...(nextRef ? { refNo: nextRef } : {}),
-      },
-    });
-  },
-
-  async createDocument(req: any, res: Response) {
-    const orgId = req.user?.organizationId;
-    const person = await fetchOrgPerson(req.params.personId, orgId);
-    const { docType, formData = {} } = req.body;
-    const type = DOC_TYPES[docType];
-    if (!type) throw new AppError(400, 'Invalid document type');
-    if (!type.kinds.includes(person.kind)) {
-      throw new AppError(400, `${type.label} cannot be issued to this person`);
-    }
-    const brand = await orgBrand(orgId);
-    const data = { ...formData, recipientName: formData.recipientName || person.name };
-    // A letter issued with the series' next reference (or with none typed) takes it
-    const nextRef = await peekNumber(orgId, 'LETTER');
-    if (nextRef && (!String(data.refNo || '').trim() || String(data.refNo).trim() === nextRef)) {
-      data.refNo = await takeNumber(orgId, 'LETTER');
-    }
-    const html = renderLetter(docType, brand, data);
-    const doc = await prisma.personDocument.create({
-      data: {
-        organizationId: orgId,
-        personId: person.id,
-        docType,
-        title: `${type.label} — ${person.name}`,
-        formData: data,
-        html,
-      },
-    });
-    res.status(201).json({ id: doc.id, docType: doc.docType, title: doc.title, createdAt: doc.createdAt });
-  },
-
-  async getDocument(req: any, res: Response) {
-    const orgId = req.user?.organizationId;
-    const doc = await prisma.personDocument.findFirst({
-      where: { id: req.params.docId, organizationId: orgId },
-      include: { person: { select: { id: true, name: true } } },
-    });
-    if (!doc) throw new AppError(404, 'Document not found');
-    res.json(doc);
-  },
-
   async deleteDocument(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const doc = await prisma.personDocument.findFirst({

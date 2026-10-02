@@ -18,6 +18,13 @@ export const orgAPI = {
   testMail: (to: string) => apiClient.post('/org/mail-settings/test', { to }),
   getMailLog: (params: { limit?: number; offset?: number }) => apiClient.get('/org/mail-log', { params }),
 
+  // Where uploaded files are kept: the database or the company's object storage
+  getStorageSettings: () => apiClient.get('/org/storage-settings'),
+  updateStorageSettings: (data: any) => apiClient.put('/org/storage-settings', data),
+  testStorage: (data: any) => apiClient.post('/org/storage-settings/test', data),
+  // Moves a batch of the files that are not where the setting says; call until none remains
+  moveStoredFiles: () => apiClient.post('/org/storage-settings/move'),
+
   // Sign-in rules and the record of sign-in attempts
   getSecurity: () => apiClient.get('/org/security'),
   updateSecurity: (data: any) => apiClient.put('/org/security', data),

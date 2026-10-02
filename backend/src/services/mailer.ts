@@ -59,7 +59,7 @@ function failureText(err: any): string {
 }
 
 export interface OutgoingMail {
-  kind: 'PAYSLIP' | 'TEST' | 'WELCOME' | 'NOTICE';
+  kind: 'PAYSLIP' | 'TEST' | 'WELCOME' | 'NOTICE' | 'LETTER';
   to: string;
   subject: string;
   text: string;

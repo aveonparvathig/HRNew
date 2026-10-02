@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { orgController } from '../controllers/orgController';
+import { storageController } from '../controllers/storageController';
 
 const router = Router();
 
@@ -27,6 +28,11 @@ router.get('/mail-settings', asyncHandler((req, res) => orgController.getMailSet
 router.put('/mail-settings', asyncHandler((req, res) => orgController.updateMailSettings(req, res)));
 router.post('/mail-settings/test', asyncHandler((req, res) => orgController.testMail(req, res)));
 router.get('/mail-log', asyncHandler((req, res) => orgController.getMailLog(req, res)));
+// Where uploaded files are kept: the database or the company's object storage
+router.get('/storage-settings', asyncHandler((req, res) => storageController.getSettings(req, res)));
+router.put('/storage-settings', asyncHandler((req, res) => storageController.updateSettings(req, res)));
+router.post('/storage-settings/test', asyncHandler((req, res) => storageController.testSettings(req, res)));
+router.post('/storage-settings/move', asyncHandler((req, res) => storageController.move(req, res)));
 router.get('/login-history', asyncHandler((req, res) => orgController.getLoginHistory(req, res)));
 router.post('/team/generate-logins', asyncHandler((req, res) => orgController.generateEmployeeLogins(req, res)));
 

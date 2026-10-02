@@ -40,10 +40,29 @@ export const peopleAPI = {
   // Documents (generated letters)
   getDocumentPrefill: (personId: string, docType: string) =>
     apiClient.get(`/people/${personId}/document-prefill`, { params: { docType } }),
-  createDocument: (personId: string, docType: string, formData: any) =>
-    apiClient.post(`/people/${personId}/documents`, { docType, formData }),
+  createDocument: (personId: string, docType: string, formData: any, visibleToEmployee = false) =>
+    apiClient.post(`/people/${personId}/documents`, { docType, formData, visibleToEmployee }),
   getDocument: (docId: string) => apiClient.get(`/people/documents/${docId}`),
+  // Show a letter to the employee under My Documents, or take it back
+  updateDocument: (docId: string, data: { visibleToEmployee: boolean }) => apiClient.put(`/people/documents/${docId}`, data),
+  emailDocument: (docId: string) => apiClient.post(`/people/documents/${docId}/email`),
   deleteDocument: (docId: string) => apiClient.delete(`/people/documents/${docId}`),
+
+  // Letter templates, previews, and one letter for several people
+  getLetterTemplates: () => apiClient.get('/people/letter-templates'),
+  createLetterTemplate: (data: any) => apiClient.post('/people/letter-templates', data),
+  updateLetterTemplate: (templateId: string, data: any) => apiClient.put(`/people/letter-templates/${templateId}`, data),
+  resetLetterTemplate: (templateId: string) => apiClient.post(`/people/letter-templates/${templateId}/reset`),
+  deleteLetterTemplate: (templateId: string) => apiClient.delete(`/people/letter-templates/${templateId}`),
+  previewLetter: (data: { code?: string; template?: any; personId?: string; formData?: any }) => apiClient.post('/people/letters/preview', data),
+  createLetters: (data: { docType: string; personIds: string[]; formData: any; visibleToEmployee: boolean }) => apiClient.post('/people/letters', data),
+
+  // Files kept against a person
+  getFiles: (personId: string) => apiClient.get(`/people/${personId}/files`),
+  uploadFile: (personId: string, data: any) => apiClient.post(`/people/${personId}/files`, data),
+  updateFile: (fileId: string, data: any) => apiClient.put(`/people/files/${fileId}`, data),
+  getFile: (fileId: string) => apiClient.get(`/people/files/${fileId}`),
+  deleteFile: (fileId: string) => apiClient.delete(`/people/files/${fileId}`),
 
   // Interview rounds
   addInterview: (personId: string, data: any) =>
