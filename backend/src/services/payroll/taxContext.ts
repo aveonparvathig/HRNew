@@ -52,6 +52,7 @@ export async function taxConfigsFor(organizationId: string, fyStart: number) {
         superSeniorExemption: c.superSeniorExemption, allowsExemptions: c.allowsExemptions,
         section80CLimit: c.section80CLimit, housingInterestLimit: c.housingInterestLimit,
         professionalTaxLimit: c.professionalTaxLimit,
+        employerNpsLimitPercent: c.employerNpsLimitPercent ?? (c.regime === 'NEW' ? 14 : 10),
         slabs: { create: c.slabs.map(s => ({
           incomeFrom: s.incomeFrom, incomeTo: s.incomeTo, ratePercent: s.ratePercent, surchargePercent: s.surchargePercent,
         })) },
@@ -145,11 +146,12 @@ export async function loadTaxContext(organizationId: string, period: string, set
     prisma.declarationItem.findMany({ where: { organizationId } }),
     before.length
       ? prisma.payslipEntry.findMany({
-        where: { organizationId, run: { period: { in: before } } },
+        // Fees paid to a consultant are not salary: they have their own tax
+        where: { organizationId, consultantSection: '', run: { period: { in: before } } },
         select: {
           personId: true, grossSalary: true, basic: true, da: true, hra: true,
           transportAllowance: true, foodAllowance: true, internetAllowance: true,
-          pfEmployee: true, professionalTax: true, tds: true,
+          pfEmployee: true, professionalTax: true, tds: true, npsEmployer: true,
           run: { select: { period: true } },
           lines: { select: { type: true, amount: true, componentId: true } },
         },
@@ -174,6 +176,7 @@ export async function loadTaxContext(organizationId: string, period: string, set
       basic: e.basic, da: e.da, hra: e.hra, pfEmployee: e.pfEmployee,
       professionalTax: e.professionalTax, tds: e.tds,
       components: componentAmounts(e, e.lines, exemptKeys),
+      npsEmployer: e.npsEmployer,
     });
     earlier.set(e.personId, list);
   }
@@ -205,8 +208,9 @@ export function tdsForEntry(
   tax: TaxContext, settings: any, personId: string,
   inputs: { monthlyPackage: number; isEsiEligible?: boolean; isPfApplicable?: boolean; salaryArrearAllowance?: number },
   computed: any, professionalTax: number, lines: any[], override: number | null,
-  recurring: RecurringLike[] = [],
+  extra: { recurring?: RecurringLike[]; npsEmployerPercent?: number } = {},
 ): number {
+  const recurring = extra.recurring || [];
   const config = tax.configs.get(regimeOf(tax, personId));
   if (!config) return override ?? 0;
   const person = tax.people.get(personId);
@@ -226,11 +230,13 @@ export function tdsForEntry(
       basic: computed.basic, da: computed.da, hra: computed.hra, pfEmployee: computed.pfEmployee,
       professionalTax, tds: 0, oneTime: Math.min(oneTime, computed.grossSalary),
       components: componentAmounts({ ...inputs, ...computed }, lines, tax.exemptKeys),
+      npsEmployer: Number(computed.npsEmployer || 0),
     },
     projection: {
       settings, monthlyPackage: inputs.monthlyPackage,
       isEsiEligible: Boolean(inputs.isEsiEligible), isPfApplicable: Boolean(inputs.isPfApplicable),
       recurring: recurring.length ? recurringLater(recurring, later, tax.nonTaxable) : undefined,
+      npsEmployerPercent: extra.npsEmployerPercent || 0,
     },
     profile: tax.profiles.get(personId) || EMPTY_TAX_PROFILE,
     perquisites: tax.perquisites.get(personId) || 0,

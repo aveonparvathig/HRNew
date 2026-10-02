@@ -55,6 +55,8 @@ const REPORT_LABELS: Record<string, string> = {
   'tds-challans': 'TDS Challan Report',
   'tds-return': 'Quarterly TDS Return',
   'form-27a': 'Form 27A',
+  'consultant-tds': 'Consultant Fees and Tax Deducted',
+  'nps-statement': 'NPS Statement',
   'form-16': 'Form 16 Part B',
   'form-16-all': 'Form 16 Part B — All Employees',
   'form-12ba': 'Statement of Perquisites',

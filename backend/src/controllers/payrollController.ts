@@ -5,6 +5,7 @@ import { renderPayslipHtml } from '../services/payrollCalc';
 import { usedColumns, columnValue } from '../services/payroll/lines';
 import {
   loadStatutoryContext, computeFullEntry, esiFlagFor, coveredEarlier, locationOptions, LOCATION_FOR_PAYROLL,
+  computesTds,
 } from '../services/payroll/entryCompute';
 import { saveTaxWorkings } from '../services/payroll/taxContext';
 import { saveRecurringLines } from '../services/payroll/structures';
@@ -22,6 +23,7 @@ import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/rep
 import { runStage, nextRunDefaults, cutoffDate } from '../services/payroll/payoutCalc';
 import { prePayrollChecksFor, setRunClaimStatus, claimsOfEntry } from '../services/payroll/payout';
 import { attachOpenArrears } from '../services/payroll/arrears';
+import { startReleaseMails } from '../services/notifications';
 
 // Entry inputs a user can change — the fields the audit trail tracks.
 const ENTRY_INPUT_FIELDS = [
@@ -365,7 +367,9 @@ export const payrollController = {
         nextRun = { id: created.run.id, period: created.run.period };
       }
     }
-    res.json({ ...updated, nextRun });
+    // Tell employees, if the payslips were released and mail on release is on
+    const releaseMail = settings.autoReleaseOnFinalize ? await startReleaseMails(orgId, run.id, await actorName(req.user?.userId)) : 'NONE';
+    res.json({ ...updated, nextRun, releaseMail });
   },
 
   async reopenRun(req: any, res: Response) {
@@ -407,7 +411,7 @@ export const payrollController = {
     if (run.status !== 'FINALIZED') throw new AppError(400, 'Finalize the run before releasing its payslips');
     const updated = await prisma.payrollRun.update({ where: { id: run.id }, data: { releasedAt: new Date() } });
     await logPayrollAudit(req, [{ action: 'RUN_RELEASED', runId: run.id, period: run.period }]);
-    res.json(updated);
+    res.json({ ...updated, releaseMail: await startReleaseMails(orgId, run.id, await actorName(req.user?.userId)) });
   },
 
   async holdRun(req: any, res: Response) {
@@ -494,9 +498,11 @@ export const payrollController = {
     const ctx = await loadStatutoryContext(orgId, entry.run.period);
     // Under computed TDS a typed amount overrides the calculation and a
     // blank returns to it; otherwise TDS is simply what was typed.
-    const tdsBefore = ctx.tax && entry.tdsOverridden ? entry.tds : null;
+    // Computed TDS, or a consultant's flat rate: a typed amount overrides it
+    const tdsComputed = computesTds(ctx, entry.personId);
+    const tdsBefore = tdsComputed && entry.tdsOverridden ? entry.tds : null;
     let tdsOverride: number | null = tdsBefore;
-    if (ctx.tax && b.tds !== undefined) {
+    if (tdsComputed && b.tds !== undefined) {
       tdsOverride = b.tds === '' || b.tds === null ? null : num(b.tds, NaN);
       if (tdsOverride !== null && (isNaN(tdsOverride) || tdsOverride < 0)) {
         throw new AppError(400, 'Enter a valid TDS amount');
@@ -533,7 +539,7 @@ export const payrollController = {
         isPfApplicable: merged.isPfApplicable,
         remarks: merged.remarks,
         ptOverridden: ptOverride !== null,
-        tdsOverridden: Boolean(ctx.tax) && tdsOverride !== null,
+        tdsOverridden: tdsComputed && tdsOverride !== null,
         ...computed,
       },
       include: {
@@ -544,8 +550,8 @@ export const payrollController = {
     await saveTaxWorkings(ctx.tax, orgId, entry.runId);
     await logPayrollAudit(req, [
       // Under computed TDS only an override or its removal is a change by hand
-      ...diffFields(entry, merged, ENTRY_INPUT_FIELDS.filter(f => f !== 'tds' || !ctx.tax)),
-      ...(ctx.tax && tdsOverride !== tdsBefore ? [{
+      ...diffFields(entry, merged, ENTRY_INPUT_FIELDS.filter(f => f !== 'tds' || !tdsComputed)),
+      ...(tdsComputed && tdsOverride !== tdsBefore ? [{
         field: 'tds',
         oldValue: tdsBefore === null ? 'Computed' : String(tdsBefore),
         newValue: tdsOverride === null ? 'Computed' : String(tdsOverride),
@@ -902,7 +908,7 @@ export const payrollController = {
       if (leave !== undefined) merged.empLeaveDays = leave;
       if (lop !== undefined) merged.lopDays = lop;
       if (advance !== undefined) merged.salaryAdvance = advance;
-      if (tds !== undefined && !ctx.tax) merged.tds = tds;
+      if (tds !== undefined && !computesTds(ctx, entry.personId)) merged.tds = tds;
 
       const changed = ['totalWorkingDays', 'empLeaveDays', 'lopDays', 'salaryAdvance', 'tds']
         .some(f => (merged as any)[f] !== (entry as any)[f]);

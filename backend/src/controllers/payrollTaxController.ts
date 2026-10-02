@@ -18,7 +18,7 @@ const regimeLabel = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New 
 const CONFIG_NUMBERS = [
   'standardDeduction', 'rebateIncomeLimit', 'rebateMaxAmount', 'cessPercent',
   'seniorExemption', 'superSeniorExemption', 'section80CLimit', 'housingInterestLimit',
-  'professionalTaxLimit',
+  'professionalTaxLimit', 'employerNpsLimitPercent',
 ];
 const CONFIG_FLAGS = ['rebateMarginalRelief', 'allowsExemptions'];
 // What the tax forms are called; the Income-tax Act, 2025 renumbers them
@@ -114,6 +114,7 @@ export async function buildTaxStatement(
     ${line(`Projected for the ${w.monthsLeft - 1} month${w.monthsLeft - 1 === 1 ? '' : 's'} to come`, w.income.projected)}
     ${maybe('Salary from previous employer', w.income.previousEmployer)}
     ${maybe('Perquisites', w.income.perquisites)}
+    ${maybe('Employer’s contribution to NPS', w.income.employerNps)}
     ${line('Gross salary', w.grossSalary, 'sub')}
     ${maybe('Less: House Rent Allowance exemption', w.exemptions.hra)}
     ${(w.exemptions.allowances || []).map((a: any) => line(`Less: ${a.name} (exempt)`, a.amount)).join('')}
@@ -126,7 +127,8 @@ export async function buildTaxStatement(
       : maybe('Less: Interest on housing loan', w.housingLoanInterest)}
     ${line('Gross total income', w.grossTotalIncome, 'sub')}
     ${w.chapter6.total ? `${line(`Less: Section 80C (PF ${inr(w.chapter6.pf)} + investments ${inr(w.chapter6.declared80C)})`, w.chapter6.section80C)}
-    ${maybe('Less: Other Chapter VI-A deductions', w.chapter6.other)}` : ''}
+    ${maybe('Less: Other Chapter VI-A deductions', w.chapter6.other)}
+    ${maybe('Less: Employer’s NPS contribution (section 80CCD(2))', w.chapter6.employerNps)}` : ''}
     ${line('Taxable income', w.taxableIncome, 'tot')}
   </table>
   <table class="st-table" style="width:auto;min-width:70%;">
@@ -284,7 +286,7 @@ export const payrollTaxController = {
       return `<tr>
       <td>${i + 1}</td><td class="nw">${esc(e.person.employeeNo)}</td><td class="nw">${esc(e.person.name)}</td>
       <td class="nw">${hasValidPan(e.person.panNumber) ? esc(e.person.panNumber.toUpperCase()) : '<span class="muted">missing</span>'}</td>
-      <td>${w ? esc(regimeLabel(w.regime)) : '<span class="muted">—</span>'}</td>
+      <td>${w ? esc(regimeLabel(w.regime)) : e.consultantSection ? `Fee, section ${esc(e.consultantSection)} at ${e.consultantTdsPercent}%` : '<span class="muted">—</span>'}</td>
       <td class="amt">${w ? amt(w.taxableIncome) : '—'}</td><td class="amt">${w ? amt(w.tax.total) : '—'}</td>
       <td class="amt">${w ? amt(w.paid.total) : '—'}</td>
       <td class="amt"><strong>${amt(e.tds)}</strong>${e.tdsOverridden ? ' <span class="muted">(manual)</span>' : ''}</td></tr>`;

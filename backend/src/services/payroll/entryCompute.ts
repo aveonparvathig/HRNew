@@ -14,6 +14,8 @@ import {
 import { splitText, withSplit } from './structureCalc';
 import { RecurringLike, RecurringLine, recurringLines } from './recurringCalc';
 import { PersonStructure, structuresByPerson, recurringByPerson } from './structures';
+import { CONSULTANT_SPLIT, CONSULTANT_STRUCTURE, consultantTds, employerNps } from './consultantCalc';
+import { hasValidPan } from './taxCalc';
 
 interface PriorEntry extends PriorMonth {
   esiCovered: boolean;
@@ -37,17 +39,30 @@ export interface StatutoryContext {
   // Filled in as entries are computed: the recurring lines each payslip
   // should carry, for saveRecurringLines
   recurringLines?: Map<string, RecurringLine[]>;
+  // Employees the employer contributes to NPS for: the share of Basic + DA
+  nps?: Map<string, number>;
+  // Consultants: the section and rate tax is deducted at on their fee
+  consultants?: Map<string, { section: string; percent: number; hasValidPan: boolean }>;
 }
+
+// Whether TDS is worked out for this person, rather than typed: always
+// for a consultant, and for employees once computed TDS has started.
+export const computesTds = (ctx: StatutoryContext, personId: string) =>
+  Boolean(ctx.tax) || Boolean(ctx.consultants?.has(personId));
 
 export async function loadStatutoryContext(organizationId: string, period: string): Promise<StatutoryContext> {
   const earlier = halfYearOf(period).periods.filter(p => p < period);
-  const [settings, ptPolicies, lwfPolicies, loanDue, structures, recurring, entries] = await Promise.all([
+  const [settings, ptPolicies, lwfPolicies, loanDue, structures, recurring, special, entries] = await Promise.all([
     prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} }),
     prisma.ptPolicy.findMany({ where: { organizationId }, include: { slabs: true } }),
     prisma.lwfPolicy.findMany({ where: { organizationId } }),
     loanDueByPerson(organizationId, period),
     structuresByPerson(organizationId),
     recurringByPerson(organizationId, period),
+    prisma.person.findMany({
+      where: { organizationId, OR: [{ npsEmployerPercent: { gt: 0 } }, { taxTreatment: 'CONSULTANT' }] },
+      select: { id: true, npsEmployerPercent: true, taxTreatment: true, consultantSection: true, consultantTdsPercent: true, panNumber: true },
+    }),
     earlier.length
       ? prisma.payslipEntry.findMany({
         where: { organizationId, run: { period: { in: earlier } } },
@@ -68,7 +83,15 @@ export async function loadStatutoryContext(organizationId: string, period: strin
     priorByPerson.set(e.personId, list);
   }
   const tax = await loadTaxContext(organizationId, period, settings);
-  return { period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue, tax, structures, recurring, recurringLines: new Map() };
+  const consultants = new Map(special.filter(p => p.taxTreatment === 'CONSULTANT').map(p => [p.id, {
+    section: p.consultantSection, percent: p.consultantTdsPercent, hasValidPan: hasValidPan(p.panNumber),
+  }]));
+  // A consultant gets no employer NPS: they are not on salary
+  const nps = new Map(special.filter(p => p.npsEmployerPercent > 0 && p.taxTreatment !== 'CONSULTANT').map(p => [p.id, p.npsEmployerPercent]));
+  return {
+    period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue, tax, structures, recurring, recurringLines: new Map(),
+    nps, consultants,
+  };
 }
 
 // Payroll settings as they apply to one employee: the company's, with the
@@ -106,10 +129,25 @@ export const locationOptions = (location: { state: string; city: string; exclude
 // the engine runs once without them and once with. Loan instalments come
 // straight from the ledger.
 export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, given: LineAmount[], opts: ComputeOptions) {
+  const consultant = ctx.consultants?.get(opts.personId);
+  if (consultant) return computeConsultantEntry(ctx, inputs, given, opts, consultant);
   // The employee's own split, when a structure template applies to them
   const structure = ctx.structures?.get(opts.personId);
   const settings = withSplit(ctx.settings, structure?.split);
-  const snapshot = { structureName: structure?.name || '', structureSplit: structure ? splitText(structure.split) : '' };
+  const npsPercent = ctx.nps?.get(opts.personId) || 0;
+  // The employer's NPS contribution is a cost on top of pay, like employer PF
+  const withNps = <T extends { basic: number; da: number; employerContributions: number; ctc: number }>(r: T) => {
+    const npsEmployer = employerNps(r.basic, r.da, npsPercent);
+    return {
+      ...r, npsEmployer,
+      employerContributions: Math.round((r.employerContributions + npsEmployer) * 100) / 100,
+      ctc: Math.round((r.ctc + npsEmployer) * 100) / 100,
+    };
+  };
+  const snapshot = {
+    structureName: structure?.name || '', structureSplit: structure ? splitText(structure.split) : '',
+    consultantSection: '', consultantTdsPercent: 0,
+  };
   // Recurring lines are worked out afresh each time: the days may have changed
   const items = ctx.recurring?.get(opts.personId) || [];
   const kept = given.filter(l => l.source !== 'RECURRING');
@@ -138,19 +176,51 @@ export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, giv
   if (!ctx.tax) {
     // TDS stays whatever was typed on the entry
     return {
-      ...computeEntryWithLines({ ...inputs, ...statutory }, settings, lines),
+      ...withNps(computeEntryWithLines({ ...inputs, ...statutory }, settings, lines)),
       ...statutory,
       ...snapshot,
     };
   }
-  const beforeTax = computeEntryWithLines({ ...inputs, ...statutory, tds: 0 }, settings, lines);
+  const beforeTax = withNps(computeEntryWithLines({ ...inputs, ...statutory, tds: 0 }, settings, lines));
   const tds = tdsForEntry(
-    ctx.tax, settings, opts.personId, inputs, beforeTax, professionalTax, lines, opts.tdsOverride ?? null, items,
+    ctx.tax, settings, opts.personId, inputs, beforeTax, professionalTax, lines, opts.tdsOverride ?? null,
+    { recurring: items, npsEmployerPercent: npsPercent },
   );
   return {
-    ...computeEntryWithLines({ ...inputs, ...statutory, tds }, settings, lines),
+    ...withNps(computeEntryWithLines({ ...inputs, ...statutory, tds }, settings, lines)),
     ...statutory,
     tds,
     ...snapshot,
+  };
+}
+
+// A consultant's month: the fee as one amount, no PF, ESI, Professional
+// Tax or LWF, and tax at the flat rate of their section on the whole fee
+// (recurring and typed earnings included). The income-tax working for
+// salaries does not apply.
+function computeConsultantEntry(
+  ctx: StatutoryContext, inputs: EntryInputs, given: LineAmount[], opts: ComputeOptions,
+  consultant: { section: string; percent: number; hasValidPan: boolean },
+) {
+  const settings = withSplit(ctx.settings, CONSULTANT_SPLIT);
+  const fee = { ...inputs, isEsiEligible: false, isPfApplicable: false, professionalTax: 0, lwfEmployee: 0, lwfEmployer: 0 };
+  const items = ctx.recurring?.get(opts.personId) || [];
+  const kept = given.filter(l => l.source !== 'RECURRING');
+  const recurring = recurringLines(items, ctx.period, inputs, new Set(kept.map(l => l.componentId || '')));
+  ctx.recurringLines?.set(opts.personId, recurring);
+  const lines = [...kept, ...recurring];
+  const loanDeduction = ctx.loanDue.get(opts.personId) || 0;
+
+  const beforeTax = computeEntryWithLines({ ...fee, loanDeduction, tds: 0 }, settings, lines);
+  const flat = consultantTds(beforeTax.grossSalary, consultant.percent, consultant.hasValidPan);
+  const tds = opts.tdsOverride ?? flat.tds;
+  // No salary tax working is kept for a consultant
+  ctx.tax?.workings.delete(opts.personId);
+  return {
+    ...computeEntryWithLines({ ...fee, loanDeduction, tds }, settings, lines),
+    professionalTax: 0, lwfEmployee: 0, lwfEmployer: 0, loanDeduction, tds,
+    isEsiEligible: false, isPfApplicable: false, npsEmployer: 0,
+    structureName: CONSULTANT_STRUCTURE, structureSplit: splitText(CONSULTANT_SPLIT),
+    consultantSection: consultant.section, consultantTdsPercent: flat.rate,
   };
 }

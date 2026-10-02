@@ -80,6 +80,15 @@ export default function PayslipFilesCard() {
             {employees.withoutAnyEmail > 0 && ` ${employees.withoutAnyEmail} of ${employees.total} current employees have no address at all.`}
           </span>
         </div>
+        <div className="field">
+          <label>When payslips are released, mail employees</label>
+          <select className="select" value={form.releaseMail || 'NONE'} onChange={e => setForm({ ...form, releaseMail: e.target.value })}>
+            {(data.releaseMails || []).map((m: any) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+          <span className="hint">
+            {data.mail?.enabled ? 'Sent one after another in the background; the mail log shows each.' : 'Nothing is sent while email is switched off in Company Settings → Email.'}
+          </span>
+        </div>
       </div>
       <div className="form-grid" style={{ marginBottom: 14 }}>
         <div className="field">

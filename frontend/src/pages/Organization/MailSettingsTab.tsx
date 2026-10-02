@@ -127,7 +127,22 @@ export default function MailSettingsTab() {
             <input className="input" type="email" placeholder="hr@example.com" value={form.replyTo} onChange={e => set('replyTo', e.target.value)} />
             <span className="hint">Leave blank for replies to reach the From address.</span>
           </div>
+          <div className="field">
+            <label>Sign-in address</label>
+            <input className="input" type="url" placeholder="https://hr.example.com" value={form.appUrl || ''} onChange={e => set('appUrl', e.target.value)} />
+            <span className="hint">Where employees sign in. Written into welcome mails and payslip notices.</span>
+          </div>
         </div>
+
+        <label className="checkbox-field" style={{ marginBottom: 10, alignItems: 'flex-start' }}>
+          <input type="checkbox" style={{ marginTop: 2 }} checked={Boolean(form.welcomeMail)} onChange={e => set('welcomeMail', e.target.checked)} />
+          <span>
+            Mail a new login its sign-in address and temporary password
+            <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
+              Sent when a login is added on the Team page or generated for employees. The password must be changed at first sign-in.
+            </span>
+          </span>
+        </label>
 
         <label className="checkbox-field" style={{ marginBottom: 14 }}>
           <input type="checkbox" checked={form.enabled} onChange={e => set('enabled', e.target.checked)} />

@@ -10,6 +10,7 @@ import { syncDraftEntries } from '../services/payroll/draftSync';
 import { cleanIfsc, isValidIfsc } from '../services/masters';
 import { ensureListValues, listValuesFor } from '../services/listValues';
 import { nextEmployeeCode, noteEmployeeCodeUsed, peekNumber, takeNumber } from '../services/numberSeries';
+import { CONSULTANT_SECTIONS, TAX_TREATMENTS, isConsultantSection, npsPercentInput, taxTreatmentInput } from '../services/payroll/consultantCalc';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -181,6 +182,12 @@ function personData(b: any) {
     esiNumber: str(b.esiNumber),
     isEsiEligible: Boolean(b.isEsiEligible),
     isPfApplicable: Boolean(b.isPfApplicable),
+    npsEmployerPercent: Number(b.npsEmployerPercent) || 0,
+    npsPran: str(b.npsPran).replace(/\s+/g, ''),
+    taxTreatment: b.taxTreatment === 'CONSULTANT' ? 'CONSULTANT' : 'SALARY',
+    consultantSection: isConsultantSection(b.consultantSection) ? b.consultantSection : '194J',
+    consultantTdsPercent: b.consultantTdsPercent === '' || b.consultantTdsPercent == null || !isFinite(Number(b.consultantTdsPercent))
+      ? 10 : Number(b.consultantTdsPercent),
     // Pipeline
     source: str(b.source),
     stage: str(b.stage),
@@ -195,6 +202,21 @@ function personData(b: any) {
     startDate: dateOrNull(b.startDate),
     endDate: dateOrNull(b.endDate),
   };
+}
+
+// How the person is paid and taxed, checked as typed.
+function checkPayTreatment(b: any) {
+  if (b.taxTreatment !== undefined || b.consultantSection !== undefined || b.consultantTdsPercent !== undefined) {
+    const treatment = taxTreatmentInput(b);
+    if (typeof treatment === 'string') throw new AppError(400, treatment);
+  }
+  if (b.npsEmployerPercent !== undefined) {
+    const percent = npsPercentInput(b.npsEmployerPercent);
+    if (typeof percent === 'string') throw new AppError(400, percent);
+  }
+  if (b.npsPran !== undefined && str(b.npsPran) && !/^\d{12}$/.test(str(b.npsPran).replace(/\s+/g, ''))) {
+    throw new AppError(400, 'A PRAN has 12 digits');
+  }
 }
 
 async function checkDuplicateEmployeeCode(orgId: string, code: string, excludeId?: string) {
@@ -247,6 +269,7 @@ export const peopleController = {
         value, label: t.label, kinds: t.kinds,
       })),
       employmentStatuses: EMPLOYMENT_STATUSES,
+      taxTreatments: TAX_TREATMENTS, consultantSections: CONSULTANT_SECTIONS,
       // The editable lists a person's form picks from, active values only
       lists: Object.fromEntries(Object.entries(
         await listValuesFor(orgId, ['DEPARTMENT', 'DESIGNATION', 'BANK', 'BLOOD_GROUP', 'MARITAL_STATUS', 'LEAVING_REASON']),
@@ -400,6 +423,7 @@ export const peopleController = {
     if (!KIND_VALUES.includes(b.kind)) throw new AppError(400, 'Pick candidate or intern');
     await checkDuplicateName(orgId, b.kind, name);
     await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim());
+    checkPayTreatment(b);
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
     checkIfsc(b);
@@ -464,6 +488,7 @@ export const peopleController = {
     if (b.employeeNo !== undefined && str(b.employeeNo).trim() !== person.employeeNo) {
       await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim(), person.id);
     }
+    checkPayTreatment(b);
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
     checkIfsc(b, person);
@@ -477,6 +502,11 @@ export const peopleController = {
     const updated = await prisma.person.update({ where: { id: person.id }, data });
     await ensureListValues(orgId, personListValues(updated));
     if (updated.employeeNo !== person.employeeNo) await noteEmployeeCodeUsed(orgId, updated.employeeNo);
+    // Draft payslips follow a change in how the person is paid or in the employer's NPS share
+    if (updated.npsEmployerPercent !== person.npsEmployerPercent || updated.taxTreatment !== person.taxTreatment
+      || updated.consultantSection !== person.consultantSection || updated.consultantTdsPercent !== person.consultantTdsPercent) {
+      await syncDraftEntries(req, person.id, '0000-00', true);
+    }
     // A package edited on the profile is a salary revision from this month;
     // the first package ever set is not.
     if (person.currentMonthlyPackage > 0 && updated.currentMonthlyPackage !== person.currentMonthlyPackage) {

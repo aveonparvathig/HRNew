@@ -19,6 +19,7 @@ export const mailSettingsFor = (organizationId: string) =>
 export const mailSettingsJSON = (s: any) => ({
   enabled: s.enabled, host: s.host, port: s.port, security: s.security, username: s.username,
   hasPassword: Boolean(s.passwordEnc), fromName: s.fromName, fromEmail: s.fromEmail, replyTo: s.replyTo,
+  welcomeMail: Boolean(s.welcomeMail), appUrl: s.appUrl || '',
 });
 
 // Why mail cannot be sent with these settings, or null when it can.
@@ -58,7 +59,7 @@ function failureText(err: any): string {
 }
 
 export interface OutgoingMail {
-  kind: 'PAYSLIP' | 'TEST';
+  kind: 'PAYSLIP' | 'TEST' | 'WELCOME' | 'NOTICE';
   to: string;
   subject: string;
   text: string;

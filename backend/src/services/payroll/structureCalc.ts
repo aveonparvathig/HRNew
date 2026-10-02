@@ -100,17 +100,21 @@ export function templateFor(
 
 // Yearly cost to the company of a monthly package: gross plus the
 // employer's PF and ESI, twelve times.
-export function annualCtcOf(monthlyPackage: number, flags: { isEsiEligible?: boolean; isPfApplicable?: boolean }, settings: any) {
+export function annualCtcOf(
+  monthlyPackage: number, flags: { isEsiEligible?: boolean; isPfApplicable?: boolean; npsEmployerPercent?: number }, settings: any,
+) {
   const month = computeEntry({
     monthlyPackage, totalWorkingDays: 1, isEsiEligible: flags.isEsiEligible, isPfApplicable: flags.isPfApplicable,
   }, settings);
-  return r2(month.ctc * 12);
+  // The employer's NPS contribution is part of the cost too
+  const nps = flags.npsEmployerPercent ? Math.round((month.basic + month.da) * flags.npsEmployerPercent / 100) : 0;
+  return r2((month.ctc + nps) * 12);
 }
 
 // The monthly package (whole rupees) whose yearly cost comes closest to
 // an annual CTC without going over it.
 export function packageFromAnnualCtc(
-  annualCtc: number, flags: { isEsiEligible?: boolean; isPfApplicable?: boolean }, settings: any,
+  annualCtc: number, flags: { isEsiEligible?: boolean; isPfApplicable?: boolean; npsEmployerPercent?: number }, settings: any,
 ): number {
   if (!(annualCtc > 0)) return 0;
   let low = 0;
@@ -127,7 +131,7 @@ export function packageFromAnnualCtc(
 // A package as typed, in one of three ways, as the monthly package payroll keeps.
 export const PACKAGE_MODES = ['MONTHLY', 'ANNUAL', 'ANNUAL_CTC'] as const;
 export function monthlyPackageFrom(
-  mode: string, amount: number, flags: { isEsiEligible?: boolean; isPfApplicable?: boolean }, settings: any,
+  mode: string, amount: number, flags: { isEsiEligible?: boolean; isPfApplicable?: boolean; npsEmployerPercent?: number }, settings: any,
 ): number {
   if (!(amount > 0)) return 0;
   if (mode === 'ANNUAL') return r2(amount / 12);

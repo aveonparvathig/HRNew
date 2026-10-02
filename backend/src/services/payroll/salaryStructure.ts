@@ -77,6 +77,21 @@ export function salaryStructure(
   return { monthly, annual };
 }
 
+// A full-month structure with the employer's NPS contribution on top: a
+// share of Basic + DA that adds to the cost to company, not to pay.
+export function withEmployerNps<T extends { monthly: any; annual: Record<string, number> }>(structure: T, percent: number): T {
+  const npsEmployer = percent > 0 ? Math.round((structure.monthly.basic + structure.monthly.da) * percent / 100) : 0;
+  if (!npsEmployer) return structure;
+  const monthly = {
+    ...structure.monthly, npsEmployer,
+    employerContributions: r2(structure.monthly.employerContributions + npsEmployer),
+    ctc: r2(structure.monthly.ctc + npsEmployer),
+  };
+  const annual = { ...structure.annual };
+  for (const k of ['npsEmployer', 'employerContributions', 'ctc']) annual[k] = r2(monthly[k] * 12);
+  return { ...structure, monthly, annual };
+}
+
 // A full-month structure with the employee's recurring components added:
 // earnings raise gross, net and CTC; deductions lower net.
 export function withRecurring<T extends { monthly: any; annual: Record<string, number> }>(

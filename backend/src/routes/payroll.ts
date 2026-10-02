@@ -5,6 +5,7 @@ import { payrollController } from '../controllers/payrollController';
 import { payrollSetupController } from '../controllers/payrollSetupController';
 import { payrollStructureController } from '../controllers/payrollStructureController';
 import { payrollStructuresController } from '../controllers/payrollStructuresController';
+import { payrollExtrasController } from '../controllers/payrollExtrasController';
 import { payrollReportsController } from '../controllers/payrollReportsController';
 import { payrollStatutoryController } from '../controllers/payrollStatutoryController';
 import { payrollLoansController } from '../controllers/payrollLoansController';
@@ -185,6 +186,7 @@ router.get('/reports/reimbursements', asyncHandler((req, res) => payrollControlC
 router.get('/reports/tds-challans', asyncHandler((req, res) => payrollReturnsController.challanReport(req, res)));
 router.get('/reports/tds-return', asyncHandler((req, res) => payrollReturnsController.returnSummary(req, res)));
 router.get('/reports/form-27a', asyncHandler((req, res) => payrollReturnsController.form27a(req, res)));
+router.get('/reports/consultant-tds', asyncHandler((req, res) => payrollExtrasController.consultantTds(req, res)));
 router.get('/reports/form-16', asyncHandler((req, res) => payrollReturnsController.form16(req, res)));
 router.get('/reports/form-16-all', asyncHandler((req, res) => payrollReturnsController.form16All(req, res)));
 router.get('/reports/form-12ba', asyncHandler((req, res) => payrollReturnsController.form12ba(req, res)));
@@ -241,6 +243,7 @@ router.get('/runs/:runId/reports/input-history', asyncHandler((req, res) => payr
 router.get('/runs/:runId/reports/register', asyncHandler((req, res) => payrollReportsController.salaryRegister(req, res)));
 router.get('/runs/:runId/reports/summary', asyncHandler((req, res) => payrollReportsController.salarySummary(req, res)));
 router.get('/runs/:runId/reports/pf-statement', asyncHandler((req, res) => payrollStatutoryController.pfStatement(req, res)));
+router.get('/runs/:runId/reports/nps-statement', asyncHandler((req, res) => payrollExtrasController.npsStatement(req, res)));
 router.get('/runs/:runId/reports/pt-statement', asyncHandler((req, res) => payrollStatutoryController.ptStatement(req, res)));
 router.get('/runs/:runId/reports/tds-statement', asyncHandler((req, res) => payrollTaxController.tdsStatement(req, res)));
 router.get('/runs/:runId/reports/lwf-statement', asyncHandler((req, res) => payrollStatutoryController.lwfStatement(req, res)));

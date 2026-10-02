@@ -76,6 +76,7 @@ export const FIXED_EMPLOYER: ComponentColumn[] = [
   col('esiEmployer', 'ESI (Employer)', 'ESI Er', 'EMPLOYER'),
   col('pfEmployer', 'PF (Employer)', 'PF Er', 'EMPLOYER'),
   col('lwfEmployer', 'LWF (Employer)', 'LWF Er', 'EMPLOYER'),
+  col('npsEmployer', 'NPS (Employer)', 'NPS Er', 'EMPLOYER'),
 ];
 const GROSS = col('grossSalary', 'Gross Salary', 'Gross', 'GROSS');
 const TOTAL_DEDUCTIONS = col('totalDeductions', 'Total Deductions', 'Deductions', 'TOTAL_DEDUCTIONS');

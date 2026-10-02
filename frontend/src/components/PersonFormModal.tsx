@@ -29,6 +29,7 @@ const EMPTY = {
   // bank & statutory
   bankName: '', bankAccountNumber: '', ifscCode: '', panNumber: '',
   pfNumber: '', pfUan: '', esiNumber: '', isEsiEligible: false, isPfApplicable: false,
+  npsEmployerPercent: '', npsPran: '', taxTreatment: 'SALARY', consultantSection: '194J', consultantTdsPercent: 10,
   // pipeline
   source: '', stage: '', appliedForId: '', expectedCtc: '',
   // intern
@@ -107,6 +108,7 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
 
   const set = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
   const isIntern = form.kind === 'INTERN';
+  const consultant = form.taxTreatment === 'CONSULTANT';
   const isExit = ['RESIGNED', 'TERMINATED', 'NOTICE_PERIOD'].includes(form.employmentStatus);
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -272,19 +274,47 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                 <F {...fp} label="PF number" k="pfNumber" />
                 <F {...fp} label="PF UAN" k="pfUan" />
                 <F {...fp} label="ESI number" k="esiNumber" />
+                <F {...fp} label="Paid as" k="taxTreatment" options={meta.taxTreatments || []} />
+                {consultant ? (
+                  <>
+                    <div className="field">
+                      <label>Tax deducted under</label>
+                      <select className="select" value={form.consultantSection || '194J'}
+                        onChange={e => {
+                          const section = (meta.consultantSections || []).find((s: any) => s.value === e.target.value);
+                          setForm((f: any) => ({ ...f, consultantSection: e.target.value, consultantTdsPercent: section?.defaultPercent ?? f.consultantTdsPercent }));
+                        }}>
+                        {(meta.consultantSections || []).map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                    </div>
+                    <F {...fp} label="Tax rate on the fee" k="consultantTdsPercent" unit="%" />
+                  </>
+                ) : (
+                  <>
+                    <F {...fp} label="Employer NPS, % of Basic + DA" k="npsEmployerPercent" unit="%" />
+                    <F {...fp} label="NPS number (PRAN)" k="npsPran" placeholder="12 digits" />
+                  </>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                <label className="checkbox-field">
-                  <input type="checkbox" checked={form.isPfApplicable}
-                    onChange={e => set('isPfApplicable', e.target.checked)} />
-                  PF applicable
-                </label>
-                <label className="checkbox-field">
-                  <input type="checkbox" checked={form.isEsiEligible}
-                    onChange={e => set('isEsiEligible', e.target.checked)} />
-                  ESI eligible
-                </label>
-              </div>
+              {consultant ? (
+                <p className="text-muted" style={{ fontSize: 12.5 }}>
+                  A consultant's package is paid as one fee, with tax at this rate on the whole of it (20% without a PAN) and no
+                  PF, ESI, Professional Tax or Labour Welfare Fund. The fee is reported for the return on payments other than salary, not on Form 16.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
+                  <label className="checkbox-field">
+                    <input type="checkbox" checked={form.isPfApplicable}
+                      onChange={e => set('isPfApplicable', e.target.checked)} />
+                    PF applicable
+                  </label>
+                  <label className="checkbox-field">
+                    <input type="checkbox" checked={form.isEsiEligible}
+                      onChange={e => set('isEsiEligible', e.target.checked)} />
+                    ESI eligible
+                  </label>
+                </div>
+              )}
             </div>
 
             {/* 5 — Pipeline */}
