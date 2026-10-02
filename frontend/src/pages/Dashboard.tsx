@@ -5,6 +5,7 @@ import { payrollAPI } from '../api/payroll';
 import { PageHeader } from '../components/ui';
 import { Icon } from '../components/Layout/nav';
 import { formatINR } from '../utils/format';
+import HrPanel from '../components/HrPanel';
 
 const MODULES = [
   { to: '/income', icon: 'chart', tone: 'tone-primary', name: 'Income', desc: 'Client billing, payments & analytics' },
@@ -104,6 +105,7 @@ export default function Dashboard() {
   const firstName = user?.firstName || user?.email?.split('@')[0] || 'there';
   const role = user?.role || 'SUPER_ADMIN';
   const staff = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'].includes(role);
+  const managesPeople = role === 'SUPER_ADMIN' || role === 'HR';
   const modules = MODULES.filter(m =>
     (MODULE_ROLES[m.to] || []).includes(role) && (m.to !== '/my/payslips' || Boolean(user?.personId)));
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -113,6 +115,8 @@ export default function Dashboard() {
       <PageHeader title={`${greeting()}, ${firstName}`} subtitle={today} />
 
       {staff && <PayrollStatus />}
+
+      {managesPeople && <HrPanel />}
 
       <h2 className="section-title" style={{ marginTop: 0 }}>Your workspace</h2>
       <div className="module-grid">

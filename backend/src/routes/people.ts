@@ -5,6 +5,7 @@ import { peopleController } from '../controllers/peopleController';
 import { orgChartController } from '../controllers/orgChartController';
 import { positionsController } from '../controllers/positionsController';
 import { applyDuePositions } from '../services/positions';
+import { hrDashboardController } from '../controllers/hrDashboardController';
 
 const router = Router();
 
@@ -31,6 +32,8 @@ router.put('/openings/:openingId', staffOnly, asyncHandler((req, res) => peopleC
 // Organization chart and confirmations (before /:personId routes)
 router.get('/org-chart', asyncHandler((req, res) => orgChartController.getChart(req, res)));
 router.get('/confirmations', staffOnly, asyncHandler((req, res) => orgChartController.getConfirmations(req, res)));
+// The HR panel on the dashboard
+router.get('/hr-dashboard', staffOnly, asyncHandler((req, res) => hrDashboardController.getDashboard(req, res)));
 router.post('/transfer-reports', staffOnly, asyncHandler((req, res) => orgChartController.transferReports(req, res)));
 
 // Employee register export
