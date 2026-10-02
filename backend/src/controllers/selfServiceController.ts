@@ -140,8 +140,11 @@ export const selfServiceController = {
     const me = await actorPerson(req);
     const fyStart = fyInput(req.query.fy);
     switch (req.params.kind) {
-      case 'tax-statement':
-        return res.json(await buildTaxStatement(me.organizationId, me.id, fyStart, true));
+      case 'tax-statement': {
+        // Released months only, unless HR lets employees see estimates
+        const control = await yearControlFor(me.organizationId, fyStart);
+        return res.json(await buildTaxStatement(me.organizationId, me.id, fyStart, !control.employeeTaxEstimate, true));
+      }
       case 'form-12bb':
         return res.json(await buildForm12bb(me.organizationId, me.id, fyStart));
       case 'ytd-statement':

@@ -18,7 +18,7 @@ import {
   postRunInstalments, reverseRunInstalments, overdueLoanChecks, loanBalanceAfter,
 } from '../services/payroll/loanLedger';
 import { esc as escHtml, monthLabel, reportShell } from '../services/payroll/reportHtml';
-import { runStage, nextRunDefaults } from '../services/payroll/payoutCalc';
+import { runStage, nextRunDefaults, cutoffDate } from '../services/payroll/payoutCalc';
 import { prePayrollChecksFor, setRunClaimStatus, claimsOfEntry } from '../services/payroll/payout';
 import { attachOpenArrears } from '../services/payroll/arrears';
 
@@ -37,9 +37,10 @@ const SETTINGS_FIELDS = [
   'loanBenchmarkRate', 'loanPerquisiteExemptLimit',
   'lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears', 'gratuityCap',
   'bonusPercent', 'bonusEligibilityLimit', 'bonusWageCeiling',
+  'inputCutoffDay',
 ];
 // Whole numbers
-const SETTINGS_INTEGERS = new Set(['lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears']);
+const SETTINGS_INTEGERS = new Set(['lopReversalMonths', 'noticePeriodDays', 'settlementDayBasis', 'gratuityMinYears', 'inputCutoffDay']);
 const SETTINGS_FLAGS = ['pfEmployerMatchesEmployee', 'pfRoundToRupee', 'esiAutoCoverage'];
 
 const num =(v: any, fallback = 0) => (v == null || v === '' || isNaN(Number(v)) ? fallback : Number(v));
@@ -226,6 +227,7 @@ export const payrollController = {
         if (isNaN(v) || v < 0) throw new AppError(400, `Invalid value for ${f}`);
         if (f === 'settlementDayBasis' && (v < 26 || v > 31)) throw new AppError(400, 'Days in a month must be between 26 and 31');
         if (f === 'bonusPercent' && (v < 8.33 || v > 20)) throw new AppError(400, 'Bonus must be between 8.33% and 20%');
+        if (f === 'inputCutoffDay' && v > 31) throw new AppError(400, 'The cutoff is a day of the month: 1 to 31, or 0 for none');
         data[f] = SETTINGS_INTEGERS.has(f) ? Math.round(v) : v;
       }
     }
@@ -299,6 +301,8 @@ export const payrollController = {
       financialYear: financialYearOf(run.period).label,
       tdsAuto: Boolean(ctx.tax),
       stage: runStage(run, run.entries),
+      // When the inputs of this draft lock on their own, if they still will
+      inputCutoff: run.status === 'DRAFT' && !run.cutoffApplied ? cutoffDate(run.period, ctx.settings.inputCutoffDay) : null,
       entries: sortEntries(run.entries),
       checks: [
         // Pay, bank and roster checks matter only while the month is still open
@@ -386,7 +390,8 @@ export const payrollController = {
     await setRunClaimStatus(run.id, 'APPROVED');
     const updated = await prisma.payrollRun.update({
       where: { id: run.id },
-      data: { status: 'DRAFT', finalizedAt: null, releasedAt: null, inputsLockedAt: null },
+      // Reopening is a decision to edit: the automatic cutoff does not lock it again
+      data: { status: 'DRAFT', finalizedAt: null, releasedAt: null, inputsLockedAt: null, cutoffApplied: true },
     });
     await logPayrollAudit(req, [{ action: 'RUN_REOPENED', runId: run.id, period: run.period }]);
     res.json(updated);

@@ -7,7 +7,7 @@ import { saveTaxWorkings } from './taxContext';
 import { packageForPeriod, currentPeriodIST } from './salaryStructure';
 import { logPayrollAudit, actorName } from './audit';
 import { writeManagedLines } from './payComponents';
-import { arrearFor, arrearLines, hasArrear, lopReversalFrom } from './arrearCalc';
+import { arrearFor, arrearAndRecoveryLines, effectiveLop, hasArrear, isRecovery, lopReversalFrom } from './arrearCalc';
 import { monthLabel } from './reportHtml';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -38,9 +38,10 @@ export async function recomputeEntry(organizationId: string, entryId: string, pa
 // Put a payslip's arrear lines in step with the arrears attached to it.
 export async function syncArrearLines(organizationId: string, entryId: string) {
   const items = await prisma.arrearItem.findMany({ where: { paidEntryId: entryId, status: 'OPEN' } });
-  const lines = arrearLines(items);
+  const { pay, recover } = arrearAndRecoveryLines(items);
   await writeManagedLines(organizationId, entryId, 'ARREAR', {
-    SALARY_ARREARS: lines.earnings, PF_ON_ARREARS: lines.pf, ESI_ON_ARREARS: lines.esi,
+    SALARY_ARREARS: pay.earnings, PF_ON_ARREARS: pay.pf, ESI_ON_ARREARS: pay.esi,
+    SALARY_RECOVERY: recover.earnings, PF_ON_RECOVERY: recover.pf, ESI_ON_RECOVERY: recover.esi,
   });
   await recomputeEntry(organizationId, entryId);
 }
@@ -86,8 +87,12 @@ async function attachToOpenRun(organizationId: string, personId: string) {
 const raisedFor = (items: any[], entryId: string) => items.filter(i => i.sourceEntryId === entryId && i.status === 'OPEN');
 
 // After a back-dated revision: arrears for every finalized month from the
-// effective month on, each for what that month is now short by.
-export async function raiseRevisionArrears(req: any, personId: string, fromMonth: string, revisionId: string) {
+// effective month on, each for what that month is now short by. A month
+// that was overpaid (a back-dated cut) is only counted, unless `recover`
+// is asked for: taking pay back is decided each time, never assumed.
+export async function raiseRevisionArrears(
+  req: any, personId: string, fromMonth: string, revisionId: string, opts: { recover?: boolean } = {},
+) {
   const organizationId = req.user?.organizationId;
   const [person, settings, entries, existing] = await Promise.all([
     prisma.person.findFirst({ where: { id: personId, organizationId }, include: { salaryRevisions: true } }),
@@ -98,16 +103,21 @@ export async function raiseRevisionArrears(req: any, personId: string, fromMonth
     }),
     prisma.arrearItem.findMany({ where: { organizationId, personId, status: 'OPEN' } }),
   ]);
-  if (!person) return { months: 0, amount: 0, reductions: 0, paidIn: null as string | null };
+  if (!person) return { months: 0, amount: 0, reductions: 0, reductionAmount: 0, recovered: 0, paidIn: null as string | null };
   const createdByName = await actorName(req.user?.userId);
-  let months = 0, amount = 0, reductions = 0;
+  let months = 0, amount = 0, reductions = 0, reductionAmount = 0, recovered = 0;
   for (const e of entries.sort((a, b) => a.run.period.localeCompare(b.run.period))) {
     const raised = raisedFor(existing, e.id);
-    const reversed = raised.filter(i => i.kind === 'LOP_REVERSAL').reduce((s, i) => s + i.lopDays, 0);
     const toPackage = packageForPeriod(person.currentMonthlyPackage, person.salaryRevisions, e.run.period);
-    const a = arrearFor(e, { monthlyPackage: toPackage, lopDays: Math.max(0, e.lopDays - reversed) }, settings, raised);
+    const a = arrearFor(e, { monthlyPackage: toPackage, lopDays: effectiveLop(e.lopDays, raised) }, settings, raised);
     if (!hasArrear(a)) continue;
-    if (a.gross <= 0) { reductions++; continue; } // a back-dated cut is not recovered automatically
+    const takesBack = a.gross <= 0;
+    if (takesBack) {
+      reductions++;
+      reductionAmount = r2(reductionAmount - a.gross);
+      if (!opts.recover) continue;
+      recovered++;
+    }
     await prisma.arrearItem.create({
       data: {
         organizationId, personId, kind: 'REVISION', sourcePeriod: e.run.period, sourceEntryId: e.id, revisionId,
@@ -115,17 +125,22 @@ export async function raiseRevisionArrears(req: any, personId: string, fromMonth
         reason: `Package revised from ${monthLabel(fromMonth)}`,
       },
     });
+    if (takesBack) continue;
     months++;
     amount = r2(amount + a.gross);
   }
-  const paidIn = months ? await attachToOpenRun(organizationId, personId) : null;
-  if (months) {
-    await logPayrollAudit(req, [{
-      action: 'ARREAR_RAISED', personId, personName: person.name, period: fromMonth,
-      field: 'Salary arrears', newValue: `${amount} for ${months} month${months === 1 ? '' : 's'}`, source: 'REVISION',
-    }]);
-  }
-  return { months, amount, reductions, paidIn };
+  const paidIn = months || recovered ? await attachToOpenRun(organizationId, personId) : null;
+  await logPayrollAudit(req, [
+    ...(months ? [{
+      action: 'ARREAR_RAISED' as const, personId, personName: person.name, period: fromMonth,
+      field: 'Salary arrears', newValue: `${amount} for ${months} month${months === 1 ? '' : 's'}`, source: 'REVISION' as const,
+    }] : []),
+    ...(recovered ? [{
+      action: 'ARREAR_RAISED' as const, personId, personName: person.name, period: fromMonth,
+      field: 'Salary recovery', newValue: `${reductionAmount} for ${recovered} month${recovered === 1 ? '' : 's'}`, source: 'REVISION' as const,
+    }] : []),
+  ]);
+  return { months, amount, reductions, reductionAmount, recovered, paidIn };
 }
 
 // Removing a revision takes its unpaid arrears with it; paid ones block it.
@@ -157,22 +172,35 @@ export async function reversibleLopMonths(organizationId: string, personId: stri
   const [settings, paying] = await Promise.all([settingsFor(organizationId), payingPeriod(organizationId)]);
   const from = lopReversalFrom(paying, settings.lopReversalMonths);
   const entries = await prisma.payslipEntry.findMany({
-    where: { organizationId, personId, lopDays: { gt: 0 }, run: { status: 'FINALIZED', period: { gte: from, lt: paying } } },
-    include: { run: { select: { period: true } }, arrearsRaised: { where: { status: 'OPEN', kind: 'LOP_REVERSAL' } } },
+    where: { organizationId, personId, run: { status: 'FINALIZED', period: { gte: from, lt: paying } } },
+    include: { run: { select: { period: true } }, arrearsRaised: { where: { status: 'OPEN' } } },
     orderBy: { run: { period: 'desc' } },
+  });
+  const months = entries.map(e => {
+    const left = effectiveLop(e.lopDays, e.arrearsRaised);
+    return {
+      entryId: e.id, period: e.run.period, lopDays: e.lopDays, left,
+      reversed: r2(e.arrearsRaised.filter(i => i.kind === 'LOP_REVERSAL').reduce((s, i) => s + i.lopDays, 0)),
+      added: r2(e.arrearsRaised.filter(i => i.kind === 'LOP_RECOVERY').reduce((s, i) => s + i.lopDays, 0)),
+      // Days still paid, which is the most loss of pay that can be added
+      canAdd: r2(Math.max(0, e.totalWorkingDays - left)),
+    };
   });
   return {
     from, paying, months: settings.lopReversalMonths,
-    entries: entries.map(e => {
-      const reversed = e.arrearsRaised.reduce((s, i) => s + i.lopDays, 0);
-      return { entryId: e.id, period: e.run.period, lopDays: e.lopDays, reversed, left: r2(e.lopDays - reversed) };
-    }).filter(e => e.left > 0),
+    entries: months.filter(e => e.left > 0),  // months with loss of pay to reverse
+    paidMonths: months.filter(e => e.canAdd > 0), // months loss of pay can be added to
   };
 }
 
-// Undo loss-of-pay days of a finalized month and pay the difference.
-export async function reverseLop(req: any, entryId: string, days: number, reason: string) {
-  const organizationId = req.user?.organizationId;
+// The package a past month is now paid at: its revised one where revision
+// arrears were raised for it, else the one on its payslip.
+const packageNow = (entry: any) => (entry.arrearsRaised.some((i: any) => i.kind === 'REVISION')
+  ? packageForPeriod(entry.person.currentMonthlyPackage, entry.person.salaryRevisions, entry.run.period)
+  : entry.monthlyPackage);
+
+// A finalized month inside the window loss of pay can be changed for.
+async function lopEntry(organizationId: string, entryId: string) {
   const entry = await prisma.payslipEntry.findFirst({
     where: { id: entryId, organizationId },
     include: {
@@ -185,18 +213,50 @@ export async function reverseLop(req: any, entryId: string, days: number, reason
   const [settings, paying] = await Promise.all([settingsFor(organizationId), payingPeriod(organizationId)]);
   const from = lopReversalFrom(paying, settings.lopReversalMonths);
   if (entry.run.period < from) {
-    throw new AppError(400, `Loss of pay can be reversed up to ${settings.lopReversalMonths} months back (from ${monthLabel(from)}).`);
+    throw new AppError(400, `Loss of pay can be changed up to ${settings.lopReversalMonths} months back (from ${monthLabel(from)}).`);
   }
-  const reversed = entry.arrearsRaised.filter(i => i.kind === 'LOP_REVERSAL').reduce((s, i) => s + i.lopDays, 0);
-  const left = r2(entry.lopDays - reversed);
+  return { entry, settings };
+}
+
+// Loss of pay found after a month was finalized: the days are added to
+// that month and the pay for them is taken back on the next payslip, with
+// the PF and ESI deducted on that pay returned.
+export async function addRetroLop(req: any, entryId: string, days: number, reason: string) {
+  const organizationId = req.user?.organizationId;
+  const { entry, settings } = await lopEntry(organizationId, entryId);
+  const now = effectiveLop(entry.lopDays, entry.arrearsRaised);
+  const canAdd = r2(Math.max(0, entry.totalWorkingDays - now));
+  if (!(days > 0) || days > canAdd) {
+    throw new AppError(400, canAdd > 0 ? `Enter between 0.5 and ${canAdd} days` : 'Every day of this month is already loss of pay');
+  }
+  const toPackage = packageNow(entry);
+  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(now + days) }, settings, entry.arrearsRaised);
+  if (!hasArrear(a) || !isRecovery(a)) throw new AppError(400, 'Adding these days changes nothing');
+  const item = await prisma.arrearItem.create({
+    data: {
+      organizationId, personId: entry.personId, kind: 'LOP_RECOVERY', sourcePeriod: entry.run.period, sourceEntryId: entry.id,
+      lopDays: days, fromPackage: entry.monthlyPackage, toPackage, ...a, reason,
+      createdByName: await actorName(req.user?.userId),
+    },
+  });
+  const paidIn = await attachToOpenRun(organizationId, entry.personId);
+  await logPayrollAudit(req, [{
+    action: 'ARREAR_RAISED', personId: entry.personId, personName: entry.person.name, period: entry.run.period,
+    field: 'Loss of pay added', newValue: `${days} day${days === 1 ? '' : 's'}, ${a.gross}${reason ? ` — ${reason}` : ''}`,
+  }]);
+  return { item, paidIn };
+}
+
+// Undo loss-of-pay days of a finalized month and pay the difference.
+export async function reverseLop(req: any, entryId: string, days: number, reason: string) {
+  const organizationId = req.user?.organizationId;
+  const { entry, settings } = await lopEntry(organizationId, entryId);
+  const left = effectiveLop(entry.lopDays, entry.arrearsRaised);
   if (!(days > 0) || days > left) {
     throw new AppError(400, left > 0 ? `Enter between 0.5 and ${left} days` : 'This month has no loss of pay left to reverse');
   }
-  // A month that already has revision arrears is paid at its revised package
-  const toPackage = entry.arrearsRaised.some(i => i.kind === 'REVISION')
-    ? packageForPeriod(entry.person.currentMonthlyPackage, entry.person.salaryRevisions, entry.run.period)
-    : entry.monthlyPackage;
-  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(entry.lopDays - reversed - days) }, settings, entry.arrearsRaised);
+  const toPackage = packageNow(entry);
+  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(left - days) }, settings, entry.arrearsRaised);
   if (!hasArrear(a) || a.gross <= 0) throw new AppError(400, 'Reversing these days changes nothing');
   const item = await prisma.arrearItem.create({
     data: {
@@ -231,6 +291,8 @@ export async function cancelArrear(req: any, itemId: string, reason: string) {
   if (entryId) await syncArrearLines(organizationId, entryId);
   await logPayrollAudit(req, [{
     action: 'ARREAR_CANCELLED', personId: item.personId, personName: item.person.name, period: item.sourcePeriod,
-    field: item.kind === 'LOP_REVERSAL' ? 'Loss of pay reversal' : 'Salary arrears', oldValue: String(item.gross), newValue: reason,
+    field: item.kind === 'LOP_REVERSAL' ? 'Loss of pay reversal' : item.kind === 'LOP_RECOVERY' ? 'Loss of pay added'
+      : item.gross < 0 ? 'Salary recovery' : 'Salary arrears',
+    oldValue: String(item.gross), newValue: reason,
   }]);
 }

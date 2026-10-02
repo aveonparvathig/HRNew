@@ -95,6 +95,38 @@ export function effectiveTaxProfile(
   };
 }
 
+// The one-off dates on a year's declaration control that have come due:
+// the window closes after its lock date, proofs open from their month.
+// Each date clears itself once it has acted, so a window opened or closed
+// by hand afterwards stays as HR left it.
+export function dueControlChanges(
+  control: { declarationOpen: boolean; proofOpen: boolean; declarationLockOn?: string | null; proofOpenFrom?: string | null },
+  today: string,
+): { declarationOpen?: boolean; declarationLockOn?: null; proofOpen?: boolean; proofOpenFrom?: null } | null {
+  const patch: any = {};
+  if (control.declarationLockOn && today > control.declarationLockOn) {
+    patch.declarationLockOn = null;
+    if (control.declarationOpen) patch.declarationOpen = false;
+  }
+  if (control.proofOpenFrom && today.slice(0, 7) >= control.proofOpenFrom) {
+    patch.proofOpenFrom = null;
+    if (!control.proofOpen) patch.proofOpen = true;
+  }
+  return Object.keys(patch).length ? patch : null;
+}
+
+// Items that need a proof and have an amount but none attached.
+export function itemsMissingProof(
+  lines: { itemId: string; amount: number }[],
+  items: { id: string; name: string; proofRequired?: boolean }[],
+  proofCount: Map<string, number>,
+): string[] {
+  const required = new Map(items.filter(i => i.proofRequired).map(i => [i.id, i.name]));
+  return lines
+    .filter(l => l.amount > 0 && required.has(l.itemId) && !(proofCount.get(l.itemId) || 0))
+    .map(l => required.get(l.itemId)!);
+}
+
 // Landlord's PAN must be given when the year's rent is above one lakh.
 export const LANDLORD_PAN_RENT_LIMIT = 100000;
 export const rentNeedsLandlordPan = (annualRent: number) => annualRent > LANDLORD_PAN_RENT_LIMIT;

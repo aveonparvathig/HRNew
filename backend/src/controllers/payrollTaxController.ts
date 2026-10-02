@@ -81,8 +81,12 @@ async function latestWorkings(organizationId: string, fyStart: number, personId?
 }
 
 // One employee's tax working for the year, as of the latest payroll
-// month — or, for the employee's own view, the latest released one.
-export async function buildTaxStatement(organizationId: string, personId: string, fyStart: number, releasedOnly = false) {
+// month — or, for the employee's own view, the latest released one. An
+// employee allowed to see estimates gets the latest month whether
+// released or not, marked as an estimate while it is not.
+export async function buildTaxStatement(
+  organizationId: string, personId: string, fyStart: number, releasedOnly = false, forEmployee = false,
+) {
   const person = await fetchEmployee(personId, organizationId);
   const fy = financialYearFor(fyStart);
   const row = (await latestWorkings(organizationId, fyStart, person.id, releasedOnly)).get(person.id);
@@ -92,10 +96,14 @@ export async function buildTaxStatement(organizationId: string, personId: string
       : `No tax has been computed for ${person.name} in FY ${fy.label}. Computed TDS starts from the month set in Payroll Settings → Income Tax.`);
   }
   const w = row.working as any;
+  const run = forEmployee && !releasedOnly
+    ? await prisma.payrollRun.findUnique({ where: { id: row.runId }, select: { releasedAt: true } }) : null;
+  const estimate = Boolean(run && !run.releasedAt);
   const line = (label: string, value: number, cls = '') =>
     `<tr class="${cls}"><td>${esc(label)}</td><td class="amt">${inr(value)}</td></tr>`;
   const maybe = (label: string, value: number) => (value ? line(label, value) : '');
   const html = reportShell(await orgBrand(organizationId), 'Income Tax Statement', `FY ${fy.label} · as of ${monthLabel(row.period)}`, `
+  ${estimate ? `<p style="margin:0 0 10px;padding:8px 12px;background:#fdf3e1;border:1px solid #f5ddb0;border-radius:6px;color:#b54708;font-size:12.5px;"><strong>Estimate.</strong> This counts salary for ${esc(monthLabel(row.period))}, which is not released yet. The figures can change before your payslip is issued.</p>` : ''}
   <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''} · PAN ${esc(person.panNumber) || 'not on record'} · ${esc(regimeLabel(w.regime))}</p>
   <table class="st-table" style="width:auto;min-width:70%;">
     <tr><th>Income</th><th class="amt">Amount</th></tr>
@@ -131,7 +139,7 @@ export async function buildTaxStatement(organizationId: string, personId: string
     ${line(`TDS for ${monthLabel(row.period)}${w.overridden ? ' (entered by hand)' : ''}`, w.tdsThisMonth, 'tot')}
   </table>
   <p style="font-size:11.5px;color:#6b7280;">The balance is spread over the ${w.monthsLeft} payroll month${w.monthsLeft === 1 ? '' : 's'} left in the year, this one included. Figures change as salary, attendance and declarations change.</p>`);
-  return { html, title: `Income Tax Statement — ${person.name} — FY ${fy.label}` };
+  return { html, title: `Income Tax ${estimate ? 'Estimate' : 'Statement'} — ${person.name} — FY ${fy.label}`, estimate };
 }
 
 export const payrollTaxController = {

@@ -6,6 +6,7 @@ import { logPayrollAudit, actorName, diffFields } from '../services/payroll/audi
 import { financialYearFor, financialYearOf } from '../services/payroll/financialYear';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import { declarationTotals } from '../services/payroll/declarationCalc';
+import { todayIST } from '../services/payroll/loanLedger';
 import {
   declarationItemsFor, yearControlFor, loadDeclaration, saveDeclaration, saveApproval,
   addProof, fetchProof, removeProof, buildForm12bb,
@@ -41,7 +42,10 @@ function itemInput(b: any, existing?: any) {
   if (maxAmount !== null && (!isFinite(maxAmount) || maxAmount < 0)) throw new AppError(400, 'Enter a valid limit');
   const deductPercent = Number(b.deductPercent ?? existing?.deductPercent ?? 100);
   if (!isFinite(deductPercent) || deductPercent <= 0 || deductPercent > 100) throw new AppError(400, 'Deductible share must be between 1 and 100%');
-  return { name, section, sectionNew: str(b.sectionNew ?? existing?.sectionNew), group, maxAmount, deductPercent };
+  return {
+    name, section, sectionNew: str(b.sectionNew ?? existing?.sectionNew), group, maxAmount, deductPercent,
+    proofRequired: Boolean(b.proofRequired ?? existing?.proofRequired ?? false),
+  };
 }
 
 export const payrollDeclarationsController = {
@@ -78,7 +82,7 @@ export const payrollDeclarationsController = {
       where: { id: before.id },
       data: { ...input, ...(req.body.isActive !== undefined ? { isActive: Boolean(req.body.isActive) } : {}) },
     });
-    await logPayrollAudit(req, diffFields(before, item, ['name', 'section', 'sectionNew', 'group', 'maxAmount', 'deductPercent', 'isActive'])
+    await logPayrollAudit(req, diffFields(before, item, ['name', 'section', 'sectionNew', 'group', 'maxAmount', 'deductPercent', 'proofRequired', 'isActive'])
       .map(c => ({ action: 'DECLARATION_ITEM_SAVED' as const, field: `${before.name} · ${c.field}`, oldValue: c.oldValue, newValue: c.newValue })));
     res.json(item);
   },
@@ -140,14 +144,32 @@ export const payrollDeclarationsController = {
     const fyStart = fyInput(req.body.fyStart);
     const before = await yearControlFor(organizationId, fyStart);
     const data: any = {};
-    for (const f of ['declarationOpen', 'proofOpen', 'employeeCanChooseRegime']) {
+    for (const f of ['declarationOpen', 'proofOpen', 'employeeCanChooseRegime', 'employeeTaxEstimate']) {
       if (req.body[f] !== undefined) data[f] = Boolean(req.body[f]);
     }
+    const today = todayIST();
+    // The date the window closes by itself: today or later, while it is open
+    if (req.body.declarationLockOn !== undefined) {
+      const date = str(req.body.declarationLockOn);
+      if (date && (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(Date.parse(date)))) throw new AppError(400, 'Enter a valid date');
+      if (date && date < today) throw new AppError(400, 'The closing date must be today or later');
+      data.declarationLockOn = date || null;
+    }
+    // The month proof submission opens by itself
+    if (req.body.proofOpenFrom !== undefined) {
+      const month = str(req.body.proofOpenFrom);
+      if (month && !/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new AppError(400, 'Pick a valid month');
+      if (month && month <= today.slice(0, 7)) throw new AppError(400, 'Pick a month still to come, or open proof submission now');
+      data.proofOpenFrom = month || null;
+    }
+    const after = { ...before, ...data };
+    if (after.declarationLockOn && !after.declarationOpen) throw new AppError(400, 'Open the declaration window before giving it a closing date');
+    if (after.proofOpenFrom && after.proofOpen) throw new AppError(400, 'Proof submission is already open');
     const control = await prisma.taxYearControl.update({
       where: { organizationId_fyStart: { organizationId, fyStart } }, data,
     });
     const label = `FY ${financialYearFor(fyStart).label}`;
-    await logPayrollAudit(req, diffFields(before, control, ['declarationOpen', 'proofOpen', 'employeeCanChooseRegime'])
+    await logPayrollAudit(req, diffFields(before, control, ['declarationOpen', 'proofOpen', 'employeeCanChooseRegime', 'employeeTaxEstimate', 'declarationLockOn', 'proofOpenFrom'])
       .map(c => ({ action: 'DECLARATION_WINDOW_CHANGED' as const, field: `${label} · ${c.field}`, oldValue: c.oldValue, newValue: c.newValue })));
     res.json(control);
   },

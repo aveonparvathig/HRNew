@@ -59,13 +59,29 @@ export function arrearFor(
   return out;
 }
 
+// Loss-of-pay days of a past month as they now stand: the days on the
+// payslip, less those reversed since, plus those added since.
+export function effectiveLop(lopDays: number, raised: { kind: string; lopDays: number; status?: string }[]): number {
+  const open = raised.filter(i => !i.status || i.status === 'OPEN');
+  const sum = (kind: string) => open.filter(i => i.kind === kind).reduce((s, i) => s + i.lopDays, 0);
+  return r2(Math.max(0, lopDays - sum('LOP_REVERSAL') + sum('LOP_RECOVERY')));
+}
+
+// An item that takes pay back (retro loss of pay, a back-dated cut)
+export const isRecovery = (a: { gross?: number }) => Number(a.gross || 0) < 0;
+
 export const hasArrear = (a: ArrearAmounts) =>
   [...ARREAR_FIELDS, 'gross' as const].some(f => Math.abs(a[f]) >= 0.005);
 
-// The three payslip lines a set of arrears becomes.
+// The payslip lines a set of arrears becomes. Items that pay and items
+// that recover are kept apart, so a payslip shows both and not their net.
 export function arrearLines(items: Partial<ArrearAmounts>[]) {
   const t = sumArrears(items);
   return { earnings: t.gross, pf: t.pfEmployee, esi: t.esiEmployee, net: r2(t.gross - t.pfEmployee - t.esiEmployee) };
+}
+
+export function arrearAndRecoveryLines(items: Partial<ArrearAmounts>[]) {
+  return { pay: arrearLines(items.filter(i => !isRecovery(i))), recover: arrearLines(items.filter(isRecovery)) };
 }
 
 // The earliest month whose loss of pay can still be reversed when paying

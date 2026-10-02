@@ -406,6 +406,11 @@ export default function RunDetail() {
             );
           })}
           {run.stage.heldCount > 0 && <span className="badge badge-warning">{run.stage.heldCount} on hold</span>}
+          {run.inputCutoff && canEdit && (
+            <span className="text-muted" title="Set in Payroll Settings → Salary & statutory rates → Payroll inputs">
+              Inputs lock on their own after {new Date(`${run.inputCutoff}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+            </span>
+          )}
         </div>
       )}
 

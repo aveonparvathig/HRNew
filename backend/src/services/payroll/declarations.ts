@@ -6,8 +6,9 @@ import { AppError } from '../../middleware/errorHandler';
 import { orgBrand } from '../orgBrand';
 import { financialYearFor } from './financialYear';
 import {
-  DEFAULT_DECLARATION_ITEMS, declarationTotals, lineDeduction, rentNeedsLandlordPan,
+  DEFAULT_DECLARATION_ITEMS, declarationTotals, dueControlChanges, itemsMissingProof, lineDeduction, rentNeedsLandlordPan,
 } from './declarationCalc';
+import { todayIST } from './loanLedger';
 import { PAN_FORMAT, hasValidPan } from './taxCalc';
 import { esc, inr, reportShell } from './reportHtml';
 
@@ -31,12 +32,30 @@ export async function declarationItemsFor(organizationId: string) {
   return prisma.declarationItem.findMany({ where: { organizationId }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] });
 }
 
+// The year's declaration control. Its one-off dates are acted on here,
+// the first time the control is read after they come due.
 export async function yearControlFor(organizationId: string, fyStart: number) {
-  return prisma.taxYearControl.upsert({
+  const control = await prisma.taxYearControl.upsert({
     where: { organizationId_fyStart: { organizationId, fyStart } },
     create: { organizationId, fyStart },
     update: {},
   });
+  const patch = dueControlChanges(control, todayIST());
+  if (!patch) return control;
+  const label = `FY ${financialYearFor(fyStart).label}`;
+  await prisma.payrollAuditLog.createMany({
+    data: [
+      ...(patch.declarationOpen === false ? [{ field: `${label} · Declaration window open`, oldValue: 'Yes', newValue: `No (closed after ${control.declarationLockOn})` }] : []),
+      ...(patch.proofOpen === true ? [{ field: `${label} · Proof submission open`, oldValue: 'No', newValue: `Yes (from ${control.proofOpenFrom})` }] : []),
+    ].map(row => ({ organizationId, userId: null, userName: 'Automatic', action: 'DECLARATION_WINDOW_CHANGED', ...row })),
+  });
+  return prisma.taxYearControl.update({ where: { organizationId_fyStart: { organizationId, fyStart } }, data: patch });
+}
+
+// Count of proofs attached per declaration item of a profile.
+async function proofCounts(profileId: string) {
+  const rows = await prisma.declarationProof.groupBy({ by: ['itemId'], where: { profileId, kind: 'ITEM' }, _count: true });
+  return new Map(rows.map(r => [r.itemId || '', r._count]));
 }
 
 async function profileFor(organizationId: string, personId: string, fyStart: number) {
@@ -70,7 +89,7 @@ export async function loadDeclaration(organizationId: string, personId: string, 
     return {
       ...row, remarks: line?.remarks ?? '',
       name: item.name, section: item.section, sectionNew: item.sectionNew, group: item.group,
-      maxAmount: item.maxAmount, deductPercent: item.deductPercent,
+      maxAmount: item.maxAmount, deductPercent: item.deductPercent, proofRequired: item.proofRequired,
       allowed: lineDeduction(row, item, profile.poiConsidered),
       proofs: profile.proofs.filter(p => p.kind === 'ITEM' && p.itemId === item.id),
     };
@@ -136,6 +155,14 @@ export async function saveDeclaration(organizationId: string, personId: string, 
   const lineWrites: any[] = [];
   if (b.lines !== undefined) {
     if (!Array.isArray(b.lines)) throw new AppError(400, 'Lines must be a list');
+    // While proofs are being taken, an employee's amount on an item that
+    // needs a proof must have one attached
+    if (opts.bySelf && control.proofOpen) {
+      const missing = itemsMissingProof(
+        b.lines.map((l: any) => ({ itemId: str(l?.itemId), amount: Number(l?.declaredAmount || 0) })), items, await proofCounts(profile.id),
+      );
+      if (missing.length) throw new AppError(400, `Attach a proof for: ${missing.join(', ')}. Then save again.`);
+    }
     for (const raw of b.lines) {
       const itemId = str(raw?.itemId);
       if (!itemIds.has(itemId)) throw new AppError(400, 'Unknown declaration item');
@@ -171,6 +198,12 @@ export async function saveApproval(organizationId: string, personId: string, fyS
     if (!isFinite(n) || n < 0) throw new AppError(400, 'Approved amounts cannot be negative');
     return r2(n);
   };
+  // An amount cannot be approved on an item that needs a proof and has none
+  const unproved = itemsMissingProof(
+    (Array.isArray(b.lines) ? b.lines : []).map((l: any) => ({ itemId: str(l?.itemId), amount: amount(l?.approvedAmount) || 0 })),
+    items, await proofCounts(profile.id),
+  );
+  if (unproved.length) throw new AppError(400, `No proof is attached for: ${unproved.join(', ')}. Attach one, or leave the approved amount blank.`);
   const writes: any[] = [];
   for (const raw of Array.isArray(b.lines) ? b.lines : []) {
     const itemId = str(raw?.itemId);
