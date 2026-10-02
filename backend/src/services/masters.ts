@@ -15,6 +15,10 @@ export interface ListType {
 export const LIST_TYPES: ListType[] = [
   { type: 'DEPARTMENT', label: 'Department', usedFor: 'Employee profile, job openings', defaults: [] },
   { type: 'DESIGNATION', label: 'Designation', usedFor: 'Employee profile', defaults: [] },
+  {
+    type: 'EMPLOYMENT_TYPE', label: 'Employment type', usedFor: 'Employee profile',
+    defaults: ['Permanent', 'Contract', 'Trainee', 'Part-time'],
+  },
   { type: 'BANK', label: 'Bank', usedFor: 'Employee bank details, company accounts', defaults: [] },
   { type: 'BLOOD_GROUP', label: 'Blood group', usedFor: 'Employee profile', defaults: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] },
   { type: 'MARITAL_STATUS', label: 'Marital status', usedFor: 'Employee profile', defaults: ['Single', 'Married', 'Other'] },

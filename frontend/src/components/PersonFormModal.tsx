@@ -21,6 +21,7 @@ const EMPTY = {
   employmentStatus: 'ACTIVE', biometricId: '', agreementSigned: false,
   agreementSignDate: '', currentMonthlyPackage: '', reasonForLeaving: '',
   workLocationId: '',
+  employmentType: '', probationMonths: '', confirmationDate: '', noticePeriodDays: '', firstHireDate: '', referredBy: '', managerId: '',
   // personal
   photoData: '', dateOfBirth: '', bloodGroup: '', maritalStatus: '',
   parentSpouseName: '', aadharNo: '',
@@ -234,7 +235,44 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                 <F {...fp} label="Designation" k="designation" list="DESIGNATION" />
                 <F {...fp} label="Department" k="department" list="DEPARTMENT" />
                 <F {...fp} label="Date of joining" k="joinDate" type="date" />
-                <F {...fp} label="Employment status" k="employmentStatus" options={meta.employmentStatuses || []} />
+                <div className="field">
+                  <label>Employment status</label>
+                  <select className="select" value={form.employmentStatus || ''} onChange={e => {
+                    const status = e.target.value;
+                    // Someone put on probation gets the usual period unless one is typed
+                    setForm((f: any) => ({
+                      ...f, employmentStatus: status,
+                      ...(status === 'PROBATION' && !Number(f.probationMonths) ? { probationMonths: meta.usualProbationMonths || 6 } : {}),
+                    }));
+                  }}>
+                    <option value="">—</option>
+                    {(meta.employmentStatuses || []).map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+                <F {...fp} label="Employment type" k="employmentType" list="EMPLOYMENT_TYPE" />
+                <F {...fp} label="Reports to" k="managerId"
+                  options={(meta.managers || []).filter((m: any) => m.id !== person?.id)
+                    .map((m: any) => ({ value: m.id, label: `${m.name}${m.designation ? ` — ${m.designation}` : ''}` }))} />
+                <div className="field">
+                  <label>Probation</label>
+                  <div className="input-unit"><span className="unit">months</span>
+                    <input className="input" type="number" min={0} max={36} step={1} placeholder="None"
+                      value={form.probationMonths || ''} onChange={e => set('probationMonths', e.target.value)} />
+                  </div>
+                  <span className="hint">Counted from the date of joining. Confirmation falls due when it ends.</span>
+                </div>
+                <F {...fp} label="Confirmation date" k="confirmationDate" type="date" />
+                <div className="field">
+                  <label>Notice period</label>
+                  <div className="input-unit"><span className="unit">days</span>
+                    <input className="input" type="number" min={0} max={365} step={1}
+                      placeholder={`Company's: ${meta.companyNoticeDays ?? 30}`}
+                      value={form.noticePeriodDays ?? ''} onChange={e => set('noticePeriodDays', e.target.value)} />
+                  </div>
+                  <span className="hint">Leave blank to use the company's usual notice period.</span>
+                </div>
+                <F {...fp} label="First hire date" k="firstHireDate" type="date" />
+                <F {...fp} label="Referred by" k="referredBy" />
                 <PackageField wide label="Package" value={form.currentMonthlyPackage ?? ''} onChange={v => set('currentMonthlyPackage', v)}
                   context={{ personId: person?.id, isEsiEligible: form.isEsiEligible, isPfApplicable: form.isPfApplicable, designation: form.designation, department: form.department }}
                   hint={person ? 'Payroll keeps the monthly package. Changing it here is a salary revision from this month.' : 'Payroll keeps the monthly package.'} />

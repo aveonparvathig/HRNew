@@ -12,6 +12,14 @@ export const peopleAPI = {
     apiClient.post(`/people/${personId}/stage`, { stage }),
   deletePerson: (personId: string) => apiClient.delete(`/people/${personId}`),
 
+  // Reporting lines and confirmation
+  getOrgChart: () => apiClient.get('/people/org-chart'),
+  setManager: (personId: string, managerId: string) => apiClient.put(`/people/${personId}/manager`, { managerId }),
+  // Everyone reporting directly to one manager moves under another ('' = no manager)
+  transferReports: (data: { fromManagerId: string; toManagerId: string }) => apiClient.post('/people/transfer-reports', data),
+  getConfirmations: (days?: number) => apiClient.get('/people/confirmations', { params: days ? { days } : {} }),
+  confirmEmployee: (personId: string, confirmationDate: string) => apiClient.post(`/people/${personId}/confirm`, { confirmationDate }),
+
   // Pipeline
   getPipeline: (params?: { stage?: string; source?: string; job?: string; q?: string }) =>
     apiClient.get('/people/pipeline', { params }),

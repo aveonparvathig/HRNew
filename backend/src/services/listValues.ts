@@ -7,7 +7,7 @@ import { LIST_TYPES, cleanLabel, initialListValues, labelKey, listType, sameLabe
 
 // The person column a list feeds. Records hold the label itself.
 const PERSON_FIELD: Record<string, string> = {
-  DEPARTMENT: 'department', DESIGNATION: 'designation', BANK: 'bankName',
+  DEPARTMENT: 'department', DESIGNATION: 'designation', BANK: 'bankName', EMPLOYMENT_TYPE: 'employmentType',
   BLOOD_GROUP: 'bloodGroup', MARITAL_STATUS: 'maritalStatus',
   LEAVING_REASON: 'reasonForLeaving', STOP_REASON: 'salaryStopReason',
 };

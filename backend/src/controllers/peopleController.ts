@@ -11,6 +11,9 @@ import { cleanIfsc, isValidIfsc } from '../services/masters';
 import { ensureListValues, listValuesFor } from '../services/listValues';
 import { nextEmployeeCode, noteEmployeeCodeUsed, peekNumber, takeNumber } from '../services/numberSeries';
 import { CONSULTANT_SECTIONS, TAX_TREATMENTS, isConsultantSection, npsPercentInput, taxTreatmentInput } from '../services/payroll/consultantCalc';
+import { confirmationState, jobDetailsInput } from '../services/orgChart';
+import { assertManager } from './orgChartController';
+import { todayIST } from '../services/payroll/loanLedger';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -20,6 +23,7 @@ const SENSITIVE_PERSON_FIELDS = [
   'panNumber', 'pfNumber', 'pfUan', 'esiNumber', 'aadharNo',
   'isEsiEligible', 'isPfApplicable', 'agreementSigned', 'agreementSignDate',
   'reasonForLeaving', 'notes',
+  'confirmationDate', 'probationMonths', 'noticePeriodDays', 'referredBy', 'firstHireDate',
 ] as const;
 
 const stripForEmployee = (actor: any) => ['EMPLOYEE', 'MARKETING'].includes(actor.role);
@@ -89,7 +93,7 @@ function checkIfsc(b: any, before?: { ifscCode: string }) {
 
 // Values picked or typed on a person join their lists
 const personListValues = (p: any) => ({
-  DEPARTMENT: p.department, DESIGNATION: p.designation, BANK: p.bankName,
+  DEPARTMENT: p.department, DESIGNATION: p.designation, BANK: p.bankName, EMPLOYMENT_TYPE: p.employmentType,
   BLOOD_GROUP: p.bloodGroup, MARITAL_STATUS: p.maritalStatus, LEAVING_REASON: p.reasonForLeaving,
 });
 
@@ -182,6 +186,14 @@ function personData(b: any) {
     esiNumber: str(b.esiNumber),
     isEsiEligible: Boolean(b.isEsiEligible),
     isPfApplicable: Boolean(b.isPfApplicable),
+    // Job details
+    employmentType: str(b.employmentType).replace(/\s+/g, ' '),
+    probationMonths: Number(b.probationMonths) || 0,
+    confirmationDate: dateOrNull(b.confirmationDate),
+    noticePeriodDays: numOrNull(b.noticePeriodDays),
+    firstHireDate: dateOrNull(b.firstHireDate),
+    referredBy: str(b.referredBy),
+    managerId: b.managerId || null,
     npsEmployerPercent: Number(b.npsEmployerPercent) || 0,
     npsPran: str(b.npsPran).replace(/\s+/g, ''),
     taxTreatment: b.taxTreatment === 'CONSULTANT' ? 'CONSULTANT' : 'SALARY',
@@ -202,6 +214,20 @@ function personData(b: any) {
     startDate: dateOrNull(b.startDate),
     endDate: dateOrNull(b.endDate),
   };
+}
+
+// Probation, confirmation, notice period and the manager, checked as
+// typed. `record` is the person as they would be after the change.
+const JOB_FIELDS = ['probationMonths', 'confirmationDate', 'noticePeriodDays', 'firstHireDate', 'referredBy', 'employmentType', 'joinDate'];
+async function checkJobDetails(orgId: string, b: any, record: any, personId = '') {
+  if (JOB_FIELDS.some(f => b[f] !== undefined)) {
+    const details = jobDetailsInput(record);
+    if (typeof details === 'string') throw new AppError(400, details);
+  }
+  if (b.managerId !== undefined && b.managerId) {
+    const manager = await assertManager(orgId, personId, String(b.managerId));
+    if (!manager) throw new AppError(400, 'Pick the manager from the employees of the company');
+  }
 }
 
 // How the person is paid and taxed, checked as typed.
@@ -272,7 +298,7 @@ export const peopleController = {
       taxTreatments: TAX_TREATMENTS, consultantSections: CONSULTANT_SECTIONS,
       // The editable lists a person's form picks from, active values only
       lists: Object.fromEntries(Object.entries(
-        await listValuesFor(orgId, ['DEPARTMENT', 'DESIGNATION', 'BANK', 'BLOOD_GROUP', 'MARITAL_STATUS', 'LEAVING_REASON']),
+        await listValuesFor(orgId, ['DEPARTMENT', 'DESIGNATION', 'BANK', 'BLOOD_GROUP', 'MARITAL_STATUS', 'LEAVING_REASON', 'EMPLOYMENT_TYPE']),
       ).map(([type, values]) => [type, values.filter(v => v.isActive).map(v => v.label)])),
       workLocations: await prisma.workLocation.findMany({
         where: { organizationId: orgId, isActive: true },
@@ -280,6 +306,15 @@ export const peopleController = {
         orderBy: { name: 'asc' },
       }),
       nextEmployeeCode: await nextEmployeeCode(orgId),
+      // Who an employee can report to
+      managers: await prisma.person.findMany({
+        where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
+        select: { id: true, name: true, employeeNo: true, designation: true },
+        orderBy: { name: 'asc' },
+      }),
+      companyNoticeDays: (await prisma.payrollSettings.findUnique({ where: { organizationId: orgId }, select: { noticePeriodDays: true } }))?.noticePeriodDays ?? 30,
+      // Offered when someone is put on probation with no period typed
+      usualProbationMonths: 6,
     });
   },
 
@@ -379,6 +414,7 @@ export const peopleController = {
     const employees = await prisma.person.findMany({
       where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true },
       omit: { photoData: true },
+      include: { manager: { select: { name: true } } },
       orderBy: { name: 'asc' },
     });
     const esc = (v: any) => {
@@ -398,6 +434,9 @@ export const peopleController = {
       ['Address', p => p.address], ['Biometric ID', p => p.biometricId],
       ['Agreement Signed', p => (p.agreementSigned ? 'Yes' : 'No')],
       ['Agreement Date', p => p.agreementSignDate],
+      ['Employment Type', p => p.employmentType], ['Probation (months)', p => p.probationMonths || ''],
+      ['Confirmation Date', p => p.confirmationDate], ['Notice Period (days)', p => p.noticePeriodDays ?? ''],
+      ['Reporting Manager', p => p.manager?.name || ''],
       ['Bank Name', p => p.bankName], ['Account Number', p => p.bankAccountNumber],
       ['IFSC', p => p.ifscCode], ['PAN', p => p.panNumber],
       ['PF Number', p => p.pfNumber], ['PF UAN', p => p.pfUan],
@@ -424,6 +463,7 @@ export const peopleController = {
     await checkDuplicateName(orgId, b.kind, name);
     await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim());
     checkPayTreatment(b);
+    await checkJobDetails(orgId, b, b);
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
     checkIfsc(b);
@@ -456,6 +496,12 @@ export const peopleController = {
           select: { id: true, docType: true, title: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
         },
+        manager: { select: { id: true, name: true, employeeNo: true, designation: true } },
+        reports: {
+          where: { isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
+          select: { id: true, name: true, employeeNo: true, designation: true },
+          orderBy: { name: 'asc' },
+        },
       },
     });
     if (!person) throw new AppError(404, 'Person not found');
@@ -465,7 +511,13 @@ export const peopleController = {
       res.json({ ...stripPersonFields(person), documents: [], interviews: [] });
       return;
     }
-    res.json(person);
+    const settings = await prisma.payrollSettings.findUnique({ where: { organizationId: orgId }, select: { noticePeriodDays: true } });
+    res.json({
+      ...person,
+      // Where the employee stands on confirmation, and the notice the company asks for by default
+      confirmation: person.isEmployee ? confirmationState(person, todayIST()) : null,
+      companyNoticeDays: settings?.noticePeriodDays ?? 30,
+    });
   },
 
   async updatePerson(req: any, res: Response) {
@@ -489,6 +541,7 @@ export const peopleController = {
       await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim(), person.id);
     }
     checkPayTreatment(b);
+    await checkJobDetails(orgId, b, { ...person, ...b }, person.id);
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
     checkIfsc(b, person);
