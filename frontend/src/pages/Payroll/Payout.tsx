@@ -224,7 +224,7 @@ export default function Payout() {
               <tbody>
                 {data.batches.map((b: any) => (
                   <tr key={b.id}>
-                    <td style={{ fontWeight: 600 }}>#{b.batchNo}<div className="text-muted" style={{ fontSize: 11.5, fontWeight: 400 }}>{b.createdBy}</div></td>
+                    <td style={{ fontWeight: 600 }}>{b.batchRef || `#${b.batchNo}`}<div className="text-muted" style={{ fontSize: 11.5, fontWeight: 400 }}>{b.createdBy}</div></td>
                     <td>
                       {b.modeLabel}
                       {b.bankAccount && <div className="text-muted" style={{ fontSize: 11.5 }}>from {b.bankAccount}</div>}

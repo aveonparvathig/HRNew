@@ -9,7 +9,7 @@ import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import { esc, amt, inr, monthLabel, reportShell } from '../services/payroll/reportHtml';
 import { amountInWords } from '../services/payrollCalc';
 import {
-  PAYMENT_MODES, modeLabel, payAmount, runStage, journalVoucher,
+  PAYMENT_MODES, modeLabel, payAmount, runStage, journalVoucher, journalVoucherBy, isJvSplit,
   payrollReconciliation, headcountMovement, payrollAnomalies, duplicateGroups,
 } from '../services/payroll/payoutCalc';
 import { claimTotal } from '../services/payroll/payout';
@@ -28,7 +28,7 @@ const signed = (n: number) => (Math.abs(n) < 0.005 ? '—' : `${n > 0 ? '+' : '�
 const PERSON = {
   id: true, name: true, employeeNo: true, designation: true, department: true,
   paymentMode: true, bankName: true, bankAccountNumber: true, ifscCode: true,
-  pfUan: true, esiNumber: true,
+  pfUan: true, esiNumber: true, workLocation: { select: { name: true } },
 };
 
 async function fetchRun(runId: string, organizationId: string) {
@@ -198,7 +198,7 @@ export const payrollControlController = {
     const account = from
       ? `our account number <strong>${esc(from.accountNumber)}</strong>`
       : 'our account <span class="muted">(add the company bank account in Company Settings → Bank accounts)</span>';
-    const html = reportShell(brand, 'Bank Transfer Advice', `${monthLabel(batch.run.period)} · Batch ${batch.batchNo}`, `
+    const html = reportShell(brand, 'Bank Transfer Advice', `${monthLabel(batch.run.period)} · Batch ${batch.batchRef || batch.batchNo}`, `
   <div style="font-size:13px;margin-bottom:16px;">
     <p>Date: ${esc(dateLabel(batch.payDate))}</p>
     <p>To<br/>The Manager<br/>${esc(from?.bankName) || '____________________'}${from?.branch ? `<br/>${esc(from.branch)}` : ''}</p>
@@ -248,18 +248,36 @@ export const payrollControlController = {
   async journalVoucher(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const run = await fetchRun(req.params.runId, organizationId);
-    const mappings = await prisma.ledgerMapping.findMany({ where: { organizationId } });
-    const jv = journalVoucher(run.entries, Object.fromEntries(mappings.map(m => [m.key, m.ledgerName])));
-    const rows = jv.lines.map(l => `<tr>
+    const [mappings, overrides, settings] = await Promise.all([
+      prisma.ledgerMapping.findMany({ where: { organizationId } }),
+      prisma.ledgerOverride.findMany({ where: { organizationId } }),
+      prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} }),
+    ]);
+    const mapping = Object.fromEntries(mappings.map(m => [m.key, m.ledgerName]));
+    // As the settings say, unless the address asks for another split (?by=NONE for one voucher)
+    const asked = str(req.query.by).toUpperCase();
+    const by = asked === 'NONE' ? '' : isJvSplit(asked) && asked ? asked : settings.jvSplitBy;
+    const lineRows = (lines: any[]) => lines.map(l => `<tr>
       <td>${esc(l.ledger)}<div class="muted" style="font-size:10.5px;">${esc(l.detail)}</div></td>
       <td class="amt">${l.debit ? inr(l.debit) : ''}</td><td class="amt">${l.credit ? inr(l.credit) : ''}</td></tr>`).join('');
-    const html = reportShell(await orgBrand(organizationId), 'Payroll Journal Voucher', monthLabel(run.period), `
-  <p style="font-size:12.5px;margin:0 0 10px;">Being salaries and statutory dues for ${esc(monthLabel(run.period))}, ${run.entries.length} employees${run.status === 'FINALIZED' ? '' : ' — <strong>draft run, figures may change</strong>'}.</p>
+    const table = (v: { lines: any[]; totalDebit: number; totalCredit: number }) => `
   <table class="st-table" style="width:auto;min-width:70%;">
     <tr><th>Ledger account</th><th class="amt">Debit</th><th class="amt">Credit</th></tr>
-    ${rows || '<tr><td colspan="3">Nothing to post.</td></tr>'}
-    <tr class="tot"><td>Total</td><td class="amt">${inr(jv.totalDebit)}</td><td class="amt">${inr(jv.totalCredit)}</td></tr>
-  </table>
+    ${lineRows(v.lines) || '<tr><td colspan="3">Nothing to post.</td></tr>'}
+    <tr class="tot"><td>Total</td><td class="amt">${inr(v.totalDebit)}</td><td class="amt">${inr(v.totalCredit)}</td></tr>
+  </table>`;
+    let vouchers: string;
+    if (by) {
+      const split = journalVoucherBy(run.entries, mapping, by, overrides);
+      vouchers = split.vouchers.map(v => `<div class="st-h">${esc(v.name)} <span class="muted" style="font-weight:400;">· ${v.employees} employee${v.employees === 1 ? '' : 's'}</span></div>${table(v)}`).join('')
+        + `<table class="st-table" style="width:auto;min-width:70%;"><tr class="tot"><td>All ${by === 'LOCATION' ? 'work locations' : 'departments'}</td>
+          <td class="amt">${inr(split.totalDebit)}</td><td class="amt">${inr(split.totalCredit)}</td></tr></table>`;
+    } else {
+      vouchers = table(journalVoucher(run.entries, mapping));
+    }
+    const html = reportShell(await orgBrand(organizationId), 'Payroll Journal Voucher', `${monthLabel(run.period)}${by ? ` · by ${by === 'LOCATION' ? 'work location' : 'department'}` : ''}`, `
+  <p style="font-size:12.5px;margin:0 0 10px;">Being salaries and statutory dues for ${esc(monthLabel(run.period))}, ${run.entries.length} employees${run.status === 'FINALIZED' ? '' : ' — <strong>draft run, figures may change</strong>'}.</p>
+  ${vouchers}
   <p style="font-size:11.5px;color:#6b7280;">Ledger names come from Payroll Settings → Payout. Loan instalments are credited in full to the loan ledger;
   move any interest portion to interest income. Paying the salaries and the statutory dues are separate bank entries.</p>`);
     res.json({ html, title: `Payroll Journal Voucher — ${monthLabel(run.period)}` });

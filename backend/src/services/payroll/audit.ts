@@ -15,6 +15,8 @@ export type AuditAction =
   | 'DECLARATION_ITEM_SAVED' | 'DECLARATION_WINDOW_CHANGED' | 'DECLARATION_SAVED' | 'DECLARATION_APPROVED'
   | 'DECLARATION_SUBMITTED' | 'DECLARATION_REVIEWED' | 'DECLARATION_SENT_BACK' | 'DECLARATION_REOPEN_ASKED' | 'DECLARATION_REOPEN_DECIDED'
   | 'PERQUISITES_SAVED' | 'TDS_RETURN_FILED'
+  | 'STRUCTURE_TEMPLATE_SAVED' | 'STRUCTURE_TEMPLATE_DELETED' | 'STRUCTURE_ASSIGNED'
+  | 'RECURRING_SAVED' | 'RECURRING_DELETED' | 'NUMBER_SERIES_SAVED'
   | 'RUN_RELEASED' | 'RUN_HELD'
   | 'INPUTS_LOCKED' | 'INPUTS_UNLOCKED' | 'SALARY_HELD' | 'SALARY_HOLD_RELEASED'
   | 'PAY_SETTINGS_UPDATED' | 'PAYOUT_SETTINGS_UPDATED' | 'LEDGER_MAPPING_UPDATED'
@@ -77,6 +79,7 @@ const FIELD_LABELS: Record<string, string> = {
   form16Name: 'Name of the salary TDS certificate',
   form12baName: 'Name of the perquisites statement',
   form27aName: 'Name of the return control sheet',
+  jvSplitBy: 'Journal voucher split by',
   tdsAnnexure1IncludeZero: 'List employees with no tax in Annexure I',
   tdsAnnexure2SkipZero: 'Leave employees with no tax out of Annexure II',
   deductorFlat: 'Employer address — flat / door no.',

@@ -10,6 +10,7 @@ import {
 } from './taxCalc';
 import { effectiveTaxProfile } from './declarationCalc';
 import { PerquisiteLike, typedPerquisites } from './perquisiteCalc';
+import { RecurringLike, recurringLater } from './recurringCalc';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -204,14 +205,17 @@ export function tdsForEntry(
   tax: TaxContext, settings: any, personId: string,
   inputs: { monthlyPackage: number; isEsiEligible?: boolean; isPfApplicable?: boolean; salaryArrearAllowance?: number },
   computed: any, professionalTax: number, lines: any[], override: number | null,
+  recurring: RecurringLike[] = [],
 ): number {
   const config = tax.configs.get(regimeOf(tax, personId));
   if (!config) return override ?? 0;
   const person = tax.people.get(personId);
   const leavingMonth = person?.leavingDate ? person.leavingDate.slice(0, 7) : null;
-  const monthsAfter = tax.later.filter(p => !leavingMonth || p <= leavingMonth).length;
+  const later = tax.later.filter(p => !leavingMonth || p <= leavingMonth);
+  const monthsAfter = later.length;
+  // A recurring component is part of every month, not a one-off
   const oneTime = r2(Number(inputs.salaryArrearAllowance || 0) + (lines || [])
-    .filter(l => l.type !== 'DEDUCTION' && !(l.componentId && tax.nonTaxable.has(l.componentId)))
+    .filter(l => l.type !== 'DEDUCTION' && l.source !== 'RECURRING' && !(l.componentId && tax.nonTaxable.has(l.componentId)))
     .reduce((s, l) => s + Number(l.amount || 0), 0));
 
   const result = computeTds({
@@ -226,6 +230,7 @@ export function tdsForEntry(
     projection: {
       settings, monthlyPackage: inputs.monthlyPackage,
       isEsiEligible: Boolean(inputs.isEsiEligible), isPfApplicable: Boolean(inputs.isPfApplicable),
+      recurring: recurring.length ? recurringLater(recurring, later, tax.nonTaxable) : undefined,
     },
     profile: tax.profiles.get(personId) || EMPTY_TAX_PROFILE,
     perquisites: tax.perquisites.get(personId) || 0,

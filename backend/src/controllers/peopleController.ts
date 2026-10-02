@@ -9,6 +9,7 @@ import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import { syncDraftEntries } from '../services/payroll/draftSync';
 import { cleanIfsc, isValidIfsc } from '../services/masters';
 import { ensureListValues, listValuesFor } from '../services/listValues';
+import { nextEmployeeCode, noteEmployeeCodeUsed, peekNumber, takeNumber } from '../services/numberSeries';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -91,22 +92,6 @@ const personListValues = (p: any) => ({
   BLOOD_GROUP: p.bloodGroup, MARITAL_STATUS: p.maritalStatus, LEAVING_REASON: p.reasonForLeaving,
 });
 
-async function nextEmployeeCode(organizationId: string): Promise<string> {
-  const count = await prisma.person.count({
-    where: { organizationId, kind: 'CANDIDATE', isEmployee: true },
-  });
-  let n = count + 1;
-  // Skip codes already in use
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const code = `EMP-${String(n).padStart(4, '0')}`;
-    const exists = await prisma.person.findFirst({
-      where: { organizationId, employeeNo: code },
-    });
-    if (!exists) return code;
-    n++;
-  }
-}
 
 const OPENING_STATUSES = [
   { value: 'OPEN', label: 'Open' },
@@ -432,6 +417,7 @@ export const peopleController = {
       },
     });
     await ensureListValues(orgId, personListValues(person));
+    await noteEmployeeCodeUsed(orgId, person.employeeNo);
     res.status(201).json(person);
   },
 
@@ -490,6 +476,7 @@ export const peopleController = {
     }
     const updated = await prisma.person.update({ where: { id: person.id }, data });
     await ensureListValues(orgId, personListValues(updated));
+    if (updated.employeeNo !== person.employeeNo) await noteEmployeeCodeUsed(orgId, updated.employeeNo);
     // A package edited on the profile is a salary revision from this month;
     // the first package ever set is not.
     if (person.currentMonthlyPackage > 0 && updated.currentMonthlyPackage !== person.currentMonthlyPackage) {
@@ -695,10 +682,14 @@ export const peopleController = {
       rollNumber: person.rollNumber,
       letterDate: new Date().toISOString().split('T')[0],
     };
+    // The next reference of the letter series, when one is set up; it is
+    // taken only when the letter is issued with it
+    const nextRef = await peekNumber(orgId, 'LETTER');
     res.json({
       prefill: {
         ...personDefaults,
         ...(last ? { ...(last.formData as any), letterDate: personDefaults.letterDate, recipientName: person.name } : {}),
+        ...(nextRef ? { refNo: nextRef } : {}),
       },
     });
   },
@@ -714,6 +705,11 @@ export const peopleController = {
     }
     const brand = await orgBrand(orgId);
     const data = { ...formData, recipientName: formData.recipientName || person.name };
+    // A letter issued with the series' next reference (or with none typed) takes it
+    const nextRef = await peekNumber(orgId, 'LETTER');
+    if (nextRef && (!String(data.refNo || '').trim() || String(data.refNo).trim() === nextRef)) {
+      data.refNo = await takeNumber(orgId, 'LETTER');
+    }
     const html = renderLetter(docType, brand, data);
     const doc = await prisma.personDocument.create({
       data: {

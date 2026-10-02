@@ -4,6 +4,7 @@ import { payrollAPI } from '../api/payroll';
 import { Modal, ErrorAlert } from './ui';
 import { formatINR } from '../utils/format';
 import { confirmDialog } from './feedback';
+import PackageField from './PackageField';
 
 const monthLabel = (date: string) => {
   const [y, m] = date.split('-').map(Number);
@@ -153,15 +154,10 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
       <Modal title={`Revise Salary — ${person.name}`} open={open} onClose={() => setOpen(false)}>
         <form onSubmit={handleSave}>
           <div className="form-grid" style={{ marginBottom: 14 }}>
-            <div className="field">
-              <label>New monthly package *</label>
-              <div className="input-unit"><span className="unit">₹</span>
-                <input className="input" type="number" min={1} step="0.01" required
-                  value={form.newMonthlyPackage}
-                  onChange={e => setForm({ ...form, newMonthlyPackage: e.target.value })} />
-              </div>
-              <span className="hint">Currently {formatINR(data.currentMonthlyPackage)}</span>
-            </div>
+            <PackageField wide required label="New package" value={form.newMonthlyPackage}
+              onChange={v => setForm(f => ({ ...f, newMonthlyPackage: v }))}
+              context={{ personId: person.id }}
+              hint={`Currently ${formatINR(data.currentMonthlyPackage)} a month`} />
             <div className="field">
               <label>Applies from *</label>
               <input className="input" type="month" required value={form.effectiveMonth}
@@ -176,7 +172,7 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
           </div>
           <div className="form-actions">
             <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <button type="submit" className="btn btn-primary" disabled={saving || !(Number(form.newMonthlyPackage) > 0)}>
               {saving ? 'Saving…' : 'Save Revision'}
             </button>
           </div>

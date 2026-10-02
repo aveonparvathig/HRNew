@@ -8,9 +8,11 @@ import StatutoryPoliciesTab from './StatutoryPoliciesTab';
 import IncomeTaxTab from './IncomeTaxTab';
 import DeclarationItemsTab from './DeclarationItemsTab';
 import PayoutSettingsTab from './PayoutSettingsTab';
+import StructureTemplatesTab from './StructureTemplatesTab';
 
 const TABS = [
   { key: 'rates', label: 'Salary & statutory rates' },
+  { key: 'structures', label: 'Structure templates' },
   { key: 'components', label: 'Pay components' },
   { key: 'policies', label: 'PT & LWF' },
   { key: 'tax', label: 'Income tax' },
@@ -22,7 +24,7 @@ const TABS = [
 const GROUPS: { title: string; hint: string; fields: [string, string, string][] }[] = [
   {
     title: 'Salary split',
-    hint: 'How the monthly package divides into components. Basic is % of package; the rest are % of Basic.',
+    hint: 'How the monthly package divides into components. Basic is % of package; the rest are % of Basic. Employees on a structure template (next tab) are split by it instead.',
     fields: [
       ['basicPercentOfPackage', 'Basic — % of package', '%'],
       ['daPercentOfBasic', 'DA — % of basic', '%'],
@@ -129,6 +131,7 @@ export default function PayrollSettings() {
       </div>
 
       {tab === 'rates' && <RatesTab />}
+      {tab === 'structures' && <StructureTemplatesTab />}
       {tab === 'components' && <PayComponentsTab />}
       {tab === 'policies' && <StatutoryPoliciesTab />}
       {tab === 'tax' && <IncomeTaxTab />}

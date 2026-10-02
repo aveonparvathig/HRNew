@@ -12,6 +12,7 @@ import { PEOPLE_STAGE_TONES, stageLabel } from './PeopleList';
 import { expensesAPI } from '../../api/expenses';
 import { payrollAPI } from '../../api/payroll';
 import SalaryRevisionsCard from '../../components/SalaryRevisionsCard';
+import PersonStructureCard from '../../components/PersonStructureCard';
 import PersonLoansCard from '../../components/PersonLoansCard';
 import PersonTaxCard from '../../components/PersonTaxCard';
 import PersonPayCard from '../../components/PersonPayCard';
@@ -367,6 +368,7 @@ export default function PersonDetail() {
       {!isIntern && canManagePeople && person.isEmployee && (
         <SalaryRevisionsCard person={person} onChanged={fetchData} />
       )}
+      {!isIntern && canManagePeople && person.isEmployee && <PersonStructureCard person={person} onChanged={fetchData} />}
       {!isIntern && canManagePeople && person.isEmployee && <PersonTaxCard person={person} />}
       {!isIntern && canManagePeople && person.isEmployee && <PersonLoansCard person={person} />}
       {!isIntern && canManagePeople && person.isEmployee && <PersonPayCard person={person} />}

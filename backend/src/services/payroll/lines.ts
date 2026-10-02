@@ -5,6 +5,8 @@ import { computeEntry, EntryInputs } from '../payrollCalc';
 export interface LineAmount {
   type: string; // EARNING | DEDUCTION
   amount: number;
+  componentId?: string;
+  source?: string; // "" = typed by hand; ARREAR | SETTLEMENT | RECURRING
 }
 
 const r2 = (n: number) => Math.round(n * 100) / 100;

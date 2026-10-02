@@ -4,6 +4,7 @@ import { requireRole, readOnlyFor } from '../middleware/roles';
 import { payrollController } from '../controllers/payrollController';
 import { payrollSetupController } from '../controllers/payrollSetupController';
 import { payrollStructureController } from '../controllers/payrollStructureController';
+import { payrollStructuresController } from '../controllers/payrollStructuresController';
 import { payrollReportsController } from '../controllers/payrollReportsController';
 import { payrollStatutoryController } from '../controllers/payrollStatutoryController';
 import { payrollLoansController } from '../controllers/payrollLoansController';
@@ -109,6 +110,19 @@ router.post('/declaration-reopen-requests/:requestId/decide', asyncHandler((req,
 router.get('/payout-settings', asyncHandler((req, res) => payrollPayoutController.getPayoutSettings(req, res)));
 router.put('/payout-settings', asyncHandler((req, res) => payrollPayoutController.updatePayoutSettings(req, res)));
 router.put('/ledger-mapping', asyncHandler((req, res) => payrollPayoutController.updateLedgerMapping(req, res)));
+router.put('/ledger-overrides', asyncHandler((req, res) => payrollPayoutController.updateLedgerOverride(req, res)));
+
+// Salary structure templates, recurring components, a package typed as a yearly figure
+router.get('/structure-templates', asyncHandler((req, res) => payrollStructuresController.getTemplates(req, res)));
+router.post('/structure-templates', asyncHandler((req, res) => payrollStructuresController.createTemplate(req, res)));
+router.put('/structure-templates/:templateId', asyncHandler((req, res) => payrollStructuresController.updateTemplate(req, res)));
+router.delete('/structure-templates/:templateId', asyncHandler((req, res) => payrollStructuresController.deleteTemplate(req, res)));
+router.put('/structure-assignments', asyncHandler((req, res) => payrollStructuresController.assign(req, res)));
+router.get('/people/:personId/structure', asyncHandler((req, res) => payrollStructuresController.getPersonStructure(req, res)));
+router.post('/people/:personId/recurring', asyncHandler((req, res) => payrollStructuresController.createRecurring(req, res)));
+router.put('/recurring/:recurringId', asyncHandler((req, res) => payrollStructuresController.updateRecurring(req, res)));
+router.delete('/recurring/:recurringId', asyncHandler((req, res) => payrollStructuresController.deleteRecurring(req, res)));
+router.post('/package-preview', asyncHandler((req, res) => payrollStructuresController.packagePreview(req, res)));
 router.get('/people/:personId/pay-settings', asyncHandler((req, res) => payrollPayoutController.getPaySettings(req, res)));
 router.put('/people/:personId/pay-settings', asyncHandler((req, res) => payrollPayoutController.updatePaySettings(req, res)));
 router.get('/payout-batches/:batchId', asyncHandler((req, res) => payrollPayoutController.getBatch(req, res)));

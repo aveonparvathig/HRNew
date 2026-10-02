@@ -203,8 +203,12 @@ export interface TdsInputs {
   monthsAfter: number;        // payroll months still to come after this one
   earlier: MonthFigures[];    // months already paid this financial year
   current: MonthFigures & { oneTime: number }; // this payslip; oneTime = taxable one-off earnings in it
-  // A normal full month from here on, from the salary structure
-  projection: { settings: any; monthlyPackage: number; isEsiEligible: boolean; isPfApplicable: boolean };
+  // A normal full month from here on, from the salary structure, and
+  // what recurring components add in each month to come (first = next month)
+  projection: {
+    settings: any; monthlyPackage: number; isEsiEligible: boolean; isPfApplicable: boolean;
+    recurring?: { taxable: number; components: Record<string, number> }[];
+  };
   profile: TaxProfileLike;
   perquisites: number;        // taxable perquisites for the year (e.g. concessional loans)
   age: number;
@@ -229,18 +233,18 @@ const monthHra = (hra: number, salary: number, rent: number, share: number) =>
 // the rule needs a proof, the exemption stops at what was claimed.
 function allowanceExemptions(
   rules: ExemptionRuleLike[], allowsExemptions: boolean,
-  months: MonthFigures[], projected: (key: string) => number, monthsAfter: number,
+  months: MonthFigures[], projected: (key: string, monthIndex: number) => number, monthsAfter: number,
 ) {
   const list: { name: string; amount: number }[] = [];
   for (const rule of rules) {
     if (rule.regime !== 'BOTH' && !allowsExemptions) continue;
     const paid = months.map(m => Number(m.components?.[rule.key] || 0));
-    const later = Math.max(0, projected(rule.key));
+    const later = Array.from({ length: monthsAfter }, (_, i) => Math.max(0, projected(rule.key, i)));
     let amount: number;
     if (rule.period === 'MONTH' && rule.limit != null) {
-      amount = paid.reduce((s, p) => s + Math.min(Math.max(0, p), rule.limit!), 0) + Math.min(later, rule.limit) * monthsAfter;
+      amount = [...paid, ...later].reduce((s, p) => s + Math.min(Math.max(0, p), rule.limit!), 0);
     } else {
-      const total = paid.reduce((s, p) => s + Math.max(0, p), 0) + later * monthsAfter;
+      const total = [...paid, ...later].reduce((s, p) => s + Math.max(0, p), 0);
       amount = rule.limit == null ? total : Math.min(total, rule.limit);
     }
     if (rule.claimed != null) amount = Math.min(amount, Math.max(0, rule.claimed));
@@ -258,11 +262,13 @@ function yearTax(inp: TdsInputs, currentGross: number) {
   }, inp.projection.settings);
   const n = inp.monthsAfter;
   const months = [...inp.earlier, inp.current];
+  // Recurring components of the months to come, taxable ones in all
+  const recurring = (inp.projection.recurring || []).slice(0, n);
 
   const income = {
     paidEarlier: sumOf(inp.earlier, 'taxableGross'),
     thisMonth: r2(currentGross),
-    projected: r2(full.grossSalary * n),
+    projected: r2(full.grossSalary * n + recurring.reduce((s, m) => s + m.taxable, 0)),
     previousEmployer: profile.prevEmployerIncome,
     perquisites: inp.perquisites,
   };
@@ -291,11 +297,12 @@ function yearTax(inp: TdsInputs, currentGross: number) {
     )));
   }
   // Other allowances with an exemption rule. The months to come count
-  // only what the salary structure pays every month: an allowance typed
-  // month by month is not in the projected salary either.
+  // only what is paid every month — the salary structure and recurring
+  // components: an allowance typed month by month is not in the projected
+  // salary either.
   const allowances = allowanceExemptions(
     profile.exemptions || [], config.allowsExemptions, months,
-    key => (key in full ? Number((full as any)[key] || 0) : 0),
+    (key, i) => (key in full ? Number((full as any)[key] || 0) : Number(recurring[i]?.components[key] || 0)),
     n,
   );
   const exempt = r2(hraExemption + allowances.total);

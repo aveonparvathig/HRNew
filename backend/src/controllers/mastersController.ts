@@ -9,8 +9,27 @@ import {
 import {
   addListValue, deleteListValue, ensureListValues, listValuesFor, updateListValue, usageOf,
 } from '../services/listValues';
+import { DEFAULT_EMPLOYEE_SERIES, SERIES, formatNumber, isSeriesKey, seriesInput } from '../services/payroll/numberSeriesCalc';
+import { nextEmployeeCode } from '../services/numberSeries';
+import { todayIST } from '../services/payroll/loanLedger';
 
 const str = (v: any) => String(v ?? '').trim();
+
+// A series as the screen shows it: what is set, and the number it gives next
+async function seriesList(organizationId: string) {
+  const rows = await prisma.numberSeries.findMany({ where: { organizationId } });
+  const today = todayIST();
+  return Promise.all(SERIES.map(async s => {
+    const row = rows.find(r => r.key === s.key);
+    return {
+      ...s, configured: Boolean(row),
+      prefix: row?.prefix ?? (s.key === 'EMPLOYEE_CODE' ? DEFAULT_EMPLOYEE_SERIES.prefix : ''),
+      suffix: row?.suffix ?? '', padding: row?.padding ?? DEFAULT_EMPLOYEE_SERIES.padding, nextNumber: row?.nextNumber ?? 1,
+      // Employee codes skip any code already in use
+      next: s.key === 'EMPLOYEE_CODE' ? await nextEmployeeCode(organizationId) : row ? formatNumber(row, row.nextNumber, today) : '',
+    };
+  }));
+}
 
 // An account number is shown in the audit log by its last four digits
 const maskAccount = (number: string) => (number.length > 4 ? `…${number.slice(-4)}` : number);
@@ -171,5 +190,46 @@ export const mastersController = {
     await settleDefault(organizationId);
     await logPayrollAudit(req, [{ action: 'BANK_ACCOUNT_DELETED', field: accountName(account) }]);
     res.json({ message: 'Account deleted' });
+  },
+
+  // ---- Number series: employee codes, letters, settlements, payment batches ------------
+  async getNumberSeries(req: any, res: Response) {
+    res.json({ series: await seriesList(req.user?.organizationId) });
+  },
+
+  async updateNumberSeries(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const key = str(req.params.key);
+    if (!isSeriesKey(key)) throw new AppError(404, 'Unknown number series');
+    const input = seriesInput(req.body);
+    if (typeof input === 'string') throw new AppError(400, input);
+    const today = todayIST();
+    const before = await prisma.numberSeries.findUnique({ where: { organizationId_key: { organizationId, key } } });
+    const saved = await prisma.numberSeries.upsert({
+      where: { organizationId_key: { organizationId, key } }, create: { organizationId, key, ...input }, update: input,
+    });
+    const label = SERIES.find(s => s.key === key)!.label;
+    await logPayrollAudit(req, [{
+      action: 'NUMBER_SERIES_SAVED', field: label,
+      oldValue: before ? formatNumber(before, before.nextNumber, today) : 'Not set', newValue: `Next: ${formatNumber(saved, saved.nextNumber, today)}`,
+    }]);
+    res.json({ series: await seriesList(organizationId) });
+  },
+
+  // Back to no series: employee codes return to EMP-0001 onward, the
+  // others are no longer numbered.
+  async deleteNumberSeries(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const key = str(req.params.key);
+    if (!isSeriesKey(key)) throw new AppError(404, 'Unknown number series');
+    const before = await prisma.numberSeries.findUnique({ where: { organizationId_key: { organizationId, key } } });
+    if (before) {
+      await prisma.numberSeries.delete({ where: { organizationId_key: { organizationId, key } } });
+      await logPayrollAudit(req, [{
+        action: 'NUMBER_SERIES_SAVED', field: SERIES.find(s => s.key === key)!.label,
+        oldValue: formatNumber(before, before.nextNumber, todayIST()), newValue: 'Not set',
+      }]);
+    }
+    res.json({ series: await seriesList(organizationId) });
   },
 };

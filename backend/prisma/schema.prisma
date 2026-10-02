@@ -424,6 +424,7 @@ model Person {
   taxProfiles    EmployeeTaxProfile[]
   form16PartAs Form16PartA[]
   perquisiteValues PerquisiteValue[]
+  recurringComponents RecurringComponent[]
   arrearItems    ArrearItem[]
   settlements    Settlement[]
   expenseReports ExpenseReport[]
@@ -623,6 +624,8 @@ model PayrollSettings {
   payslipFileContext String @default("EMPNO") // EMPNO | NAME | EMPNO_NAME
   payslipEmailTo     String @default("OFFICIAL") // OFFICIAL | PERSONAL; the other is used when blank
   jvFilePrefix       String @default("JV") // journal voucher download
+  // Journal voucher as one voucher ("") or one per DEPARTMENT / LOCATION
+  jvSplitBy          String @default("")
   // Day of the month after which a draft run's inputs lock on their own
   // (0 = locked by hand only; 31 = the month's last day)
   inputCutoffDay     Int    @default(0)
@@ -706,6 +709,10 @@ model PayslipEntry {
   // Snapshot at entry-creation time so a later increment never
   // retroactively changes an already-generated month.
   monthlyPackage Float
+  // The structure template the pay was split with: its name, and its
+  // percentages as JSON. Blank = the company's own split in Payroll Settings.
+  structureName  String @default("")
+  structureSplit String @default("")
 
   // Attendance - manual inputs.
   totalWorkingDays Int
@@ -803,7 +810,8 @@ model PayComponent {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  lines PayslipLine[]
+  lines     PayslipLine[]
+  recurring RecurringComponent[]
 
   @@unique([organizationId, code])
   @@map("pay_components")
@@ -820,8 +828,8 @@ model PayslipLine {
   type           String // EARNING | DEDUCTION
   amount         Float
   remarks        String @default("")
-  // "" = entered by hand. ARREAR and SETTLEMENT lines are written by those
-  // features and cannot be edited on the payslip.
+  // "" = entered by hand. ARREAR, SETTLEMENT and RECURRING lines are
+  // written by those features and cannot be edited on the payslip.
   source         String @default("")
 
   entry     PayslipEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
@@ -830,6 +838,81 @@ model PayslipLine {
   @@unique([entryId, componentId])
   @@index([organizationId])
   @@map("payslip_lines")
+}
+
+// A salary split of its own: the same percentages Payroll Settings holds
+// for the company, for the employees the template is assigned to.
+model StructureTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  basicPercentOfPackage   Float
+  daPercentOfBasic        Float
+  hraPercentOfBasic       Float
+  transportPercentOfBasic Float
+  foodPercentOfBasic      Float
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments StructureAssignment[]
+
+  @@unique([organizationId, name])
+  @@map("structure_templates")
+}
+
+// Who a template applies to: one employee, everyone with a designation, or
+// everyone in a department. The narrowest match wins; with none, the
+// company's split applies.
+model StructureAssignment {
+  id             String @id @default(cuid())
+  organizationId String
+  scope          String // EMPLOYEE | DESIGNATION | DEPARTMENT
+  target         String // the person's id, or the designation / department label
+  templateId     String
+
+  template StructureTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, scope, target])
+  @@map("structure_assignments")
+}
+
+// A catalogue component paid (or deducted) every month for one employee.
+// It is put on each payslip of the months it covers as a RECURRING line.
+model RecurringComponent {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  componentId    String
+  amount         Float // for a full month
+  fromPeriod     String // "YYYY-MM"
+  toPeriod       String   @default("") // "" = until changed
+  prorate        Boolean  @default(true) // reduce for loss-of-pay days
+  remarks        String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person    Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  component PayComponent @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, personId])
+  @@map("recurring_components")
+}
+
+// How a running number is written: employee codes, letter references,
+// settlement and payment-batch numbers. No row = not numbered by a series.
+model NumberSeries {
+  organizationId String
+  key            String // EMPLOYEE_CODE | LETTER | SETTLEMENT | PAYOUT_BATCH
+  prefix         String   @default("")
+  suffix         String   @default("")
+  padding        Int      @default(4)
+  nextNumber     Int      @default(1)
+  updatedAt      DateTime @updatedAt
+
+  @@id([organizationId, key])
+  @@map("number_series")
 }
 
 // Salary history. A revision applies to payroll runs for the month of
@@ -1433,6 +1516,7 @@ model PayoutBatch {
   organizationId String
   runId          String
   batchNo        Int // running number within the organization
+  batchRef       String    @default("") // from the number series, when one is set up
   mode           String // BANK | CHEQUE | CASH
   payDate        String // "YYYY-MM-DD"
   reference      String    @default("")
@@ -1502,6 +1586,20 @@ model LedgerMapping {
 
   @@id([organizationId, key])
   @@map("ledger_mappings")
+}
+
+// A ledger of its own for one department or work location, used when the
+// journal voucher is split that way. Without one, the mapping above applies.
+model LedgerOverride {
+  organizationId String
+  dimension      String // DEPARTMENT | LOCATION
+  groupName      String
+  key            String
+  ledgerName     String
+  updatedAt      DateTime @updatedAt
+
+  @@id([organizationId, dimension, groupName, key])
+  @@map("ledger_overrides")
 }
 
 // A deposit of tax deducted from salaries, as on the bank challan. The
@@ -1635,6 +1733,7 @@ model Settlement {
   organizationId String
   personId       String
   sequence       Int      @default(1)
+  settlementNo   String   @default("") // from the number series, when one is set up
   period         String // "YYYY-MM" the payroll month it is paid in
   entryId        String?
 

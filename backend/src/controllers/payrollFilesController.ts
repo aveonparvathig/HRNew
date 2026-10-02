@@ -22,6 +22,7 @@ import {
 import {
   PAYSLIP_INCLUDE, payslipFile, payslipHtml, sendFile, settingsFor,
 } from '../services/payroll/payslipDocs';
+import { journalVoucherBy } from '../services/payroll/payoutCalc';
 
 const str = (v: any) => String(v ?? '').trim();
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
@@ -244,16 +245,22 @@ export const payrollFilesController = {
     const organizationId = req.user?.organizationId;
     const run = await prisma.payrollRun.findFirst({
       where: { id: req.params.runId, organizationId },
-      include: { entries: { include: { person: true, lines: true, payoutBatch: true } } },
+      include: { entries: { include: { person: { include: { workLocation: { select: { name: true } } } }, lines: true, payoutBatch: true } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
-    const [mappings, settings] = await Promise.all([
+    const [mappings, overrides, settings] = await Promise.all([
       prisma.ledgerMapping.findMany({ where: { organizationId } }),
+      prisma.ledgerOverride.findMany({ where: { organizationId } }),
       settingsFor(organizationId),
     ]);
-    const jv = journalVoucher(run.entries, Object.fromEntries(mappings.map(m => [m.key, m.ledgerName])));
+    const mapping = Object.fromEntries(mappings.map(m => [m.key, m.ledgerName]));
     const narration = `Salaries and statutory dues for ${monthLabel(run.period)}`;
-    const rows = jvRows(jv.lines, monthEnd(run.period), narration);
+    // Split as the settings say: each group's lines carry its name in the narration
+    const split = settings.jvSplitBy ? journalVoucherBy(run.entries, mapping, settings.jvSplitBy, overrides) : null;
+    const jv = split || journalVoucher(run.entries, mapping);
+    const rows = split
+      ? split.vouchers.flatMap(v => jvRows(v.lines, monthEnd(run.period), `${narration} — ${v.name}`))
+      : jvRows((jv as ReturnType<typeof journalVoucher>).lines, monthEnd(run.period), narration);
     if (req.query.format === 'xlsx') {
       const Excel = await import('exceljs');
       const wb = new Excel.Workbook();

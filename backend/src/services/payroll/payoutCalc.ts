@@ -285,6 +285,53 @@ export function journalVoucher(entries: any[], mapping: Record<string, string> =
   };
 }
 
+// How the journal voucher can be split
+export const JV_SPLITS = [
+  { value: '', label: 'One voucher for the company' },
+  { value: 'DEPARTMENT', label: 'One voucher for each department' },
+  { value: 'LOCATION', label: 'One voucher for each work location' },
+];
+export const isJvSplit = (value: any) => JV_SPLITS.some(s => s.value === value);
+export const NO_GROUP = 'Not assigned';
+
+// The department or work location an entry belongs to.
+export const jvGroupOf = (entry: any, dimension: string): string =>
+  String((dimension === 'LOCATION' ? entry.person?.workLocation?.name : entry.person?.department) || '').trim() || NO_GROUP;
+
+export interface LedgerOverrideLike {
+  dimension: string;
+  groupName: string;
+  key: string;
+  ledgerName: string;
+}
+
+// The payroll as one voucher per department or work location, each
+// balanced on its own. A group posts to its own ledger where one is set
+// for it, else to the company's mapping.
+export function journalVoucherBy(
+  entries: any[], mapping: Record<string, string>, dimension: string, overrides: LedgerOverrideLike[] = [],
+) {
+  const groups = new Map<string, any[]>();
+  for (const e of entries) {
+    const name = jvGroupOf(e, dimension);
+    groups.set(name, [...(groups.get(name) || []), e]);
+  }
+  const same = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+  const vouchers = [...groups.entries()]
+    .sort((a, b) => (a[0] === NO_GROUP ? 1 : b[0] === NO_GROUP ? -1 : a[0].localeCompare(b[0])))
+    .map(([name, list]) => {
+      const own = Object.fromEntries(overrides
+        .filter(o => o.dimension === dimension && same(o.groupName, name) && o.ledgerName.trim())
+        .map(o => [o.key, o.ledgerName]));
+      return { name, employees: list.length, ...journalVoucher(list, { ...mapping, ...own }) };
+    });
+  return {
+    vouchers,
+    totalDebit: r2(vouchers.reduce((s, v) => s + v.totalDebit, 0)),
+    totalCredit: r2(vouchers.reduce((s, v) => s + v.totalCredit, 0)),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Month-on-month reconciliation
 // ---------------------------------------------------------------------------
