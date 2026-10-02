@@ -13,12 +13,15 @@ import {
 } from '../services/payroll/payoutCalc';
 import { claimTotal, syncReimbursement } from '../services/payroll/payout';
 import { ensureListValues } from '../services/listValues';
+import { JV_SPLITS, isJvSplit } from '../services/payroll/payoutCalc';
+import { takeNumber } from '../services/numberSeries';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const MODES = PAYMENT_MODES.map(m => m.value);
 const PAYOUT_SETTINGS = ['payoutBankName', 'payoutBranch', 'payoutAccountNumber', 'payoutIfsc'];
 const PAYOUT_FLAGS = ['autoReleaseOnFinalize', 'autoCreateNextRun'];
+const LEDGER_DIMENSIONS = ['DEPARTMENT', 'LOCATION'];
 
 const PERSON_PAY = {
   id: true, name: true, employeeNo: true, designation: true, department: true,
@@ -95,7 +98,7 @@ function payState(entry: any): 'PAID' | 'IN_BATCH' | 'HELD' | 'UNPAID' | 'NOTHIN
 const accountLabel = (a: any) => (a ? `${a.label || a.bankName} …${String(a.accountNumber).slice(-4)}` : '');
 
 const batchSummary = (batch: any, entries: any[]) => ({
-  id: batch.id, batchNo: batch.batchNo, mode: batch.mode, modeLabel: modeLabel(batch.mode),
+  id: batch.id, batchNo: batch.batchNo, batchRef: batch.batchRef || '', mode: batch.mode, modeLabel: modeLabel(batch.mode),
   bankAccountId: batch.bankAccountId ?? null, bankAccount: accountLabel(batch.bankAccount),
   payDate: batch.payDate, reference: batch.reference, status: batch.status, notes: batch.notes,
   createdBy: batch.createdBy, paidAt: batch.paidAt,
@@ -289,6 +292,8 @@ export const payrollPayoutController = {
     const batch = await prisma.payoutBatch.create({
       data: {
         organizationId, runId: run.id, batchNo: (last?.batchNo || 0) + 1, mode, payDate,
+        // A reference from the number series, when one is set up
+        batchRef: (await takeNumber(organizationId, 'PAYOUT_BATCH')) || '',
         bankAccountId: bankAccount?.id ?? null,
         reference: str(req.body.reference), notes: str(req.body.notes),
         createdBy: await actorName(req.user?.userId),
@@ -442,17 +447,27 @@ export const payrollPayoutController = {
   // ---- Payout settings and the journal ledger mapping ------------------------------
   async getPayoutSettings(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
-    const [settings, mappings, components, latest] = await Promise.all([
+    const [settings, mappings, components, latest, overrides, departments, locations] = await Promise.all([
       settingsFor(organizationId),
       prisma.ledgerMapping.findMany({ where: { organizationId } }),
       prisma.payComponent.findMany({ where: { organizationId }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
       prisma.payrollRun.findFirst({ where: { organizationId }, orderBy: { period: 'desc' }, include: { entries: { include: { lines: true } } } }),
+      prisma.ledgerOverride.findMany({ where: { organizationId }, orderBy: [{ groupName: 'asc' }, { key: 'asc' }] }),
+      prisma.person.findMany({ where: { organizationId, isEmployee: true, NOT: { department: '' } }, select: { department: true }, distinct: ['department'] }),
+      prisma.workLocation.findMany({ where: { organizationId }, select: { name: true }, orderBy: { name: 'asc' } }),
     ]);
     // Accounts for every pay component in the catalogue, used or not
     const sample = [{ lines: components.map(c => ({ componentId: c.id, name: c.name, type: c.type, amount: 0 })) }, ...(latest?.entries || [])];
     const mapped = new Map(mappings.map(m => [m.key, m.ledgerName]));
     res.json({
-      settings: Object.fromEntries([...PAYOUT_SETTINGS, ...PAYOUT_FLAGS].map(f => [f, (settings as any)[f]])),
+      settings: Object.fromEntries([...PAYOUT_SETTINGS, ...PAYOUT_FLAGS, 'jvSplitBy'].map(f => [f, (settings as any)[f]])),
+      // Journal voucher by department or work location, and the ledgers a group has of its own
+      jvSplits: JV_SPLITS,
+      ledgerOverrides: overrides.map(o => ({ dimension: o.dimension, groupName: o.groupName, key: o.key, ledgerName: o.ledgerName })),
+      ledgerGroups: {
+        DEPARTMENT: departments.map(d => d.department).sort((a, b) => a.localeCompare(b)),
+        LOCATION: locations.map(l => l.name),
+      },
       accounts: jvAccounts(sample).filter(a => !['esiEmployee', 'pfEmployee', 'lwfEmployee'].includes(a.key))
         .map(a => ({ ...a, ledgerName: mapped.get(a.key) || '' })),
     });
@@ -465,10 +480,14 @@ export const payrollPayoutController = {
     for (const f of PAYOUT_SETTINGS) if (req.body[f] !== undefined) data[f] = str(req.body[f]);
     for (const f of PAYOUT_FLAGS) if (req.body[f] !== undefined) data[f] = Boolean(req.body[f]);
     if (data.payoutIfsc) data.payoutIfsc = data.payoutIfsc.toUpperCase();
+    if (req.body.jvSplitBy !== undefined) {
+      if (!isJvSplit(req.body.jvSplitBy)) throw new AppError(400, 'Pick how the journal voucher is split');
+      data.jvSplitBy = req.body.jvSplitBy;
+    }
     const updated = await prisma.payrollSettings.update({ where: { organizationId }, data });
-    await logPayrollAudit(req, diffFields(before, updated, [...PAYOUT_SETTINGS, ...PAYOUT_FLAGS])
+    await logPayrollAudit(req, diffFields(before, updated, [...PAYOUT_SETTINGS, ...PAYOUT_FLAGS, 'jvSplitBy'])
       .map(c => ({ action: 'PAYOUT_SETTINGS_UPDATED' as const, ...c })));
-    res.json(Object.fromEntries([...PAYOUT_SETTINGS, ...PAYOUT_FLAGS].map(f => [f, (updated as any)[f]])));
+    res.json(Object.fromEntries([...PAYOUT_SETTINGS, ...PAYOUT_FLAGS, 'jvSplitBy'].map(f => [f, (updated as any)[f]])));
   },
 
   // { mapping: { "<account key>": "<ledger name>" } } — a blank name returns the account to its default ledger.
@@ -494,6 +513,32 @@ export const payrollPayoutController = {
     }
     await logPayrollAudit(req, audit);
     res.json({ message: audit.length ? `Saved ${audit.length} ledger${audit.length === 1 ? '' : 's'}` : 'Nothing changed' });
+  },
+
+  // A ledger of its own for one department or work location. A blank
+  // name takes it away: the company's ledger applies again.
+  async updateLedgerOverride(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const dimension = str(req.body.dimension);
+    if (!LEDGER_DIMENSIONS.includes(dimension)) throw new AppError(400, 'Pick department or work location');
+    const groupName = str(req.body.groupName).slice(0, 120);
+    const key = str(req.body.key).slice(0, 120);
+    if (!groupName || !key) throw new AppError(400, 'Pick the group and the account');
+    const ledgerName = str(req.body.ledgerName).slice(0, 120);
+    const id = { organizationId_dimension_groupName_key: { organizationId, dimension, groupName, key } };
+    const before = await prisma.ledgerOverride.findUnique({ where: id });
+    if (ledgerName) {
+      await prisma.ledgerOverride.upsert({ where: id, create: { organizationId, dimension, groupName, key, ledgerName }, update: { ledgerName } });
+    } else if (before) {
+      await prisma.ledgerOverride.delete({ where: id });
+    }
+    if ((before?.ledgerName || '') !== ledgerName) {
+      await logPayrollAudit(req, [{
+        action: 'LEDGER_MAPPING_UPDATED', field: `${groupName} · ${key}`,
+        oldValue: before?.ledgerName || 'Company ledger', newValue: ledgerName || 'Company ledger',
+      }]);
+    }
+    res.json({ message: ledgerName ? 'Ledger saved' : 'Ledger removed' });
   },
 
   // ---- Expense claims paid with salary ------------------------------------------------

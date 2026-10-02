@@ -20,6 +20,20 @@ export const payrollAPI = {
   deleteComponent: (componentId: string) => apiClient.delete(`/payroll/components/${componentId}`),
 
   // Salary revisions
+  // Structure templates (a salary split of its own) and who they apply to
+  getStructureTemplates: () => apiClient.get('/payroll/structure-templates'),
+  createStructureTemplate: (data: any) => apiClient.post('/payroll/structure-templates', data),
+  updateStructureTemplate: (templateId: string, data: any) => apiClient.put(`/payroll/structure-templates/${templateId}`, data),
+  deleteStructureTemplate: (templateId: string) => apiClient.delete(`/payroll/structure-templates/${templateId}`),
+  // scope: EMPLOYEE | DESIGNATION | DEPARTMENT; a blank templateId takes the assignment away
+  assignStructure: (data: { scope: string; target: string; templateId: string }) => apiClient.put('/payroll/structure-assignments', data),
+  // One employee's structure and the components they get every month
+  getPersonStructure: (personId: string) => apiClient.get(`/payroll/people/${personId}/structure`),
+  createRecurring: (personId: string, data: any) => apiClient.post(`/payroll/people/${personId}/recurring`, data),
+  updateRecurring: (recurringId: string, data: any) => apiClient.put(`/payroll/recurring/${recurringId}`, data),
+  deleteRecurring: (recurringId: string) => apiClient.delete(`/payroll/recurring/${recurringId}`),
+  // A package typed monthly (MONTHLY), as a yearly figure (ANNUAL) or as annual CTC (ANNUAL_CTC)
+  packagePreview: (data: any) => apiClient.post('/payroll/package-preview', data),
   getRevisions: (personId: string) => apiClient.get(`/payroll/people/${personId}/revisions`),
   createRevision: (personId: string, data: any) => apiClient.post(`/payroll/people/${personId}/revisions`, data),
   // Take back what a back-dated cut overpaid in finalized months
@@ -76,6 +90,9 @@ export const payrollAPI = {
   getPayoutSettings: () => apiClient.get('/payroll/payout-settings'),
   updatePayoutSettings: (data: any) => apiClient.put('/payroll/payout-settings', data),
   updateLedgerMapping: (mapping: Record<string, string>) => apiClient.put('/payroll/ledger-mapping', { mapping }),
+  // A department's or work location's own ledger for one account; a blank name removes it
+  updateLedgerOverride: (data: { dimension: string; groupName: string; key: string; ledgerName: string }) =>
+    apiClient.put('/payroll/ledger-overrides', data),
   // An employee's payment mode and salary stop
   getPaySettings: (personId: string) => apiClient.get(`/payroll/people/${personId}/pay-settings`),
   updatePaySettings: (personId: string, data: any) => apiClient.put(`/payroll/people/${personId}/pay-settings`, data),

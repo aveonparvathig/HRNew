@@ -76,3 +76,23 @@ export function salaryStructure(
   for (const k of keys) annual[k] = r2(monthly[k] * 12);
   return { monthly, annual };
 }
+
+// A full-month structure with the employee's recurring components added:
+// earnings raise gross, net and CTC; deductions lower net.
+export function withRecurring<T extends { monthly: any; annual: Record<string, number> }>(
+  structure: T, recurring: { type: string; amount: number }[],
+): T & { recurringEarnings: number; recurringDeductions: number } {
+  const earnings = r2(recurring.filter(x => x.type !== 'DEDUCTION').reduce((s, x) => s + x.amount, 0));
+  const deductions = r2(recurring.filter(x => x.type === 'DEDUCTION').reduce((s, x) => s + x.amount, 0));
+  if (!earnings && !deductions) return { ...structure, recurringEarnings: 0, recurringDeductions: 0 };
+  const monthly = {
+    ...structure.monthly,
+    grossSalary: r2(structure.monthly.grossSalary + earnings),
+    totalDeductions: r2(structure.monthly.totalDeductions + deductions),
+    netPayable: r2(structure.monthly.netPayable + earnings - deductions),
+    ctc: r2(structure.monthly.ctc + earnings),
+  };
+  const annual = { ...structure.annual };
+  for (const k of ['grossSalary', 'totalDeductions', 'netPayable', 'ctc']) annual[k] = r2(monthly[k] * 12);
+  return { ...structure, monthly, annual, recurringEarnings: earnings, recurringDeductions: deductions };
+}

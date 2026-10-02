@@ -11,6 +11,9 @@ import { TaxContext, loadTaxContext, tdsForEntry } from './taxContext';
 import {
   halfYearOf, policyInForce, ptPolicyInForce, professionalTaxForMonth, lwfForMonth, esiCovered, PriorMonth,
 } from './statutoryCalc';
+import { splitText, withSplit } from './structureCalc';
+import { RecurringLike, RecurringLine, recurringLines } from './recurringCalc';
+import { PersonStructure, structuresByPerson, recurringByPerson } from './structures';
 
 interface PriorEntry extends PriorMonth {
   esiCovered: boolean;
@@ -27,15 +30,24 @@ export interface StatutoryContext {
   loanDue: Map<string, number>;
   // Present once TDS is computed for this month; null while it is typed by hand
   tax: TaxContext | null;
+  // Employees whose pay is split by a structure template of their own
+  structures?: Map<string, PersonStructure>;
+  // Components paid or deducted every month, per employee
+  recurring?: Map<string, RecurringLike[]>;
+  // Filled in as entries are computed: the recurring lines each payslip
+  // should carry, for saveRecurringLines
+  recurringLines?: Map<string, RecurringLine[]>;
 }
 
 export async function loadStatutoryContext(organizationId: string, period: string): Promise<StatutoryContext> {
   const earlier = halfYearOf(period).periods.filter(p => p < period);
-  const [settings, ptPolicies, lwfPolicies, loanDue, entries] = await Promise.all([
+  const [settings, ptPolicies, lwfPolicies, loanDue, structures, recurring, entries] = await Promise.all([
     prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} }),
     prisma.ptPolicy.findMany({ where: { organizationId }, include: { slabs: true } }),
     prisma.lwfPolicy.findMany({ where: { organizationId } }),
     loanDueByPerson(organizationId, period),
+    structuresByPerson(organizationId),
+    recurringByPerson(organizationId, period),
     earlier.length
       ? prisma.payslipEntry.findMany({
         where: { organizationId, run: { period: { in: earlier } } },
@@ -56,8 +68,13 @@ export async function loadStatutoryContext(organizationId: string, period: strin
     priorByPerson.set(e.personId, list);
   }
   const tax = await loadTaxContext(organizationId, period, settings);
-  return { period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue, tax };
+  return { period, settings, ptPolicies, lwfPolicies, priorByPerson, loanDue, tax, structures, recurring, recurringLines: new Map() };
 }
+
+// Payroll settings as they apply to one employee: the company's, with the
+// split of their structure template when they have one.
+export const settingsOf = (ctx: StatutoryContext, personId: string) =>
+  withSplit(ctx.settings, ctx.structures?.get(personId)?.split);
 
 export const coveredEarlier = (ctx: StatutoryContext, personId: string) =>
   (ctx.priorByPerson.get(personId) || []).some(p => p.esiCovered);
@@ -66,7 +83,7 @@ export const coveredEarlier = (ctx: StatutoryContext, personId: string) =>
 // coverage switched on — the wage-ceiling and contribution-period rule.
 export function esiFlagFor(ctx: StatutoryContext, person: { id: string; isEsiEligible: boolean }, inputs: EntryInputs): boolean {
   if (!ctx.settings.esiAutoCoverage) return person.isEsiEligible;
-  return esiCovered(fullMonthEsiWage(inputs, ctx.settings), ctx.settings.esiWageCeiling, coveredEarlier(ctx, person.id));
+  return esiCovered(fullMonthEsiWage(inputs, settingsOf(ctx, person.id)), ctx.settings.esiWageCeiling, coveredEarlier(ctx, person.id));
 }
 
 export interface ComputeOptions {
@@ -88,9 +105,20 @@ export const locationOptions = (location: { state: string; city: string; exclude
 // Everything to store on the entry. Statutory amounts need the gross, so
 // the engine runs once without them and once with. Loan instalments come
 // straight from the ledger.
-export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, lines: LineAmount[], opts: ComputeOptions) {
+export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, given: LineAmount[], opts: ComputeOptions) {
+  // The employee's own split, when a structure template applies to them
+  const structure = ctx.structures?.get(opts.personId);
+  const settings = withSplit(ctx.settings, structure?.split);
+  const snapshot = { structureName: structure?.name || '', structureSplit: structure ? splitText(structure.split) : '' };
+  // Recurring lines are worked out afresh each time: the days may have changed
+  const items = ctx.recurring?.get(opts.personId) || [];
+  const kept = given.filter(l => l.source !== 'RECURRING');
+  const recurring = recurringLines(items, ctx.period, inputs, new Set(kept.map(l => l.componentId || '')));
+  ctx.recurringLines?.set(opts.personId, recurring);
+  const lines = [...kept, ...recurring];
+
   const bare = computeEntryWithLines(
-    { ...inputs, professionalTax: 0, lwfEmployee: 0, lwfEmployer: 0, loanDeduction: 0 }, ctx.settings, lines,
+    { ...inputs, professionalTax: 0, lwfEmployee: 0, lwfEmployer: 0, loanDeduction: 0 }, settings, lines,
   );
   let professionalTax = 0;
   let lwf = { lwfEmployee: 0, lwfEmployer: 0 };
@@ -110,17 +138,19 @@ export function computeFullEntry(ctx: StatutoryContext, inputs: EntryInputs, lin
   if (!ctx.tax) {
     // TDS stays whatever was typed on the entry
     return {
-      ...computeEntryWithLines({ ...inputs, ...statutory }, ctx.settings, lines),
+      ...computeEntryWithLines({ ...inputs, ...statutory }, settings, lines),
       ...statutory,
+      ...snapshot,
     };
   }
-  const beforeTax = computeEntryWithLines({ ...inputs, ...statutory, tds: 0 }, ctx.settings, lines);
+  const beforeTax = computeEntryWithLines({ ...inputs, ...statutory, tds: 0 }, settings, lines);
   const tds = tdsForEntry(
-    ctx.tax, ctx.settings, opts.personId, inputs, beforeTax, professionalTax, lines, opts.tdsOverride ?? null,
+    ctx.tax, settings, opts.personId, inputs, beforeTax, professionalTax, lines, opts.tdsOverride ?? null, items,
   );
   return {
-    ...computeEntryWithLines({ ...inputs, ...statutory, tds }, ctx.settings, lines),
+    ...computeEntryWithLines({ ...inputs, ...statutory, tds }, settings, lines),
     ...statutory,
     tds,
+    ...snapshot,
   };
 }

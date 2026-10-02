@@ -5,6 +5,7 @@ import OrgProfileForm from './OrgProfileForm';
 import BankAccountsTab from './BankAccountsTab';
 import ListsTab from './ListsTab';
 import MailSettingsTab from './MailSettingsTab';
+import NumberSeriesTab from './NumberSeriesTab';
 import StatutoryProfileTab from '../Payroll/StatutoryProfileTab';
 
 // Identity and branding are the Super Admin's; HR keeps the registrations,
@@ -15,6 +16,7 @@ const TABS = [
   { key: 'signatories', label: 'Signatories', ownerOnly: false },
   { key: 'bank', label: 'Bank accounts', ownerOnly: false },
   { key: 'lists', label: 'Lists', ownerOnly: false },
+  { key: 'numbering', label: 'Numbering', ownerOnly: false },
   { key: 'email', label: 'Email', ownerOnly: true },
   { key: 'branding', label: 'Branding', ownerOnly: true },
 ];
@@ -53,6 +55,7 @@ export default function CompanySettings() {
       )}
       {tab === 'bank' && <BankAccountsTab />}
       {tab === 'lists' && <ListsTab />}
+      {tab === 'numbering' && <NumberSeriesTab />}
       {tab === 'email' && <MailSettingsTab />}
       {tab === 'branding' && <OrgProfileForm section="branding" />}
     </>

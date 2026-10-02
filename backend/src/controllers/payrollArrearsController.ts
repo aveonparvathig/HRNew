@@ -22,6 +22,8 @@ import { payAmount } from '../services/payroll/payoutCalc';
 import { esc, amt, inr, monthLabel, reportShell } from '../services/payroll/reportHtml';
 import { amountInWords } from '../services/payrollCalc';
 import { newEntryData } from './payrollController';
+import { settingsForPerson } from '../services/payroll/structures';
+import { takeNumber } from '../services/numberSeries';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -106,7 +108,7 @@ function settlementState(s: any): { state: string; label: string } {
 const totalsOf = (s: any) => Object.fromEntries(SETTLEMENT_KEYS.map(k => [k, s[k]])) as any;
 
 const settlementJSON = (s: any) => ({
-  id: s.id, person: s.person, sequence: s.sequence, period: s.period,
+  id: s.id, person: s.person, sequence: s.sequence, settlementNo: s.settlementNo || '', period: s.period,
   lastWorkingDate: s.lastWorkingDate, resignedOn: s.resignedOn, reason: s.reason, payDays: s.payDays,
   monthlyGross: s.monthlyGross, basicDa: s.basicDa, serviceYears: s.serviceYears,
   noticeDays: s.noticeDays, noticeServedDays: s.noticeServedDays, noticePayDays: s.noticePayDays,
@@ -139,7 +141,8 @@ async function workings(organizationId: string, personId: string, b: any) {
   const before = await prisma.settlement.findFirst({ where: { personId: person.id }, orderBy: { sequence: 'desc' }, select: { lastWorkingDate: true } });
   const lastWorkingDate = str(b.lastWorkingDate) || person.leavingDate || before?.lastWorkingDate || todayIST();
   if (!DATE.test(lastWorkingDate) || isNaN(Date.parse(lastWorkingDate))) throw new AppError(400, 'Enter the last working day');
-  const monthly = salaryStructure(person.currentMonthlyPackage || 0, person, settings).monthly;
+  // Split by the employee's structure template, when one applies to them
+  const monthly = salaryStructure(person.currentMonthlyPackage || 0, person, (await settingsForPerson(organizationId, settings, person)).settings).monthly;
   const basicDa = r2(monthly.basic + monthly.da);
   const service = serviceLength(person.joinDate, lastWorkingDate);
   const noticeDays = b.noticeDays === undefined || b.noticeDays === '' ? settings.noticePeriodDays : Number(b.noticeDays);
@@ -365,6 +368,8 @@ export const payrollArrearsController = {
     const created = await prisma.settlement.create({
       data: {
         organizationId, personId: w.person.id, sequence, ...data,
+        // A number from the series, when one is set up
+        settlementNo: (await takeNumber(organizationId, 'SETTLEMENT')) || '',
         // A resettlement leaves the attendance of its month alone
         payDays: sequence === 1 ? data.payDays : null,
         createdByName: await actorName(req.user?.userId),
@@ -500,7 +505,7 @@ export const payrollArrearsController = {
   </table>
   <p class="muted" style="font-size:12px;">Not yet on a payslip: the salary, statutory deductions and tax of ${esc(monthLabel(s.period))} will appear here once that month's payroll run exists.</p>`;
     const shortfall = Math.max(0, s.noticeDays - s.noticeServedDays);
-    const html = reportShell(brand, title, `${s.person.name} · ${monthLabel(s.period)}`, `
+    const html = reportShell(brand, title, `${s.person.name} · ${monthLabel(s.period)}${s.settlementNo ? ` · No. ${s.settlementNo}` : ''}`, `
   <style>@media print { @page { size: A4 portrait; margin: 12mm; } }</style>
   <table class="st-table">
     <tr><td style="width:22%;">Employee</td><td><strong>${esc(s.person.name)}</strong>${s.person.employeeNo ? ` (${esc(s.person.employeeNo)})` : ''}</td>

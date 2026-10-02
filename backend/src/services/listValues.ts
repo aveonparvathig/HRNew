@@ -138,6 +138,29 @@ async function relabelRecords(organizationId: string, type: string, from: string
     if (ids.length) await prisma.person.updateMany({ where: { id: { in: ids } }, data: { [field]: to } });
     moved += (people as any[]).filter(p => sameLabel(p[field], from)).length;
   }
+  // Structure templates assigned to the value, and a department's own ledgers
+  const scope = type === 'DESIGNATION' || type === 'DEPARTMENT' ? type : null;
+  if (scope) {
+    const assignments = await prisma.structureAssignment.findMany({ where: { organizationId, scope } });
+    const held = assignments.filter(a => sameLabel(a.target, from));
+    const taken = assignments.some(a => a.target === to);
+    for (const a of held) {
+      // Renaming onto a value that has its own template keeps that one
+      if (taken && a.target !== to) await prisma.structureAssignment.delete({ where: { id: a.id } });
+      else if (a.target !== to) await prisma.structureAssignment.update({ where: { id: a.id }, data: { target: to } });
+    }
+  }
+  if (type === 'DEPARTMENT') {
+    const overrides = await prisma.ledgerOverride.findMany({ where: { organizationId, dimension: 'DEPARTMENT' } });
+    for (const o of overrides.filter(x => sameLabel(x.groupName, from) && x.groupName !== to)) {
+      const id = { organizationId, dimension: o.dimension, groupName: o.groupName, key: o.key };
+      await prisma.ledgerOverride.delete({ where: { organizationId_dimension_groupName_key: id } });
+      await prisma.ledgerOverride.upsert({
+        where: { organizationId_dimension_groupName_key: { ...id, groupName: to } },
+        create: { organizationId, dimension: o.dimension, groupName: to, key: o.key, ledgerName: o.ledgerName }, update: {},
+      });
+    }
+  }
   if (type === 'DEPARTMENT') {
     const openings = await prisma.jobOpening.findMany({ where: { organizationId, NOT: { department: '' } }, select: { id: true, department: true } });
     const ids = openings.filter(o => sameLabel(o.department, from)).map(o => o.id);

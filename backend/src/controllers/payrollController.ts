@@ -7,6 +7,7 @@ import {
   loadStatutoryContext, computeFullEntry, esiFlagFor, coveredEarlier, locationOptions, LOCATION_FOR_PAYROLL,
 } from '../services/payroll/entryCompute';
 import { saveTaxWorkings } from '../services/payroll/taxContext';
+import { saveRecurringLines } from '../services/payroll/structures';
 import { packageForPeriod } from '../services/payroll/salaryStructure';
 import { orgBrand } from '../services/orgBrand';
 import { financialYearOf } from '../services/payroll/financialYear';
@@ -154,7 +155,7 @@ async function resolveLines(organizationId: string, input: any, existing: any[],
     if (!component) throw new AppError(400, 'Pick a pay component for every line');
     if (seen.has(component.id)) throw new AppError(400, `${component.name} is listed twice`);
     if (reserved.has(component.id)) {
-      throw new AppError(400, `${component.name} on this payslip comes from arrears or the final settlement. Change it there.`);
+      throw new AppError(400, `${component.name} on this payslip comes from arrears, the final settlement or the employee's recurring components. Change it there.`);
     }
     seen.add(component.id);
     const amount = num(raw.amount, NaN);
@@ -202,6 +203,7 @@ async function createRunFor(req: any, organizationId: string, period: string, to
     data: employees.map(emp => newEntryData(ctx, organizationId, run.id, emp, totalWorkingDays)),
   });
   await saveTaxWorkings(ctx.tax, organizationId, run.id);
+  await saveRecurringLines(ctx, organizationId, run.id);
   await attachOpenArrears(organizationId, run.id);
   await logPayrollAudit(req, [{
     action: 'RUN_CREATED', runId: run.id, period,
@@ -438,6 +440,7 @@ export const payrollController = {
       });
     }
     await saveTaxWorkings(ctx.tax, orgId, run.id);
+    await saveRecurringLines(ctx, orgId, run.id);
     await attachOpenArrears(orgId, run.id);
     await logPayrollAudit(req, [{
       action: 'RUN_RECALCULATED', runId: run.id, period: run.period,
@@ -502,6 +505,8 @@ export const payrollController = {
     const computed = computeFullEntry(ctx, merged, lines, {
       personId: entry.personId, ...locationOptions(entry.person.workLocation), ptOverride, tdsOverride,
     });
+    // Recurring lines first: with the days changed their amounts may have too
+    await saveRecurringLines(ctx, orgId, entry.runId);
     if (b.lines !== undefined) {
       await prisma.$transaction([
         prisma.payslipLine.deleteMany({ where: { entryId: entry.id, source: '' } }),
@@ -931,6 +936,7 @@ export const payrollController = {
       updated++;
     }
     if (!dryRun) await saveTaxWorkings(ctx.tax, orgId, run.id);
+    if (!dryRun) await saveRecurringLines(ctx, orgId, run.id);
     res.json({ dryRun: Boolean(dryRun), summary: { updated, skipped, errors }, results });
   },
 

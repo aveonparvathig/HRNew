@@ -9,6 +9,8 @@ import { logPayrollAudit, actorName } from './audit';
 import { writeManagedLines } from './payComponents';
 import { arrearFor, arrearAndRecoveryLines, effectiveLop, hasArrear, isRecovery, lopReversalFrom } from './arrearCalc';
 import { monthLabel } from './reportHtml';
+import { entrySettings } from './structureCalc';
+import { saveRecurringLines } from './structures';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -32,6 +34,7 @@ export async function recomputeEntry(organizationId: string, entryId: string, pa
   });
   const updated = await prisma.payslipEntry.update({ where: { id: entry.id }, data: { ...patch, ...computed } });
   await saveTaxWorkings(ctx.tax, organizationId, entry.runId);
+  await saveRecurringLines(ctx, organizationId, entry.runId);
   return updated;
 }
 
@@ -109,7 +112,7 @@ export async function raiseRevisionArrears(
   for (const e of entries.sort((a, b) => a.run.period.localeCompare(b.run.period))) {
     const raised = raisedFor(existing, e.id);
     const toPackage = packageForPeriod(person.currentMonthlyPackage, person.salaryRevisions, e.run.period);
-    const a = arrearFor(e, { monthlyPackage: toPackage, lopDays: effectiveLop(e.lopDays, raised) }, settings, raised);
+    const a = arrearFor(e, { monthlyPackage: toPackage, lopDays: effectiveLop(e.lopDays, raised) }, entrySettings(settings, e), raised);
     if (!hasArrear(a)) continue;
     const takesBack = a.gross <= 0;
     if (takesBack) {
@@ -230,7 +233,7 @@ export async function addRetroLop(req: any, entryId: string, days: number, reaso
     throw new AppError(400, canAdd > 0 ? `Enter between 0.5 and ${canAdd} days` : 'Every day of this month is already loss of pay');
   }
   const toPackage = packageNow(entry);
-  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(now + days) }, settings, entry.arrearsRaised);
+  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(now + days) }, entrySettings(settings, entry), entry.arrearsRaised);
   if (!hasArrear(a) || !isRecovery(a)) throw new AppError(400, 'Adding these days changes nothing');
   const item = await prisma.arrearItem.create({
     data: {
@@ -256,7 +259,7 @@ export async function reverseLop(req: any, entryId: string, days: number, reason
     throw new AppError(400, left > 0 ? `Enter between 0.5 and ${left} days` : 'This month has no loss of pay left to reverse');
   }
   const toPackage = packageNow(entry);
-  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(left - days) }, settings, entry.arrearsRaised);
+  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(left - days) }, entrySettings(settings, entry), entry.arrearsRaised);
   if (!hasArrear(a) || a.gross <= 0) throw new AppError(400, 'Reversing these days changes nothing');
   const item = await prisma.arrearItem.create({
     data: {

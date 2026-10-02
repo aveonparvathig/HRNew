@@ -25,4 +25,9 @@ router.post('/bank-accounts', staffOnly, asyncHandler((req, res) => mastersContr
 router.put('/bank-accounts/:accountId', staffOnly, asyncHandler((req, res) => mastersController.updateBankAccount(req, res)));
 router.delete('/bank-accounts/:accountId', staffOnly, asyncHandler((req, res) => mastersController.deleteBankAccount(req, res)));
 
+// Number series: employee codes, letter references, settlements, payment batches
+router.get('/number-series', staffOnly, asyncHandler((req, res) => mastersController.getNumberSeries(req, res)));
+router.put('/number-series/:key', staffOnly, asyncHandler((req, res) => mastersController.updateNumberSeries(req, res)));
+router.delete('/number-series/:key', staffOnly, asyncHandler((req, res) => mastersController.deleteNumberSeries(req, res)));
+
 export default router;

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { peopleAPI } from '../api/people';
 import { Modal, ErrorAlert } from './ui';
 import ListSelect from './ListSelect';
+import PackageField from './PackageField';
 
 interface Props {
   open: boolean;
@@ -232,7 +233,9 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                 <F {...fp} label="Department" k="department" list="DEPARTMENT" />
                 <F {...fp} label="Date of joining" k="joinDate" type="date" />
                 <F {...fp} label="Employment status" k="employmentStatus" options={meta.employmentStatuses || []} />
-                <F {...fp} label="Monthly package" k="currentMonthlyPackage" unit="₹" />
+                <PackageField wide label="Package" value={form.currentMonthlyPackage ?? ''} onChange={v => set('currentMonthlyPackage', v)}
+                  context={{ personId: person?.id, isEsiEligible: form.isEsiEligible, isPfApplicable: form.isPfApplicable, designation: form.designation, department: form.department }}
+                  hint={person ? 'Payroll keeps the monthly package. Changing it here is a salary revision from this month.' : 'Payroll keeps the monthly package.'} />
                 <F {...fp} label="Biometric ID" k="biometricId" />
                 <F {...fp} label="Work location" k="workLocationId"
                   options={(meta.workLocations || []).map((l: any) => ({ value: l.id, label: `${l.name} — ${l.state}` }))} />

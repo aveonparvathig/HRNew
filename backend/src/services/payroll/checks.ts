@@ -1,6 +1,7 @@
 // Run-level sanity checks and the manual-override listing. Pure,
 // DB-independent: callers pass the entries, settings and employee records.
 import { computeEntry } from '../payrollCalc';
+import { entrySettings } from './structureCalc';
 
 export interface RunCheck {
   entryId: string;
@@ -13,10 +14,11 @@ const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { maxi
 
 // ESI coverage is decided on the full month's wage, not the LOP-reduced one.
 export function fullMonthEsiWage(entry: any, settings: any): number {
+  // An entry computed with a structure template carries its split
   const full = computeEntry({
     monthlyPackage: entry.monthlyPackage,
     totalWorkingDays: entry.totalWorkingDays || 1,
-  }, settings);
+  }, entrySettings(settings, entry));
   return full.basic + full.da + full.hra + full.transportAllowance + full.foodAllowance;
 }
 

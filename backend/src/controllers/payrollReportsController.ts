@@ -16,6 +16,9 @@ import {
 import {
   esc, amt, inr, monthLabel, monthShort, reportShell,
 } from '../services/payroll/reportHtml';
+import { loadStructures, recurringNow, settingsForPerson } from '../services/payroll/structures';
+import { withSplit } from '../services/payroll/structureCalc';
+import { withRecurring } from '../services/payroll/salaryStructure';
 
 const days = (n: number) => { const v = Number(n || 0); return v % 1 === 0 ? String(v) : v.toFixed(1); };
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
@@ -223,32 +226,43 @@ export const payrollReportsController = {
         employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] },
       },
       select: {
-        name: true, employeeNo: true, designation: true, currentMonthlyPackage: true,
+        id: true, name: true, employeeNo: true, designation: true, department: true, currentMonthlyPackage: true,
         isEsiEligible: true, isPfApplicable: true,
       },
       orderBy: { name: 'asc' },
     });
-    const rows = people.map(p => ({ p, s: salaryStructure(p.currentMonthlyPackage, p, settings) }));
+    const [structures, recurring] = await Promise.all([loadStructures(orgId), recurringNow(orgId)]);
+    const rows = people.map(p => {
+      const structure = structures.forPerson(p);
+      const own = recurring.filter(r => r.personId === p.id).map(r => ({ type: r.component.type, amount: r.amount }));
+      return { p, template: structure?.name || '', s: withRecurring(salaryStructure(p.currentMonthlyPackage, p, withSplit(settings, structure?.split)), own) };
+    });
+    const anyRecurring = rows.some(r => r.s.recurringEarnings || r.s.recurringDeductions);
     const keys: [string, string][] = [
       ['basic', 'Basic'], ['da', 'DA'], ['hra', 'HRA'], ['transportAllowance', 'Transport'],
-      ['foodAllowance', 'Food'], ['grossSalary', 'Gross'], ['esiEmployee', 'ESI'], ['pfEmployee', 'PF'],
+      ['foodAllowance', 'Food'], ...(anyRecurring ? [['recurringEarnings', 'Recurring earnings'] as [string, string]] : []),
+      ['grossSalary', 'Gross'], ['esiEmployee', 'ESI'], ['pfEmployee', 'PF'],
+      ...(anyRecurring ? [['recurringDeductions', 'Recurring deductions'] as [string, string]] : []),
       ['netPayable', 'Net'], ['employerContributions', 'Employer ESI + PF'], ['ctc', 'Monthly CTC'],
     ];
+    // Recurring totals sit beside the monthly figures
+    for (const r of rows) Object.assign(r.s.monthly, { recurringEarnings: r.s.recurringEarnings, recurringDeductions: r.s.recurringDeductions });
     const sum = (f: (r: typeof rows[number]) => number) => rows.reduce((s, r) => s + f(r), 0);
-    const body = rows.map(({ p, s }, i) => `<tr>
+    const body = rows.map(({ p, s, template }, i) => `<tr>
       <td>${i + 1}</td><td class="nw">${esc(p.employeeNo)}</td>
-      <td class="nw">${esc(p.name)}${p.designation ? `<div class="muted" style="font-size:10.5px;">${esc(p.designation)}</div>` : ''}</td>
+      <td class="nw">${esc(p.name)}${p.designation || template ? `<div class="muted" style="font-size:10.5px;">${esc([p.designation, template && `structure: ${template}`].filter(Boolean).join(' · '))}</div>` : ''}</td>
       ${keys.map(([k]) => `<td class="amt">${amt((s.monthly as any)[k])}</td>`).join('')}
       <td class="amt"><strong>${amt(s.annual.ctc)}</strong></td></tr>`).join('');
     const html = reportShell(await orgBrand(orgId), 'Salary Structure', 'Current, full month', `
   <table class="st-table">
     <tr><th>#</th><th>Code</th><th>Employee</th>${keys.map(([, label]) => `<th class="amt">${esc(label)}</th>`).join('')}<th class="amt">Annual CTC</th></tr>
-    ${body || '<tr><td colspan="15">No active employees.</td></tr>'}
+    ${body || '<tr><td colspan="17">No active employees.</td></tr>'}
     <tr class="tot"><td colspan="3">Total (${rows.length} employees)</td>
       ${keys.map(([k]) => `<td class="amt">${amt(sum(r => (r.s.monthly as any)[k]))}</td>`).join('')}
       <td class="amt">${amt(sum(r => r.s.annual.ctc))}</td></tr>
   </table>
-  <p style="font-size:11.5px;color:#6b7280;">Full-month figures from each employee's current package, with no loss of pay and no one-off items.</p>`);
+  <p style="font-size:11.5px;color:#6b7280;">Full-month figures from each employee's current package, with no loss of pay and no one-off items.
+  An employee on a structure template is split by it; the rest by the company's split.${anyRecurring ? ' Recurring components are those running this month.' : ''}</p>`);
     res.json({ html, title: 'Salary Structure' });
   },
 
@@ -256,17 +270,26 @@ export const payrollReportsController = {
   async ctcBreakup(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const person = await fetchEmployee(req.query.personId, orgId);
-    const s = salaryStructure(person.currentMonthlyPackage, person, await settingsFor(orgId));
+    const [{ settings, structure }, recurring] = await Promise.all([
+      settingsForPerson(orgId, await settingsFor(orgId), person), recurringNow(orgId, person.id),
+    ]);
+    const s = withRecurring(
+      salaryStructure(person.currentMonthlyPackage, person, settings),
+      recurring.map(r => ({ type: r.component.type, amount: r.amount })),
+    );
     const line = (label: string, key: string, cls = '') =>
       `<tr class="${cls}"><td>${esc(label)}</td><td class="amt">${inr((s.monthly as any)[key])}</td><td class="amt">${inr(s.annual[key])}</td></tr>`;
+    const recurringRows = (type: string) => recurring.filter(r => (r.component.type === 'DEDUCTION') === (type === 'DEDUCTION'))
+      .map(r => `<tr><td>${esc(r.component.name)} <span class="muted">(every month)</span></td><td class="amt">${inr(r.amount)}</td><td class="amt">${inr(r.amount * 12)}</td></tr>`).join('');
     const optional = (cols: ComponentColumn[]) => cols
       .filter(c => (s.monthly as any)[c.key] > 0)
       .map(c => line(c.label, c.key)).join('');
     const html = reportShell(await orgBrand(orgId), 'CTC Breakup', new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata' }), `
-  <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''}${person.designation ? ` · ${esc(person.designation)}` : ''}</p>
+  <p style="margin:0 0 10px;"><strong>${esc(person.name)}</strong>${person.employeeNo ? ` · ${esc(person.employeeNo)}` : ''}${person.designation ? ` · ${esc(person.designation)}` : ''}${structure ? ` · structure: ${esc(structure.name)}` : ''}</p>
   <table class="st-table" style="width:auto;min-width:60%;">
     <tr><th>Component</th><th class="amt">Monthly</th><th class="amt">Annual</th></tr>
     ${FIXED_EARNINGS.filter(c => (s.monthly as any)[c.key] !== undefined).map(c => line(c.label, c.key)).join('')}
+    ${recurringRows('EARNING')}
     ${line('Gross Salary', 'grossSalary', 'sub')}
     ${optional(FIXED_EMPLOYER)}
     ${line('Cost to Company (CTC)', 'ctc', 'tot')}
@@ -275,6 +298,7 @@ export const payrollReportsController = {
     <tr><th>Take-home</th><th class="amt">Monthly</th><th class="amt">Annual</th></tr>
     ${line('Gross Salary', 'grossSalary')}
     ${optional(FIXED_DEDUCTIONS) || '<tr><td class="muted">No statutory deductions</td><td class="amt">—</td><td class="amt">—</td></tr>'}
+    ${recurringRows('DEDUCTION')}
     ${line('Net Pay', 'netPayable', 'tot')}
   </table>
   <p style="font-size:11.5px;color:#6b7280;">Full-month figures before income tax, loss of pay and one-off items.</p>`);

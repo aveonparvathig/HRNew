@@ -14,6 +14,11 @@ export const mastersAPI = {
   createBankAccount: (data: any) => apiClient.post('/masters/bank-accounts', data),
   updateBankAccount: (accountId: string, data: any) => apiClient.put(`/masters/bank-accounts/${accountId}`, data),
   deleteBankAccount: (accountId: string) => apiClient.delete(`/masters/bank-accounts/${accountId}`),
+
+  // Number series — key: EMPLOYEE_CODE | LETTER | SETTLEMENT | PAYOUT_BATCH
+  getNumberSeries: () => apiClient.get('/masters/number-series'),
+  updateNumberSeries: (key: string, data: any) => apiClient.put(`/masters/number-series/${key}`, data),
+  deleteNumberSeries: (key: string) => apiClient.delete(`/masters/number-series/${key}`),
 };
 
 // The lists are read by many pickers at once; one request serves them all

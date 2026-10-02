@@ -344,7 +344,10 @@ function SettlementsTab() {
                 {data.settlements.map((s: any) => (
                   <tr key={s.id}>
                     <td><span style={{ fontWeight: 600 }}>{s.person.name}</span><div className="text-muted" style={{ fontSize: 11.5 }}>{s.person.employeeNo}</div></td>
-                    <td>{s.sequence === 1 ? 'Final settlement' : `Resettlement ${s.sequence - 1}`}</td>
+                    <td>
+                      {s.sequence === 1 ? 'Final settlement' : `Resettlement ${s.sequence - 1}`}
+                      {s.settlementNo && <div className="text-muted" style={{ fontSize: 11.5 }}>No. {s.settlementNo}</div>}
+                    </td>
                     <td>{formatDate(s.lastWorkingDate)}</td>
                     <td>{monthLabel(s.period)}</td>
                     <td className="num">{formatINR(s.leaveEncashment + s.gratuity + s.noticePay - s.noticeRecovery)}</td>
