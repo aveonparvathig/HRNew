@@ -73,6 +73,9 @@ export default function MyDocument() {
             )}
             {entryId
               ? <DownloadButton path={`/self/payslips/${entryId}/pdf`}>⤓ PDF</DownloadButton>
+              : kind === 'form-16'
+                // One file: Part A where HR has uploaded it, then Part B
+                ? <DownloadButton path="/self/form16.pdf" params={{ fy: String(doc.fyStart) }}>⤓ Form 16 (PDF)</DownloadButton>
               : <DownloadButton path={`/self/reports/${kind}`} params={{ ...Object.fromEntries(new URLSearchParams(query)), format: 'pdf' }}>⤓ PDF</DownloadButton>}
             <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print</button>
           </>}

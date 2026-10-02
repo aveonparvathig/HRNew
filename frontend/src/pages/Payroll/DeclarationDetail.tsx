@@ -29,6 +29,9 @@ export default function DeclarationDetail() {
   const actions: DeclarationActions = {
     save: body => payrollAPI.saveDeclaration(personId!, body),
     approve: body => payrollAPI.saveDeclarationApproval(personId!, body),
+    submit: body => payrollAPI.submitDeclaration(personId!, body),
+    review: body => payrollAPI.reviewDeclaration(personId!, body),
+    decideReopen: (requestId, body) => payrollAPI.decideReopenRequest(requestId, body),
     addProof: body => payrollAPI.addDeclarationProof(personId!, body),
     getProof: proofId => payrollAPI.getDeclarationProof(proofId).then(r => r.data),
     deleteProof: proofId => payrollAPI.deleteDeclarationProof(proofId),

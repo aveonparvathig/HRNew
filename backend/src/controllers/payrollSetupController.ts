@@ -19,9 +19,16 @@ const PROFILE_TEXT_FIELDS = [
   'responsibleEmail', 'responsiblePhone',
   'form16SignatoryName', 'form16SignatoryFatherName',
   'form16SignatoryDesignation', 'form16SigningPlace',
+  'deductorFlat', 'deductorBuilding', 'deductorStreet', 'deductorArea', 'deductorCity',
+  'responsibleFlat', 'responsibleBuilding', 'responsibleStreet', 'responsibleArea', 'responsibleCity',
 ];
+// Addresses for the TDS return: a state from the list, a six-digit PIN code
+const ADDRESS_STATES = ['deductorState', 'responsibleState'];
+const ADDRESS_PINS = ['deductorPin', 'responsiblePin'];
+const ADDRESS_FLAGS = ['deductorAddressChanged', 'responsibleAddressChanged'];
 const PROFILE_FIELDS = [
   'panNumber', 'tanNumber', 'gstNumber', 'responsiblePan', 'deductorType', ...PROFILE_TEXT_FIELDS,
+  ...ADDRESS_STATES, ...ADDRESS_PINS, ...ADDRESS_FLAGS,
 ];
 
 // The profile as the screens get it, with what the GST number says
@@ -30,6 +37,7 @@ async function profileJSON(profile: any) {
   return {
     profile,
     deductorTypes: DEDUCTOR_TYPES,
+    states: INDIAN_STATES,
     gst: gstinDetails(profile.gstNumber, { state: org?.state || '', pan: profile.panNumber }),
   };
 }
@@ -116,6 +124,19 @@ export const payrollSetupController = {
     for (const field of PROFILE_TEXT_FIELDS) {
       if (b[field] !== undefined) data[field] = str(b[field]);
     }
+    for (const field of ADDRESS_STATES) {
+      if (b[field] === undefined) continue;
+      const value = str(b[field]);
+      if (value && !INDIAN_STATES.includes(value)) throw new AppError(400, 'Pick a state from the list');
+      data[field] = value;
+    }
+    for (const field of ADDRESS_PINS) {
+      if (b[field] === undefined) continue;
+      const value = str(b[field]);
+      if (value && !/^[1-9]\d{5}$/.test(value)) throw new AppError(400, 'A PIN code has six digits');
+      data[field] = value;
+    }
+    for (const field of ADDRESS_FLAGS) if (b[field] !== undefined) data[field] = Boolean(b[field]);
 
     const profile = await prisma.orgStatutoryProfile.update({
       where: { organizationId: orgId },

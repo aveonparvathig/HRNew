@@ -3,6 +3,11 @@ import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, BackButton } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { toast } from '../../components/feedback';
+
+const STATUS: Record<string, [string, string]> = {
+  DRAFT: ['Draft', 'badge-neutral'], SUBMITTED: ['Submitted', 'badge-warning'], REVIEWED: ['Reviewed', 'badge-success'],
+};
 
 const regimeName = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New regime');
 
@@ -19,6 +24,7 @@ export default function Declarations() {
   const [fy, setFy] = useState('');
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
@@ -41,11 +47,23 @@ export default function Declarations() {
     }
   };
 
+  const decide = async (request: any, approve: boolean) => {
+    try {
+      await payrollAPI.decideReopenRequest(request.id, { approve });
+      toast.success(approve ? `Reopened for ${request.person.name}.` : 'Request declined.');
+      fetchData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Could not decide the request');
+    }
+  };
+
   if (!data) return error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading declarations…" />;
 
   const q = search.trim().toLowerCase();
   const rows = data.rows.filter((r: any) =>
-    !q || r.person.name.toLowerCase().includes(q) || (r.person.employeeNo || '').toLowerCase().includes(q));
+    (!q || r.person.name.toLowerCase().includes(q) || (r.person.employeeNo || '').toLowerCase().includes(q))
+    && (!status || r.status === status));
+  const waiting = data.rows.filter((r: any) => r.status === 'SUBMITTED').length;
   const started = data.rows.filter((r: any) => r.declared > 0 || r.rent > 0 || r.housingLoanInterest > 0).length;
 
   return (
@@ -58,7 +76,7 @@ export default function Declarations() {
 
       <PageHeader
         title="Income Tax Declarations"
-        subtitle={`FY ${data.financialYear} · ${started} of ${data.rows.length} employees have declared something`}
+        subtitle={`FY ${data.financialYear} · ${started} of ${data.rows.length} employees have declared something${waiting ? ` · ${waiting} waiting for review` : ''}`}
         actions={<>
           <select className="select" style={{ width: 'auto' }} value={data.fyStart} onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
@@ -106,11 +124,55 @@ export default function Declarations() {
         </div>
       </div>
 
+      {data.reopenRequests.length > 0 && (
+        <div className="card mb-24">
+          <div className="card-header">
+            <div>
+              <h3>Requests to reopen a declaration</h3>
+              <span className="text-muted" style={{ fontSize: 12.5 }}>
+                Reopening lets the employee change their declaration and submit it again, even with the window closed.
+              </span>
+            </div>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <thead><tr><th>Employee</th><th>Asked on</th><th>What they need to change</th><th /></tr></thead>
+              <tbody>
+                {data.reopenRequests.map((r: any) => (
+                  <tr key={r.id}>
+                    <td>
+                      <Link to={`/payroll/declarations/${r.person.id}?fy=${r.fyStart}`} style={{ fontWeight: 600 }}>{r.person.name}</Link>
+                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo}</div>
+                    </td>
+                    <td>{formatDate(r.createdAt)}</td>
+                    <td>{r.reason}</td>
+                    <td>
+                      <div className="row-actions">
+                        <button className="btn btn-primary btn-sm" onClick={() => decide(r, true)}>Reopen</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => decide(r, false)}>Decline</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="card-header">
           <h3>Employees</h3>
-          <input className="input" style={{ maxWidth: 240 }} placeholder="Search name or code…" value={search}
-            onChange={e => setSearch(e.target.value)} />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <select className="select" style={{ width: 'auto' }} aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}>
+              <option value="">Any status</option>
+              <option value="DRAFT">Draft</option>
+              <option value="SUBMITTED">Submitted, to review</option>
+              <option value="REVIEWED">Reviewed</option>
+            </select>
+            <input className="input" style={{ maxWidth: 240 }} placeholder="Search name or code…" value={search}
+              onChange={e => setSearch(e.target.value)} />
+          </div>
         </div>
         {rows.length === 0 ? (
           <EmptyState icon="▤" title="No employees match" />
@@ -119,7 +181,7 @@ export default function Declarations() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Employee</th><th>Regime</th><th className="num">Deductions declared</th>
+                  <th>Employee</th><th>Status</th><th>Regime</th><th className="num">Deductions declared</th>
                   <th className="num">Approved</th><th className="num">Rent</th><th className="num">Proofs</th>
                   <th>Tax uses</th><th>Employee saved</th><th />
                 </tr>
@@ -131,6 +193,7 @@ export default function Declarations() {
                       <span style={{ fontWeight: 600 }}>{r.person.name}</span>
                       <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo}</div>
                     </td>
+                    <td><span className={`badge ${(STATUS[r.status] || STATUS.DRAFT)[1]}`}>{(STATUS[r.status] || STATUS.DRAFT)[0]}</span></td>
                     <td>
                       {regimeName(r.regime)}
                       {r.regimeIsDefault && <div className="text-muted" style={{ fontSize: 11.5 }}>default</div>}

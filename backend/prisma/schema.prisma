@@ -423,6 +423,7 @@ model Person {
   loans          Loan[]
   taxProfiles    EmployeeTaxProfile[]
   form16PartAs Form16PartA[]
+  perquisiteValues PerquisiteValue[]
   arrearItems    ArrearItem[]
   settlements    Settlement[]
   expenseReports ExpenseReport[]
@@ -589,6 +590,11 @@ model PayrollSettings {
   form24qName  String @default("Form 24Q")
   form16Name   String @default("Form 16")
   form12baName String @default("Form 12BA")
+  form27aName  String @default("Form 27A")
+  // Quarterly return: list employees with no tax deducted in Annexure I,
+  // and leave employees with no tax for the year out of Annexure II
+  tdsAnnexure1IncludeZero Boolean @default(false)
+  tdsAnnexure2SkipZero    Boolean @default(false)
 
   // Arrears and final settlement
   lopReversalMonths  Int   @default(6) // how far back loss of pay can be reversed
@@ -922,20 +928,42 @@ model EmployeeTaxProfile {
   housingInterestApproved Float?
   submittedAt             DateTime? // employee's last save
 
+  // Rent month by month ({ "YYYY-MM": rent }); annualRentPaid is its total
+  rentByMonth   Json?
+  // Up to four landlords: [{ name, pan, address, rent }]. The first is
+  // mirrored in landlordName / landlordPan.
+  landlords     Json?
+  // Who the housing loan is from
+  lenderName    String @default("")
+  lenderPan     String @default("")
+  lenderAddress String @default("")
+
+  // DRAFT → SUBMITTED by the employee (who can then no longer change it)
+  // → REVIEWED by HR. HR can send it back to DRAFT.
+  status      String    @default("DRAFT")
+  reviewedAt  DateTime?
+  reviewedBy  String    @default("")
+  // HR agreed to a reopen request: the employee may edit until they
+  // submit again, even with the declaration window closed
+  editGranted Boolean   @default(false)
+
   updatedAt DateTime @updatedAt
 
-  person Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
-  lines  DeclarationLine[]
-  proofs DeclarationProof[]
+  person         Person                     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  lines          DeclarationLine[]
+  proofs         DeclarationProof[]
+  reopenRequests DeclarationReopenRequest[]
 
   @@unique([personId, fyStart])
   @@index([organizationId, fyStart])
   @@map("employee_tax_profiles")
 }
 
-// Catalogue of what an employee can declare under Chapter VI-A.
+// Catalogue of what an employee can declare for income tax.
 // group decides how it feeds the tax engine: the Section 80C pool (capped
-// together) or the other deductions (each capped on its own).
+// together), the other deductions (each capped on its own), income from
+// other heads, tax already paid elsewhere, or an allowance that is exempt
+// up to a limit.
 model DeclarationItem {
   id             String   @id @default(cuid())
   organizationId String
@@ -943,8 +971,13 @@ model DeclarationItem {
   name           String
   section        String // as commonly known, e.g. "80C", "80D"
   sectionNew     String   @default("") // number under the Income-tax Act, 2025
-  group          String // SECTION_80C | OTHER
+  group          String // SECTION_80C | OTHER | OTHER_INCOME | LET_OUT_INCOME | LET_OUT_LOSS | TAX_CREDIT | EXEMPTION
   maxAmount      Float? // cap on this item; null = no cap of its own
+  // EXEMPTION items: the pay component the rule is on ("foodAllowance",
+  // "c:<componentId>"), what the limit is for, and the regimes it applies under
+  componentKey   String   @default("")
+  limitPeriod    String   @default("YEAR") // MONTH | YEAR
+  regime         String   @default("OLD") // OLD | BOTH
   deductPercent  Float    @default(100) // share of the amount that is deductible
   // An amount on this item needs a proof attached
   proofRequired  Boolean  @default(false)
@@ -972,6 +1005,46 @@ model DeclarationLine {
 
   @@unique([profileId, itemId])
   @@map("declaration_lines")
+}
+
+// An employee asking to change a declaration they have submitted. HR
+// decides; approving puts the declaration back to draft for them.
+model DeclarationReopenRequest {
+  id             String    @id @default(cuid())
+  organizationId String
+  profileId      String
+  reason         String    @default("")
+  status         String    @default("PENDING") // PENDING | APPROVED | DECLINED
+  decidedBy      String    @default("")
+  decidedAt      DateTime?
+  decisionNote   String    @default("")
+  createdAt      DateTime  @default(now())
+
+  profile EmployeeTaxProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([profileId])
+  @@map("declaration_reopen_requests")
+}
+
+// A perquisite given to one employee in a financial year, by its line on
+// Form 12BA. Its taxable value (value less what the employee paid for it)
+// is added to salary for tax.
+model PerquisiteValue {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  fyStart        Int
+  head           Int // line number on Form 12BA (1-based)
+  value          Float    @default(0) // value as per the rules
+  recovered      Float    @default(0) // paid by the employee
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, fyStart, head])
+  @@index([organizationId, fyStart])
+  @@map("perquisite_values")
 }
 
 // A document supporting a declaration. kind says what it backs: an ITEM
@@ -1206,6 +1279,25 @@ model OrgStatutoryProfile {
   responsibleEmail       String @default("")
   responsiblePhone       String @default("")
 
+  // Addresses as the TDS return takes them, field by field. Blank fields
+  // fall back to the company address and to responsibleAddress.
+  deductorFlat           String  @default("")
+  deductorBuilding       String  @default("")
+  deductorStreet         String  @default("")
+  deductorArea           String  @default("")
+  deductorCity           String  @default("")
+  deductorState          String  @default("")
+  deductorPin            String  @default("")
+  deductorAddressChanged Boolean @default(false) // since the last return
+  responsibleFlat           String  @default("")
+  responsibleBuilding       String  @default("")
+  responsibleStreet         String  @default("")
+  responsibleArea           String  @default("")
+  responsibleCity           String  @default("")
+  responsibleState          String  @default("")
+  responsiblePin            String  @default("")
+  responsibleAddressChanged Boolean @default(false)
+
   // Form 16 signatory
   form16SignatoryName        String @default("")
   form16SignatoryFatherName  String @default("")
@@ -1438,6 +1530,20 @@ model TdsChallan {
 
   @@index([organizationId, fyStart, quarter])
   @@map("tds_challans")
+}
+
+// A quarter's TDS return as filed: the receipt (token) number the tax
+// department gave it. The next quarter's return quotes it.
+model TdsReturnFiling {
+  organizationId String
+  fyStart        Int
+  quarter        Int
+  receiptNo      String   @default("")
+  filedOn        String   @default("") // "YYYY-MM-DD"
+  updatedAt      DateTime @updatedAt
+
+  @@id([organizationId, fyStart, quarter])
+  @@map("tds_return_filings")
 }
 
 // How much of a challan covers one employee's TDS for the month.

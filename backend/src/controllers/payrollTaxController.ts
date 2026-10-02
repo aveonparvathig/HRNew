@@ -22,7 +22,9 @@ const CONFIG_NUMBERS = [
 ];
 const CONFIG_FLAGS = ['rebateMarginalRelief', 'allowsExemptions'];
 // What the tax forms are called; the Income-tax Act, 2025 renumbers them
-const FORM_NAMES = ['form24qName', 'form16Name', 'form12baName'];
+const FORM_NAMES = ['form24qName', 'form16Name', 'form12baName', 'form27aName'];
+// What the quarterly return lists
+const RETURN_OPTIONS = ['tdsAnnexure1IncludeZero', 'tdsAnnexure2SkipZero'];
 
 function fyInput(value: any): number {
   const year = Number(/^(\d{4})/.exec(String(value || ''))?.[1]);
@@ -114,11 +116,14 @@ export async function buildTaxStatement(
     ${maybe('Perquisites', w.income.perquisites)}
     ${line('Gross salary', w.grossSalary, 'sub')}
     ${maybe('Less: House Rent Allowance exemption', w.exemptions.hra)}
+    ${(w.exemptions.allowances || []).map((a: any) => line(`Less: ${a.name} (exempt)`, a.amount)).join('')}
     ${line('Less: Standard deduction', w.deductions.standard)}
     ${maybe('Less: Professional Tax', w.deductions.professionalTax)}
     ${line('Income from salary', w.incomeFromSalary, 'sub')}
     ${maybe('Add: Other income', w.otherIncome)}
-    ${maybe('Less: Interest on housing loan', w.housingLoanInterest)}
+    ${w.letOut && (w.letOut.income || w.letOut.loss)
+      ? line(`${w.houseProperty < 0 ? 'Less: Loss from' : 'Add: Income from'} house property (let-out property and housing-loan interest)`, Math.abs(w.houseProperty))
+      : maybe('Less: Interest on housing loan', w.housingLoanInterest)}
     ${line('Gross total income', w.grossTotalIncome, 'sub')}
     ${w.chapter6.total ? `${line(`Less: Section 80C (PF ${inr(w.chapter6.pf)} + investments ${inr(w.chapter6.declared80C)})`, w.chapter6.section80C)}
     ${maybe('Less: Other Chapter VI-A deductions', w.chapter6.other)}` : ''}
@@ -134,6 +139,7 @@ export async function buildTaxStatement(
     ${line('Tax for the year', w.tax.total, 'tot')}
     ${line('Less: Deducted in earlier months', w.paid.payroll)}
     ${maybe('Less: Deducted by previous employer', w.paid.previousEmployer)}
+    ${maybe('Less: Tax deducted or collected elsewhere', w.paid.elsewhere)}
     ${line('Balance', w.balance, 'sub')}
     ${maybe('Of which due now on one-off payments', w.oneTimeTax)}
     ${line(`TDS for ${monthLabel(row.period)}${w.overridden ? ' (entered by hand)' : ''}`, w.tdsThisMonth, 'tot')}
@@ -158,6 +164,7 @@ export const payrollTaxController = {
       configs: [...configs].sort((a, b) => (a.regime === 'NEW' ? -1 : 1) - (b.regime === 'NEW' ? -1 : 1)),
       tdsAutoFrom: settings.tdsAutoFrom, defaultTaxRegime: settings.defaultTaxRegime,
       form24qName: settings.form24qName, form16Name: settings.form16Name, form12baName: settings.form12baName,
+      form27aName: settings.form27aName,
     });
   },
 
@@ -209,12 +216,15 @@ export const payrollTaxController = {
       if (!name) throw new AppError(400, 'A form name cannot be blank');
       data[f] = name;
     }
+    for (const f of RETURN_OPTIONS) if (req.body[f] !== undefined) data[f] = Boolean(req.body[f]);
     const settings = await prisma.payrollSettings.update({ where: { organizationId }, data });
-    await logPayrollAudit(req, diffFields(before, settings, ['tdsAutoFrom', 'defaultTaxRegime', ...FORM_NAMES])
+    await logPayrollAudit(req, diffFields(before, settings, ['tdsAutoFrom', 'defaultTaxRegime', ...FORM_NAMES, ...RETURN_OPTIONS])
       .map(c => ({ action: 'SETTINGS_UPDATED' as const, ...c })));
     res.json({
       tdsAutoFrom: settings.tdsAutoFrom, defaultTaxRegime: settings.defaultTaxRegime,
       form24qName: settings.form24qName, form16Name: settings.form16Name, form12baName: settings.form12baName,
+      form27aName: settings.form27aName,
+      tdsAnnexure1IncludeZero: settings.tdsAnnexure1IncludeZero, tdsAnnexure2SkipZero: settings.tdsAnnexure2SkipZero,
     });
   },
 

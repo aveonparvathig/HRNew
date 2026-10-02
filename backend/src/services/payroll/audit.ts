@@ -13,6 +13,8 @@ export type AuditAction =
   | 'LOAN_CREATED' | 'LOAN_CHANGED' | 'LOAN_DELETED'
   | 'TAX_CONFIG_UPDATED' | 'TAX_PROFILE_UPDATED'
   | 'DECLARATION_ITEM_SAVED' | 'DECLARATION_WINDOW_CHANGED' | 'DECLARATION_SAVED' | 'DECLARATION_APPROVED'
+  | 'DECLARATION_SUBMITTED' | 'DECLARATION_REVIEWED' | 'DECLARATION_SENT_BACK' | 'DECLARATION_REOPEN_ASKED' | 'DECLARATION_REOPEN_DECIDED'
+  | 'PERQUISITES_SAVED' | 'TDS_RETURN_FILED'
   | 'RUN_RELEASED' | 'RUN_HELD'
   | 'INPUTS_LOCKED' | 'INPUTS_UNLOCKED' | 'SALARY_HELD' | 'SALARY_HOLD_RELEASED'
   | 'PAY_SETTINGS_UPDATED' | 'PAYOUT_SETTINGS_UPDATED' | 'LEDGER_MAPPING_UPDATED'
@@ -74,6 +76,25 @@ const FIELD_LABELS: Record<string, string> = {
   form24qName: 'Name of the quarterly TDS return',
   form16Name: 'Name of the salary TDS certificate',
   form12baName: 'Name of the perquisites statement',
+  form27aName: 'Name of the return control sheet',
+  tdsAnnexure1IncludeZero: 'List employees with no tax in Annexure I',
+  tdsAnnexure2SkipZero: 'Leave employees with no tax out of Annexure II',
+  deductorFlat: 'Employer address — flat / door no.',
+  deductorBuilding: 'Employer address — building',
+  deductorStreet: 'Employer address — street',
+  deductorArea: 'Employer address — area',
+  deductorCity: 'Employer address — town',
+  deductorState: 'Employer address — state',
+  deductorPin: 'Employer address — PIN code',
+  deductorAddressChanged: 'Employer address changed since the last return',
+  responsibleFlat: 'Responsible person — flat / door no.',
+  responsibleBuilding: 'Responsible person — building',
+  responsibleStreet: 'Responsible person — street',
+  responsibleArea: 'Responsible person — area',
+  responsibleCity: 'Responsible person — town',
+  responsibleState: 'Responsible person — state',
+  responsiblePin: 'Responsible person — PIN code',
+  responsibleAddressChanged: 'Responsible person’s address changed since the last return',
   paymentMode: 'Payment mode',
   salaryStopped: 'Salary stopped',
   salaryStopReason: 'Reason for stopping salary',

@@ -156,6 +156,21 @@ export interface MonthFigures {
   pfEmployee: number;
   professionalTax: number;
   tds: number;
+  // Amounts of the pay components that carry an exemption rule, by
+  // component key ("foodAllowance", "c:<componentId>")
+  components?: Record<string, number>;
+}
+
+// An allowance that is exempt up to a limit. `claimed` is what the
+// employee has shown they spent, where the rule needs a proof (null = the
+// rule needs none).
+export interface ExemptionRuleLike {
+  name: string;
+  key: string;
+  limit: number | null;
+  period: string;  // MONTH | YEAR: what the limit is for
+  regime: string;  // OLD | BOTH: the regimes it applies under
+  claimed: number | null;
 }
 
 export interface TaxProfileLike {
@@ -167,6 +182,13 @@ export interface TaxProfileLike {
   section80C: number;
   otherDeductions: number;
   housingLoanInterest: number;
+  // Rent month by month ("YYYY-MM" → rent); when given, the HRA exemption
+  // is worked out for each month on its own
+  rentByMonth?: Record<string, number> | null;
+  letOutIncome?: number; // income from let-out house property
+  letOutLoss?: number;   // loss from let-out house property (a positive figure)
+  taxCredit?: number;    // tax deducted or collected elsewhere, counted as paid
+  exemptions?: ExemptionRuleLike[];
 }
 
 export const EMPTY_TAX_PROFILE: TaxProfileLike = {
@@ -189,8 +211,43 @@ export interface TdsInputs {
   hasValidPan: boolean;
 }
 
-const sumOf = (months: MonthFigures[], key: keyof Omit<MonthFigures, 'period'>) =>
+const sumOf = (months: MonthFigures[], key: keyof Omit<MonthFigures, 'period' | 'components'>) =>
   r2(months.reduce((s, m) => s + m[key], 0));
+
+const nextPeriod = (period: string) => {
+  const [y, m] = period.split('-').map(Number);
+  return m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+};
+
+// HRA exempt in one month: the least of the HRA received, rent over a
+// tenth of salary, and half (metro) or two-fifths of salary.
+const monthHra = (hra: number, salary: number, rent: number, share: number) =>
+  (rent > 0 ? Math.max(0, Math.min(hra, rent - 0.1 * salary, share * salary)) : 0);
+
+// Allowances exempt for the year under the employee's rules. A monthly
+// limit is applied to each month; a yearly one to the year's total. Where
+// the rule needs a proof, the exemption stops at what was claimed.
+function allowanceExemptions(
+  rules: ExemptionRuleLike[], allowsExemptions: boolean,
+  months: MonthFigures[], projected: (key: string) => number, monthsAfter: number,
+) {
+  const list: { name: string; amount: number }[] = [];
+  for (const rule of rules) {
+    if (rule.regime !== 'BOTH' && !allowsExemptions) continue;
+    const paid = months.map(m => Number(m.components?.[rule.key] || 0));
+    const later = Math.max(0, projected(rule.key));
+    let amount: number;
+    if (rule.period === 'MONTH' && rule.limit != null) {
+      amount = paid.reduce((s, p) => s + Math.min(Math.max(0, p), rule.limit!), 0) + Math.min(later, rule.limit) * monthsAfter;
+    } else {
+      const total = paid.reduce((s, p) => s + Math.max(0, p), 0) + later * monthsAfter;
+      amount = rule.limit == null ? total : Math.min(total, rule.limit);
+    }
+    if (rule.claimed != null) amount = Math.min(amount, Math.max(0, rule.claimed));
+    if (amount > 0) list.push({ name: rule.name, amount: r2(amount) });
+  }
+  return { list, total: r2(list.reduce((s, a) => s + a.amount, 0)) };
+}
 
 // Taxable income and tax for the year, given this month's taxable gross.
 function yearTax(inp: TdsInputs, currentGross: number) {
@@ -214,25 +271,55 @@ function yearTax(inp: TdsInputs, currentGross: number) {
   // Exemptions and deductions the old regime allows
   const salaryForHra = r2(sumOf(months, 'basic') + sumOf(months, 'da') + (full.basic + full.da) * n);
   const hraReceived = r2(sumOf(months, 'hra') + full.hra * n);
-  const hraExemption = config.allowsExemptions && profile.annualRentPaid > 0
-    ? Math.max(0, r2(Math.min(
+  const share = profile.isMetro ? 0.5 : 0.4;
+  let hraExemption = 0;
+  if (config.allowsExemptions && profile.rentByMonth) {
+    // Rent known month by month: each month stands on its own
+    const rentOf = (period: string) => Number(profile.rentByMonth![period] || 0);
+    hraExemption = months.reduce((s, m) => s + monthHra(m.hra, m.basic + m.da, rentOf(m.period), share), 0);
+    let period = inp.period;
+    for (let i = 0; i < n; i++) {
+      period = nextPeriod(period);
+      hraExemption += monthHra(full.hra, full.basic + full.da, rentOf(period), share);
+    }
+    hraExemption = r2(hraExemption);
+  } else if (config.allowsExemptions && profile.annualRentPaid > 0) {
+    hraExemption = Math.max(0, r2(Math.min(
       hraReceived,
       profile.annualRentPaid - 0.1 * salaryForHra,
-      (profile.isMetro ? 0.5 : 0.4) * salaryForHra,
-    )))
-    : 0;
+      share * salaryForHra,
+    )));
+  }
+  // Other allowances with an exemption rule. The months to come count
+  // only what the salary structure pays every month: an allowance typed
+  // month by month is not in the projected salary either.
+  const allowances = allowanceExemptions(
+    profile.exemptions || [], config.allowsExemptions, months,
+    key => (key in full ? Number((full as any)[key] || 0) : 0),
+    n,
+  );
+  const exempt = r2(hraExemption + allowances.total);
   // Professional Tax paid and expected, up to the year's limit. The limit
   // also keeps a half-yearly deduction from being projected over every
   // month still to come.
   const ptForYear = r2(sumOf(months, 'professionalTax') + inp.current.professionalTax * n);
   const professionalTax = !config.allowsExemptions ? 0
     : config.professionalTaxLimit > 0 ? Math.min(ptForYear, config.professionalTaxLimit) : ptForYear;
-  const standardDeduction = Math.min(config.standardDeduction, Math.max(0, grossSalary - hraExemption));
-  const incomeFromSalary = Math.max(0, r2(grossSalary - hraExemption - standardDeduction - professionalTax));
+  const standardDeduction = Math.min(config.standardDeduction, Math.max(0, grossSalary - exempt));
+  const incomeFromSalary = Math.max(0, r2(grossSalary - exempt - standardDeduction - professionalTax));
 
+  // House property: interest on a self-occupied house (old regime), and
+  // the income or loss of a let-out one. A loss is set off against other
+  // income up to the limit under the old regime; under the new regime it
+  // only reduces let-out income.
   const housingLoanInterest = config.allowsExemptions
     ? Math.min(profile.housingLoanInterest, config.housingInterestLimit) : 0;
-  const grossTotalIncome = Math.max(0, r2(incomeFromSalary + profile.otherIncome - housingLoanInterest));
+  const letOutIncome = Math.max(0, Number(profile.letOutIncome || 0));
+  const letOutLoss = Math.max(0, Number(profile.letOutLoss || 0));
+  const houseProperty = config.allowsExemptions
+    ? Math.max(-config.housingInterestLimit, r2(letOutIncome - letOutLoss - housingLoanInterest))
+    : Math.max(0, r2(letOutIncome - letOutLoss));
+  const grossTotalIncome = Math.max(0, r2(incomeFromSalary + profile.otherIncome + houseProperty));
 
   const pf = r2(sumOf(months, 'pfEmployee') + full.pfEmployee * n);
   const section80C = config.allowsExemptions ? Math.min(config.section80CLimit, r2(pf + profile.section80C)) : 0;
@@ -247,11 +334,13 @@ function yearTax(inp: TdsInputs, currentGross: number) {
 
   return {
     income, grossSalary,
-    exemptions: { hra: hraExemption },
+    exemptions: { hra: hraExemption, allowances: allowances.list, total: exempt },
     deductions: { standard: standardDeduction, professionalTax },
     incomeFromSalary,
     otherIncome: profile.otherIncome,
     housingLoanInterest,
+    letOut: { income: letOutIncome, loss: letOutLoss },
+    houseProperty,
     grossTotalIncome,
     chapter6: { pf, declared80C: profile.section80C, section80C, other: otherDeductions, total: chapter6 },
     taxableIncome,
@@ -270,7 +359,8 @@ export function computeTds(inp: TdsInputs) {
   const oneTimeTax = Math.max(0, withAll.tax.total - regular.tax.total);
 
   const paidThroughPayroll = sumOf(inp.earlier, 'tds');
-  const paid = r2(paidThroughPayroll + inp.profile.prevEmployerTds);
+  const elsewhere = Math.max(0, Number(inp.profile.taxCredit || 0));
+  const paid = r2(paidThroughPayroll + inp.profile.prevEmployerTds + elsewhere);
   const monthsLeft = inp.monthsAfter + 1;
   const regularThisMonth = Math.max(0, (regular.tax.total - paid) / monthsLeft);
   const tds = r0(regularThisMonth + oneTimeTax);
@@ -283,7 +373,7 @@ export function computeTds(inp: TdsInputs) {
       period: inp.period,
       monthsLeft,
       ...withAll,
-      paid: { payroll: paidThroughPayroll, previousEmployer: inp.profile.prevEmployerTds, total: paid },
+      paid: { payroll: paidThroughPayroll, previousEmployer: inp.profile.prevEmployerTds, elsewhere, total: paid },
       balance: r2(withAll.tax.total - paid),
       oneTimeTax,
       tdsThisMonth: tds,
@@ -315,14 +405,15 @@ export function yearEndTax(inp: YearEndInputs) {
     profile: inp.profile, perquisites: inp.perquisites, age: inp.age, hasValidPan: inp.hasValidPan,
   }, last.taxableGross);
   const deducted = sumOf(months, 'tds');
-  const paid = r2(deducted + inp.profile.prevEmployerTds);
+  const elsewhere = Math.max(0, Number(inp.profile.taxCredit || 0));
+  const paid = r2(deducted + inp.profile.prevEmployerTds + elsewhere);
   return {
     financialYear: inp.fyLabel,
     regime: inp.config.regime,
     monthsPaid: months.length,
     ...year,
     salaryPaid: r2(year.income.paidEarlier + year.income.thisMonth),
-    paid: { payroll: deducted, previousEmployer: inp.profile.prevEmployerTds, total: paid },
+    paid: { payroll: deducted, previousEmployer: inp.profile.prevEmployerTds, elsewhere, total: paid },
     balance: r2(year.tax.total - paid), // positive = short deducted, negative = excess
   };
 }
