@@ -12,6 +12,12 @@ export const orgAPI = {
   generateLogins: () => apiClient.post('/org/team/generate-logins', {}, { responseType: 'blob' }),
   unlockMember: (memberId: string) => apiClient.post(`/org/team/${memberId}/unlock`),
 
+  // Outgoing mail
+  getMailSettings: () => apiClient.get('/org/mail-settings'),
+  updateMailSettings: (data: any) => apiClient.put('/org/mail-settings', data),
+  testMail: (to: string) => apiClient.post('/org/mail-settings/test', { to }),
+  getMailLog: (params: { limit?: number; offset?: number }) => apiClient.get('/org/mail-log', { params }),
+
   // Sign-in rules and the record of sign-in attempts
   getSecurity: () => apiClient.get('/org/security'),
   updateSecurity: (data: any) => apiClient.put('/org/security', data),

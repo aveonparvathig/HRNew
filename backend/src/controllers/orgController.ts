@@ -9,7 +9,11 @@ import {
   expiryState, lockState, passwordProblem, policyInput, tempPasswordExpired,
 } from '../services/passwordPolicy';
 import { LOGIN_EVENT_DAYS, policyFor, setPassword } from '../services/accountSecurity';
-import { logPayrollAudit } from '../services/payroll/audit';
+import { actorName, logPayrollAudit } from '../services/payroll/audit';
+import { MAIL_SECURITY, mailProblem, mailSettingsFor, mailSettingsJSON, sendMail } from '../services/mailer';
+import { seal } from '../services/secretBox';
+import { pdfEngine } from '../services/pdf';
+import { isEmail } from '../services/payroll/payslipFiles';
 
 const str = (v: any) => String(v ?? '');
 
@@ -322,6 +326,98 @@ export const orgController = {
       action: 'SECURITY_POLICY_UPDATED' as const, field: POLICY_LABELS[k], oldValue: String(before[k]), newValue: String(updated[k]),
     })));
     res.json({ policy: policyJSON(updated), limits: POLICY_LIMITS, labels: POLICY_LABELS });
+  },
+
+  // ---- Email ------------------------------------------------------------------
+  async getMailSettings(req: any, res: Response) {
+    const settings = await mailSettingsFor(req.user?.organizationId);
+    res.json({
+      settings: mailSettingsJSON(settings), securityOptions: MAIL_SECURITY,
+      problem: mailProblem(settings), engine: pdfEngine(),
+    });
+  },
+
+  // The password is write-only: it is stored encrypted and never sent back.
+  // Leaving it blank keeps the one already saved.
+  async updateMailSettings(req: any, res: Response) {
+    await requireOwner(req.user?.userId);
+    const organizationId = req.user?.organizationId;
+    const before = await mailSettingsFor(organizationId);
+    const b = req.body;
+    const data: any = {};
+    if (b.host !== undefined) {
+      const host = str(b.host).trim().toLowerCase();
+      if (host && !/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/.test(host)) throw new AppError(400, 'The mail server is a host name such as smtp.gmail.com');
+      data.host = host;
+    }
+    if (b.port !== undefined) {
+      const port = Number(b.port);
+      if (!Number.isInteger(port) || port < 1 || port > 65535) throw new AppError(400, 'The port is a number from 1 to 65535');
+      data.port = port;
+    }
+    if (b.security !== undefined) {
+      if (!MAIL_SECURITY.some(o => o.value === b.security)) throw new AppError(400, 'Pick how the connection is secured');
+      data.security = b.security;
+    }
+    if (b.username !== undefined) data.username = str(b.username).trim();
+    if (b.fromName !== undefined) data.fromName = str(b.fromName).trim().replace(/[\r\n"<>]/g, '').slice(0, 80);
+    for (const [field, label] of [['fromEmail', 'sender'], ['replyTo', 'reply-to']]) {
+      if (b[field] === undefined) continue;
+      const value = str(b[field]).trim();
+      if (value && !isEmail(value)) throw new AppError(400, `The ${label} address is not an email address`);
+      data[field] = value;
+    }
+    if (b.clearPassword) data.passwordEnc = '';
+    else if (b.password) data.passwordEnc = seal(String(b.password));
+    if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
+
+    const next = { ...before, ...data };
+    if (next.enabled) {
+      const problem = mailProblem(next);
+      if (problem) throw new AppError(400, `${problem}. Fill it in before switching email on.`);
+    }
+    const updated = await prisma.mailSettings.update({ where: { organizationId }, data });
+    const changed = (['enabled', 'host', 'port', 'security', 'username', 'fromName', 'fromEmail', 'replyTo'] as const)
+      .filter(f => before[f] !== updated[f])
+      .map(f => ({ action: 'MAIL_SETTINGS_UPDATED' as const, field: f, oldValue: String(before[f]), newValue: String(updated[f]) }));
+    // The password itself is never written to the log
+    if (before.passwordEnc !== updated.passwordEnc) {
+      changed.push({ action: 'MAIL_SETTINGS_UPDATED' as const, field: 'password' as any, oldValue: '', newValue: updated.passwordEnc ? 'Changed' : 'Removed' });
+    }
+    await logPayrollAudit(req, changed);
+    res.json({
+      settings: mailSettingsJSON(updated), securityOptions: MAIL_SECURITY,
+      problem: mailProblem(updated), engine: pdfEngine(),
+    });
+  },
+
+  // Send one mail with the saved settings, switched on or not, to prove they work.
+  async testMail(req: any, res: Response) {
+    await requireOwner(req.user?.userId);
+    const organizationId = req.user?.organizationId;
+    const to = str(req.body.to).trim();
+    if (!isEmail(to)) throw new AppError(400, 'Enter the address to send the test to');
+    const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { name: true } });
+    const result = await sendMail(organizationId, {
+      kind: 'TEST', to,
+      subject: `Test mail from ${org?.name || 'Aveon HR'}`,
+      text: `This is a test from ${org?.name || 'Aveon HR'}.\n\nIf you are reading it, the mail settings work.`,
+      sentBy: await actorName(req.user?.userId),
+    }, { force: true });
+    res.json(result);
+  },
+
+  async getMailLog(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 25, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    const where: any = { organizationId };
+    if (req.query.failed === '1') where.status = 'FAILED';
+    const [rows, total] = await Promise.all([
+      prisma.mailLog.findMany({ where, orderBy: { createdAt: 'desc' }, take: limit, skip: offset }),
+      prisma.mailLog.count({ where }),
+    ]);
+    res.json({ rows, total, limit, offset });
   },
 
   // Sign-in attempts on the organization's accounts, newest first.

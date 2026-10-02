@@ -20,6 +20,7 @@ export type AuditAction =
   | 'PAID_OUTSIDE_MARKED' | 'PAID_OUTSIDE_UNDONE'
   | 'BANK_ACCOUNT_SAVED' | 'BANK_ACCOUNT_DELETED' | 'LIST_VALUE_SAVED' | 'LIST_VALUE_DELETED'
   | 'SECURITY_POLICY_UPDATED' | 'ACCOUNT_UNLOCKED' | 'PASSWORD_RESET' | 'LOGIN_ROLE_CHANGED'
+  | 'MAIL_SETTINGS_UPDATED'
   | 'CLAIM_ATTACHED' | 'CLAIM_DETACHED'
   | 'TDS_CHALLAN_RECORDED' | 'TDS_CHALLAN_DELETED' | 'FORM16_RELEASE_CHANGED' | 'FORM16_PART_A_SAVED'
   | 'ARREAR_RAISED' | 'ARREAR_CANCELLED' | 'SETTLEMENT_SAVED' | 'SETTLEMENT_DELETED';
@@ -118,6 +119,11 @@ const FIELD_LABELS: Record<string, string> = {
   lwfRegistrationNo: 'Labour Welfare Fund no.',
   gstNumber: 'GST number',
   excludeFromPt: 'Excluded from Professional Tax',
+  payslipPdfPassword: 'Payslip file password',
+  payslipFilePrefix: 'Payslip file name starts with',
+  payslipFileContext: 'Payslip file name identifies the employee by',
+  payslipEmailTo: 'Payslips are emailed to',
+  jvFilePrefix: 'Journal voucher file name starts with',
   tdsCircleAddress: 'Tax office address',
 };
 

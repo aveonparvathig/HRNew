@@ -31,6 +31,7 @@ const corsOptions = {
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  exposedHeaders: ['Content-Disposition', 'X-File-Name', 'X-Included', 'X-Skipped', 'X-Created-Count'],
 };
 // Behind the host's proxy the caller's address is in X-Forwarded-For.
 // TRUST_PROXY is the number of proxies in front (1 on the usual hosts);

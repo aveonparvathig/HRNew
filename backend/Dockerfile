@@ -23,8 +23,11 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init to handle signals properly
-RUN apk add --no-cache dumb-init
+# dumb-init handles signals properly. Chromium renders documents to PDF
+# (payslips, reports, Form 16) and qpdf password-protects them; the fonts
+# are what those documents are drawn with.
+RUN apk add --no-cache dumb-init chromium qpdf ttf-liberation ttf-dejavu font-noto font-noto-tamil font-noto-devanagari
+ENV CHROMIUM_PATH=/usr/bin/chromium
 
 # Copy node_modules from builder (which has all dependencies including Prisma)
 COPY --from=builder /app/node_modules ./node_modules

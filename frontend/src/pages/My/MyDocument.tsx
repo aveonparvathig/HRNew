@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, EmptyState, BackButton } from '../../components/ui';
+import DownloadButton from '../../components/DownloadButton';
 
 const REPORT_LABELS: Record<string, string> = {
   'tax-statement': 'Income Tax Statement',
@@ -70,7 +71,10 @@ export default function MyDocument() {
                 <Link to={`/my/reports/form-12ba?fy=${doc.fyStart}`} className="btn btn-secondary">Perquisites Statement</Link>
               </>
             )}
-            <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print / Save as PDF</button>
+            {entryId
+              ? <DownloadButton path={`/self/payslips/${entryId}/pdf`}>⤓ PDF</DownloadButton>
+              : <DownloadButton path={`/self/reports/${kind}`} params={{ ...Object.fromEntries(new URLSearchParams(query)), format: 'pdf' }}>⤓ PDF</DownloadButton>}
+            <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print</button>
           </>}
         />
         {error && <div className="alert alert-error"><span>⚠</span>{error}</div>}

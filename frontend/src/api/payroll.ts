@@ -173,4 +173,13 @@ export const payrollAPI = {
   updateEntry: (entryId: string, data: any) => apiClient.put(`/payroll/entries/${entryId}`, data),
   removeEntry: (entryId: string) => apiClient.delete(`/payroll/entries/${entryId}`),
   getPayslip: (entryId: string) => apiClient.get(`/payroll/entries/${entryId}/payslip`),
+
+  // Payslips as files and by email. Files are fetched with downloadFile():
+  //   /payroll/entries/:id/payslip.pdf · /payroll/runs/:id/payslips.zip · /payroll/runs/:id/payslips.pdf
+  //   /payroll/runs/:id/journal-voucher/file?format=csv|xlsx · any report address with ?format=pdf
+  getPayslipFileSettings: () => apiClient.get('/payroll/payslip-file-settings'),
+  updatePayslipFileSettings: (data: any) => apiClient.put('/payroll/payslip-file-settings', data),
+  getPayslipDelivery: (runId: string, to?: string) =>
+    apiClient.get(`/payroll/runs/${runId}/payslip-delivery`, { params: to ? { to } : {} }),
+  emailPayslip: (entryId: string, to: string) => apiClient.post(`/payroll/entries/${entryId}/email-payslip`, { to }),
 };

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
+import PayslipFilesCard from './PayslipFilesCard';
 
 // What happens on finalizing a run, and the ledger accounts of the
 // payroll journal voucher.
@@ -84,6 +85,8 @@ export default function PayoutSettingsTab() {
           </button>
         </div>
       </form>
+
+      <PayslipFilesCard />
 
       <div className="card mb-24">
         <div className="card-header">

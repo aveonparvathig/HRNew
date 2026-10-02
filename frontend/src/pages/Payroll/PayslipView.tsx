@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, StatusBadge, BackButton,
 } from '../../components/ui';
+import DownloadButton from '../../components/DownloadButton';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -45,8 +46,9 @@ export default function PayslipView() {
           actions={
             <>
               <StatusBadge status={doc.status === 'FINALIZED' ? 'finalized' : 'draft'} />
+              <DownloadButton path={`/payroll/entries/${doc.id}/payslip.pdf`}>⤓ PDF</DownloadButton>
               <button className="btn btn-primary" onClick={() => window.print()}>
-                🖨 Print / Save as PDF
+                🖨 Print
               </button>
             </>
           }
