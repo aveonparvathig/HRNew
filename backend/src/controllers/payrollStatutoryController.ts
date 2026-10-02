@@ -13,6 +13,8 @@ import {
 import {
   esc, amt, inr, monthLabel, monthShort, reportShell,
 } from '../services/payroll/reportHtml';
+import { periodEndDate } from '../services/positionCalc';
+import { stampPositions, stampRun } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -38,6 +40,8 @@ async function fetchRun(runId: string, organizationId: string) {
     } } },
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
+  // The work location each employee was at in the run's month
+  await stampRun(organizationId, run, { location: true });
   return run;
 }
 
@@ -488,6 +492,7 @@ export const payrollStatutoryController = {
       },
     });
     // The policy each employee falls under at the end of the half
+    await stampPositions(organizationId, entries.map(e => ({ personId: e.personId, person: e.person, on: periodEndDate(half.periods[5]) })), { location: true });
     const policies = await prisma.ptPolicy.findMany({ where: { organizationId }, include: { slabs: { orderBy: { incomeFrom: 'asc' } } } });
     const lastPeriod = half.periods[5];
     const people = new Map<string, { name: string; code: string; state: string; policyId: string; gross: number; tax: number[] }>();

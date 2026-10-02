@@ -15,6 +15,7 @@ export interface ListType {
 export const LIST_TYPES: ListType[] = [
   { type: 'DEPARTMENT', label: 'Department', usedFor: 'Employee profile, job openings', defaults: [] },
   { type: 'DESIGNATION', label: 'Designation', usedFor: 'Employee profile', defaults: [] },
+  { type: 'GRADE', label: 'Grade', usedFor: 'Employee profile, position history', defaults: [] },
   {
     type: 'EMPLOYMENT_TYPE', label: 'Employment type', usedFor: 'Employee profile',
     defaults: ['Permanent', 'Contract', 'Trainee', 'Part-time'],

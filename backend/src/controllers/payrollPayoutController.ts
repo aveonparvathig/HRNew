@@ -15,6 +15,7 @@ import { claimTotal, syncReimbursement } from '../services/payroll/payout';
 import { ensureListValues } from '../services/listValues';
 import { JV_SPLITS, isJvSplit } from '../services/payroll/payoutCalc';
 import { takeNumber } from '../services/numberSeries';
+import { stampRun } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -43,6 +44,7 @@ async function fetchRun(runId: string, organizationId: string) {
     },
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
+  await stampRun(organizationId, run);
   return run;
 }
 
@@ -55,6 +57,7 @@ async function fetchBatch(batchId: string, organizationId: string) {
     },
   });
   if (!batch) throw new AppError(404, 'Payment batch not found');
+  await stampRun(organizationId, { period: batch.run.period, entries: batch.entries });
   batch.entries.sort((a, b) => a.person.name.localeCompare(b.person.name));
   return batch;
 }
@@ -447,7 +450,7 @@ export const payrollPayoutController = {
   // ---- Payout settings and the journal ledger mapping ------------------------------
   async getPayoutSettings(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
-    const [settings, mappings, components, latest, overrides, departments, locations] = await Promise.all([
+    const [settings, mappings, components, latest, overrides, departments, locations, earlier] = await Promise.all([
       settingsFor(organizationId),
       prisma.ledgerMapping.findMany({ where: { organizationId } }),
       prisma.payComponent.findMany({ where: { organizationId }, orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] }),
@@ -455,6 +458,8 @@ export const payrollPayoutController = {
       prisma.ledgerOverride.findMany({ where: { organizationId }, orderBy: [{ groupName: 'asc' }, { key: 'asc' }] }),
       prisma.person.findMany({ where: { organizationId, isEmployee: true, NOT: { department: '' } }, select: { department: true }, distinct: ['department'] }),
       prisma.workLocation.findMany({ where: { organizationId }, select: { name: true }, orderBy: { name: 'asc' } }),
+      // Departments employees were in earlier: older months still post under them
+      prisma.positionChange.findMany({ where: { organizationId, NOT: { department: '' } }, select: { department: true }, distinct: ['department'] }),
     ]);
     // Accounts for every pay component in the catalogue, used or not
     const sample = [{ lines: components.map(c => ({ componentId: c.id, name: c.name, type: c.type, amount: 0 })) }, ...(latest?.entries || [])];
@@ -465,7 +470,7 @@ export const payrollPayoutController = {
       jvSplits: JV_SPLITS,
       ledgerOverrides: overrides.map(o => ({ dimension: o.dimension, groupName: o.groupName, key: o.key, ledgerName: o.ledgerName })),
       ledgerGroups: {
-        DEPARTMENT: departments.map(d => d.department).sort((a, b) => a.localeCompare(b)),
+        DEPARTMENT: [...new Set([...departments, ...earlier].map(d => d.department))].sort((a, b) => a.localeCompare(b)),
         LOCATION: locations.map(l => l.name),
       },
       accounts: jvAccounts(sample).filter(a => !['esiEmployee', 'pfEmployee', 'lwfEmployee'].includes(a.key))

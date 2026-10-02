@@ -204,6 +204,11 @@ export const payrollSetupController = {
     if (assigned > 0) {
       throw new AppError(400, `${assigned} ${assigned === 1 ? 'person is' : 'people are'} assigned to this location. Move them first, or mark it inactive.`);
     }
+    // Months already paid print the location an employee was at then
+    const inHistory = await prisma.positionChange.count({ where: { workLocationId: location.id } });
+    if (inHistory > 0) {
+      throw new AppError(400, 'Employees were at this location earlier and their position history says so. Mark it inactive instead.');
+    }
     await prisma.workLocation.delete({ where: { id: location.id } });
     await logPayrollAudit(req, [{ action: 'LOCATION_DELETED', field: location.name, oldValue: location.state }]);
     res.json({ message: `Deleted ${location.name}` });

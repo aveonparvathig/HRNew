@@ -14,6 +14,8 @@ import { CONSULTANT_SECTIONS, TAX_TREATMENTS, isConsultantSection, npsPercentInp
 import { confirmationState, jobDetailsInput } from '../services/orgChart';
 import { assertManager } from './orgChartController';
 import { todayIST } from '../services/payroll/loanLedger';
+import { POSITION_REASONS } from '../services/positionCalc';
+import { ensureStartingPosition, followProfileEdit } from '../services/positions';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -23,7 +25,7 @@ const SENSITIVE_PERSON_FIELDS = [
   'panNumber', 'pfNumber', 'pfUan', 'esiNumber', 'aadharNo',
   'isEsiEligible', 'isPfApplicable', 'agreementSigned', 'agreementSignDate',
   'reasonForLeaving', 'notes',
-  'confirmationDate', 'probationMonths', 'noticePeriodDays', 'referredBy', 'firstHireDate',
+  'confirmationDate', 'probationMonths', 'noticePeriodDays', 'referredBy', 'firstHireDate', 'grade',
 ] as const;
 
 const stripForEmployee = (actor: any) => ['EMPLOYEE', 'MARKETING'].includes(actor.role);
@@ -93,7 +95,7 @@ function checkIfsc(b: any, before?: { ifscCode: string }) {
 
 // Values picked or typed on a person join their lists
 const personListValues = (p: any) => ({
-  DEPARTMENT: p.department, DESIGNATION: p.designation, BANK: p.bankName, EMPLOYMENT_TYPE: p.employmentType,
+  DEPARTMENT: p.department, DESIGNATION: p.designation, GRADE: p.grade, BANK: p.bankName, EMPLOYMENT_TYPE: p.employmentType,
   BLOOD_GROUP: p.bloodGroup, MARITAL_STATUS: p.maritalStatus, LEAVING_REASON: p.reasonForLeaving,
 });
 
@@ -188,6 +190,7 @@ function personData(b: any) {
     isPfApplicable: Boolean(b.isPfApplicable),
     // Job details
     employmentType: str(b.employmentType).replace(/\s+/g, ' '),
+    grade: str(b.grade).trim().replace(/\s+/g, ' '),
     probationMonths: Number(b.probationMonths) || 0,
     confirmationDate: dateOrNull(b.confirmationDate),
     noticePeriodDays: numOrNull(b.noticePeriodDays),
@@ -298,7 +301,7 @@ export const peopleController = {
       taxTreatments: TAX_TREATMENTS, consultantSections: CONSULTANT_SECTIONS,
       // The editable lists a person's form picks from, active values only
       lists: Object.fromEntries(Object.entries(
-        await listValuesFor(orgId, ['DEPARTMENT', 'DESIGNATION', 'BANK', 'BLOOD_GROUP', 'MARITAL_STATUS', 'LEAVING_REASON', 'EMPLOYMENT_TYPE']),
+        await listValuesFor(orgId, ['DEPARTMENT', 'DESIGNATION', 'GRADE', 'BANK', 'BLOOD_GROUP', 'MARITAL_STATUS', 'LEAVING_REASON', 'EMPLOYMENT_TYPE']),
       ).map(([type, values]) => [type, values.filter(v => v.isActive).map(v => v.label)])),
       workLocations: await prisma.workLocation.findMany({
         where: { organizationId: orgId, isActive: true },
@@ -315,6 +318,7 @@ export const peopleController = {
       companyNoticeDays: (await prisma.payrollSettings.findUnique({ where: { organizationId: orgId }, select: { noticePeriodDays: true } }))?.noticePeriodDays ?? 30,
       // Offered when someone is put on probation with no period typed
       usualProbationMonths: 6,
+      positionReasons: POSITION_REASONS,
     });
   },
 
@@ -423,7 +427,7 @@ export const peopleController = {
     };
     const cols: [string, (p: any) => any][] = [
       ['Employee Code', p => p.employeeNo], ['Name', p => p.name],
-      ['Designation', p => p.designation], ['Department', p => p.department],
+      ['Designation', p => p.designation], ['Department', p => p.department], ['Grade', p => p.grade],
       ['DOJ', p => p.joinDate], ['Relieving Date', p => p.leavingDate],
       ['Status', p => p.employmentStatus], ['Monthly Package', p => p.currentMonthlyPackage],
       ['DOB', p => p.dateOfBirth], ['Blood Group', p => p.bloodGroup],
@@ -482,6 +486,7 @@ export const peopleController = {
     });
     await ensureListValues(orgId, personListValues(person));
     await noteEmployeeCodeUsed(orgId, person.employeeNo);
+    await ensureStartingPosition(person);
     res.status(201).json(person);
   },
 
@@ -497,6 +502,7 @@ export const peopleController = {
           orderBy: { createdAt: 'desc' },
         },
         manager: { select: { id: true, name: true, employeeNo: true, designation: true } },
+        workLocation: { select: { id: true, name: true, state: true } },
         reports: {
           where: { isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
           select: { id: true, name: true, employeeNo: true, designation: true },
@@ -555,6 +561,9 @@ export const peopleController = {
     const updated = await prisma.person.update({ where: { id: person.id }, data });
     await ensureListValues(orgId, personListValues(updated));
     if (updated.employeeNo !== person.employeeNo) await noteEmployeeCodeUsed(orgId, updated.employeeNo);
+    // Designation, department, location or grade edited here corrects the
+    // position record in force; a dated change goes through Change Position
+    await followProfileEdit(person, updated);
     // Draft payslips follow a change in how the person is paid or in the employer's NPS share
     if (updated.npsEmployerPercent !== person.npsEmployerPercent || updated.taxTreatment !== person.taxTreatment
       || updated.consultantSection !== person.consultantSection || updated.consultantTdsPercent !== person.consultantTdsPercent) {
@@ -596,6 +605,7 @@ export const peopleController = {
           : {}),
       },
     });
+    await ensureStartingPosition(updated);
     res.json({
       ok: true,
       stage: updated.stage,

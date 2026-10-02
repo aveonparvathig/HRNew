@@ -8,12 +8,15 @@ import { htmlToPdf, protectPdf } from '../pdf';
 import { loanBalanceAfter } from './loanLedger';
 import { claimsOfEntry } from './payout';
 import { payslipFileName, payslipPassword } from './payslipFiles';
+import { stampEntry } from '../positions';
 
 export const settingsFor = (organizationId: string) =>
   prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} });
 
 // The payslip of an entry as HTML. `entry` carries its run, person and lines.
 export async function payslipHtml(organizationId: string, entry: any, brand?: OrgBrand): Promise<string> {
+  // Designation and department as they stood in the payslip's month
+  await stampEntry(organizationId, entry);
   return renderPayslipHtml(brand || await orgBrand(organizationId), entry.run, {
     ...entry,
     loanBalanceAfter: await loanBalanceAfter(organizationId, entry, entry.run.period),

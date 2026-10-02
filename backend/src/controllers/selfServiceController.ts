@@ -22,6 +22,7 @@ import { buildLoanStatement, loansOfPerson } from './payrollLoansController';
 import { buildForm16, buildForm12ba, form16File } from './payrollReturnsController';
 import { sendFile } from '../services/payroll/payslipDocs';
 import { yearControlFor } from '../services/payroll/declarations';
+import { stampEntry } from '../services/positions';
 
 // Form 16 is for the employee only once HR has released the year's.
 async function assertForm16Released(organizationId: string, fyStart: number) {
@@ -74,6 +75,7 @@ export const selfServiceController = {
       include: { run: true, person: true, lines: true },
     });
     if (!entry) throw new AppError(404, 'Payslip not found');
+    await stampEntry(me.organizationId, entry);
     const brand = await orgBrand(me.organizationId);
     const withLoan = {
       ...entry,

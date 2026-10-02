@@ -3,6 +3,8 @@ import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { peopleController } from '../controllers/peopleController';
 import { orgChartController } from '../controllers/orgChartController';
+import { positionsController } from '../controllers/positionsController';
+import { applyDuePositions } from '../services/positions';
 
 const router = Router();
 
@@ -13,6 +15,10 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
 
 router.use(authMiddleware);
 const staffOnly = requireRole('SUPER_ADMIN', 'HR');
+// Position changes dated ahead take effect on their day, before anything is read
+router.use((req: any, _res: Response, next: NextFunction) => {
+  applyDuePositions(req.user?.organizationId).then(() => next()).catch(next);
+});
 
 router.get('/meta', asyncHandler((req, res) => peopleController.getMeta(req, res)));
 
@@ -40,6 +46,11 @@ router.post('/:personId/stage', staffOnly, asyncHandler((req, res) => peopleCont
 router.put('/:personId/manager', staffOnly, asyncHandler((req, res) => orgChartController.setManager(req, res)));
 router.post('/:personId/confirm', staffOnly, asyncHandler((req, res) => orgChartController.confirm(req, res)));
 router.delete('/:personId', staffOnly, asyncHandler((req, res) => peopleController.deletePerson(req, res)));
+
+// Position history: designation, department, work location and grade over time
+router.get('/:personId/positions', asyncHandler((req, res) => positionsController.getPositions(req, res)));
+router.post('/:personId/positions', staffOnly, asyncHandler((req, res) => positionsController.changePosition(req, res)));
+router.delete('/positions/:changeId', staffOnly, asyncHandler((req, res) => positionsController.deletePosition(req, res)));
 
 // Documents (generated letters)
 router.get('/documents/:docId', staffOnly, asyncHandler((req, res) => peopleController.getDocument(req, res)));

@@ -13,6 +13,7 @@ import {
   payrollReconciliation, headcountMovement, payrollAnomalies, duplicateGroups,
 } from '../services/payroll/payoutCalc';
 import { claimTotal } from '../services/payroll/payout';
+import { stampRun } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -37,6 +38,7 @@ async function fetchRun(runId: string, organizationId: string) {
     include: { entries: { include: { person: { select: PERSON }, lines: true, payoutBatch: true } } },
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
+  await stampRun(organizationId, run, { location: true });
   run.entries.sort(byName);
   return run;
 }
@@ -48,6 +50,7 @@ async function fetchPrevious(organizationId: string, period: string) {
     orderBy: { period: 'desc' },
     include: { entries: { include: { person: { select: PERSON }, lines: true } } },
   });
+  await stampRun(organizationId, prev, { location: true });
   prev?.entries.sort(byName);
   return prev;
 }
@@ -183,6 +186,7 @@ export const payrollControlController = {
     });
     if (!batch) throw new AppError(404, 'Payment batch not found');
     if (batch.mode !== 'BANK') throw new AppError(400, 'A bank advice is only for bank transfer batches');
+    await stampRun(organizationId, { period: batch.run.period, entries: batch.entries }, { location: true });
     batch.entries.sort(byName);
     const brand = await orgBrand(organizationId);
     // The account the batch was made for; a batch from before accounts

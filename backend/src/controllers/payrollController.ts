@@ -24,6 +24,7 @@ import { runStage, nextRunDefaults, cutoffDate } from '../services/payroll/payou
 import { prePayrollChecksFor, setRunClaimStatus, claimsOfEntry } from '../services/payroll/payout';
 import { attachOpenArrears } from '../services/payroll/arrears';
 import { startReleaseMails } from '../services/notifications';
+import { stampEntry, stampRun } from '../services/positions';
 
 // Entry inputs a user can change — the fields the audit trail tracks.
 const ENTRY_INPUT_FIELDS = [
@@ -70,6 +71,8 @@ async function fetchOrgRun(runId: string, organizationId: string, includeEntries
       : undefined,
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
+  // Designation and department as they stood in the run's month
+  if (includeEntries) await stampRun(organizationId, run);
   return run as any;
 }
 
@@ -971,6 +974,7 @@ export const payrollController = {
       include: { run: true, person: true, lines: true },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
+    await stampEntry(orgId, entry);
     const brand = await orgBrand(orgId);
     const withLoan = {
       ...entry,
@@ -1017,6 +1021,7 @@ export const payrollController = {
       include: { entries: { include: { person: true, lines: true } } },
     });
     if (!run) throw new AppError(404, 'Payroll run not found');
+    await stampRun(orgId, run);
     const brand = await orgBrand(orgId);
     const slips = [];
     for (const e of sortEntries(run.entries) as any[]) {

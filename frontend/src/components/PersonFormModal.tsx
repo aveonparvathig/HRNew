@@ -21,7 +21,7 @@ const EMPTY = {
   employmentStatus: 'ACTIVE', biometricId: '', agreementSigned: false,
   agreementSignDate: '', currentMonthlyPackage: '', reasonForLeaving: '',
   workLocationId: '',
-  employmentType: '', probationMonths: '', confirmationDate: '', noticePeriodDays: '', firstHireDate: '', referredBy: '', managerId: '',
+  grade: '', employmentType: '', probationMonths: '', confirmationDate: '', noticePeriodDays: '', firstHireDate: '', referredBy: '', managerId: '',
   // personal
   photoData: '', dateOfBirth: '', bloodGroup: '', maritalStatus: '',
   parentSpouseName: '', aadharNo: '',
@@ -234,6 +234,7 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                 <F {...fp} label="Employee code" k="employeeNo" placeholder="EMP-0001" />
                 <F {...fp} label="Designation" k="designation" list="DESIGNATION" />
                 <F {...fp} label="Department" k="department" list="DEPARTMENT" />
+                <F {...fp} label="Grade" k="grade" list="GRADE" />
                 <F {...fp} label="Date of joining" k="joinDate" type="date" />
                 <div className="field">
                   <label>Employment status</label>
@@ -281,6 +282,12 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                   options={(meta.workLocations || []).map((l: any) => ({ value: l.id, label: `${l.name} — ${l.state}` }))} />
                 {isExit && <F {...fp} label="Relieving date" k="leavingDate" type="date" />}
               </div>
+              {person?.isEmployee && (
+                <p className="text-muted" style={{ fontSize: 12, margin: '-6px 0 14px' }}>
+                  Designation, department, grade or work location changed here corrects the employee's current position record.
+                  For a promotion or transfer from a date, use Change Position on the employee's page — earlier payslips then keep the old position.
+                </p>
+              )}
               {isExit && (
                 <div className="form-grid" style={{ marginBottom: 14 }}>
                   <F {...fp} label="Reason for leaving" k="reasonForLeaving" list="LEAVING_REASON" />

@@ -13,6 +13,7 @@ import { expensesAPI } from '../../api/expenses';
 import { payrollAPI } from '../../api/payroll';
 import SalaryRevisionsCard from '../../components/SalaryRevisionsCard';
 import PersonStructureCard from '../../components/PersonStructureCard';
+import PositionHistoryCard from '../../components/PositionHistoryCard';
 import PersonLoansCard from '../../components/PersonLoansCard';
 import PersonTaxCard from '../../components/PersonTaxCard';
 import PersonPayCard from '../../components/PersonPayCard';
@@ -49,7 +50,7 @@ function InfoRow({ label, value }: { label: string; value: any }) {
 }
 
 export default function PersonDetail() {
-  const { canManagePeople } = useRole();
+  const { canManagePeople, personId: ownPersonId } = useRole();
   const { personId } = useParams<{ personId: string }>();
   const navigate = useNavigate();
   const [person, setPerson] = useState<any>(null);
@@ -232,6 +233,10 @@ export default function PersonDetail() {
               <InfoRow label="Employee code" value={person.employeeNo} />
               <InfoRow label="Designation" value={person.designation} />
               <InfoRow label="Department" value={person.department} />
+              {person.grade && <InfoRow label="Grade" value={person.grade} />}
+              {person.workLocation && (
+                <InfoRow label="Work location" value={person.workLocation.name} />
+              )}
               <InfoRow label="Date of joining" value={person.joinDate && formatDate(person.joinDate)} />
               <InfoRow label="Status" value={person.employmentStatus && (
                 <span className="badge badge-neutral">{person.employmentStatus.replace('_', ' ').toLowerCase()}</span>
@@ -402,6 +407,9 @@ export default function PersonDetail() {
         </div>
       )}
 
+      {!isIntern && person.isEmployee && (canManagePeople || ownPersonId === person.id) && (
+        <PositionHistoryCard person={person} meta={meta} canManage={canManagePeople} onChanged={fetchData} />
+      )}
       {!isIntern && canManagePeople && person.isEmployee && (
         <SalaryRevisionsCard person={person} onChanged={fetchData} />
       )}

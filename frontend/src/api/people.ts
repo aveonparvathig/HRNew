@@ -12,6 +12,11 @@ export const peopleAPI = {
     apiClient.post(`/people/${personId}/stage`, { stage }),
   deletePerson: (personId: string) => apiClient.delete(`/people/${personId}`),
 
+  // Position history: designation, department, work location and grade over time
+  getPositions: (personId: string) => apiClient.get(`/people/${personId}/positions`),
+  changePosition: (personId: string, data: any) => apiClient.post(`/people/${personId}/positions`, data),
+  deletePosition: (changeId: string) => apiClient.delete(`/people/positions/${changeId}`),
+
   // Reporting lines and confirmation
   getOrgChart: () => apiClient.get('/people/org-chart'),
   setManager: (personId: string, managerId: string) => apiClient.put(`/people/${personId}/manager`, { managerId }),

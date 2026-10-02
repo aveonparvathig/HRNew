@@ -425,6 +425,7 @@ model Person {
   form16PartAs Form16PartA[]
   perquisiteValues PerquisiteValue[]
   recurringComponents RecurringComponent[]
+  positionChanges PositionChange[]
 
   // The employer's contribution to the National Pension System, as a
   // share of Basic + DA (0 = none), and the employee's PRAN
@@ -439,6 +440,9 @@ model Person {
 
   // Job details
   employmentType   String  @default("") // a value of the EMPLOYMENT_TYPE list
+  // A value of the GRADE list. Designation, department, work location and
+  // grade here are the position today; PositionChange holds how it got there
+  grade            String  @default("")
   // Probation in months from the joining date; 0 = none. The employee is
   // due for confirmation when it ends, until a confirmation date is set.
   probationMonths  Int     @default(0)
@@ -1449,9 +1453,40 @@ model WorkLocation {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   people       Person[]
+  positionChanges PositionChange[]
 
   @@unique([organizationId, name])
   @@map("work_locations")
+}
+
+// One dated step in an employee's position: designation, department, work
+// location and grade. Each row holds the whole position from its date, so
+// the position on any day is the latest row on or before it. Payslips and
+// reports of a month read the row in force at that month's end.
+model PositionChange {
+  id             String    @id @default(cuid())
+  organizationId String
+  personId       String
+  effectiveFrom  String // "YYYY-MM-DD"
+  designation    String    @default("")
+  department     String    @default("")
+  workLocationId String?
+  grade          String    @default("")
+  reason         String    @default("") // STARTING | PROMOTION | TRANSFER | CORRECTION
+  remarks        String    @default("")
+  enteredByName  String    @default("")
+  // When the employee's own record took these values. A change dated
+  // ahead waits with this empty until its day comes.
+  appliedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  person       Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+  workLocation WorkLocation? @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
+
+  @@unique([personId, effectiveFrom])
+  @@index([organizationId, appliedAt])
+  @@map("position_changes")
 }
 
 // Append-only trail of payroll changes. runId/entryId/personId are plain
