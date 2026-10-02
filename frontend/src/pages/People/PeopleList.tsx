@@ -69,6 +69,13 @@ export default function PeopleList() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Probations ending soon or already past, for HR
+  const [confirmations, setConfirmations] = useState<any>(null);
+  useEffect(() => {
+    if (!canManagePeople) return;
+    peopleAPI.getConfirmations().then(res => setConfirmations(res.data)).catch(() => { /* the list still works */ });
+  }, [canManagePeople, data]);
+
   const handleDelete = async (person: any) => {
     if (!await confirmDialog(`Delete ${person.name} and their interview records?`)) return;
     try {
@@ -165,6 +172,24 @@ export default function PeopleList() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
+
+      {confirmations && confirmations.due.length > 0 && (
+        <div className={`alert ${confirmations.overdue ? 'alert-warning' : 'alert-success'}`} style={{ alignItems: 'flex-start' }}>
+          <span>◷</span>
+          <span>
+            <strong>
+              {confirmations.due.length} confirmation{confirmations.due.length === 1 ? '' : 's'} due
+              {confirmations.overdue ? ` (${confirmations.overdue} overdue)` : ` in the next ${confirmations.days} days`}:
+            </strong>{' '}
+            {confirmations.due.map((p: any, i: number) => (
+              <span key={p.id}>
+                {i > 0 && ', '}
+                <Link to={`/people/${p.id}`}>{p.name}</Link> <span className="text-muted">({formatDate(p.dueOn)})</span>
+              </span>
+            ))}
+          </span>
+        </div>
+      )}
 
       {data?.employeeStats && employees.length > 0 && (
         <div className="stat-grid">

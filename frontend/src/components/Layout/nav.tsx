@@ -58,6 +58,7 @@ const INCOME_ITEMS: NavItem[] = [
 
 const PEOPLE_ITEMS: NavItem[] = [
   { to: '/people', icon: 'users', label: 'People' },
+  { to: '/people/org-chart', icon: 'layers', label: 'Organization Chart' },
   { to: '/people/pipeline', icon: 'kanban', label: 'Pipeline' },
   { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
   { to: '/recruitment', icon: 'megaphone', label: 'Recruitment' },
@@ -114,7 +115,7 @@ export function navSectionsFor(user: { role?: string; personId?: string | null }
     items: PEOPLE_ITEMS.filter(i =>
       (isSA || isHR) ? true
         : isMarketing ? i.to === '/expenses' // marketing: own expenses only
-        : ['/people', '/expenses'].includes(i.to)),
+        : ['/people', '/people/org-chart', '/expenses'].includes(i.to)),
   });
   if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
   if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });

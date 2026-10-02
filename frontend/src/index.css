@@ -657,6 +657,14 @@ a:hover { text-decoration: underline; }
 .stage-step.current:not(.done) .stage-dot { border-color: var(--primary); }
 
 /* ============ TDS returns ============ */
+/* Organization chart: a tree of people, each level stepped in */
+.org-tree { list-style: none; margin: 0; padding-left: 22px; border-left: 1px solid var(--border); }
+.card > .org-tree { padding-left: 0; border-left: 0; }
+.org-tree li { margin: 0; }
+.org-node { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 7px 4px; border-radius: var(--radius-sm); }
+.org-node:hover { background: var(--surface-2); }
+.org-toggle { width: 22px; height: 22px; flex: 0 0 22px; border: 0; background: none; color: var(--text-muted); cursor: pointer; font-size: 13px; border-radius: 4px; }
+button.org-toggle:hover { background: var(--border); color: var(--text); }
 .quarter-box { padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface-2); }
 .quarter-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; }
 .quarter-issues { margin: 10px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; }

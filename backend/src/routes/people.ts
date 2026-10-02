@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { requireRole } from '../middleware/roles';
 import { peopleController } from '../controllers/peopleController';
+import { orgChartController } from '../controllers/orgChartController';
 
 const router = Router();
 
@@ -21,6 +22,11 @@ router.get('/openings', staffOnly, asyncHandler((req, res) => peopleController.g
 router.post('/openings', staffOnly, asyncHandler((req, res) => peopleController.createOpening(req, res)));
 router.put('/openings/:openingId', staffOnly, asyncHandler((req, res) => peopleController.updateOpening(req, res)));
 
+// Organization chart and confirmations (before /:personId routes)
+router.get('/org-chart', asyncHandler((req, res) => orgChartController.getChart(req, res)));
+router.get('/confirmations', staffOnly, asyncHandler((req, res) => orgChartController.getConfirmations(req, res)));
+router.post('/transfer-reports', staffOnly, asyncHandler((req, res) => orgChartController.transferReports(req, res)));
+
 // Employee register export
 router.get('/export/employees.csv', staffOnly, asyncHandler((req, res) => peopleController.exportEmployeesCsv(req, res)));
 router.get('/export/employees.xlsx', staffOnly, asyncHandler((req, res) => peopleController.exportEmployeesXlsx(req, res)));
@@ -31,6 +37,8 @@ router.post('/', staffOnly, asyncHandler((req, res) => peopleController.createPe
 router.get('/:personId', asyncHandler((req, res) => peopleController.getPersonDetail(req, res)));
 router.put('/:personId', staffOnly, asyncHandler((req, res) => peopleController.updatePerson(req, res)));
 router.post('/:personId/stage', staffOnly, asyncHandler((req, res) => peopleController.updatePersonStage(req, res)));
+router.put('/:personId/manager', staffOnly, asyncHandler((req, res) => orgChartController.setManager(req, res)));
+router.post('/:personId/confirm', staffOnly, asyncHandler((req, res) => orgChartController.confirm(req, res)));
 router.delete('/:personId', staffOnly, asyncHandler((req, res) => peopleController.deletePerson(req, res)));
 
 // Documents (generated letters)

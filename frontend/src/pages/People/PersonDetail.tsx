@@ -57,6 +57,7 @@ export default function PersonDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [editModal, setEditModal] = useState(false);
+  const [confirming, setConfirming] = useState(''); // the confirmation date being entered, or ''
   const [docModal, setDocModal] = useState<{ open: boolean; docType: string; docLabel: string }>({ open: false, docType: '', docLabel: '' });
   const [interviewModal, setInterviewModal] = useState(false);
   const [interviewForm, setInterviewForm] = useState<any>(EMPTY_INTERVIEW);
@@ -242,6 +243,36 @@ export default function PersonDetail() {
               {person.taxTreatment !== 'CONSULTANT' && person.npsEmployerPercent > 0 && (
                 <InfoRow label="Employer NPS" value={`${person.npsEmployerPercent}% of Basic + DA${person.npsPran ? ` · PRAN ${person.npsPran}` : ''}`} />
               )}
+              <InfoRow label="Employment type" value={person.employmentType} />
+              <InfoRow label="Reports to" value={person.manager && (
+                <Link to={`/people/${person.manager.id}`}>{person.manager.name}{person.manager.designation ? ` — ${person.manager.designation}` : ''}</Link>
+              )} />
+              {person.reports?.length > 0 && (
+                <InfoRow label={`Team (${person.reports.length})`} value={
+                  <span>{person.reports.map((r: any, i: number) => (
+                    <span key={r.id}>{i > 0 && ', '}<Link to={`/people/${r.id}`}>{r.name}</Link></span>
+                  ))}</span>
+                } />
+              )}
+              {person.probationMonths > 0 && <InfoRow label="Probation" value={`${person.probationMonths} month${person.probationMonths === 1 ? '' : 's'}`} />}
+              {(person.confirmationDate || person.confirmation) && (
+                <InfoRow label="Confirmation" value={person.confirmationDate ? formatDate(person.confirmationDate) : (
+                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span className={`badge ${person.confirmation.overdue ? 'badge-danger' : 'badge-warning'}`}>
+                      {person.confirmation.overdue ? 'Overdue since' : 'Due'} {formatDate(person.confirmation.dueOn)}
+                    </span>
+                    {canManagePeople && (
+                      <button className="btn btn-primary btn-sm" onClick={() => setConfirming(new Date().toISOString().slice(0, 10))}>Confirm</button>
+                    )}
+                  </span>
+                )} />
+              )}
+              {canManagePeople && person.isEmployee && (
+                <InfoRow label="Notice period" value={person.noticePeriodDays != null
+                  ? `${person.noticePeriodDays} days` : `${person.companyNoticeDays ?? 30} days (company's usual)`} />
+              )}
+              {person.firstHireDate && <InfoRow label="First hire date" value={formatDate(person.firstHireDate)} />}
+              <InfoRow label="Referred by" value={person.referredBy} />
               <InfoRow label="Biometric ID" value={person.biometricId} />
               <InfoRow label="Agreement" value={person.agreementSigned
                 ? `Signed${person.agreementSignDate ? ' · ' + formatDate(person.agreementSignDate) : ''}`
@@ -469,6 +500,35 @@ export default function PersonDetail() {
           </div>
         )}
       </div>
+
+      <Modal title={`Confirm ${person.name}`} open={Boolean(confirming)} onClose={() => setConfirming('')}>
+        <form onSubmit={async e => {
+          e.preventDefault();
+          try {
+            await peopleAPI.confirmEmployee(person.id, confirming);
+            setConfirming('');
+            setError('');
+            fetchData();
+          } catch (err: any) {
+            setError(err.response?.data?.error || 'Could not confirm the employee');
+            setConfirming('');
+          }
+        }}>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>Confirmed from *</label>
+            <input className="input" type="date" required value={confirming} min={person.joinDate || undefined}
+              onChange={e => setConfirming(e.target.value)} />
+            <span className="hint">
+              Probation ends{person.confirmation ? ` on ${formatDate(person.confirmation.dueOn)}` : ''}. Confirming records the date
+              {person.employmentStatus === 'PROBATION' ? ' and moves the status from Probation to Active.' : '.'}
+            </span>
+          </div>
+          <div className="form-actions">
+            <button type="button" className="btn btn-ghost" onClick={() => setConfirming('')}>Cancel</button>
+            <button type="submit" className="btn btn-primary">Confirm</button>
+          </div>
+        </form>
+      </Modal>
 
       {meta && (
         <PersonFormModal

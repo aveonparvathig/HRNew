@@ -24,6 +24,7 @@ import { amountInWords } from '../services/payrollCalc';
 import { newEntryData } from './payrollController';
 import { settingsForPerson } from '../services/payroll/structures';
 import { takeNumber } from '../services/numberSeries';
+import { noticeDaysFor } from '../services/orgChart';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -131,8 +132,8 @@ async function workings(organizationId: string, personId: string, b: any) {
   const person = await prisma.person.findFirst({
     where: { id: personId, organizationId },
     select: {
-      id: true, name: true, employeeNo: true, designation: true, joinDate: true, leavingDate: true,
-      currentMonthlyPackage: true, isEsiEligible: true, isPfApplicable: true, employmentStatus: true,
+      id: true, name: true, employeeNo: true, designation: true, department: true, joinDate: true, leavingDate: true,
+      currentMonthlyPackage: true, isEsiEligible: true, isPfApplicable: true, employmentStatus: true, noticePeriodDays: true,
     },
   });
   if (!person) throw new AppError(404, 'Person not found');
@@ -145,7 +146,7 @@ async function workings(organizationId: string, personId: string, b: any) {
   const monthly = salaryStructure(person.currentMonthlyPackage || 0, person, (await settingsForPerson(organizationId, settings, person)).settings).monthly;
   const basicDa = r2(monthly.basic + monthly.da);
   const service = serviceLength(person.joinDate, lastWorkingDate);
-  const noticeDays = b.noticeDays === undefined || b.noticeDays === '' ? settings.noticePeriodDays : Number(b.noticeDays);
+  const noticeDays = b.noticeDays === undefined || b.noticeDays === '' ? noticeDaysFor(person, settings.noticePeriodDays) : Number(b.noticeDays);
   const noticeServedDays = b.noticeServedDays === undefined || b.noticeServedDays === '' ? noticeDays : Number(b.noticeServedDays);
   const noticePayDays = Number(b.noticePayDays || 0);
   const leaveDays = Number(b.leaveDays || 0);

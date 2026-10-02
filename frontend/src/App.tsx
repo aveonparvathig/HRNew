@@ -10,6 +10,7 @@ import { FeedbackHost } from './components/feedback';
 const Register = lazy(() => import('./pages/Auth/Register'));
 const ChangePassword = lazy(() => import('./pages/Auth/ChangePassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const OrgChart = lazy(() => import('./pages/People/OrgChart'));
 const IncomeDashboard = lazy(() => import('./pages/Income/IncomeDashboard'));
 const IncomeAnalytics = lazy(() => import('./pages/Income/IncomeAnalytics'));
 const ClientsList = lazy(() => import('./pages/Income/ClientsList'));
@@ -105,6 +106,7 @@ function App() {
             <Route path="/recruitment" element={<RequireRole roles={SA_HR}><PostingsList /></RequireRole>} />
             <Route path="/recruitment/postings/:postingId" element={<RequireRole roles={SA_HR}><PostingDetail /></RequireRole>} />
             <Route path="/people" element={<PeopleList />} />
+            <Route path="/people/org-chart" element={<OrgChart />} />
             <Route path="/people/pipeline" element={<RequireRole roles={SA_HR}><Pipeline /></RequireRole>} />
             <Route path="/people/openings" element={<RequireRole roles={SA_HR}><JobOpenings /></RequireRole>} />
             <Route path="/people/documents/:docId" element={<RequireRole roles={SA_HR}><LetterView /></RequireRole>} />

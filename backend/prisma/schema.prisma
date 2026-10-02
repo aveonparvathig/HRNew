@@ -436,6 +436,21 @@ model Person {
   taxTreatment         String @default("SALARY")
   consultantSection    String @default("194J")
   consultantTdsPercent Float  @default(10)
+
+  // Job details
+  employmentType   String  @default("") // a value of the EMPLOYMENT_TYPE list
+  // Probation in months from the joining date; 0 = none. The employee is
+  // due for confirmation when it ends, until a confirmation date is set.
+  probationMonths  Int     @default(0)
+  confirmationDate String? // "YYYY-MM-DD"
+  // Notice the employee must give, in days; null = the company's usual one
+  noticePeriodDays Int?
+  firstHireDate    String? // for someone rehired
+  referredBy       String  @default("")
+  // Who the employee reports to
+  managerId        String?
+  manager          Person?  @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          Person[] @relation("ReportsTo")
   arrearItems    ArrearItem[]
   settlements    Settlement[]
   expenseReports ExpenseReport[]
@@ -443,6 +458,7 @@ model Person {
 
   @@unique([organizationId, kind, name])
   @@index([organizationId, kind, stage])
+  @@index([managerId])
   @@map("people")
 }
 
