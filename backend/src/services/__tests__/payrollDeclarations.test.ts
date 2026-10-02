@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   lineAmount, lineDeduction, declarationTotals, effectiveTaxProfile, rentNeedsLandlordPan,
-  DEFAULT_DECLARATION_ITEMS,
+  DEFAULT_DECLARATION_ITEMS, isItemGroup,
 } from '../payroll/declarationCalc';
 import { computeTds, DEFAULT_TAX_CONFIGS, TdsInputs } from '../payroll/taxCalc';
 
@@ -53,7 +53,9 @@ describe('declaration totals', () => {
   });
 
   it('ignores lines whose item no longer exists', () => {
-    expect(declarationTotals([line('gone', 5000)], ITEMS, false)).toEqual({ section80C: 0, otherDeductions: 0, bySection: [] });
+    expect(declarationTotals([line('gone', 5000)], ITEMS, false)).toEqual({
+      section80C: 0, otherDeductions: 0, otherIncome: 0, letOutIncome: 0, letOutLoss: 0, taxCredit: 0, bySection: [],
+    });
   });
 });
 
@@ -69,6 +71,7 @@ describe('effective tax profile', () => {
     expect(effectiveTaxProfile(profile, lines, ITEMS)).toEqual({
       prevEmployerIncome: 100000, prevEmployerTds: 5000, otherIncome: 12000,
       annualRentPaid: 180000, isMetro: false, section80C: 60000, otherDeductions: 20000, housingLoanInterest: 90000,
+      letOutIncome: 0, letOutLoss: 0, taxCredit: 0, rentByMonth: null, exemptions: [],
     });
   });
 
@@ -111,7 +114,7 @@ describe('rules and catalogue', () => {
   it('ships a starter catalogue with unique codes and valid groups', () => {
     const codes = DEFAULT_DECLARATION_ITEMS.map(i => i[0]);
     expect(new Set(codes).size).toBe(codes.length);
-    expect(DEFAULT_DECLARATION_ITEMS.every(i => ['SECTION_80C', 'OTHER'].includes(i[4]))).toBe(true);
+    expect(DEFAULT_DECLARATION_ITEMS.every(i => isItemGroup(i[4]))).toBe(true);
     expect(DEFAULT_DECLARATION_ITEMS.every(i => i[6] > 0 && i[6] <= 100)).toBe(true);
   });
 

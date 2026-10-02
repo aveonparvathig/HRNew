@@ -23,12 +23,15 @@ router.get('/payslips/:entryId', asyncHandler((req, res) => selfServiceControlle
 
 router.get('/declaration', asyncHandler((req, res) => selfServiceController.getDeclaration(req, res)));
 router.put('/declaration', asyncHandler((req, res) => selfServiceController.saveDeclaration(req, res)));
+router.post('/declaration/submit', asyncHandler((req, res) => selfServiceController.submitDeclaration(req, res)));
+router.post('/declaration/reopen-request', asyncHandler((req, res) => selfServiceController.requestReopen(req, res)));
 router.post('/declaration/proofs', asyncHandler((req, res) => selfServiceController.addProof(req, res)));
 router.get('/declaration/proofs/:proofId', asyncHandler((req, res) => selfServiceController.getProof(req, res)));
 router.delete('/declaration/proofs/:proofId', asyncHandler((req, res) => selfServiceController.deleteProof(req, res)));
 
 router.get('/loans', asyncHandler((req, res) => selfServiceController.getLoans(req, res)));
 router.get('/form16-part-a', asyncHandler((req, res) => selfServiceController.getForm16PartA(req, res)));
+router.get('/form16.pdf', asyncHandler((req, res) => selfServiceController.getForm16File(req, res)));
 router.get('/reports/:kind', asyncHandler((req, res) => selfServiceController.getReport(req, res)));
 
 export default router;

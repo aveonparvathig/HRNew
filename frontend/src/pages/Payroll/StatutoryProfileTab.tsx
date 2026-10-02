@@ -3,7 +3,19 @@ import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 import ImageUpload from '../../components/ImageUpload';
 
-type Field = { key: string; label: string; placeholder?: string; upper?: boolean; type?: string; wide?: boolean };
+type Field = { key: string; label: string; placeholder?: string; upper?: boolean; type?: string; wide?: boolean; states?: boolean; flag?: boolean; digits?: number };
+
+// An address as the TDS return takes it
+const addressFields = (who: 'deductor' | 'responsible'): Field[] => [
+  { key: `${who}Flat`, label: 'Flat / door / block no.' },
+  { key: `${who}Building`, label: 'Name of premises / building' },
+  { key: `${who}Street`, label: 'Road / street / lane' },
+  { key: `${who}Area`, label: 'Area / location' },
+  { key: `${who}City`, label: 'Town / city / district' },
+  { key: `${who}State`, label: 'State', states: true },
+  { key: `${who}Pin`, label: 'PIN code', digits: 6 },
+  { key: `${who}AddressChanged`, label: 'This address has changed since the last return was filed', flag: true, wide: true },
+];
 type Group = { title: string; hint: string; fields: Field[] };
 
 const REGISTRATIONS: Group[] = [
@@ -42,8 +54,13 @@ const SIGNATORIES: Group[] = [
       { key: 'responsiblePan', label: 'PAN', placeholder: 'ABCDE1234F', upper: true },
       { key: 'responsibleEmail', label: 'Email', type: 'email' },
       { key: 'responsiblePhone', label: 'Phone' },
-      { key: 'responsibleAddress', label: 'Address', wide: true },
+      ...addressFields('responsible'),
     ],
+  },
+  {
+    title: 'Employer’s address for the TDS return',
+    hint: 'The quarterly return and Form 27A ask for the address field by field. Until this is filled, the company address is printed as one line.',
+    fields: addressFields('deductor'),
   },
   {
     title: 'Form 16 signatory',
@@ -62,6 +79,7 @@ const SIGNATORIES: Group[] = [
 export default function StatutoryProfileTab({ section }: { section: 'registrations' | 'signatories' }) {
   const [form, setForm] = useState<any>(null);
   const [deductorTypes, setDeductorTypes] = useState<string[]>([]);
+  const [states, setStates] = useState<string[]>([]);
   const [gst, setGst] = useState<any>(null);        // what the saved GST number says
   const [savedGst, setSavedGst] = useState('');
   const [error, setError] = useState('');
@@ -73,6 +91,7 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
   const apply = (data: any) => {
     setForm(data.profile);
     setDeductorTypes(data.deductorTypes);
+    setStates(data.states || []);
     setGst(data.gst);
     setSavedGst(data.profile.gstNumber || '');
   };
@@ -83,7 +102,7 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
       .catch(() => setError('Failed to load the statutory profile'));
   }, []);
 
-  const set = (key: string, value: string) => setForm((f: any) => ({ ...f, [key]: value }));
+  const set = (key: string, value: string | boolean) => setForm((f: any) => ({ ...f, [key]: value }));
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,17 +127,31 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
 
   if (!form) return error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading…" />;
 
-  const input = (f: Field) => (
+  const input = (f: Field) => (f.flag ? (
+    <label key={f.key} className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
+      <input type="checkbox" checked={Boolean(form[f.key])} onChange={e => set(f.key, e.target.checked)} />
+      {f.label}
+    </label>
+  ) : f.states ? (
+    <div key={f.key} className="field">
+      <label>{f.label}</label>
+      <select className="select" value={form[f.key] || ''} onChange={e => set(f.key, e.target.value)}>
+        <option value="">—</option>
+        {states.map(s => <option key={s} value={s}>{s}</option>)}
+      </select>
+    </div>
+  ) : (
     <div key={f.key} className="field" style={f.wide ? { gridColumn: '1 / -1' } : undefined}>
       <label>{f.label}</label>
       <input className="input" type={f.type || 'text'} placeholder={f.placeholder}
+        inputMode={f.digits ? 'numeric' : undefined} maxLength={f.digits}
         value={form[f.key] || ''}
-        onChange={e => set(f.key, f.upper ? e.target.value.toUpperCase() : e.target.value)} />
+        onChange={e => set(f.key, f.digits ? e.target.value.replace(/\D/g, '') : f.upper ? e.target.value.toUpperCase() : e.target.value)} />
       {f.key === 'gstNumber' && gst && form.gstNumber === savedGst && (
         <span className="hint">State code {gst.stateCode}{gst.state ? ` — ${gst.state}` : ''} · PAN {gst.pan}</span>
       )}
     </div>
-  );
+  ));
 
   return (
     <>

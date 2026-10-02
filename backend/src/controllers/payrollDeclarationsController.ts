@@ -5,16 +5,16 @@ import { orgBrand } from '../services/orgBrand';
 import { logPayrollAudit, actorName, diffFields } from '../services/payroll/audit';
 import { financialYearFor, financialYearOf } from '../services/payroll/financialYear';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
-import { declarationTotals } from '../services/payroll/declarationCalc';
+import { declarationTotals, ITEM_GROUPS, isItemGroup } from '../services/payroll/declarationCalc';
 import { todayIST } from '../services/payroll/loanLedger';
 import {
   declarationItemsFor, yearControlFor, loadDeclaration, saveDeclaration, saveApproval,
   addProof, fetchProof, removeProof, buildForm12bb,
+  exemptibleComponents, submitDeclaration, reviewDeclaration, decideReopen, pendingReopenRequests,
 } from '../services/payroll/declarations';
 import { esc, amt, reportShell } from '../services/payroll/reportHtml';
 
 const str = (v: any) => String(v ?? '').trim();
-const GROUPS = ['SECTION_80C', 'OTHER'];
 const regimeLabel = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New regime');
 const currentFyStart = () => financialYearOf(currentPeriodIST()).startYear;
 
@@ -36,17 +36,49 @@ function itemInput(b: any, existing?: any) {
   const section = str(b.section ?? existing?.section);
   if (!section) throw new AppError(400, 'Section is required');
   const group = str(b.group ?? existing?.group);
-  if (!GROUPS.includes(group)) throw new AppError(400, 'Pick how the item counts');
+  if (!isItemGroup(group)) throw new AppError(400, 'Pick how the item counts');
   const rawMax = b.maxAmount !== undefined ? b.maxAmount : existing?.maxAmount;
   const maxAmount = rawMax === '' || rawMax == null ? null : Number(rawMax);
   if (maxAmount !== null && (!isFinite(maxAmount) || maxAmount < 0)) throw new AppError(400, 'Enter a valid limit');
   const deductPercent = Number(b.deductPercent ?? existing?.deductPercent ?? 100);
   if (!isFinite(deductPercent) || deductPercent <= 0 || deductPercent > 100) throw new AppError(400, 'Deductible share must be between 1 and 100%');
+  // Only a deduction can be deductible in part
+  const deduction = group === 'SECTION_80C' || group === 'OTHER';
+  // An exempt allowance: the pay component, what the limit is for, the regimes
+  const rule = { componentKey: '', limitPeriod: 'YEAR', regime: 'OLD' };
+  if (group === 'EXEMPTION') {
+    rule.componentKey = str(b.componentKey ?? existing?.componentKey);
+    if (!rule.componentKey) throw new AppError(400, 'Pick the pay component that is exempt');
+    rule.limitPeriod = str(b.limitPeriod ?? existing?.limitPeriod) || 'YEAR';
+    if (!['MONTH', 'YEAR'].includes(rule.limitPeriod)) throw new AppError(400, 'Pick whether the limit is for a month or for the year');
+    rule.regime = str(b.regime ?? existing?.regime) || 'OLD';
+    if (!['OLD', 'BOTH'].includes(rule.regime)) throw new AppError(400, 'Pick the regimes the exemption applies under');
+  }
   return {
-    name, section, sectionNew: str(b.sectionNew ?? existing?.sectionNew), group, maxAmount, deductPercent,
+    name, section, sectionNew: str(b.sectionNew ?? existing?.sectionNew), group, maxAmount,
+    deductPercent: deduction ? deductPercent : 100,
     proofRequired: Boolean(b.proofRequired ?? existing?.proofRequired ?? false),
+    ...rule,
   };
 }
+
+// An exemption rule must sit on a component that can carry one, and a
+// component can carry only one rule in force.
+async function assertExemptionRule(organizationId: string, input: any, isActive: boolean, excludeId?: string) {
+  if (input.group !== 'EXEMPTION') return;
+  const components = await exemptibleComponents(organizationId);
+  const component = components.find(c => c.key === input.componentKey);
+  if (!component) throw new AppError(400, 'Pick the pay component that is exempt');
+  if (!isActive) return;
+  const other = await prisma.declarationItem.findFirst({
+    where: { organizationId, group: 'EXEMPTION', componentKey: input.componentKey, isActive: true, ...(excludeId ? { id: { not: excludeId } } : {}) },
+  });
+  if (other) throw new AppError(400, `${component.label} already has an exemption rule: "${other.name}". Change that one, or mark it inactive first.`);
+}
+
+const ruleText = (item: any) => (item.group === 'EXEMPTION'
+  ? `Exempt up to ${item.maxAmount == null ? 'what is paid' : item.maxAmount}${item.maxAmount == null ? '' : item.limitPeriod === 'MONTH' ? ' a month' : ' a year'}; ${item.regime === 'BOTH' ? 'both regimes' : 'old regime'}`
+  : `Section ${item.section}`);
 
 export const payrollDeclarationsController = {
   // ---- Catalogue ------------------------------------------------------------
@@ -55,13 +87,18 @@ export const payrollDeclarationsController = {
     const items = await declarationItemsFor(organizationId);
     const used = await prisma.declarationLine.groupBy({ by: ['itemId'], _count: { itemId: true } });
     const count = new Map(used.map(u => [u.itemId, u._count.itemId]));
-    res.json({ items: items.map(i => ({ ...i, usedCount: count.get(i.id) || 0 })) });
+    res.json({
+      items: items.map(i => ({ ...i, usedCount: count.get(i.id) || 0 })),
+      groups: ITEM_GROUPS,
+      components: await exemptibleComponents(organizationId),
+    });
   },
 
   async createItem(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const items = await declarationItemsFor(organizationId);
     const input = itemInput(req.body);
+    await assertExemptionRule(organizationId, input, true);
     const code = input.name.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
     if (!code || items.some(i => i.code === code || i.name.toLowerCase() === input.name.toLowerCase())) {
       throw new AppError(400, `An item named "${input.name}" already exists`);
@@ -69,7 +106,7 @@ export const payrollDeclarationsController = {
     const item = await prisma.declarationItem.create({
       data: { organizationId, code, ...input, sortOrder: Math.max(-1, ...items.map(i => i.sortOrder)) + 1 },
     });
-    await logPayrollAudit(req, [{ action: 'DECLARATION_ITEM_SAVED', field: item.name, newValue: `Section ${item.section}` }]);
+    await logPayrollAudit(req, [{ action: 'DECLARATION_ITEM_SAVED', field: item.name, newValue: ruleText(item) }]);
     res.status(201).json(item);
   },
 
@@ -78,11 +115,12 @@ export const payrollDeclarationsController = {
     const before = await prisma.declarationItem.findFirst({ where: { id: req.params.itemId, organizationId } });
     if (!before) throw new AppError(404, 'Item not found');
     const input = itemInput(req.body, before);
+    await assertExemptionRule(organizationId, input, req.body.isActive !== undefined ? Boolean(req.body.isActive) : before.isActive, before.id);
     const item = await prisma.declarationItem.update({
       where: { id: before.id },
       data: { ...input, ...(req.body.isActive !== undefined ? { isActive: Boolean(req.body.isActive) } : {}) },
     });
-    await logPayrollAudit(req, diffFields(before, item, ['name', 'section', 'sectionNew', 'group', 'maxAmount', 'deductPercent', 'proofRequired', 'isActive'])
+    await logPayrollAudit(req, diffFields(before, item, ['name', 'section', 'sectionNew', 'group', 'maxAmount', 'deductPercent', 'proofRequired', 'componentKey', 'limitPeriod', 'regime', 'isActive'])
       .map(c => ({ action: 'DECLARATION_ITEM_SAVED' as const, field: `${before.name} · ${c.field}`, oldValue: c.oldValue, newValue: c.newValue })));
     res.json(item);
   },
@@ -102,7 +140,7 @@ export const payrollDeclarationsController = {
   async getOverview(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const fyStart = fyInput(req.query.fy);
-    const [people, profiles, items, control, settings] = await Promise.all([
+    const [people, profiles, items, control, settings, reopenRequests] = await Promise.all([
       prisma.person.findMany({
         where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
         select: { id: true, name: true, employeeNo: true },
@@ -115,11 +153,12 @@ export const payrollDeclarationsController = {
       declarationItemsFor(organizationId),
       yearControlFor(organizationId, fyStart),
       prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} }),
+      pendingReopenRequests(organizationId, fyStart),
     ]);
     const byPerson = new Map(profiles.map(p => [p.personId, p]));
     res.json({
       fyStart, financialYear: financialYearFor(fyStart).label, financialYears: yearOptions(),
-      control, defaultTaxRegime: settings.defaultTaxRegime,
+      control, defaultTaxRegime: settings.defaultTaxRegime, reopenRequests,
       rows: people.map(person => {
         const p = byPerson.get(person.id);
         const declared = p ? declarationTotals(p.lines, items, false) : { section80C: 0, otherDeductions: 0 };
@@ -134,6 +173,7 @@ export const payrollDeclarationsController = {
           proofs: p?._count.proofs || 0,
           poiConsidered: p?.poiConsidered || false,
           submittedAt: p?.submittedAt || null,
+          status: p?.status || 'DRAFT',
         };
       }),
     });
@@ -203,6 +243,42 @@ export const payrollDeclarationsController = {
       newValue: `${d.profile.poiConsidered ? 'Tax uses approved amounts' : 'Tax uses declared amounts'}; 80C ${d.totals.section80C}, other ${d.totals.otherDeductions}`,
     }]);
     res.json({ ...d, financialYears: yearOptions() });
+  },
+
+  // ---- Review: submitted → reviewed, or back to the employee ---------------------
+  async submit(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const fyStart = fyInput(req.body.fyStart);
+    const person = await submitDeclaration(organizationId, req.params.personId, fyStart, { bySelf: false });
+    await logPayrollAudit(req, [{
+      action: 'DECLARATION_SUBMITTED', personId: person.id, personName: person.name,
+      field: `FY ${financialYearFor(fyStart).label}`, newValue: 'Submitted by HR for the employee',
+    }]);
+    res.json({ ...(await loadDeclaration(organizationId, person.id, fyStart)), financialYears: yearOptions() });
+  },
+
+  async review(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const fyStart = fyInput(req.body.fyStart);
+    const action = str(req.body.action);
+    const person = await reviewDeclaration(organizationId, req.params.personId, fyStart, action, await actorName(req.user?.userId));
+    await logPayrollAudit(req, [{
+      action: action === 'REVIEW' ? 'DECLARATION_REVIEWED' : 'DECLARATION_SENT_BACK', personId: person.id, personName: person.name,
+      field: `FY ${financialYearFor(fyStart).label}`, newValue: action === 'REVIEW' ? 'Reviewed' : 'Sent back to the employee',
+    }]);
+    res.json({ ...(await loadDeclaration(organizationId, person.id, fyStart)), financialYears: yearOptions() });
+  },
+
+  async decideReopen(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const approve = Boolean(req.body.approve);
+    const request = await decideReopen(organizationId, req.params.requestId, approve, req.body.note, await actorName(req.user?.userId));
+    await logPayrollAudit(req, [{
+      action: 'DECLARATION_REOPEN_DECIDED', personId: request.profile.personId, personName: request.profile.person.name,
+      field: `FY ${financialYearFor(request.profile.fyStart).label}`, oldValue: request.reason,
+      newValue: approve ? 'Reopened for the employee' : `Declined${str(req.body.note) ? `: ${str(req.body.note)}` : ''}`,
+    }]);
+    res.json({ message: approve ? 'Declaration reopened' : 'Request declined' });
   },
 
   async addProof(req: any, res: Response) {

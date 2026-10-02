@@ -4,6 +4,8 @@ import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton, SuccessAlert } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
+import DownloadButton from '../../components/DownloadButton';
+import PerquisitesModal from '../../components/PerquisitesModal';
 
 const regimeName = (regime: string) => (regime === 'OLD' ? 'Old regime' : 'New regime');
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
@@ -70,11 +72,13 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
   const [form, setForm] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(''); // challan whose employees are shown
+  const [filings, setFilings] = useState<Record<number, { receiptNo: string; filedOn: string }>>({});
 
   const fetchData = useCallback(async () => {
     try {
       const res = await payrollAPI.getTds(fy);
       setData(res.data);
+      setFilings(Object.fromEntries(res.data.quarters.map((q: any) => [q.quarter, { receiptNo: q.receiptNo, filedOn: q.filedOn }])));
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load TDS details');
@@ -110,6 +114,26 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       fetchData();
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to delete the challan');
+    }
+  };
+
+  const saveFiling = async (q: any) => {
+    try {
+      await payrollAPI.saveTdsFiling({ fyStart: data.fyStart, quarter: q.quarter, ...filings[q.quarter] });
+      setError('');
+      setSuccess(filings[q.quarter].receiptNo ? `Receipt number of the ${q.label} return saved.` : `Receipt number of the ${q.label} return cleared.`);
+      fetchData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Could not save the receipt number');
+    }
+  };
+
+  const setOption = async (key: string, value: boolean) => {
+    try {
+      await payrollAPI.updateTaxSettings({ [key]: value });
+      fetchData();
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Could not change the setting');
     }
   };
 
@@ -254,7 +278,22 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
         <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
           The workbook holds the deductor, challan and employee rows (and the annual salary details in the last quarter),
           laid out for keying into the tax department's return preparation utility, which produces the file you upload.
+          {' '}{data.form27aName} is the signed control sheet that goes with it.
         </p>
+        <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
+          <label className="checkbox-field" style={{ alignItems: 'flex-start' }}>
+            <input type="checkbox" style={{ marginTop: 2 }} checked={data.options.tdsAnnexure1IncludeZero}
+              onChange={e => setOption('tdsAnnexure1IncludeZero', e.target.checked)} />
+            <span>List employees paid with no tax deducted in Annexure I
+              <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>Off: only employees with tax deducted in the quarter are listed.</span></span>
+          </label>
+          <label className="checkbox-field" style={{ alignItems: 'flex-start' }}>
+            <input type="checkbox" style={{ marginTop: 2 }} checked={data.options.tdsAnnexure2SkipZero}
+              onChange={e => setOption('tdsAnnexure2SkipZero', e.target.checked)} />
+            <span>Leave employees with no tax for the year out of Annexure II
+              <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>Off: the last quarter's annual salary details list everyone paid in the year.</span></span>
+          </label>
+        </div>
         <div style={{ display: 'grid', gap: 14 }}>
           {data.quarters.map((q: any) => {
             const errors = q.issues.filter((i: any) => i.level === 'ERROR');
@@ -276,10 +315,27 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                         {errors.length ? `${errors.length} to fix` : warnings.length ? `${warnings.length} to check` : 'Ready'}
                       </span>
                       <Link to={`/payroll/reports/tds-return?fy=${data.fyStart}&quarter=${q.quarter}`} className="btn btn-secondary btn-sm">Summary</Link>
+                      <Link to={`/payroll/reports/form-27a?fy=${data.fyStart}&quarter=${q.quarter}`} className="btn btn-secondary btn-sm">{data.form27aName}</Link>
                       <button className="btn btn-primary btn-sm" onClick={() => downloadWorkbook(q.quarter)}>⤓ Workbook</button>
                     </div>
                   )}
                 </div>
+                {q.hasRuns && filings[q.quarter] && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10, fontSize: 12.5 }}>
+                    <span className="text-muted">Once filed, its receipt number:</span>
+                    <input className="input input-sm" style={{ width: 170 }} inputMode="numeric" maxLength={15} placeholder="up to 15 digits"
+                      aria-label={`${q.label} receipt number`} value={filings[q.quarter].receiptNo}
+                      onChange={e => setFilings({ ...filings, [q.quarter]: { ...filings[q.quarter], receiptNo: e.target.value.replace(/\D/g, '') } })} />
+                    <input className="input input-sm" style={{ width: 150 }} type="date" aria-label={`${q.label} date filed`} value={filings[q.quarter].filedOn}
+                      onChange={e => setFilings({ ...filings, [q.quarter]: { ...filings[q.quarter], filedOn: e.target.value } })} />
+                    <button className="btn btn-secondary btn-sm"
+                      disabled={filings[q.quarter].receiptNo === q.receiptNo && filings[q.quarter].filedOn === q.filedOn}
+                      onClick={() => saveFiling(q)}>Save</button>
+                    <span className="text-muted">
+                      {q.previousReceiptNo ? `Previous return: ${q.previousReceiptNo}` : 'The previous return’s receipt number is not recorded.'}
+                    </span>
+                  </div>
+                )}
                 {q.issues.length > 0 && (
                   <ul className="quarter-issues">
                     {q.issues.map((i: any, n: number) => (
@@ -347,6 +403,7 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
   const [data, setData] = useState<any>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [perquisitesOf, setPerquisitesOf] = useState(''); // employee whose perquisites are open
 
   const fetchData = useCallback(async () => {
     try {
@@ -434,7 +491,7 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
           <span>
             Employees can see their {name} for FY {data.financialYear}
             <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
-              They get Part B, the perquisites statement, and Part A where you have uploaded it.
+              They get one PDF: Part A where you have uploaded it, Part B, and the perquisites statement if they have any.
             </span>
           </span>
         </label>
@@ -489,6 +546,10 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                       <div className="row-actions">
                         <Link to={`/payroll/reports/form-16?${query(r)}`} className="btn btn-secondary btn-sm">Part B</Link>
                         <Link to={`/payroll/reports/form-12ba?${query(r)}`} className="btn btn-secondary btn-sm">{data.formNames.form12ba}</Link>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setPerquisitesOf(r.person.id)}>Perquisites</button>
+                        <DownloadButton className="btn btn-primary btn-sm" path={`/payroll/form16/${r.person.id}/file`} params={{ fy: String(data.fyStart) }}>
+                          ⤓ {r.partA ? 'Part A + B' : 'PDF'}
+                        </DownloadButton>
                       </div>
                     </td>
                   </tr>
@@ -498,6 +559,8 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
           </div>
         )}
       </div>
+      <PerquisitesModal personId={perquisitesOf} fy={data.fyStart} open={Boolean(perquisitesOf)}
+        onClose={() => setPerquisitesOf('')} onSaved={fetchData} />
     </>
   );
 }

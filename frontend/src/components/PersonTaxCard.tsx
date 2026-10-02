@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { payrollAPI } from '../api/payroll';
 import { ErrorAlert } from './ui';
 import { formatINR } from '../utils/format';
+import PerquisitesModal from './PerquisitesModal';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -16,6 +17,7 @@ export default function PersonTaxCard({ person }: { person: any }) {
   const [data, setData] = useState<any>(null);
   const [fy, setFy] = useState('');
   const [error, setError] = useState('');
+  const [perquisites, setPerquisites] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -50,6 +52,7 @@ export default function PersonTaxCard({ person }: { person: any }) {
           {data.summary && (
             <Link to={`/payroll/reports/tax-statement?fy=${data.fyStart}&personId=${person.id}`} className="btn btn-secondary btn-sm">Tax Statement</Link>
           )}
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPerquisites(true)}>Perquisites</button>
           <Link to={`/payroll/declarations/${person.id}?fy=${data.fyStart}`} className="btn btn-primary btn-sm">Declaration</Link>
         </div>
       </div>
@@ -68,6 +71,7 @@ export default function PersonTaxCard({ person }: { person: any }) {
           </p>
         )}
       </div>
+      <PerquisitesModal personId={person.id} fy={data.fyStart} open={perquisites} onClose={() => setPerquisites(false)} />
     </div>
   );
 }

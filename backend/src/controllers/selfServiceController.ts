@@ -12,12 +12,15 @@ import { financialYearFor, financialYearOf } from '../services/payroll/financial
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import {
   loadDeclaration, saveDeclaration, addProof, fetchProof, removeProof, buildForm12bb,
+  submitDeclaration, requestReopen,
 } from '../services/payroll/declarations';
+import { logPayrollAudit } from '../services/payroll/audit';
 import { claimsOfEntry } from '../services/payroll/payout';
 import { buildTaxStatement } from './payrollTaxController';
 import { buildYtdStatement } from './payrollReportsController';
 import { buildLoanStatement, loansOfPerson } from './payrollLoansController';
-import { buildForm16, buildForm12ba } from './payrollReturnsController';
+import { buildForm16, buildForm12ba, form16File } from './payrollReturnsController';
+import { sendFile } from '../services/payroll/payslipDocs';
 import { yearControlFor } from '../services/payroll/declarations';
 
 // Form 16 is for the employee only once HR has released the year's.
@@ -98,6 +101,29 @@ export const selfServiceController = {
     res.json({ ...d, financialYears: yearOptions() });
   },
 
+  // Hand the declaration in. It can then be changed only if HR reopens it.
+  async submitDeclaration(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const fyStart = fyInput(req.body.fyStart);
+    await submitDeclaration(me.organizationId, me.id, fyStart, { bySelf: true });
+    await logPayrollAudit(req, [{
+      action: 'DECLARATION_SUBMITTED', personId: me.id, personName: me.name,
+      field: `FY ${financialYearFor(fyStart).label}`, newValue: 'Submitted by the employee',
+    }]);
+    res.json({ ...(await loadDeclaration(me.organizationId, me.id, fyStart)), financialYears: yearOptions() });
+  },
+
+  async requestReopen(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const fyStart = fyInput(req.body.fyStart);
+    await requestReopen(me.organizationId, me.id, fyStart, req.body.reason);
+    await logPayrollAudit(req, [{
+      action: 'DECLARATION_REOPEN_ASKED', personId: me.id, personName: me.name,
+      field: `FY ${financialYearFor(fyStart).label}`, newValue: String(req.body.reason || '').trim().slice(0, 500),
+    }]);
+    res.status(201).json({ ...(await loadDeclaration(me.organizationId, me.id, fyStart)), financialYears: yearOptions() });
+  },
+
   async addProof(req: any, res: Response) {
     const me = await actorPerson(req);
     const proof = await addProof(me.organizationId, me.id, fyInput(req.body.fyStart), req.body, {
@@ -132,6 +158,15 @@ export const selfServiceController = {
     const doc = await prisma.form16PartA.findFirst({ where: { personId: me.id, organizationId: me.organizationId, fyStart } });
     if (!doc) throw new AppError(404, 'Part A is not available yet');
     res.json({ fileName: doc.fileName, fileData: doc.fileData });
+  },
+
+  // The employee's Form 16 as one file: Part A (once HR has uploaded it) and Part B.
+  async getForm16File(req: any, res: Response) {
+    const me = await actorPerson(req);
+    const fyStart = fyInput(req.query.fy);
+    await assertForm16Released(me.organizationId, fyStart);
+    const file = await form16File(me.organizationId, me.id, fyStart);
+    sendFile(res, file.filename, 'application/pdf', file.pdf);
   },
 
   // ---- Own reports ----------------------------------------------------------------

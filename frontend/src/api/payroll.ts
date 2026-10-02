@@ -63,6 +63,12 @@ export const payrollAPI = {
   saveDeclarationApproval: (personId: string, data: any) =>
     apiClient.put(`/payroll/declarations/${personId}/approval`, data),
   addDeclarationProof: (personId: string, data: any) => apiClient.post(`/payroll/declarations/${personId}/proofs`, data),
+  // Review: HR submits for the employee, marks it reviewed (REVIEW) or sends it back (SEND_BACK)
+  submitDeclaration: (personId: string, data: any) => apiClient.post(`/payroll/declarations/${personId}/submit`, data),
+  reviewDeclaration: (personId: string, data: { fyStart: number; action: string }) =>
+    apiClient.post(`/payroll/declarations/${personId}/review`, data),
+  decideReopenRequest: (requestId: string, data: { approve: boolean; note?: string }) =>
+    apiClient.post(`/payroll/declaration-reopen-requests/${requestId}/decide`, data),
   getDeclarationProof: (proofId: string) => apiClient.get(`/payroll/declaration-proofs/${proofId}`),
   deleteDeclarationProof: (proofId: string) => apiClient.delete(`/payroll/declaration-proofs/${proofId}`),
 
@@ -97,6 +103,13 @@ export const payrollAPI = {
   createTdsChallan: (data: any) => apiClient.post('/payroll/tds/challans', data),
   deleteTdsChallan: (challanId: string) => apiClient.delete(`/payroll/tds/challans/${challanId}`),
   getTdsReturnWorkbook: (fy: string, quarter: number) => apiClient.get('/payroll/tds/return-workbook', { params: { fy, quarter } }),
+  // The receipt number the tax department gave a quarter's return
+  saveTdsFiling: (data: { fyStart: number; quarter: number; receiptNo: string; filedOn: string }) =>
+    apiClient.put('/payroll/tds/filings', data),
+  // An employee's perquisites for a year, by Form 12BA line
+  getPerquisites: (personId: string, fy: string) => apiClient.get(`/payroll/people/${personId}/perquisites`, { params: fy ? { fy } : {} }),
+  savePerquisites: (personId: string, data: any) => apiClient.put(`/payroll/people/${personId}/perquisites`, data),
+  // Form 16 as one PDF (Part A + Part B): downloadFile('/payroll/form16/:personId/file', { fy })
   getForm16List: (fy: string) => apiClient.get('/payroll/form16', { params: fy ? { fy } : {} }),
   setForm16Released: (fyStart: number, released: boolean) => apiClient.put('/payroll/form16/release', { fyStart, released }),
   getForm16PartA: (personId: string, fy: string) => apiClient.get(`/payroll/form16/${personId}/part-a`, { params: { fy } }),
@@ -133,7 +146,7 @@ export const payrollAPI = {
   //       | pt-half-year | loan-statement | loan-register | loan-transactions
   //       | tax-statement | tax-consolidated | pan-status | form-12bb | declarations
   //       | bank-advice | hold-release | duplicates | reimbursements
-  //       | tds-challans | tds-return | form-16 | form-16-all | form-12ba
+  //       | tds-challans | tds-return | form-27a | form-16 | form-16-all | form-12ba
   //       | arrears | pf-arrears | settlement-statement | settlements
   //       | register-<code>: tn-u, tn-v, tn-w, tn-x, form-a, form-b, form-c, form-d, bonus-c, bonus-d, gratuity-f
   getReportOptions: () => apiClient.get('/payroll/reports/options'),

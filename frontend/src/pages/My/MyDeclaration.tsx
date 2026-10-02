@@ -6,6 +6,8 @@ import DeclarationEditor, { type DeclarationActions } from '../../components/Dec
 
 const actions: DeclarationActions = {
   save: body => selfAPI.saveDeclaration(body),
+  submit: body => selfAPI.submitDeclaration(body),
+  requestReopen: body => selfAPI.requestReopen(body),
   addProof: body => selfAPI.addProof(body),
   getProof: proofId => selfAPI.getProof(proofId).then(r => r.data),
   deleteProof: proofId => selfAPI.deleteProof(proofId),

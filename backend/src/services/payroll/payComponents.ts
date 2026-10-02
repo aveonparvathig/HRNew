@@ -49,6 +49,7 @@ const MANAGED: Record<string, { name: string; type: string; taxable: boolean }> 
   SETTLEMENT_RECOVERY: { name: 'Settlement Recovery', type: 'DEDUCTION', taxable: true },
 };
 export type ManagedCode = keyof typeof MANAGED;
+export const MANAGED_CODES = Object.keys(MANAGED);
 
 // The catalogue component for a managed code, created on first use.
 export async function managedComponent(organizationId: string, code: string) {

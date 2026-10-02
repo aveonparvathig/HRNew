@@ -3,9 +3,12 @@
 // Feeds Form 16, Form 12BA and the annual part of the TDS return.
 import { prisma } from '../../config/database';
 import { financialYearFor, periodsOfFinancialYear } from './financialYear';
-import { taxConfigsFor, taxableGrossOf, loanPerquisites } from './taxContext';
+import {
+  taxConfigsFor, taxableGrossOf, loanPerquisites, typedPerquisiteValues, exemptKeysOf, componentAmounts,
+} from './taxContext';
+import { PerquisiteLike, typedPerquisites } from './perquisiteCalc';
 import { MonthFigures, EMPTY_TAX_PROFILE, ageAtYearEnd, hasValidPan, yearEndTax } from './taxCalc';
-import { declarationTotals, effectiveTaxProfile } from './declarationCalc';
+import { LandlordLike, cleanLandlords, declarationTotals, effectiveTaxProfile } from './declarationCalc';
 import { form16PartB } from './tdsReturnCalc';
 
 export interface AnnualTax {
@@ -21,7 +24,10 @@ export interface AnnualTax {
   working: ReturnType<typeof yearEndTax>;
   form: ReturnType<typeof form16PartB>;
   landlord: { rent: number; name: string; pan: string };
+  landlords: LandlordLike[];   // up to four, with the rent paid to each
+  lender: { interest: number; name: string; pan: string };
   loanPerquisite: number;
+  perquisiteValues: PerquisiteLike[]; // typed, by Form 12BA line
   usePoi: boolean;
 }
 
@@ -55,8 +61,12 @@ export async function annualTaxFor(organizationId: string, fyStart: number, pers
     prisma.payComponent.findMany({ where: { organizationId, taxable: false, type: 'EARNING' }, select: { id: true } }),
     prisma.payrollRun.findMany({ where: { organizationId, period: { in: periods } }, select: { period: true, status: true } }),
   ]);
-  const perquisites = await loanPerquisites(organizationId, settings, fyStart, fy.end);
+  const [perquisites, typed] = await Promise.all([
+    loanPerquisites(organizationId, settings, fyStart, fy.end),
+    typedPerquisiteValues(organizationId, fyStart, personId),
+  ]);
   const nonTaxable = new Set(components.map(c => c.id));
+  const exemptKeys = exemptKeysOf(items);
   const configByRegime = new Map(configs.map(c => [c.regime, c]));
   const profileByPerson = new Map(profiles.map(p => [p.personId, p]));
 
@@ -70,16 +80,20 @@ export async function annualTaxFor(organizationId: string, fyStart: number, pers
       period: e.run.period, taxableGross: taxableGrossOf(e, e.lines, nonTaxable),
       basic: e.basic, da: e.da, hra: e.hra, pfEmployee: e.pfEmployee,
       professionalTax: e.professionalTax, tds: e.tds,
+      components: componentAmounts(e, e.lines, exemptKeys),
     })).sort((a, b) => a.period.localeCompare(b.period));
     const profile = profileByPerson.get(person.id);
     const chosen = profile?.regime && configByRegime.has(profile.regime) ? profile.regime : settings.defaultTaxRegime || 'NEW';
     const config = configByRegime.get(chosen) || configs[0];
     const usePoi = Boolean(profile?.poiConsidered);
     const loanPerquisite = perquisites.get(person.id) || 0;
+    const perquisiteValues = typed.get(person.id) || [];
+    const rent = usePoi ? profile?.rentApproved ?? 0 : profile?.annualRentPaid ?? 0;
+    const named = cleanLandlords(profile?.landlords);
     const working = yearEndTax({
       config, fyLabel: fy.label, months, settings,
       profile: profile ? effectiveTaxProfile(profile, profile.lines, items) : EMPTY_TAX_PROFILE,
-      perquisites: loanPerquisite,
+      perquisites: loanPerquisite + typedPerquisites(perquisiteValues),
       age: ageAtYearEnd(person.dateOfBirth, fyStart),
       hasValidPan: hasValidPan(person.panNumber),
     });
@@ -94,11 +108,15 @@ export async function annualTaxFor(organizationId: string, fyStart: number, pers
       employedTo: person.leavingDate && person.leavingDate < yearEnd ? person.leavingDate : yearEnd,
       months, working,
       form: form16PartB({ working, bySection, usePoi, allowsDeductions: config.allowsExemptions }),
-      landlord: {
-        rent: usePoi ? profile?.rentApproved ?? 0 : profile?.annualRentPaid ?? 0,
-        name: profile?.landlordName || '', pan: profile?.landlordPan || '',
+      landlord: { rent, name: profile?.landlordName || '', pan: profile?.landlordPan || '' },
+      // One landlord on record takes the whole of the year's rent
+      landlords: named.length > 1 ? named
+        : rent > 0 ? [{ name: profile?.landlordName || '', pan: profile?.landlordPan || '', address: named[0]?.address || '', rent }] : [],
+      lender: {
+        interest: usePoi ? profile?.housingInterestApproved ?? 0 : profile?.housingLoanInterest ?? 0,
+        name: profile?.lenderName || '', pan: profile?.lenderPan || '',
       },
-      loanPerquisite, usePoi,
+      loanPerquisite, perquisiteValues, usePoi,
     });
   }
   rows.sort((a, b) => a.person.name.localeCompare(b.person.name));

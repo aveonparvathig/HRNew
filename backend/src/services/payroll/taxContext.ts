@@ -9,6 +9,7 @@ import {
   ageAtYearEnd, computeTds, hasValidPan,
 } from './taxCalc';
 import { effectiveTaxProfile } from './declarationCalc';
+import { PerquisiteLike, typedPerquisites } from './perquisiteCalc';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -24,6 +25,7 @@ export interface TaxContext {
   people: Map<string, { dateOfBirth: string | null; leavingDate: string | null; panNumber: string }>;
   perquisites: Map<string, number>;
   nonTaxable: Set<string>;              // catalogue components that are not taxable income
+  exemptKeys: string[];                 // pay components that carry an exemption rule
   workings: Map<string, any>;           // filled in as entries are computed
 }
 
@@ -66,6 +68,40 @@ export function taxableGrossOf(entry: { grossSalary: number }, lines: any[], non
   return r2(entry.grossSalary - exempt);
 }
 
+// The pay components that carry an exemption rule.
+export const exemptKeysOf = (items: { group: string; componentKey?: string | null; isActive?: boolean }[]) =>
+  [...new Set(items.filter(i => i.group === 'EXEMPTION' && i.componentKey && i.isActive !== false).map(i => String(i.componentKey)))];
+
+// What a payslip paid on each of those components.
+export function componentAmounts(entry: any, lines: any[], keys: string[]): Record<string, number> | undefined {
+  if (!keys?.length) return undefined;
+  const out: Record<string, number> = {};
+  for (const key of keys) {
+    out[key] = key.startsWith('c:')
+      ? r2((lines || []).filter(l => l.type !== 'DEDUCTION' && `c:${l.componentId}` === key).reduce((s, l) => s + Number(l.amount || 0), 0))
+      : Number(entry?.[key] || 0);
+  }
+  return out;
+}
+
+// Perquisites typed for the year (Form 12BA lines other than loans), by employee.
+export async function typedPerquisiteValues(organizationId: string, fyStart: number, personId?: string) {
+  const rows = await prisma.perquisiteValue.findMany({ where: { organizationId, fyStart, ...(personId ? { personId } : {}) } });
+  const byPerson = new Map<string, PerquisiteLike[]>();
+  for (const row of rows) byPerson.set(row.personId, [...(byPerson.get(row.personId) || []), row]);
+  return byPerson;
+}
+
+// Loan perquisites and the typed ones together: what is added to salary for tax.
+export function allPerquisites(loans: Map<string, number>, typed: Map<string, PerquisiteLike[]>) {
+  const total = new Map(loans);
+  for (const [personId, values] of typed) {
+    const value = typedPerquisites(values);
+    if (value > 0) total.set(personId, r2((total.get(personId) || 0) + value));
+  }
+  return total;
+}
+
 // Taxable value for the year of loans charged below the benchmark rate.
 export async function loanPerquisites(organizationId: string, settings: any, fyStart: number, period: string) {
   const result = new Map<string, number>();
@@ -102,7 +138,7 @@ export async function loadTaxContext(organizationId: string, period: string, set
   const fy = financialYearOf(period);
   const periods = periodsOfFinancialYear(fy.startYear);
   const before = periods.filter(p => p < period);
-  const [configs, profiles, items, entries, people, components, perquisites] = await Promise.all([
+  const [configs, profiles, items, entries, people, components, loans, typed] = await Promise.all([
     taxConfigsFor(organizationId, fy.startYear),
     prisma.employeeTaxProfile.findMany({ where: { organizationId, fyStart: fy.startYear }, include: { lines: true } }),
     prisma.declarationItem.findMany({ where: { organizationId } }),
@@ -111,6 +147,7 @@ export async function loadTaxContext(organizationId: string, period: string, set
         where: { organizationId, run: { period: { in: before } } },
         select: {
           personId: true, grossSalary: true, basic: true, da: true, hra: true,
+          transportAllowance: true, foodAllowance: true, internetAllowance: true,
           pfEmployee: true, professionalTax: true, tds: true,
           run: { select: { period: true } },
           lines: { select: { type: true, amount: true, componentId: true } },
@@ -123,9 +160,11 @@ export async function loadTaxContext(organizationId: string, period: string, set
     }),
     prisma.payComponent.findMany({ where: { organizationId, taxable: false, type: 'EARNING' }, select: { id: true } }),
     loanPerquisites(organizationId, settings, fy.startYear, period),
+    typedPerquisiteValues(organizationId, fy.startYear),
   ]);
 
   const nonTaxable = new Set(components.map(c => c.id));
+  const exemptKeys = exemptKeysOf(items);
   const earlier = new Map<string, MonthFigures[]>();
   for (const e of entries) {
     const list = earlier.get(e.personId) || [];
@@ -133,6 +172,7 @@ export async function loadTaxContext(organizationId: string, period: string, set
       period: e.run.period, taxableGross: taxableGrossOf(e, e.lines, nonTaxable),
       basic: e.basic, da: e.da, hra: e.hra, pfEmployee: e.pfEmployee,
       professionalTax: e.professionalTax, tds: e.tds,
+      components: componentAmounts(e, e.lines, exemptKeys),
     });
     earlier.set(e.personId, list);
   }
@@ -145,8 +185,9 @@ export async function loadTaxContext(organizationId: string, period: string, set
     profiles: new Map(profiles.map(p => [p.personId, { ...effectiveTaxProfile(p, p.lines, items), regime: p.regime }])),
     earlier,
     people: new Map(people.map(p => [p.id, p])),
-    perquisites,
+    perquisites: allPerquisites(loans, typed),
     nonTaxable,
+    exemptKeys,
     workings: new Map(),
   };
 }
@@ -180,6 +221,7 @@ export function tdsForEntry(
       period: tax.period, taxableGross: taxableGrossOf(computed, lines, tax.nonTaxable),
       basic: computed.basic, da: computed.da, hra: computed.hra, pfEmployee: computed.pfEmployee,
       professionalTax, tds: 0, oneTime: Math.min(oneTime, computed.grossSalary),
+      components: componentAmounts({ ...inputs, ...computed }, lines, tax.exemptKeys),
     },
     projection: {
       settings, monthlyPackage: inputs.monthlyPackage,

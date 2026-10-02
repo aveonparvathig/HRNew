@@ -45,6 +45,29 @@ export function depositDueDate(period: string): string {
   return m === 12 ? `${y + 1}-01-07` : `${y}-${pad(m + 1)}-07`;
 }
 
+// The return filed before a quarter's: the quarter before, or the last
+// quarter of the year before.
+export const previousQuarter = (fyStart: number, quarter: number) =>
+  (quarter > 1 ? { fyStart, quarter: quarter - 1 } : { fyStart: fyStart - 1, quarter: 4 });
+
+// The receipt (token) number the tax department gives a filed return
+export const RECEIPT_FORMAT = /^\d{1,15}$/;
+
+// An address as the return takes it, field by field, for the employer
+// ("deductor") or the person responsible. Until the fields are filled, the
+// single-line address kept before stands in.
+export const ADDRESS_PARTS = ['Flat', 'Building', 'Street', 'Area', 'City', 'State', 'Pin'] as const;
+export function returnAddress(profile: any, who: 'deductor' | 'responsible', fallback: string) {
+  const part = (name: string) => String(profile?.[`${who}${name}`] || '').trim();
+  const [flat, building, street, area, city, state, pin] = ADDRESS_PARTS.map(part);
+  const filled = Boolean(flat || building || street || area || city || state || pin);
+  return {
+    flat, building, street, area, city, state, pin, filled,
+    changed: Boolean(profile?.[`${who}AddressChanged`]),
+    line: filled ? [flat, building, street, area, city, state, pin].filter(Boolean).join(', ') : String(fallback || '').trim(),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Challans
 // ---------------------------------------------------------------------------
@@ -100,6 +123,7 @@ export interface QuarterIssue {
 
 export interface QuarterCheckInput {
   deductor: { tanNumber?: string; panNumber?: string; responsibleName?: string; responsiblePan?: string };
+  addressFilled?: boolean; // the employer's address is entered field by field
   months: { period: string; label: string; status: string | null; deducted: number; deposited: number }[]; // status null = no run
   challans: (ChallanLike & { period: string; bsrCode: string; challanSerial: string; depositedOn: string; allocated: number })[];
   noPan: string[]; // employees with tax deducted and no valid PAN
@@ -117,6 +141,9 @@ export function quarterIssues(inp: QuarterCheckInput): QuarterIssue[] {
   }
   if (!String(inp.deductor.responsibleName || '').trim()) {
     warn('The person responsible for deducting tax is not set in Payroll Settings → Statutory profile.');
+  }
+  if (inp.addressFilled === false) {
+    warn('The employer’s address is not entered field by field (door no., street, town, state, PIN code), as the return asks for it. Add it in Company Settings → Signatories.');
   }
   for (const m of inp.months) {
     if (m.status === 'DRAFT') error(`${m.label} is still a draft run. Finalize it before filing.`);
@@ -209,19 +236,22 @@ export function form16PartB(inp: Form16Input) {
   const grossCurrent = r2(salary171 + perquisites);
   const otherEmployers = r2(w.income.previousEmployer || 0);
   const hra = r2(w.exemptions.hra || 0);
-  const fromCurrent = r2(grossCurrent - hra);
+  const allowances: { name: string; amount: number }[] = w.exemptions.allowances || [];
+  const exemptTotal = r2(hra + allowances.reduce((s, a) => s + a.amount, 0));
+  const fromCurrent = r2(grossCurrent - exemptTotal);
   const standard = r2(w.deductions.standard || 0);
   const professionalTax = r2(w.deductions.professionalTax || 0);
   const section16 = r2(standard + professionalTax);
   const chargeable = r2(w.incomeFromSalary);
-  const houseProperty = r2(-(w.housingLoanInterest || 0));
+  // A working kept before let-out property was known has only the interest
+  const houseProperty = r2(w.houseProperty ?? -(w.housingLoanInterest || 0));
   const otherSources = r2(w.otherIncome || 0);
   const rows = chapter6Rows(inp.bySection, inp.usePoi, w.chapter6.pf, w.chapter6.section80C, inp.allowsDeductions);
   const taxPayable = r2(w.tax.taxOnIncome - w.tax.rebate + w.tax.surcharge + w.tax.cess);
   return {
     newRegime: w.regime === 'NEW',
     gross: { salary171, perquisites, profitsInLieu: 0, total: grossCurrent, otherEmployers },
-    exempt: { hra, total: hra },
+    exempt: { hra, allowances, total: exemptTotal },
     fromCurrent,
     section16: { standard, entertainment: 0, professionalTax, total: section16 },
     chargeable,
@@ -235,7 +265,10 @@ export function form16PartB(inp: Form16Input) {
       // With no valid PAN the higher rate applies, so the total can exceed the lines above
       net: r2(w.tax.total), higherRateForPan: Boolean(w.tax.higherRateForPan),
     },
-    deducted: { current: r2(w.paid.payroll), otherEmployers: r2(w.paid.previousEmployer), total: r2(w.paid.total) },
+    deducted: {
+      current: r2(w.paid.payroll), otherEmployers: r2(w.paid.previousEmployer),
+      elsewhere: r2(w.paid.elsewhere || 0), total: r2(w.paid.total),
+    },
     balance: r2(w.balance),
   };
 }

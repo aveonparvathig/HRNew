@@ -148,7 +148,7 @@ describe('year-end tax', () => {
     const profile = { ...EMPTY_TAX_PROFILE, prevEmployerIncome: 600000, prevEmployerTds: 20000 };
     const end = yearEndTax({ ...base, config: NEW, months: year(150000, 5000, 6), profile });
     expect(end.grossSalary).toBe(900000 + 600000);
-    expect(end.paid).toEqual({ payroll: 30000, previousEmployer: 20000, total: 50000 });
+    expect(end.paid).toEqual({ payroll: 30000, previousEmployer: 20000, elsewhere: 0, total: 50000 });
   });
 
   it('is empty-safe', () => {
@@ -218,7 +218,7 @@ describe('Form 16 Part B', () => {
     expect(d + g).toBe(f.chapter6.total);
     expect(f.tax.payable).toBe(f.tax.onIncome - f.tax.rebate + f.tax.surcharge + f.tax.cess);
     expect(Math.round(f.tax.payable)).toBe(f.tax.net);
-    expect(f.deducted).toEqual({ current: 36000, otherEmployers: 0, total: 36000 });
+    expect(f.deducted).toEqual({ current: 36000, otherEmployers: 0, elsewhere: 0, total: 36000 });
     expect(f.balance).toBe(f.tax.net - 36000);
   });
 

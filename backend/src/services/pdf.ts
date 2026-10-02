@@ -124,6 +124,27 @@ export async function protectPdf(pdf: Buffer, password: string): Promise<Buffer>
   }
 }
 
+// Several PDF files as one, in the order given.
+export async function mergePdfs(files: Buffer[]): Promise<Buffer> {
+  if (files.length === 1) return files[0];
+  const qpdf = qpdfPath();
+  if (!qpdf) throw new AppError(503, 'PDF files cannot be joined on this server.');
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdf-'));
+  try {
+    const inputs: string[] = [];
+    for (const [i, file] of files.entries()) {
+      const name = path.join(dir, `in${i}.pdf`);
+      await fs.writeFile(name, file);
+      inputs.push(name);
+    }
+    const output = path.join(dir, 'out.pdf');
+    await run(qpdf, ['--empty', '--pages', ...inputs, '--', output]);
+    return await fs.readFile(output);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+}
+
 // Several documents as one: each starts on a new page.
 export const joinHtml = (documents: string[]) =>
   documents.map((html, i) => `<div style="${i ? 'page-break-before:always;break-before:page;' : ''}">${html}</div>`).join('');
