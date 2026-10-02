@@ -65,7 +65,7 @@ export default function StatutoryPoliciesTab() {
       slabs: policy.slabs.map((s: any) => ({ incomeFrom: s.incomeFrom, incomeTo: s.incomeTo ?? '', amount: s.amount })),
     }
     : {
-      state: defaultState(), effectiveFrom: thisMonth(), frequency: 'HALF_YEARLY',
+      state: defaultState(), locality: '', effectiveFrom: thisMonth(), frequency: 'HALF_YEARLY',
       deductionMode: 'SPREAD', deductionMonths: '', slabs: [{ ...EMPTY_SLAB, incomeFrom: 0 }],
     });
 
@@ -118,7 +118,8 @@ export default function StatutoryPoliciesTab() {
         <span>
           Rates differ by state and local body and are revised from time to time. Enter the amounts from your
           current notification. A policy applies to employees whose work location is in its state, from the
-          month it starts; runs already finalized do not change.
+          month it starts; where a policy names a town, it replaces the state's for work locations in that town.
+          Runs already finalized do not change.
         </span>
       </div>
 
@@ -126,7 +127,10 @@ export default function StatutoryPoliciesTab() {
         <div className="card-header">
           <div>
             <h3>Professional Tax</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>Slabs by state. Half-yearly states use the income of April–September and October–March.</span>
+            <span className="text-muted" style={{ fontSize: 12.5 }}>
+              Slabs by state, or by town where the local body sets them. Half-yearly states use the income of April–September and October–March.
+              {data.excludedLocations?.length > 0 && ` No Professional Tax at: ${data.excludedLocations.join(', ')}.`}
+            </span>
           </div>
           <button className="btn btn-primary" onClick={() => openPt()}>+ Add Policy</button>
         </div>
@@ -136,11 +140,18 @@ export default function StatutoryPoliciesTab() {
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>State</th><th>From</th><th>Basis</th><th>Deducted</th><th>Slabs</th><th /></tr></thead>
+              <thead><tr><th>Applies to</th><th>From</th><th>Basis</th><th>Deducted</th><th>Slabs</th><th /></tr></thead>
               <tbody>
                 {data.ptPolicies.map((p: any) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{p.state}</td>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{p.locality ? `${p.locality}, ${p.state}` : p.state}</span>
+                      <div className="text-muted" style={{ fontSize: 11.5 }}>
+                        {!p.locality ? 'Whole state, except towns with their own policy'
+                          : p.locations.length ? `Work locations: ${p.locations.join(', ')}`
+                          : <span className="text-warning">No work location is in this town, so it is not used</span>}
+                      </div>
+                    </td>
                     <td>{monthLabel(p.effectiveFrom)}</td>
                     <td>{p.frequency === 'MONTHLY' ? 'Monthly income' : 'Half-yearly income'}</td>
                     <td>
@@ -158,7 +169,7 @@ export default function StatutoryPoliciesTab() {
                       <div className="row-actions">
                         <button className="btn btn-secondary btn-sm" onClick={() => openPt(p)}>Edit</button>
                         <button className="btn btn-danger btn-sm"
-                          onClick={() => remove(`${p.state} Professional Tax policy`, () => payrollAPI.deletePtPolicy(p.id))}>Delete</button>
+                          onClick={() => remove(`${p.locality ? `${p.locality}, ` : ''}${p.state} Professional Tax policy`, () => payrollAPI.deletePtPolicy(p.id))}>Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -217,7 +228,22 @@ export default function StatutoryPoliciesTab() {
               () => setPt(null), 'Failed to save the policy');
           }}>
             <div className="form-grid" style={{ marginBottom: 14 }}>
-              <div className="field"><label>State *</label>{stateSelect(pt.state, v => setPt({ ...pt, state: v }))}</div>
+              <div className="field"><label>State *</label>{stateSelect(pt.state, v => setPt({ ...pt, state: v, locality: '' }))}</div>
+              <div className="field">
+                <label>Town</label>
+                <select className="select" value={pt.locality || ''} onChange={e => setPt({ ...pt, locality: e.target.value })}>
+                  <option value="">Whole state</option>
+                  {/* A town already on the policy stays selectable even if no location is there now */}
+                  {[...new Set([...(data.towns[pt.state] || []), ...(pt.locality ? [pt.locality] : [])])].map((t: string) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                <span className="hint">
+                  {(data.towns[pt.state] || []).length
+                    ? 'Pick a town when its local body sets its own slabs. Towns come from the city of your work locations.'
+                    : 'To set slabs for one town, give a work location in this state a city first.'}
+                </span>
+              </div>
               <div className="field">
                 <label>Applies from *</label>
                 <input className="input" type="month" required value={pt.effectiveFrom}

@@ -7,7 +7,7 @@ import { orgBrand, signatureImg } from '../services/orgBrand';
 import { logPayrollAudit, actorName } from '../services/payroll/audit';
 import { financialYearFor, financialYearOf, periodsOfFinancialYear } from '../services/payroll/financialYear';
 import { currentPeriodIST, salaryStructure } from '../services/payroll/salaryStructure';
-import { loadStatutoryContext } from '../services/payroll/entryCompute';
+import { loadStatutoryContext, LOCATION_FOR_PAYROLL } from '../services/payroll/entryCompute';
 import { regenerateSchedule, assertPeriodOpen, todayIST } from '../services/payroll/loanLedger';
 import { outstandingPrincipal } from '../services/payroll/loanCalc';
 import { writeManagedLines } from '../services/payroll/payComponents';
@@ -197,7 +197,7 @@ async function applySettlement(req: any, settlementId: string) {
   if (!entry) {
     const emp = await prisma.person.findFirst({
       where: { id: s.personId, organizationId }, omit: { photoData: true },
-      include: { salaryRevisions: true, workLocation: { select: { state: true } } },
+      include: { salaryRevisions: true, workLocation: { select: LOCATION_FOR_PAYROLL } },
     });
     const twd = (await prisma.payslipEntry.findFirst({ where: { runId: run.id }, select: { totalWorkingDays: true } }))?.totalWorkingDays || 30;
     const ctx = await loadStatutoryContext(organizationId, run.period);

@@ -118,6 +118,28 @@ export function policyInForce<T extends { state: string; effectiveFrom: string }
     .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
 }
 
+// Towns are matched without regard to case or stray spaces.
+export const townKey = (value: any) => String(value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+// The Professional Tax policy for a place and month. In some states the
+// tax is set by each local body, so a policy written for the town of the
+// work location is used when one is in force; otherwise the state's own.
+export function ptPolicyInForce<T extends { state: string; locality?: string | null; effectiveFrom: string }>(
+  policies: T[], state: string, town: string | null | undefined, period: string,
+): T | undefined {
+  const latest = (list: T[]) => list
+    .filter(p => p.effectiveFrom <= period)
+    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+  const ofState = policies.filter(p => p.state === state);
+  const key = townKey(town);
+  return (key ? latest(ofState.filter(p => townKey(p.locality) === key)) : undefined)
+    || latest(ofState.filter(p => !townKey(p.locality)));
+}
+
+// What a policy covers, for headings: "Coimbatore, Tamil Nadu" or "Tamil Nadu".
+export const ptAreaLabel = (policy: { state: string; locality?: string | null }) =>
+  (townKey(policy.locality) ? `${String(policy.locality).trim()}, ${policy.state}` : policy.state);
+
 // ---------------------------------------------------------------------------
 // ESI coverage
 // ---------------------------------------------------------------------------

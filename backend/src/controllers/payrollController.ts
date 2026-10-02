@@ -4,7 +4,7 @@ import { AppError } from '../middleware/errorHandler';
 import { renderPayslipHtml } from '../services/payrollCalc';
 import { usedColumns, columnValue } from '../services/payroll/lines';
 import {
-  loadStatutoryContext, computeFullEntry, esiFlagFor, coveredEarlier,
+  loadStatutoryContext, computeFullEntry, esiFlagFor, coveredEarlier, locationOptions, LOCATION_FOR_PAYROLL,
 } from '../services/payroll/entryCompute';
 import { saveTaxWorkings } from '../services/payroll/taxContext';
 import { packageForPeriod } from '../services/payroll/salaryStructure';
@@ -59,7 +59,7 @@ async function fetchOrgRun(runId: string, organizationId: string, includeEntries
       ? { entries: { include: {
         person: { select: {
           id: true, name: true, employeeNo: true, designation: true, department: true,
-          workLocation: { select: { state: true } },
+          workLocation: { select: LOCATION_FOR_PAYROLL },
         } },
         lines: true,
       } } }
@@ -107,7 +107,7 @@ async function activeEmployees(organizationId: string) {
       salaryStopped: false,
     },
     omit: { photoData: true },
-    include: { salaryRevisions: true, workLocation: { select: { state: true } } },
+    include: { salaryRevisions: true, workLocation: { select: LOCATION_FOR_PAYROLL } },
   });
 }
 
@@ -115,7 +115,7 @@ async function activeEmployees(organizationId: string) {
 // manually entered Professional Tax.
 const statutoryOptions = (entry: any) => ({
   personId: entry.personId,
-  state: entry.person?.workLocation?.state,
+  ...locationOptions(entry.person?.workLocation),
   ptOverride: entry.ptOverridden ? entry.professionalTax : null,
   tdsOverride: entry.tdsOverridden ? entry.tds : null,
 });
@@ -134,7 +134,7 @@ export function newEntryData(ctx: any, organizationId: string, runId: string, em
     totalWorkingDays,
     isEsiEligible: inputs.isEsiEligible,
     isPfApplicable: emp.isPfApplicable,
-    ...computeFullEntry(ctx, inputs, [], { personId: emp.id, state: emp.workLocation?.state }),
+    ...computeFullEntry(ctx, inputs, [], { personId: emp.id, ...locationOptions(emp.workLocation) }),
   };
 }
 
@@ -448,7 +448,7 @@ export const payrollController = {
       where: { id: req.params.entryId, organizationId: orgId },
       include: {
         run: true, lines: true,
-        person: { select: { workLocation: { select: { state: true } } } },
+        person: { select: { workLocation: { select: LOCATION_FOR_PAYROLL } } },
       },
     });
     if (!entry) throw new AppError(404, 'Payslip entry not found');
@@ -495,7 +495,7 @@ export const payrollController = {
       }
     }
     const computed = computeFullEntry(ctx, merged, lines, {
-      personId: entry.personId, state: entry.person.workLocation?.state, ptOverride, tdsOverride,
+      personId: entry.personId, ...locationOptions(entry.person.workLocation), ptOverride, tdsOverride,
     });
     if (b.lines !== undefined) {
       await prisma.$transaction([
@@ -837,7 +837,7 @@ export const payrollController = {
     const run = await prisma.payrollRun.findFirst({
       where: { id: req.params.runId, organizationId: orgId },
       include: { entries: { include: {
-        person: { select: { name: true, employeeNo: true, workLocation: { select: { state: true } } } },
+        person: { select: { name: true, employeeNo: true, workLocation: { select: LOCATION_FOR_PAYROLL } } },
         lines: true,
       } } },
     });

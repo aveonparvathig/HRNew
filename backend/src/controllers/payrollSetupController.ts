@@ -43,7 +43,7 @@ async function profileFor(organizationId: string) {
 }
 
 const locationJSON = (l: any) => ({
-  id: l.id, name: l.name, city: l.city, state: l.state, isActive: l.isActive,
+  id: l.id, name: l.name, city: l.city, state: l.state, isActive: l.isActive, excludeFromPt: l.excludeFromPt,
   employeeCount: l._count?.people ?? 0,
 });
 
@@ -58,7 +58,7 @@ function locationInput(b: any) {
   if (!name) throw new AppError(400, 'Location name is required');
   const state = str(b.state);
   if (!INDIAN_STATES.includes(state)) throw new AppError(400, 'Pick a state from the list');
-  return { name, city: str(b.city), state };
+  return { name, city: str(b.city).replace(/\s+/g, ' '), state, excludeFromPt: Boolean(b.excludeFromPt) };
 }
 
 async function assertUniqueLocationName(organizationId: string, name: string, excludeId?: string) {
@@ -168,7 +168,7 @@ export const payrollSetupController = {
       },
       include: { _count: { select: { people: true } } },
     });
-    await logPayrollAudit(req, diffFields(before, location, ['name', 'city', 'state', 'isActive'])
+    await logPayrollAudit(req, diffFields(before, location, ['name', 'city', 'state', 'isActive', 'excludeFromPt'])
       .map(c => ({
         action: 'LOCATION_UPDATED' as const,
         field: `${before.name} · ${c.field}`, oldValue: c.oldValue, newValue: c.newValue,

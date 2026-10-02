@@ -3,7 +3,7 @@
 // draft runs from the affected month onward are recomputed. Finalized
 // runs are never touched.
 import { prisma } from '../../config/database';
-import { loadStatutoryContext, computeFullEntry } from './entryCompute';
+import { loadStatutoryContext, computeFullEntry, locationOptions, LOCATION_FOR_PAYROLL } from './entryCompute';
 import { packageForPeriod } from './salaryStructure';
 import { logPayrollAudit } from './audit';
 import { saveTaxWorkings } from './taxContext';
@@ -14,7 +14,7 @@ export async function syncDraftEntries(req: any, personId: string, fromPeriod: s
     where: { id: personId, organizationId },
     select: {
       name: true, currentMonthlyPackage: true, salaryRevisions: true,
-      workLocation: { select: { state: true } },
+      workLocation: { select: LOCATION_FOR_PAYROLL },
     },
   });
   if (!person) return 0;
@@ -29,7 +29,7 @@ export async function syncDraftEntries(req: any, personId: string, fromPeriod: s
     const monthlyPackage = packageForPeriod(person.currentMonthlyPackage, person.salaryRevisions, entry.run.period);
     const ctx = await loadStatutoryContext(organizationId, entry.run.period);
     const computed = computeFullEntry(ctx, { ...entry, monthlyPackage }, entry.lines, {
-      personId, state: person.workLocation?.state,
+      personId, ...locationOptions(person.workLocation),
       ptOverride: entry.ptOverridden ? entry.professionalTax : null,
       tdsOverride: entry.tdsOverridden ? entry.tds : null,
     });
