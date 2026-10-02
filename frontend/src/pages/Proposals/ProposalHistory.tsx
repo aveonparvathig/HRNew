@@ -4,6 +4,7 @@ import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, EmptyState, LoadingBlock, ErrorAlert } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 import { useRole } from '../../store/authStore';
+import { confirmDialog } from '../../components/feedback';
 
 export default function ProposalHistory() {
   const { isSA } = useRole();
@@ -27,7 +28,7 @@ export default function ProposalHistory() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleDelete = async (record: any) => {
-    if (!window.confirm(`Delete ${record.clientName} Rev ${record.revision}? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete ${record.clientName} Rev ${record.revision}? This cannot be undone.`)) return;
     try {
       await proposalsAPI.deleteRecord(record.id);
       fetchData();

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
-  PageHeader, StatCard, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton,
+  PageHeader, StatCard, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton, SuccessAlert,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 
@@ -119,12 +119,7 @@ function ArrearsTab() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="stat-grid">
         <StatCard label="To be paid" value={formatINR(data.totals.open.amount)} icon="₹" tone="warning"

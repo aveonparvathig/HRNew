@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
-import { LoadingBlock, ErrorAlert } from '../../components/ui';
+import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 
 const ACCOUNT: [string, string, string][] = [
   ['payoutBankName', 'Bank', 'e.g. HDFC Bank'],
@@ -55,7 +55,7 @@ export default function PayoutSettingsTab() {
   return (
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <form onSubmit={e => { e.preventDefault(); save('settings', () => payrollAPI.updatePayoutSettings(form), 'Payout settings saved.'); }}>
         <div className="card card-pad mb-24">

@@ -3,8 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { useRole } from '../../store/authStore';
 import { formatDate } from '../../utils/format';
-import { PageHeader, ErrorAlert, LoadingBlock, BackButton,
-} from '../../components/ui';
+import { PageHeader, ErrorAlert, LoadingBlock, BackButton, SuccessAlert } from '../../components/ui';
+import { confirmDialog } from '../../components/feedback';
 
 const EMPTY = {
   stage: 'ONBOARDING',
@@ -218,7 +218,7 @@ export default function ClientOnboarding() {
   };
 
   const handleDeleteFeature = async (feature: any) => {
-    if (!window.confirm(`Remove "${feature.name}" from tracking?`)) return;
+    if (!await confirmDialog(`Remove "${feature.name}" from tracking?`)) return;
     try {
       await incomeAPI.deleteFeature(feature.id);
       refreshFeatures();
@@ -257,7 +257,7 @@ export default function ClientOnboarding() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <form onSubmit={handleSave}>
         <div className="card card-pad mb-24">

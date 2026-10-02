@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { expensesAPI } from '../../api/expenses';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton, SuccessAlert,
 } from '../../components/ui';
 import { preprocessImage, ocrImage, parseReceipt } from '../../utils/ocr';
 import { formatINR, formatDate } from '../../utils/format';
 import { EXPENSE_STATUS_TONES } from './ExpensesList';
+import { confirmDialog } from '../../components/feedback';
 
 const EMPTY_LINE = {
   date: '', category: 'TRAVEL', description: '', merchant: '', amount: '',
@@ -134,7 +135,7 @@ export default function ExpenseReportEditor() {
   };
 
   const handleDeleteLine = async (line: any) => {
-    if (!window.confirm(`Remove this ${formatINR(line.amount)} line?`)) return;
+    if (!await confirmDialog(`Remove this ${formatINR(line.amount)} line?`)) return;
     try {
       await expensesAPI.deleteLine(line.id);
       fetchData();
@@ -163,7 +164,7 @@ export default function ExpenseReportEditor() {
 
   const doAction = async (action: string) => {
     const cfg = ACTION_LABELS[action];
-    if (cfg.confirm && !window.confirm(cfg.confirm)) return;
+    if (cfg.confirm && !await confirmDialog(cfg.confirm)) return;
     try {
       const res = await expensesAPI.changeStatus(report.id, action);
       setSuccess(res.data.message);
@@ -175,7 +176,7 @@ export default function ExpenseReportEditor() {
   };
 
   const handleDeleteReport = async () => {
-    if (!window.confirm(`Delete ${report.reportNumber}?`)) return;
+    if (!await confirmDialog(`Delete ${report.reportNumber}?`)) return;
     try {
       await expensesAPI.deleteReport(report.id);
       navigate('/expenses');
@@ -220,12 +221,7 @@ export default function ExpenseReportEditor() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="stat-grid">
         <StatCard label="Total Claimed" value={formatINR(report.total)} icon="₹" tone="primary" />

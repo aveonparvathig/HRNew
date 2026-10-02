@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { incomeAPI } from '../../api/income';
-import { PageHeader, ErrorAlert } from '../../components/ui';
+import { PageHeader, ErrorAlert, SuccessAlert } from '../../components/ui';
+import { confirmDialog } from '../../components/feedback';
 
 export default function ImportExport() {
   const [error, setError] = useState('');
@@ -59,7 +60,7 @@ export default function ImportExport() {
       setError('Choose a file first');
       return;
     }
-    if (!dryRun && !window.confirm('Import this file into the billing sheet now? Existing client + year rows are skipped, never overwritten.')) {
+    if (!dryRun && !await confirmDialog('Import this file into the billing sheet now? Existing client + year rows are skipped, never overwritten.')) {
       return;
     }
     setBusy(true);
@@ -90,7 +91,7 @@ export default function ImportExport() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <div className="grid-2 mb-24">
         <div className="card card-pad">

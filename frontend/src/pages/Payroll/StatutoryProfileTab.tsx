@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { payrollAPI } from '../../api/payroll';
-import { LoadingBlock, ErrorAlert } from '../../components/ui';
+import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 
 type Field = { key: string; label: string; placeholder?: string; upper?: boolean; type?: string; wide?: boolean };
 
@@ -96,7 +96,7 @@ export default function StatutoryProfileTab() {
   return (
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && <div className="alert alert-success"><span>✓</span>{success}</div>}
+      <SuccessAlert message={success} />
 
       <form onSubmit={handleSave}>
         {GROUPS.map((g, i) => (

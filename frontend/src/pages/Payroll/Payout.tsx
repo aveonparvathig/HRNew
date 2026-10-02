@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton, SuccessAlert,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -133,12 +134,7 @@ export default function Payout() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
       {!finalized && (
         <div className="alert alert-warning">
           <span>◷</span>
@@ -211,7 +207,7 @@ export default function Payout() {
                           <button className="btn btn-primary btn-sm" onClick={() => openPaid(b)}>Mark Paid</button>
                         )}
                         <button className="btn btn-danger btn-sm" disabled={saving}
-                          onClick={() => window.confirm(b.status === 'PAID'
+                          onClick={async () => await confirmDialog(b.status === 'PAID'
                             ? `Delete batch #${b.batchNo}? Its ${b.count} salaries will show as unpaid again.`
                             : `Delete batch #${b.batchNo}?`)
                             && act(() => payrollAPI.deletePayoutBatch(b.id))}>

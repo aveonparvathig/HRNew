@@ -4,6 +4,7 @@ import { useAuthStore } from './store/authStore';
 import AppLayout from './components/Layout/AppLayout';
 import Login from './pages/Auth/Login';
 import { LoadingBlock } from './components/ui';
+import { FeedbackHost } from './components/feedback';
 
 // Route-level code splitting: each page loads as its own chunk on first visit.
 const Register = lazy(() => import('./pages/Auth/Register'));
@@ -79,6 +80,7 @@ function App() {
 
   return (
     <Router>
+      <FeedbackHost />
       <Suspense fallback={<LoadingBlock label="Loading…" />}>
         <Routes>
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />

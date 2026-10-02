@@ -8,6 +8,7 @@ import PersonFormModal from '../../components/PersonFormModal';
 import apiClient from '../../api/client';
 import { formatDate, formatINR } from '../../utils/format';
 import { useRole } from '../../store/authStore';
+import { confirmDialog } from '../../components/feedback';
 
 // Ambient person state: dot + text, no pill (design system "status language")
 const EMP_STATUS_INLINE: Record<string, string> = {
@@ -69,7 +70,7 @@ export default function PeopleList() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleDelete = async (person: any) => {
-    if (!window.confirm(`Delete ${person.name} and their interview records?`)) return;
+    if (!await confirmDialog(`Delete ${person.name} and their interview records?`)) return;
     try {
       await peopleAPI.deletePerson(person.id);
       fetchData();

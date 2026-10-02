@@ -4,6 +4,7 @@ import { peopleAPI } from '../../api/people';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
 import { formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 export default function LetterView() {
   const { docId } = useParams<{ docId: string }>();
@@ -20,7 +21,7 @@ export default function LetterView() {
   }, [docId]);
 
   const handleDelete = async () => {
-    if (!window.confirm('Remove this letter from the record? This cannot be undone.')) return;
+    if (!await confirmDialog('Remove this letter from the record? This cannot be undone.')) return;
     try {
       await peopleAPI.deleteDocument(doc.id);
       navigate(`/people/${doc.person.id}`);

@@ -2,10 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { recruitmentAPI } from '../../api/recruitment';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, Modal, StatusBadge, BackButton,
 } from '../../components/ui';
 import PostingFormModal from '../../components/PostingFormModal';
 import { formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const TYPE_LABELS: Record<string, string> = {
   FULL_TIME: 'Full-time', PART_TIME: 'Part-time', CONTRACT: 'Contract', INTERNSHIP: 'Internship',
@@ -113,7 +114,7 @@ export default function PostingDetail() {
 
   const handleDeleteApp = async () => {
     if (!appModal.app) return;
-    if (!window.confirm(`Delete the application from ${appModal.app.applicantName}?`)) return;
+    if (!await confirmDialog(`Delete the application from ${appModal.app.applicantName}?`)) return;
     try {
       await recruitmentAPI.deleteApplication(appModal.app.id);
       setAppModal({ open: false, app: null });
@@ -124,7 +125,7 @@ export default function PostingDetail() {
   };
 
   const handleDeletePosting = async () => {
-    if (!window.confirm(`Delete "${posting.title}" and all ${posting.totalApps} application(s)? This cannot be undone.`)) return;
+    if (!await confirmDialog(`Delete "${posting.title}" and all ${posting.totalApps} application(s)? This cannot be undone.`)) return;
     try {
       await recruitmentAPI.deletePosting(posting.id);
       navigate('/recruitment');
@@ -168,14 +169,10 @@ export default function PostingDetail() {
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       {success && (
-        <div className="alert alert-success">
-          <span>✓</span>
-          <span style={{ flex: 1 }}>
-            {success.message}
-            {success.personId && <> <Link to={`/people/${success.personId}`}>Open their People record →</Link></>}
-          </span>
-          <button className="modal-close" onClick={() => setSuccess(null)}>✕</button>
-        </div>
+        <SuccessAlert onDismiss={() => setSuccess(null)}>
+          {success.message}
+          {success.personId && <> <Link to={`/people/${success.personId}`}>Open their People record →</Link></>}
+        </SuccessAlert>
       )}
 
       <div className="stat-grid">

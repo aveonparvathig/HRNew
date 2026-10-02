@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, EmptyState, Modal, StatusBadge } from '../../components/ui';
+import { confirmDialog } from '../../components/feedback';
 
 const EMPTY = { name: '', city: '', state: '', isActive: true };
 
@@ -47,7 +48,7 @@ export default function WorkLocationsTab() {
   };
 
   const handleDelete = async (location: any) => {
-    if (!window.confirm(`Delete the location "${location.name}"?`)) return;
+    if (!await confirmDialog(`Delete the location "${location.name}"?`)) return;
     try {
       await payrollAPI.deleteLocation(location.id);
       fetchData();

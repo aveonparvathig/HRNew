@@ -6,6 +6,7 @@ import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 import { formatINR, formatDate } from '../../utils/format';
 import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
+import { confirmDialog } from '../../components/feedback';
 
 export default function ProposalView() {
   const { recordId } = useParams<{ recordId: string }>();
@@ -53,7 +54,7 @@ export default function ProposalView() {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm(`Delete ${record.clientName} Rev ${record.revision}?`)) return;
+    if (!await confirmDialog(`Delete ${record.clientName} Rev ${record.revision}?`)) return;
     try {
       await proposalsAPI.deleteRecord(record.id);
       navigate('/proposals/history');

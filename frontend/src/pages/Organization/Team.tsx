@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { orgAPI } from '../../api/org';
 import {
-  PageHeader, LoadingBlock, ErrorAlert, Modal, StatusBadge,
+  PageHeader, LoadingBlock, ErrorAlert, Modal, StatusBadge, SuccessAlert,
 } from '../../components/ui';
 import { formatDate } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const EMPTY_MEMBER = { email: '', password: '', firstName: '', lastName: '', role: 'EMPLOYEE' };
 
@@ -97,7 +98,7 @@ export default function Team() {
         actions={isOwner && (
           <>
             <button className="btn btn-secondary" disabled={saving} onClick={async () => {
-              if (!window.confirm(`Generate logins for ${data?.employeesWithoutLogin ?? 'all'} employees without one? A credential sheet will download — share each password securely; everyone must change it at first sign-in.`)) return;
+              if (!await confirmDialog(`Generate logins for ${data?.employeesWithoutLogin ?? 'all'} employees without one? A credential sheet will download — share each password securely; everyone must change it at first sign-in.`)) return;
               setSaving(true);
               try {
                 const res = await orgAPI.generateLogins();
@@ -126,12 +127,7 @@ export default function Team() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="card">
         <div className="table-wrap">

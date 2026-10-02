@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { payrollAPI } from '../api/payroll';
 import { Modal, ErrorAlert } from './ui';
 import { formatINR } from '../utils/format';
+import { confirmDialog } from './feedback';
 
 const monthLabel = (date: string) => {
   const [y, m] = date.split('-').map(Number);
@@ -60,7 +61,7 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
   };
 
   const handleRemove = async (revision: any) => {
-    if (!window.confirm(`Remove the revision effective ${monthLabel(revision.effectiveFrom)}?`)) return;
+    if (!await confirmDialog(`Remove the revision effective ${monthLabel(revision.effectiveFrom)}?`)) return;
     try {
       const res = await payrollAPI.deleteRevision(person.id, revision.id);
       setNotice(res.data.draftEntriesUpdated

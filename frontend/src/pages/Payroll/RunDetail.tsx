@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton,
+  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Menu, Modal, StatusBadge, BackButton, SuccessAlert,
 } from '../../components/ui';
 import { formatINR } from '../../utils/format';
+import { confirmDialog } from '../../components/feedback';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -23,6 +24,16 @@ const GROUPED_CHECKS: Record<string, string> = {
   NO_PAN: 'with no valid PAN — tax is deducted at the higher rate without one',
   NOT_IN_RUN: 'active but not in this run — Recalculate adds them',
 };
+
+// Reports drawn up for one payroll month
+const RUN_REPORTS: [string, string][] = [
+  ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
+  ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
+  ['tds-statement', 'TDS'],
+  ['comparison', 'vs Previous Month'], ['reconciliation', 'Reconciliation'], ['headcount', 'Headcount'],
+  ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
+  ['payment-register', 'Payment Register'], ['journal-voucher', 'Journal Voucher'],
+];
 
 export default function RunDetail() {
   const { runId } = useParams<{ runId: string }>();
@@ -211,7 +222,7 @@ export default function RunDetail() {
   };
 
   const handleDeleteRun = async () => {
-    if (!window.confirm(`Delete the ${monthLabel(run.period)} draft run and all its entries?`)) return;
+    if (!await confirmDialog(`Delete the ${monthLabel(run.period)} draft run and all its entries?`)) return;
     try {
       await payrollAPI.deleteRun(run.id);
       navigate('/payroll');
@@ -287,7 +298,16 @@ export default function RunDetail() {
                 {run.releasedAt ? 'Released to employees' : 'Not released'}
               </span>
             )}
-            <button className="btn btn-secondary" onClick={handleExport}>⤓ Register</button>
+            <Menu label="Reports" wide>
+              <div className="menu-heading">Reports for {monthLabel(run.period)}</div>
+              {RUN_REPORTS.map(([kind, label]) => (
+                <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="menu-item" role="menuitem">{label}</Link>
+              ))}
+              <div className="menu-heading">Downloads</div>
+              <button className="menu-item" role="menuitem" onClick={handleExport}>⤓ Salary register (Excel)</button>
+              <button className="menu-item" role="menuitem" onClick={() => downloadFile('pf-ecr')}>⤓ PF ECR file</button>
+              <button className="menu-item" role="menuitem" onClick={() => downloadFile('esi-upload')}>⤓ ESI sheet</button>
+            </Menu>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
             </Link>
@@ -316,7 +336,7 @@ export default function RunDetail() {
                 <button className="btn btn-danger" onClick={handleDeleteRun}>Delete</button>
                 <button className="btn btn-primary" disabled={blocking.length > 0}
                   title={blocking.length ? 'Fix the items marked below first' : undefined}
-                  onClick={() => window.confirm('Finalize this run? Entries lock until reopened.')
+                  onClick={async () => await confirmDialog('Finalize this run? Entries lock until reopened.')
                     && act(async () => {
                       const res = await payrollAPI.finalizeRun(run.id);
                       return { data: { message: res.data.nextRun
@@ -328,7 +348,11 @@ export default function RunDetail() {
             ) : (
               <>
                 <button className="btn btn-secondary"
-                  onClick={() => act(() => payrollAPI.reopenRun(run.id), 'Run reopened for edits.')}>
+                  onClick={async () => await confirmDialog({
+                    title: `Reopen ${monthLabel(run.period)}?`,
+                    message: 'The run goes back to draft so its entries can be edited. Payslips are withdrawn from employees and loan instalments posted for the month are reversed until it is finalized again.',
+                    confirmLabel: 'Reopen',
+                  }) && act(() => payrollAPI.reopenRun(run.id), 'Run reopened for edits.')}>
                   ↺ Reopen
                 </button>
                 {run.releasedAt ? (
@@ -350,12 +374,7 @@ export default function RunDetail() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
-      {success && (
-        <div className="alert alert-success">
-          <span>✓</span><span style={{ flex: 1 }}>{success}</span>
-          <button className="modal-close" onClick={() => setSuccess('')}>✕</button>
-        </div>
-      )}
+      <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       {run.stage && (
         <div className="stage-steps" aria-label={`Stage: ${run.stage.label}`}>
@@ -391,11 +410,14 @@ export default function RunDetail() {
       )}
 
       {warnings.length > 0 && (
-        <div className="alert alert-warning" style={{ alignItems: 'flex-start' }}>
-          <span>⚠</span>
-          <div style={{ flex: 1 }}>
+        <details className="alert alert-warning alert-details" open={isDraft}>
+          <summary>
+            <span>⚠</span>
             <strong>{isDraft ? 'Check before finalizing' : 'Worth checking'}</strong>
-            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+            <span className="alert-count">{warnings.length} {warnings.length === 1 ? 'item' : 'items'}</span>
+          </summary>
+          <div>
+            <ul style={{ margin: '8px 0 0', paddingLeft: 30 }}>
               {warnings.filter((c: any) => !GROUPED_CHECKS[c.code]).map((c: any) => (
                 <li key={`${c.entryId}-${c.personName}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
               ))}
@@ -408,25 +430,8 @@ export default function RunDetail() {
               })}
             </ul>
           </div>
-        </div>
+        </details>
       )}
-
-      <div className="run-reports">
-        <span className="text-muted">Reports</span>
-        {[
-          ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
-          ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
-          ['tds-statement', 'TDS'],
-          ['comparison', 'vs Prev Month'], ['reconciliation', 'Reconciliation'], ['headcount', 'Headcount'],
-          ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
-          ['payment-register', 'Payment Register'], ['journal-voucher', 'Journal Voucher'],
-        ].map(([kind, label]) => (
-          <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="btn btn-secondary btn-sm">{label}</Link>
-        ))}
-        <span className="text-muted" style={{ marginLeft: 8 }}>Portal files</span>
-        <button className="btn btn-secondary btn-sm" onClick={() => downloadFile('pf-ecr')}>⤓ PF ECR</button>
-        <button className="btn btn-secondary btn-sm" onClick={() => downloadFile('esi-upload')}>⤓ ESI Sheet</button>
-      </div>
 
       <div className="stat-grid">
         <StatCard label="Gross Salary" value={formatINR(t.gross)} icon="▤" tone="primary"
@@ -757,7 +762,7 @@ export default function RunDetail() {
 
             <div className="form-actions" style={{ justifyContent: 'space-between' }}>
               <button type="button" className="btn btn-danger"
-                onClick={() => window.confirm(`Remove ${entryModal.person.name} from this run?`)
+                onClick={async () => await confirmDialog(`Remove ${entryModal.person.name} from this run?`)
                   && act(() => payrollAPI.removeEntry(entryModal.id)).then(() => setEntryModal(null))}>
                 Remove from Run
               </button>
