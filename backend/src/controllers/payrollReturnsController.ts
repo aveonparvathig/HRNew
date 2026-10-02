@@ -22,6 +22,7 @@ import { esc, amt, inr, monthLabel, reportShell } from '../services/payroll/repo
 import { htmlToPdf, mergePdfs } from '../services/pdf';
 import { filePart } from '../services/payroll/payslipFiles';
 import { sendFile } from '../services/payroll/payslipDocs';
+import { consultantFees } from './payrollExtrasController';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -66,6 +67,8 @@ async function loadYear(organizationId: string, fyStart: number) {
     prisma.payrollRun.findMany({
       where: { organizationId, period: { in: periods } },
       include: { entries: {
+        // Fees to consultants are reported in another return
+        where: { consultantSection: '' },
         include: {
           person: { select: { id: true, name: true, employeeNo: true, panNumber: true } },
           tdsAllocations: true,
@@ -366,9 +369,10 @@ export const payrollReturnsController = {
   async getOverview(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const fyStart = fyInput(req.query.fy);
-    const [year, statutory, settings, filings] = await Promise.all([
+    const [year, statutory, settings, filings, fees] = await Promise.all([
       loadYear(organizationId, fyStart), statutoryFor(organizationId), settingsFor(organizationId),
       prisma.tdsReturnFiling.findMany({ where: { organizationId, fyStart: { in: [fyStart, fyStart - 1] } } }),
+      consultantFees(organizationId, periodsOfFinancialYear(fyStart)),
     ]);
     const filingOf = (fy: number, quarter: number) => filings.find(f => f.fyStart === fy && f.quarter === quarter);
     const names = new Map<string, string>();
@@ -390,6 +394,11 @@ export const payrollReturnsController = {
           deducted: r2(months.reduce((s, m) => s + m.deducted, 0)),
           deposited: r2(months.reduce((s, m) => s + m.deposited, 0)),
           hasRuns: months.some(m => m.status),
+          // Fees paid to consultants in the quarter and the tax on them: not part of this return
+          consultants: (list => ({
+            count: new Set(list.map(f => f.personId)).size,
+            fee: r2(list.reduce((s, f) => s + f.fee, 0)), tds: r2(list.reduce((s, f) => s + f.tds, 0)),
+          }))(fees.filter(f => quarterPeriods(fyStart, q.quarter).includes(f.period))),
           issues: months.some(m => m.status) ? issuesFor(year, statutory, fyStart, q.quarter) : [],
           receiptNo: filingOf(fyStart, q.quarter)?.receiptNo || '',
           filedOn: filingOf(fyStart, q.quarter)?.filedOn || '',
@@ -427,7 +436,7 @@ export const payrollReturnsController = {
 
     const run = await prisma.payrollRun.findUnique({
       where: { organizationId_period: { organizationId, period } },
-      include: { entries: { where: { tds: { gt: 0 } }, include: { person: { select: { name: true } }, tdsAllocations: true } } },
+      include: { entries: { where: { tds: { gt: 0 }, consultantSection: '' }, include: { person: { select: { name: true } }, tdsAllocations: true } } },
     });
     if (!run || run.status !== 'FINALIZED') {
       throw new AppError(400, `There is no finalized payroll run for ${monthLabel(period)} to deposit tax for`);

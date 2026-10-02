@@ -69,7 +69,8 @@ async function employees(organizationId: string) {
 async function runEntries(organizationId: string, runId: string) {
   const run = await prisma.payrollRun.findFirst({
     where: { id: str(runId), organizationId },
-    include: { entries: { include: { person: { select: PERSON_FIELDS }, lines: { include: { component: { select: { code: true } } } } } } },
+    // The registers are of employees: consultants paid fees are left out
+    include: { entries: { where: { consultantSection: '' }, include: { person: { select: PERSON_FIELDS }, lines: { include: { component: { select: { code: true } } } } } } },
   });
   if (!run) throw new AppError(400, 'Pick a payroll month');
   const monthStart = `${run.period}-01`;
@@ -110,7 +111,7 @@ async function loanRows(organizationId: string, fyStart: number): Promise<LoanRo
 // the bonus already paid to them through payroll.
 async function bonusEmployees(organizationId: string, fyStart: number): Promise<BonusEmployee[]> {
   const entries = await prisma.payslipEntry.findMany({
-    where: { organizationId, run: { status: 'FINALIZED', period: { in: periodsOfFinancialYear(fyStart) } } },
+    where: { organizationId, consultantSection: '', run: { status: 'FINALIZED', period: { in: periodsOfFinancialYear(fyStart) } } },
     include: {
       person: { select: { id: true, name: true, employeeNo: true, parentSpouseName: true, designation: true, dateOfBirth: true } },
       lines: { include: { component: { select: { code: true } } } },

@@ -18,7 +18,7 @@ import {
 } from '../services/payroll/reportHtml';
 import { loadStructures, recurringNow, settingsForPerson } from '../services/payroll/structures';
 import { withSplit } from '../services/payroll/structureCalc';
-import { withRecurring } from '../services/payroll/salaryStructure';
+import { withRecurring, withEmployerNps } from '../services/payroll/salaryStructure';
 
 const days = (n: number) => { const v = Number(n || 0); return v % 1 === 0 ? String(v) : v.toFixed(1); };
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
@@ -227,7 +227,7 @@ export const payrollReportsController = {
       },
       select: {
         id: true, name: true, employeeNo: true, designation: true, department: true, currentMonthlyPackage: true,
-        isEsiEligible: true, isPfApplicable: true,
+        isEsiEligible: true, isPfApplicable: true, npsEmployerPercent: true,
       },
       orderBy: { name: 'asc' },
     });
@@ -235,7 +235,10 @@ export const payrollReportsController = {
     const rows = people.map(p => {
       const structure = structures.forPerson(p);
       const own = recurring.filter(r => r.personId === p.id).map(r => ({ type: r.component.type, amount: r.amount }));
-      return { p, template: structure?.name || '', s: withRecurring(salaryStructure(p.currentMonthlyPackage, p, withSplit(settings, structure?.split)), own) };
+      return {
+        p, template: structure?.name || '',
+        s: withRecurring(withEmployerNps(salaryStructure(p.currentMonthlyPackage, p, withSplit(settings, structure?.split)), p.npsEmployerPercent), own),
+      };
     });
     const anyRecurring = rows.some(r => r.s.recurringEarnings || r.s.recurringDeductions);
     const keys: [string, string][] = [
@@ -243,7 +246,7 @@ export const payrollReportsController = {
       ['foodAllowance', 'Food'], ...(anyRecurring ? [['recurringEarnings', 'Recurring earnings'] as [string, string]] : []),
       ['grossSalary', 'Gross'], ['esiEmployee', 'ESI'], ['pfEmployee', 'PF'],
       ...(anyRecurring ? [['recurringDeductions', 'Recurring deductions'] as [string, string]] : []),
-      ['netPayable', 'Net'], ['employerContributions', 'Employer ESI + PF'], ['ctc', 'Monthly CTC'],
+      ['netPayable', 'Net'], ['employerContributions', 'Employer contributions'], ['ctc', 'Monthly CTC'],
     ];
     // Recurring totals sit beside the monthly figures
     for (const r of rows) Object.assign(r.s.monthly, { recurringEarnings: r.s.recurringEarnings, recurringDeductions: r.s.recurringDeductions });
@@ -274,7 +277,7 @@ export const payrollReportsController = {
       settingsForPerson(orgId, await settingsFor(orgId), person), recurringNow(orgId, person.id),
     ]);
     const s = withRecurring(
-      salaryStructure(person.currentMonthlyPackage, person, settings),
+      withEmployerNps(salaryStructure(person.currentMonthlyPackage, person, settings), person.npsEmployerPercent),
       recurring.map(r => ({ type: r.component.type, amount: r.amount })),
     );
     const line = (label: string, key: string, cls = '') =>

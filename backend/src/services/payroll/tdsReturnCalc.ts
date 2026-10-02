@@ -180,6 +180,7 @@ export interface Chapter6Row {
 // 80CCC and 80CCD(1) share one limit, which the tax computation applied.
 export function chapter6Rows(
   bySection: SectionTotal[], usePoi: boolean, pf: number, pool: number, allowsDeductions: boolean,
+  employerNps: { contribution: number; deductible: number } = { contribution: 0, deductible: 0 },
 ): Chapter6Row[] {
   const claimed = (s?: SectionTotal) => (s ? (usePoi ? s.approved : s.declared) : 0);
   const find = (code: string) => bySection.find(s => s.section.toUpperCase() === code);
@@ -208,10 +209,15 @@ export function chapter6Rows(
     gross: r2(rest.reduce((t, s) => t + claimed(s), 0)),
     deductible: allowsDeductions ? r2(rest.reduce((t, s) => t + s.allowed, 0)) : 0,
   };
+  // The employer's contribution paid through payroll is allowed under
+  // either regime, beside anything declared under the section
+  const f = row('f', 'Employer contribution to a pension scheme — section 80CCD(2)', '80CCD(2)');
+  f.gross = r2(f.gross + employerNps.contribution);
+  f.deductible = r2(f.deductible + employerNps.deductible);
   return [
     a, b, c, d,
     row('e', 'Notified pension scheme — section 80CCD(1B)', '80CCD(1B)'),
-    row('f', 'Employer contribution to a pension scheme — section 80CCD(2)', '80CCD(2)'),
+    f,
     row('g', 'Health insurance premium — section 80D', '80D'),
     row('h', 'Interest on loan for higher education — section 80E', '80E'),
     row('i', 'Donations — section 80G', '80G'),
@@ -231,7 +237,8 @@ export interface Form16Input {
 // the last quarter's return), from a year-end tax working.
 export function form16PartB(inp: Form16Input) {
   const w = inp.working;
-  const salary171 = r2(w.salaryPaid);
+  // The employer's NPS contribution counts as salary under section 17(1)
+  const salary171 = r2(w.salaryPaid + (w.income.employerNps || 0));
   const perquisites = r2(w.income.perquisites || 0);
   const grossCurrent = r2(salary171 + perquisites);
   const otherEmployers = r2(w.income.previousEmployer || 0);
@@ -246,7 +253,8 @@ export function form16PartB(inp: Form16Input) {
   // A working kept before let-out property was known has only the interest
   const houseProperty = r2(w.houseProperty ?? -(w.housingLoanInterest || 0));
   const otherSources = r2(w.otherIncome || 0);
-  const rows = chapter6Rows(inp.bySection, inp.usePoi, w.chapter6.pf, w.chapter6.section80C, inp.allowsDeductions);
+  const rows = chapter6Rows(inp.bySection, inp.usePoi, w.chapter6.pf, w.chapter6.section80C, inp.allowsDeductions,
+    { contribution: w.income.employerNps || 0, deductible: w.chapter6.employerNps || 0 });
   const taxPayable = r2(w.tax.taxOnIncome - w.tax.rebate + w.tax.surcharge + w.tax.cess);
   return {
     newRegime: w.regime === 'NEW',

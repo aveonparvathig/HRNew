@@ -4,7 +4,7 @@ import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { logPayrollAudit, actorName } from '../services/payroll/audit';
-import { currentPeriodIST, salaryStructure } from '../services/payroll/salaryStructure';
+import { currentPeriodIST, salaryStructure, withEmployerNps } from '../services/payroll/salaryStructure';
 import {
   PACKAGE_MODES, SCOPES, SCOPE_LABELS, SPLIT_FIELDS, SPLIT_LABELS, annualCtcOf, grossPercent, monthlyPackageFrom,
   splitInput, splitOf, withSplit,
@@ -35,7 +35,7 @@ async function fetchPerson(personId: string, organizationId: string) {
     where: { id: personId, organizationId },
     select: {
       id: true, name: true, employeeNo: true, designation: true, department: true,
-      currentMonthlyPackage: true, isEsiEligible: true, isPfApplicable: true,
+      currentMonthlyPackage: true, isEsiEligible: true, isPfApplicable: true, npsEmployerPercent: true, taxTreatment: true,
     },
   });
   if (!person) throw new AppError(404, 'Person not found');
@@ -219,7 +219,7 @@ export const payrollStructuresController = {
     ]);
     const structure = structures.forPerson(person);
     const split = structure?.split || splitOf(settings);
-    const s = salaryStructure(person.currentMonthlyPackage || 0, person, withSplit(settings, structure?.split));
+    const s = withEmployerNps(salaryStructure(person.currentMonthlyPackage || 0, person, withSplit(settings, structure?.split)), person.npsEmployerPercent);
     res.json({
       person: { id: person.id, name: person.name, designation: person.designation, department: person.department },
       period,
@@ -339,6 +339,7 @@ export const payrollStructuresController = {
     const flags = {
       isEsiEligible: b.isEsiEligible !== undefined ? Boolean(b.isEsiEligible) : Boolean(person?.isEsiEligible),
       isPfApplicable: b.isPfApplicable !== undefined ? Boolean(b.isPfApplicable) : Boolean(person?.isPfApplicable),
+      npsEmployerPercent: b.npsEmployerPercent !== undefined ? Number(b.npsEmployerPercent) || 0 : person?.npsEmployerPercent || 0,
     };
     const structure = person
       ? structures.forPerson(person)
@@ -346,7 +347,7 @@ export const payrollStructuresController = {
     const settings = withSplit(base, structure?.split);
     const monthlyPackage = monthlyPackageFrom(mode, amount, flags, settings);
     if (!(monthlyPackage > 0)) throw new AppError(400, 'That amount is too small to make a monthly package');
-    const s = salaryStructure(monthlyPackage, flags, settings);
+    const s = withEmployerNps(salaryStructure(monthlyPackage, flags, settings), flags.npsEmployerPercent);
     res.json({
       mode, amount, monthlyPackage, annualPackage: Math.round(monthlyPackage * 12 * 100) / 100,
       annualCtc: annualCtcOf(monthlyPackage, flags, settings),

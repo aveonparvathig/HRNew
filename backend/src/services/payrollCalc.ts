@@ -157,10 +157,14 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
     .map((l: any) => row(esc(l.name), l.amount))
     .join('');
 
+  // A consultant is paid one fee, not a salary split into allowances
+  const consultant = Boolean(entry.consultantSection);
   const earnings = [
-    row('Basic', entry.basic), row('Dearness Allowance', entry.da),
-    row('House Rent Allowance', entry.hra), row('Transport Allowance', entry.transportAllowance),
-    row('Food Allowance', entry.foodAllowance),
+    ...(consultant ? [row('Professional Fee', entry.basic)] : [
+      row('Basic', entry.basic), row('Dearness Allowance', entry.da),
+      row('House Rent Allowance', entry.hra), row('Transport Allowance', entry.transportAllowance),
+      row('Food Allowance', entry.foodAllowance),
+    ]),
     entry.internetAllowance ? row('Internet Allowance', entry.internetAllowance) : '',
     entry.salaryArrearAllowance ? row('Salary Arrear', entry.salaryArrearAllowance) : '',
   ].join('') + lineRows('EARNING');
@@ -169,7 +173,7 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
     entry.esiEmployee ? row('ESI (Employee)', entry.esiEmployee) : '',
     entry.pfEmployee ? row('PF (Employee)', entry.pfEmployee) : '',
     entry.salaryAdvance ? row('Salary Advance', entry.salaryAdvance) : '',
-    entry.tds ? row('TDS', entry.tds) : '',
+    entry.tds ? row(consultant ? `TDS (section ${esc(entry.consultantSection)}, ${entry.consultantTdsPercent}%)` : 'TDS', entry.tds) : '',
     entry.professionalTax ? row('Professional Tax', entry.professionalTax) : '',
     entry.lwfEmployee ? row('Labour Welfare Fund', entry.lwfEmployee) : '',
     entry.loanDeduction ? row('Loan Instalment', entry.loanDeduction) : '',
@@ -194,7 +198,7 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
         ${brand.addressLine ? `<div style="font-size:11.5px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
       </div>
     </div>
-    <div style="font-size:13px;color:#555;">Payslip — <strong>${monthLabel(run.period)}</strong></div>
+    <div style="font-size:13px;color:#555;">${consultant ? 'Fee statement' : 'Payslip'} — <strong>${monthLabel(run.period)}</strong></div>
   </div>
 
   <table class="ps-info" style="width:100%;border-collapse:collapse;margin:16px 0 18px;">
@@ -239,6 +243,7 @@ export function renderPayslipHtml(brand: any, run: any, entry: any, person: any)
         ${entry.esiEmployer ? row('ESI (Employer)', entry.esiEmployer) : ''}
         ${entry.pfEmployer ? row('PF (Employer)', entry.pfEmployer) : ''}
         ${entry.lwfEmployer ? row('Labour Welfare Fund (Employer)', entry.lwfEmployer) : ''}
+        ${entry.npsEmployer ? row('NPS (Employer)', entry.npsEmployer) : ''}
         <tr><td>CTC (this month)</td><td class="amt">${inr(entry.ctc)}</td></tr>
       </table>
     </div>

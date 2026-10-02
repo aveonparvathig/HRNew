@@ -336,6 +336,15 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                     </span>
                   </div>
                 )}
+                {q.consultants?.count > 0 && (
+                  <div style={{ fontSize: 12.5, marginTop: 8 }}>
+                    <span className="text-muted">
+                      Not in this return: {formatINR(q.consultants.fee)} of fees to {q.consultants.count} consultant{q.consultants.count === 1 ? '' : 's'},
+                      {' '}{formatINR(q.consultants.tds)} tax deducted.{' '}
+                    </span>
+                    <Link to={`/payroll/reports/consultant-tds?fy=${data.fyStart}&quarter=${q.quarter}`}>Consultant statement</Link>
+                  </div>
+                )}
                 {q.issues.length > 0 && (
                   <ul className="quarter-issues">
                     {q.issues.map((i: any, n: number) => (

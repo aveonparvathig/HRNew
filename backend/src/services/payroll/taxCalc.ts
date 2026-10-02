@@ -1,6 +1,7 @@
 // Income tax on salary (TDS). Pure, DB-independent: every rate, limit and
 // slab arrives in a regime config, so a Budget changes data, not code.
 import { computeEntry } from '../payrollCalc';
+import { employerNps, employerNpsDeduction } from './consultantCalc';
 
 const r0 = (n: number) => Math.round(n);
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -25,6 +26,7 @@ export interface TaxConfigLike {
   section80CLimit: number;
   housingInterestLimit: number;
   professionalTaxLimit: number; // 0 = no limit
+  employerNpsLimitPercent?: number; // share of Basic + DA deductible under 80CCD(2)
   slabs: TaxSlabLike[];
 }
 
@@ -36,6 +38,7 @@ export const DEFAULT_TAX_CONFIGS: TaxConfigLike[] = [
     rebateIncomeLimit: 1200000, rebateMaxAmount: 60000, rebateMarginalRelief: true,
     cessPercent: 4, seniorExemption: 0, superSeniorExemption: 0,
     allowsExemptions: false, section80CLimit: 150000, housingInterestLimit: 200000, professionalTaxLimit: 2500,
+    employerNpsLimitPercent: 14,
     slabs: [
       { incomeFrom: 0, incomeTo: 400000, ratePercent: 0, surchargePercent: 0 },
       { incomeFrom: 400001, incomeTo: 800000, ratePercent: 5, surchargePercent: 0 },
@@ -54,6 +57,7 @@ export const DEFAULT_TAX_CONFIGS: TaxConfigLike[] = [
     rebateIncomeLimit: 500000, rebateMaxAmount: 12500, rebateMarginalRelief: false,
     cessPercent: 4, seniorExemption: 300000, superSeniorExemption: 500000,
     allowsExemptions: true, section80CLimit: 150000, housingInterestLimit: 200000, professionalTaxLimit: 2500,
+    employerNpsLimitPercent: 10,
     slabs: [
       { incomeFrom: 0, incomeTo: 250000, ratePercent: 0, surchargePercent: 0 },
       { incomeFrom: 250001, incomeTo: 500000, ratePercent: 5, surchargePercent: 0 },
@@ -159,6 +163,8 @@ export interface MonthFigures {
   // Amounts of the pay components that carry an exemption rule, by
   // component key ("foodAllowance", "c:<componentId>")
   components?: Record<string, number>;
+  // The employer's NPS contribution for the month
+  npsEmployer?: number;
 }
 
 // An allowance that is exempt up to a limit. `claimed` is what the
@@ -208,6 +214,8 @@ export interface TdsInputs {
   projection: {
     settings: any; monthlyPackage: number; isEsiEligible: boolean; isPfApplicable: boolean;
     recurring?: { taxable: number; components: Record<string, number> }[];
+    // The employer's NPS contribution, as a share of Basic + DA
+    npsEmployerPercent?: number;
   };
   profile: TaxProfileLike;
   perquisites: number;        // taxable perquisites for the year (e.g. concessional loans)
@@ -215,7 +223,7 @@ export interface TdsInputs {
   hasValidPan: boolean;
 }
 
-const sumOf = (months: MonthFigures[], key: keyof Omit<MonthFigures, 'period' | 'components'>) =>
+const sumOf = (months: MonthFigures[], key: keyof Omit<MonthFigures, 'period' | 'components' | 'npsEmployer'>) =>
   r2(months.reduce((s, m) => s + m[key], 0));
 
 const nextPeriod = (period: string) => {
@@ -264,6 +272,10 @@ function yearTax(inp: TdsInputs, currentGross: number) {
   const months = [...inp.earlier, inp.current];
   // Recurring components of the months to come, taxable ones in all
   const recurring = (inp.projection.recurring || []).slice(0, n);
+  // The employer's NPS contribution is salary too; it comes off again
+  // below, up to its limit
+  const npsContribution = r2(months.reduce((s, m) => s + Number(m.npsEmployer || 0), 0)
+    + employerNps(full.basic, full.da, Number(inp.projection.npsEmployerPercent || 0)) * n);
 
   const income = {
     paidEarlier: sumOf(inp.earlier, 'taxableGross'),
@@ -271,8 +283,9 @@ function yearTax(inp: TdsInputs, currentGross: number) {
     projected: r2(full.grossSalary * n + recurring.reduce((s, m) => s + m.taxable, 0)),
     previousEmployer: profile.prevEmployerIncome,
     perquisites: inp.perquisites,
+    employerNps: npsContribution,
   };
-  const grossSalary = r2(income.paidEarlier + income.thisMonth + income.projected + income.previousEmployer + income.perquisites);
+  const grossSalary = r2(income.paidEarlier + income.thisMonth + income.projected + income.previousEmployer + income.perquisites + income.employerNps);
 
   // Exemptions and deductions the old regime allows
   const salaryForHra = r2(sumOf(months, 'basic') + sumOf(months, 'da') + (full.basic + full.da) * n);
@@ -331,7 +344,9 @@ function yearTax(inp: TdsInputs, currentGross: number) {
   const pf = r2(sumOf(months, 'pfEmployee') + full.pfEmployee * n);
   const section80C = config.allowsExemptions ? Math.min(config.section80CLimit, r2(pf + profile.section80C)) : 0;
   const otherDeductions = config.allowsExemptions ? profile.otherDeductions : 0;
-  const chapter6 = Math.min(grossTotalIncome, r2(section80C + otherDeductions));
+  // Section 80CCD(2), allowed under both regimes
+  const npsDeduction = employerNpsDeduction(npsContribution, salaryForHra, Number(config.employerNpsLimitPercent ?? 10));
+  const chapter6 = Math.min(grossTotalIncome, r2(section80C + otherDeductions + npsDeduction));
   const taxableIncome = r2(grossTotalIncome - chapter6);
 
   const tax = taxOnIncome(config, taxableIncome, inp.age);
@@ -349,7 +364,7 @@ function yearTax(inp: TdsInputs, currentGross: number) {
     letOut: { income: letOutIncome, loss: letOutLoss },
     houseProperty,
     grossTotalIncome,
-    chapter6: { pf, declared80C: profile.section80C, section80C, other: otherDeductions, total: chapter6 },
+    chapter6: { pf, declared80C: profile.section80C, section80C, other: otherDeductions, employerNps: npsDeduction, total: chapter6 },
     taxableIncome,
     tax: { ...tax, total: panRate, higherRateForPan: panRate !== tax.total },
   };

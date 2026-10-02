@@ -27,11 +27,15 @@ const GROUPED_CHECKS: Record<string, string> = {
   NOT_IN_RUN: 'active but not in this run — Recalculate adds them',
 };
 
+// What releasing the payslips set off, in words
+const releaseMailNote = (mode?: string) => (mode === 'PAYSLIP' ? 'Their payslips are being emailed to them.'
+  : mode === 'NOTICE' ? 'They are being emailed a notice.' : '');
+
 // Reports drawn up for one payroll month
 const RUN_REPORTS: [string, string][] = [
   ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
   ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
-  ['tds-statement', 'TDS'],
+  ['tds-statement', 'TDS'], ['nps-statement', 'NPS (Employer)'],
   ['comparison', 'vs Previous Month'], ['reconciliation', 'Reconciliation'], ['headcount', 'Headcount'],
   ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
   ['payment-register', 'Payment Register'], ['journal-voucher', 'Journal Voucher'],
@@ -353,8 +357,10 @@ export default function RunDetail() {
                   onClick={async () => await confirmDialog('Finalize this run? Entries lock until reopened.')
                     && act(async () => {
                       const res = await payrollAPI.finalizeRun(run.id);
-                      return { data: { message: res.data.nextRun
-                        ? `Run finalized. ${monthLabel(res.data.nextRun.period)} has been opened as a draft.` : 'Run finalized.' } };
+                      return { data: { message: [
+                        res.data.nextRun ? `Run finalized. ${monthLabel(res.data.nextRun.period)} has been opened as a draft.` : 'Run finalized.',
+                        releaseMailNote(res.data.releaseMail),
+                      ].filter(Boolean).join(' ') } };
                     })}>
                   ✓ Finalize
                 </button>
@@ -376,7 +382,10 @@ export default function RunDetail() {
                   </button>
                 ) : (
                   <button className="btn btn-secondary"
-                    onClick={() => act(() => payrollAPI.releaseRun(run.id), 'Payslips released. Employees can now see them in My Pay.')}>
+                    onClick={() => act(async () => {
+                      const res = await payrollAPI.releaseRun(run.id);
+                      return { data: { message: ['Payslips released. Employees can now see them in My Pay.', releaseMailNote(res.data.releaseMail)].filter(Boolean).join(' ') } };
+                    })}>
                     Release Payslips
                   </button>
                 )}

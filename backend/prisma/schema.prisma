@@ -425,6 +425,17 @@ model Person {
   form16PartAs Form16PartA[]
   perquisiteValues PerquisiteValue[]
   recurringComponents RecurringComponent[]
+
+  // The employer's contribution to the National Pension System, as a
+  // share of Basic + DA (0 = none), and the employee's PRAN
+  npsEmployerPercent Float  @default(0)
+  npsPran            String @default("")
+  // SALARY: an employee, taxed on salary. CONSULTANT: paid professional or
+  // contract fees through payroll, with tax deducted at a flat rate under
+  // the section given and no PF, ESI, Professional Tax or LWF.
+  taxTreatment         String @default("SALARY")
+  consultantSection    String @default("194J")
+  consultantTdsPercent Float  @default(10)
   arrearItems    ArrearItem[]
   settlements    Settlement[]
   expenseReports ExpenseReport[]
@@ -623,6 +634,9 @@ model PayrollSettings {
   payslipFilePrefix  String @default("Payslip")
   payslipFileContext String @default("EMPNO") // EMPNO | NAME | EMPNO_NAME
   payslipEmailTo     String @default("OFFICIAL") // OFFICIAL | PERSONAL; the other is used when blank
+  // On releasing a run's payslips: mail nobody (NONE), a notice that the
+  // payslip can be seen (NOTICE), or the payslip itself (PAYSLIP)
+  releaseMail        String @default("NONE")
   jvFilePrefix       String @default("JV") // journal voucher download
   // Journal voucher as one voucher ("") or one per DEPARTMENT / LOCATION
   jvSplitBy          String @default("")
@@ -648,6 +662,10 @@ model MailSettings {
   fromName       String   @default("")
   fromEmail      String   @default("")
   replyTo        String   @default("")
+  // Mail a new login its sign-in address and temporary password
+  welcomeMail    Boolean  @default(false)
+  // The address employees sign in at, for links in mails
+  appUrl         String   @default("")
   updatedAt      DateTime @updatedAt
 
   @@map("mail_settings")
@@ -657,7 +675,7 @@ model MailSettings {
 model MailLog {
   id             String   @id @default(cuid())
   organizationId String
-  kind           String // PAYSLIP | TEST
+  kind           String // PAYSLIP | TEST | WELCOME | NOTICE
   toEmail        String
   subject        String
   status         String // SENT | FAILED
@@ -713,6 +731,12 @@ model PayslipEntry {
   // percentages as JSON. Blank = the company's own split in Payroll Settings.
   structureName  String @default("")
   structureSplit String @default("")
+  // Employer's NPS contribution for the month: part of CTC, not of pay
+  npsEmployer    Float  @default(0)
+  // A consultant's fee: the section tax was deducted under and the rate.
+  // Blank = salary.
+  consultantSection    String @default("")
+  consultantTdsPercent Float  @default(0)
 
   // Attendance - manual inputs.
   totalWorkingDays Int
@@ -962,6 +986,8 @@ model TaxRegimeConfig {
   // Most Professional Tax that can be deducted from salary income in the
   // year (0 = no limit)
   professionalTaxLimit Float   @default(2500)
+  // Employer's NPS contribution deductible up to this share of Basic + DA (section 80CCD(2))
+  employerNpsLimitPercent Float @default(10)
 
   updatedAt DateTime @updatedAt
 
@@ -1701,6 +1727,8 @@ model ArrearItem {
   hra                Float @default(0)
   transportAllowance Float @default(0)
   foodAllowance      Float @default(0)
+  // Of the gross: recurring earnings that are reduced for loss of pay
+  recurring          Float @default(0)
   gross              Float @default(0)
   pfEmployee         Float @default(0)
   pfEmployer         Float @default(0)

@@ -7,10 +7,10 @@ import { saveTaxWorkings } from './taxContext';
 import { packageForPeriod, currentPeriodIST } from './salaryStructure';
 import { logPayrollAudit, actorName } from './audit';
 import { writeManagedLines } from './payComponents';
-import { arrearFor, arrearAndRecoveryLines, effectiveLop, hasArrear, isRecovery, lopReversalFrom } from './arrearCalc';
+import { arrearFor, arrearAndRecoveryLines, effectiveLop, hasArrear, isRecovery, lopReversalFrom, recurringOfMonth } from './arrearCalc';
 import { monthLabel } from './reportHtml';
 import { entrySettings } from './structureCalc';
-import { saveRecurringLines } from './structures';
+import { saveRecurringLines, recurringByPerson } from './structures';
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -102,17 +102,19 @@ export async function raiseRevisionArrears(
     settingsFor(organizationId),
     prisma.payslipEntry.findMany({
       where: { organizationId, personId, run: { status: 'FINALIZED', period: { gte: fromMonth } } },
-      include: { run: { select: { period: true } } },
+      include: { run: { select: { period: true } }, lines: { select: { componentId: true, source: true } } },
     }),
     prisma.arrearItem.findMany({ where: { organizationId, personId, status: 'OPEN' } }),
   ]);
+  const recurring = (await recurringByPerson(organizationId, fromMonth, personId)).get(personId) || [];
   if (!person) return { months: 0, amount: 0, reductions: 0, reductionAmount: 0, recovered: 0, paidIn: null as string | null };
   const createdByName = await actorName(req.user?.userId);
   let months = 0, amount = 0, reductions = 0, reductionAmount = 0, recovered = 0;
   for (const e of entries.sort((a, b) => a.run.period.localeCompare(b.run.period))) {
     const raised = raisedFor(existing, e.id);
     const toPackage = packageForPeriod(person.currentMonthlyPackage, person.salaryRevisions, e.run.period);
-    const a = arrearFor(e, { monthlyPackage: toPackage, lopDays: effectiveLop(e.lopDays, raised) }, entrySettings(settings, e), raised);
+    const a = arrearFor(e, { monthlyPackage: toPackage, lopDays: effectiveLop(e.lopDays, raised) }, entrySettings(settings, e), raised,
+      recurringOfMonth(recurring, e.run.period, e.lines));
     if (!hasArrear(a)) continue;
     const takesBack = a.gross <= 0;
     if (takesBack) {
@@ -207,7 +209,7 @@ async function lopEntry(organizationId: string, entryId: string) {
   const entry = await prisma.payslipEntry.findFirst({
     where: { id: entryId, organizationId },
     include: {
-      run: true, arrearsRaised: { where: { status: 'OPEN' } },
+      run: true, arrearsRaised: { where: { status: 'OPEN' } }, lines: { select: { componentId: true, source: true } },
       person: { select: { name: true, currentMonthlyPackage: true, salaryRevisions: true } },
     },
   });
@@ -218,7 +220,9 @@ async function lopEntry(organizationId: string, entryId: string) {
   if (entry.run.period < from) {
     throw new AppError(400, `Loss of pay can be changed up to ${settings.lopReversalMonths} months back (from ${monthLabel(from)}).`);
   }
-  return { entry, settings };
+  // Recurring earnings of that month that go up and down with the days paid
+  const items = entry ? (await recurringByPerson(organizationId, entry.run.period, entry.personId)).get(entry.personId) || [] : [];
+  return { entry, settings, recurring: recurringOfMonth(items, entry.run.period, entry.lines) };
 }
 
 // Loss of pay found after a month was finalized: the days are added to
@@ -226,14 +230,14 @@ async function lopEntry(organizationId: string, entryId: string) {
 // the PF and ESI deducted on that pay returned.
 export async function addRetroLop(req: any, entryId: string, days: number, reason: string) {
   const organizationId = req.user?.organizationId;
-  const { entry, settings } = await lopEntry(organizationId, entryId);
+  const { entry, settings, recurring } = await lopEntry(organizationId, entryId);
   const now = effectiveLop(entry.lopDays, entry.arrearsRaised);
   const canAdd = r2(Math.max(0, entry.totalWorkingDays - now));
   if (!(days > 0) || days > canAdd) {
     throw new AppError(400, canAdd > 0 ? `Enter between 0.5 and ${canAdd} days` : 'Every day of this month is already loss of pay');
   }
   const toPackage = packageNow(entry);
-  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(now + days) }, entrySettings(settings, entry), entry.arrearsRaised);
+  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(now + days) }, entrySettings(settings, entry), entry.arrearsRaised, recurring);
   if (!hasArrear(a) || !isRecovery(a)) throw new AppError(400, 'Adding these days changes nothing');
   const item = await prisma.arrearItem.create({
     data: {
@@ -253,13 +257,13 @@ export async function addRetroLop(req: any, entryId: string, days: number, reaso
 // Undo loss-of-pay days of a finalized month and pay the difference.
 export async function reverseLop(req: any, entryId: string, days: number, reason: string) {
   const organizationId = req.user?.organizationId;
-  const { entry, settings } = await lopEntry(organizationId, entryId);
+  const { entry, settings, recurring } = await lopEntry(organizationId, entryId);
   const left = effectiveLop(entry.lopDays, entry.arrearsRaised);
   if (!(days > 0) || days > left) {
     throw new AppError(400, left > 0 ? `Enter between 0.5 and ${left} days` : 'This month has no loss of pay left to reverse');
   }
   const toPackage = packageNow(entry);
-  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(left - days) }, entrySettings(settings, entry), entry.arrearsRaised);
+  const a = arrearFor(entry, { monthlyPackage: toPackage, lopDays: r2(left - days) }, entrySettings(settings, entry), entry.arrearsRaised, recurring);
   if (!hasArrear(a) || a.gross <= 0) throw new AppError(400, 'Reversing these days changes nothing');
   const item = await prisma.arrearItem.create({
     data: {

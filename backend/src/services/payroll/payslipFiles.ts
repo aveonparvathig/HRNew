@@ -133,6 +133,49 @@ export function payslipEmail(
   };
 }
 
+// What goes out when a month's payslips are released
+export const RELEASE_MAILS = [
+  { value: 'NONE', label: 'Nothing' },
+  { value: 'NOTICE', label: 'A notice that the payslip can be seen in My Pay' },
+  { value: 'PAYSLIP', label: 'The payslip itself, as a PDF' },
+];
+export const isReleaseMail = (value: any) => RELEASE_MAILS.some(m => m.value === value);
+
+const mailBody = (lines: string[]) => ({
+  text: lines.join('\n\n'),
+  html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#1b2437;">${
+    lines.map(l => `<p style="margin:0 0 12px;">${escapeHtml(l).replace(/\n/g, '<br/>')}</p>`).join('')}</div>`,
+});
+
+// "Your payslip for October 2026 is ready."
+export function releaseNoticeEmail(company: { name: string; email?: string }, person: { name: string }, period: string, url: string) {
+  const month = monthLabel(period);
+  return {
+    subject: `Payslip for ${month} is ready — ${company.name}`,
+    ...mailBody([
+      `Dear ${person.name},`,
+      `Your payslip for ${month} is ready. Sign in${url ? ` at ${url}` : ''} and open My Pay to see it.`,
+      `If anything on it looks wrong, write to ${company.email || 'the HR team'}.`,
+      `Regards,\n${company.name}`,
+    ]),
+  };
+}
+
+// A new login's sign-in address and temporary password.
+export function welcomeEmail(company: { name: string; email?: string }, name: string, login: string, password: string, url: string) {
+  return {
+    subject: `Your login for ${company.name}`,
+    ...mailBody([
+      `Dear ${name},`,
+      `A login has been created for you${url ? ` at ${url}` : ''}.`,
+      `Sign in with: ${login}\nTemporary password: ${password}`,
+      'You will be asked to choose a password of your own the first time you sign in. Do not share this mail.',
+      `If you were not expecting this, write to ${company.email || 'the HR team'}.`,
+      `Regards,\n${company.name}`,
+    ]),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Journal voucher as rows for a file
 // ---------------------------------------------------------------------------

@@ -13,6 +13,7 @@ const NUMBER_FIELDS: [string, string, string, boolean][] = [
   ['section80CLimit', 'Section 80C limit', '₹', true],
   ['housingInterestLimit', 'Housing-loan interest limit', '₹', true],
   ['professionalTaxLimit', 'Professional Tax deduction limit (0 = none)', '₹', true],
+  ['employerNpsLimitPercent', 'Employer NPS deductible, up to % of Basic + DA', '%', false],
 ];
 
 const EMPTY_SLAB = { incomeFrom: '', incomeTo: '', ratePercent: '', surchargePercent: '0' };

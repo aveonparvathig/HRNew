@@ -114,6 +114,8 @@ const FIELD_LABELS: Record<string, string> = {
   loanBenchmarkRate: 'Loan benchmark rate %',
   loanPerquisiteExemptLimit: 'Loan perquisite exempt limit',
   professionalTaxLimit: 'Professional Tax deduction limit',
+  employerNpsLimitPercent: 'Employer NPS deductible, % of Basic + DA',
+  releaseMail: 'Mail employees when payslips are released',
   pfRoundToRupee: 'Round PF to the rupee',
   esiAutoCoverage: 'Automatic ESI coverage',
   epsPercent: 'EPS %',

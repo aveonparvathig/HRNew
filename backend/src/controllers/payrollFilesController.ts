@@ -23,11 +23,12 @@ import {
   PAYSLIP_INCLUDE, payslipFile, payslipHtml, sendFile, settingsFor,
 } from '../services/payroll/payslipDocs';
 import { journalVoucherBy } from '../services/payroll/payoutCalc';
+import { RELEASE_MAILS, isReleaseMail } from '../services/payroll/payslipFiles';
 
 const str = (v: any) => String(v ?? '').trim();
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
 const PDF = 'application/pdf';
-const FILE_SETTINGS = ['payslipPdfPassword', 'payslipFilePrefix', 'payslipFileContext', 'payslipEmailTo', 'jvFilePrefix'];
+const FILE_SETTINGS = ['payslipPdfPassword', 'payslipFilePrefix', 'payslipFileContext', 'payslipEmailTo', 'jvFilePrefix', 'releaseMail'];
 
 async function fetchRun(runId: string, organizationId: string) {
   const run = await prisma.payrollRun.findFirst({
@@ -105,7 +106,7 @@ export const payrollFilesController = {
     const lacking = (mode: string) => employees.filter(p => payslipPassword(mode, p).missing).length;
     res.json({
       settings: Object.fromEntries(FILE_SETTINGS.map(f => [f, (settings as any)[f]])),
-      passwordModes: PDF_PASSWORD_MODES, fileContexts: FILE_CONTEXTS, emailTargets: EMAIL_TARGETS,
+      passwordModes: PDF_PASSWORD_MODES, fileContexts: FILE_CONTEXTS, emailTargets: EMAIL_TARGETS, releaseMails: RELEASE_MAILS,
       engine: pdfEngine(),
       mail: { enabled: mail.enabled, problem: mailProblem(mail) },
       // How many current employees each choice would leave without a file or a mail
@@ -138,6 +139,11 @@ export const payrollFilesController = {
     if (b.payslipEmailTo !== undefined) {
       if (!isEmailTarget(b.payslipEmailTo)) throw new AppError(400, 'Pick the official or the personal address');
       data.payslipEmailTo = b.payslipEmailTo;
+    }
+    if (b.releaseMail !== undefined) {
+      if (!isReleaseMail(b.releaseMail)) throw new AppError(400, 'Pick what is mailed when payslips are released');
+      if (b.releaseMail === 'PAYSLIP' && !pdfEngine().pdf) throw new AppError(400, 'PDF files are not available on this server, so payslips cannot be mailed');
+      data.releaseMail = b.releaseMail;
     }
     for (const [field, fallback] of [['payslipFilePrefix', 'Payslip'], ['jvFilePrefix', 'JV']]) {
       if (b[field] === undefined) continue;

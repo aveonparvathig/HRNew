@@ -47,6 +47,7 @@ export async function annualTaxFor(organizationId: string, fyStart: number, pers
     prisma.payslipEntry.findMany({
       where: {
         organizationId, ...(personId ? { personId } : {}),
+        consultantSection: '', // fees to consultants are not salary
         run: { period: { in: periods }, status: 'FINALIZED' },
       },
       include: {
@@ -81,6 +82,7 @@ export async function annualTaxFor(organizationId: string, fyStart: number, pers
       basic: e.basic, da: e.da, hra: e.hra, pfEmployee: e.pfEmployee,
       professionalTax: e.professionalTax, tds: e.tds,
       components: componentAmounts(e, e.lines, exemptKeys),
+      npsEmployer: e.npsEmployer,
     })).sort((a, b) => a.period.localeCompare(b.period));
     const profile = profileByPerson.get(person.id);
     const chosen = profile?.regime && configByRegime.has(profile.regime) ? profile.regime : settings.defaultTaxRegime || 'NEW';

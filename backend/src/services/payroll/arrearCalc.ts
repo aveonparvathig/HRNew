@@ -1,6 +1,7 @@
 // Arrears and final settlement rules. Pure, DB-independent.
 import { computeEntry } from '../payrollCalc';
 import { addMonths } from './loanCalc';
+import { RecurringLike, coversPeriod, recurringAmount } from './recurringCalc';
 
 const r0 = (n: number) => Math.round(n);
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -12,7 +13,9 @@ export const ARREAR_FIELDS = [
   'basic', 'da', 'hra', 'transportAllowance', 'foodAllowance',
   'pfEmployee', 'pfEmployer', 'esiEmployee', 'esiEmployer',
 ] as const;
-export type ArrearAmounts = Record<(typeof ARREAR_FIELDS)[number] | 'gross', number>;
+// `recurring` is the part of the gross that comes from recurring earnings
+// reduced for loss of pay
+export type ArrearAmounts = Record<(typeof ARREAR_FIELDS)[number] | 'gross' | 'recurring', number>;
 
 const EARNING_FIELDS = ['basic', 'da', 'hra', 'transportAllowance', 'foodAllowance'] as const;
 
@@ -26,14 +29,14 @@ export interface PaidMonth {
 }
 
 const zero = (): ArrearAmounts => ({
-  basic: 0, da: 0, hra: 0, transportAllowance: 0, foodAllowance: 0, gross: 0,
+  basic: 0, da: 0, hra: 0, transportAllowance: 0, foodAllowance: 0, gross: 0, recurring: 0,
   pfEmployee: 0, pfEmployer: 0, esiEmployee: 0, esiEmployer: 0,
 });
 
 export function sumArrears(items: Partial<ArrearAmounts>[]): ArrearAmounts {
   const total = zero();
   for (const item of items) {
-    for (const f of [...ARREAR_FIELDS, 'gross'] as const) total[f] = r2(total[f] + Number(item[f] || 0));
+    for (const f of [...ARREAR_FIELDS, 'gross', 'recurring'] as const) total[f] = r2(total[f] + Number(item[f] || 0));
   }
   return total;
 }
@@ -42,9 +45,11 @@ export function sumArrears(items: Partial<ArrearAmounts>[]): ArrearAmounts {
 // arrears already raised for it. Both sides are worked out with the same
 // engine and settings, so the difference is only the package or the
 // loss-of-pay days that changed. PF and ESI follow the month's own flags.
+// `recurring` are the month's recurring earnings that are reduced for loss
+// of pay: when the days change, so do they.
 export function arrearFor(
   paid: PaidMonth, corrected: { monthlyPackage: number; lopDays: number }, settings: any,
-  alreadyRaised: Partial<ArrearAmounts>[] = [],
+  alreadyRaised: Partial<ArrearAmounts>[] = [], recurring: RecurringLike[] = [],
 ): ArrearAmounts {
   const base = {
     totalWorkingDays: paid.totalWorkingDays, empLeaveDays: paid.empLeaveDays,
@@ -55,7 +60,10 @@ export function arrearFor(
   const raised = sumArrears(alreadyRaised);
   const out = zero();
   for (const f of ARREAR_FIELDS) out[f] = r2(now[f] - was[f] - raised[f]);
-  out.gross = r2(EARNING_FIELDS.reduce((s, f) => s + out[f], 0));
+  const days = (lopDays?: number) => ({ totalWorkingDays: paid.totalWorkingDays, lopDays });
+  const earned = (lopDays?: number) => recurring.reduce((s, item) => s + recurringAmount(item, days(lopDays)), 0);
+  out.recurring = r2(earned(corrected.lopDays) - earned(paid.lopDays) - raised.recurring);
+  out.gross = r2(EARNING_FIELDS.reduce((s, f) => s + out[f], 0) + out.recurring);
   return out;
 }
 
@@ -69,6 +77,14 @@ export function effectiveLop(lopDays: number, raised: { kind: string; lopDays: n
 
 // An item that takes pay back (retro loss of pay, a back-dated cut)
 export const isRecovery = (a: { gross?: number }) => Number(a.gross || 0) < 0;
+
+// The recurring earnings of a past month that follow its days paid: those
+// covering the month and reduced for loss of pay, unless the component was
+// typed on that payslip by hand (the recurring amount was then not paid).
+export function recurringOfMonth(items: RecurringLike[], period: string, lines: { componentId?: string; source?: string }[] = []) {
+  const typed = new Set(lines.filter(l => l.source !== 'RECURRING').map(l => l.componentId));
+  return items.filter(i => i.type !== 'DEDUCTION' && i.prorate && coversPeriod(i, period) && !typed.has(i.componentId));
+}
 
 export const hasArrear = (a: ArrearAmounts) =>
   [...ARREAR_FIELDS, 'gross' as const].some(f => Math.abs(a[f]) >= 0.005);

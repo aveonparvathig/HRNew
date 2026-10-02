@@ -14,6 +14,7 @@ import { MAIL_SECURITY, mailProblem, mailSettingsFor, mailSettingsJSON, sendMail
 import { seal } from '../services/secretBox';
 import { pdfEngine } from '../services/pdf';
 import { isEmail } from '../services/payroll/payslipFiles';
+import { sendWelcomeMail } from '../services/notifications';
 
 const str = (v: any) => String(v ?? '');
 
@@ -172,7 +173,8 @@ export const orgController = {
       orderBy: { name: 'asc' },
     });
 
-    const created: { name: string; email: string; password: string }[] = [];
+    const created: { name: string; email: string; password: string; mail: string }[] = [];
+    const sentBy = await actorName(req.user?.userId);
     const skipped: { name: string; reason: string }[] = [];
     for (const p of employees) {
       const email = (p.officialEmail || p.email || '').trim().toLowerCase();
@@ -193,7 +195,9 @@ export const orgController = {
           passwordChangedAt: new Date(),
         },
       });
-      created.push({ name: p.name, email, password });
+      // With welcome mails on, each new login is mailed its temporary password
+      const mail = await sendWelcomeMail(orgId, { name: p.name, email, password, personId: p.id }, sentBy);
+      created.push({ name: p.name, email, password, mail });
     }
 
     const Excel = await import('exceljs');
@@ -201,7 +205,9 @@ export const orgController = {
     const ws = wb.addWorksheet('Logins');
     ws.addRow(['Name', 'Email (login)', 'Temporary password', 'Note']);
     ws.getRow(1).font = { bold: true };
-    for (const c of created) ws.addRow([c.name, c.email, c.password, 'Must change password at first sign-in']);
+    for (const c of created) {
+      ws.addRow([c.name, c.email, c.password, `Must change password at first sign-in${c.mail === 'SENT' ? '. Welcome mail sent.' : c.mail === 'FAILED' ? '. Welcome mail could not be sent.' : ''}`]);
+    }
     if (skipped.length) {
       ws.addRow([]);
       ws.addRow(['Skipped', '', '', '']).font = { bold: true };
@@ -236,7 +242,11 @@ export const orgController = {
         passwordChangedAt: new Date(),
       },
     });
-    res.status(201).json(memberJSON(user));
+    const welcomeMail = await sendWelcomeMail(
+      user.organizationId, { name: [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email, email: user.email, password: String(password) },
+      await actorName(req.user?.userId),
+    );
+    res.status(201).json({ ...memberJSON(user), welcomeMail });
   },
 
   async updateMember(req: any, res: Response) {
@@ -370,6 +380,12 @@ export const orgController = {
     if (b.clearPassword) data.passwordEnc = '';
     else if (b.password) data.passwordEnc = seal(String(b.password));
     if (b.enabled !== undefined) data.enabled = Boolean(b.enabled);
+    if (b.welcomeMail !== undefined) data.welcomeMail = Boolean(b.welcomeMail);
+    if (b.appUrl !== undefined) {
+      const url = str(b.appUrl).trim().replace(/\/+$/, '');
+      if (url && !/^https?:\/\/[^\s<>"']+$/i.test(url)) throw new AppError(400, 'The sign-in address starts with https:// (or http://)');
+      data.appUrl = url.slice(0, 200);
+    }
 
     const next = { ...before, ...data };
     if (next.enabled) {
@@ -377,7 +393,7 @@ export const orgController = {
       if (problem) throw new AppError(400, `${problem}. Fill it in before switching email on.`);
     }
     const updated = await prisma.mailSettings.update({ where: { organizationId }, data });
-    const changed = (['enabled', 'host', 'port', 'security', 'username', 'fromName', 'fromEmail', 'replyTo'] as const)
+    const changed = (['enabled', 'host', 'port', 'security', 'username', 'fromName', 'fromEmail', 'replyTo', 'welcomeMail', 'appUrl'] as const)
       .filter(f => before[f] !== updated[f])
       .map(f => ({ action: 'MAIL_SETTINGS_UPDATED' as const, field: f, oldValue: String(before[f]), newValue: String(updated[f]) }));
     // The password itself is never written to the log

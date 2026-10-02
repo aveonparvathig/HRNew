@@ -236,6 +236,12 @@ export default function PersonDetail() {
                 <span className="badge badge-neutral">{person.employmentStatus.replace('_', ' ').toLowerCase()}</span>
               )} />
               <InfoRow label="Monthly package" value={person.currentMonthlyPackage ? formatINR(person.currentMonthlyPackage) : ''} />
+              {person.taxTreatment === 'CONSULTANT' && (
+                <InfoRow label="Paid as" value={`Consultant — tax at ${person.consultantTdsPercent}% under section ${person.consultantSection}`} />
+              )}
+              {person.taxTreatment !== 'CONSULTANT' && person.npsEmployerPercent > 0 && (
+                <InfoRow label="Employer NPS" value={`${person.npsEmployerPercent}% of Basic + DA${person.npsPran ? ` · PRAN ${person.npsPran}` : ''}`} />
+              )}
               <InfoRow label="Biometric ID" value={person.biometricId} />
               <InfoRow label="Agreement" value={person.agreementSigned
                 ? `Signed${person.agreementSignDate ? ' · ' + formatDate(person.agreementSignDate) : ''}`

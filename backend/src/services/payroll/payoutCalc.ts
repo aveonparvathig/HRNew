@@ -209,10 +209,12 @@ const CONTROL_ACCOUNTS: JvAccount[] = [
   { key: 'esiEmployer', label: 'ESI — employer contribution', side: 'DEBIT', defaultLedger: 'ESI Employer Contribution' },
   { key: 'pfEmployer', label: 'PF — employer contribution', side: 'DEBIT', defaultLedger: 'PF Employer Contribution' },
   { key: 'lwfEmployer', label: 'LWF — employer contribution', side: 'DEBIT', defaultLedger: 'LWF Employer Contribution' },
+  { key: 'npsEmployer', label: 'NPS — employer contribution', side: 'DEBIT', defaultLedger: 'NPS Employer Contribution' },
   { key: 'reimbursement', label: 'Expense claims paid with salary', side: 'DEBIT', defaultLedger: 'Staff Expense Reimbursements' },
   { key: 'esiPayable', label: 'ESI payable (employee + employer)', side: 'CREDIT', defaultLedger: 'ESI Payable' },
   { key: 'pfPayable', label: 'PF payable (employee + employer)', side: 'CREDIT', defaultLedger: 'PF Payable' },
   { key: 'lwfPayable', label: 'LWF payable (employee + employer)', side: 'CREDIT', defaultLedger: 'LWF Payable' },
+  { key: 'npsPayable', label: 'NPS payable (employer contribution)', side: 'CREDIT', defaultLedger: 'NPS Payable' },
   { key: 'tds', label: 'TDS deducted', side: 'CREDIT', defaultLedger: 'TDS Payable' },
   { key: 'professionalTax', label: 'Professional Tax deducted', side: 'CREDIT', defaultLedger: 'Professional Tax Payable' },
   { key: 'salaryAdvance', label: 'Salary advance recovered', side: 'CREDIT', defaultLedger: 'Salary Advances' },
@@ -240,6 +242,7 @@ function jvAmount(entries: any[], key: string): number {
     case 'esiPayable': return r2(sum('esiEmployee') + sum('esiEmployer'));
     case 'pfPayable': return r2(sum('pfEmployee') + sum('pfEmployer'));
     case 'lwfPayable': return r2(sum('lwfEmployee') + sum('lwfEmployer'));
+    case 'npsPayable': return sum('npsEmployer');
     case 'netPayable': return r2(sum('netPayable') + sum('reimbursement'));
     case 'reimbursement': return sum('reimbursement');
     default: return columnTotal(entries, key);
