@@ -94,7 +94,7 @@ async function requireApprover(req: any) {
 }
 
 // EMPLOYEE and MARKETING roles only ever see / edit reports for their own Person
-const selfScoped = (actor: any) => ['EMPLOYEE', 'MARKETING'].includes(actor?.role);
+const selfScoped = (actor: any) => !['SUPER_ADMIN', 'HR'].includes(actor?.role);
 
 async function assertReportAccess(req: any, reportPersonId: string) {
   const actor = await loadActor(req);

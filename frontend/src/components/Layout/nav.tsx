@@ -21,6 +21,8 @@ export const ICON_PATHS: Record<string, React.ReactNode> = {
   banknote: <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /><path d="M7 12h.01M17 12h.01" /></>,
   sliders: <><path d="M4 8h10M18 8h2M4 16h2M10 16h10" /><circle cx="16" cy="8" r="2.5" /><circle cx="8" cy="16" r="2.5" /></>,
   home: <><path d="m3 10 9-7 9 7" /><path d="M5 8.5V21h14V8.5" /><path d="M10 21v-6h4v6" /></>,
+  key: <><circle cx="8" cy="15" r="4" /><path d="m11 12 9-9" /><path d="m16 7 3 3" /><path d="m19 4 2 2" /></>,
+  shield: <><path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></>,
   pin: <><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11Z" /><circle cx="12" cy="10" r="2.5" /></>,
   megaphone: <><path d="m3 11 14-6v14L3 13v-2Z" /><path d="M17 8a4 4 0 0 1 0 8" /><path d="M6.5 13.5V19a1.5 1.5 0 0 0 3 0v-4.5" /></>,
@@ -90,6 +92,7 @@ const PAYROLL_ITEMS: NavItem[] = [
 const ORG_ITEMS: NavItem[] = [
   { to: '/organization', icon: 'home', label: 'Company Settings' },
   { to: '/organization/team', icon: 'users', label: 'Team' },
+  { to: '/organization/security', icon: 'shield', label: 'Security' },
 ];
 
 // Role-based navigation: the API enforces these same rules server-side
@@ -115,10 +118,11 @@ export function navSectionsFor(user: { role?: string; personId?: string | null }
   });
   if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
   if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });
-  if (isSA || isHR) sections.push({ key: 'payroll', label: 'Payroll', items: PAYROLL_ITEMS });
+  // The payroll viewer reads the same pages; the API refuses any change
+  if (isSA || isHR || role === 'PAYROLL_VIEWER') sections.push({ key: 'payroll', label: 'Payroll', items: PAYROLL_ITEMS });
   // HR keeps the company's registrations, bank accounts and lists; logins are the Super Admin's
   if (isSA || isHR) {
-    sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS.filter(i => isSA || i.to !== '/organization/team') });
+    sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS.filter(i => isSA || i.to === '/organization') });
   }
   return sections;
 }

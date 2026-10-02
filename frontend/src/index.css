@@ -505,6 +505,7 @@ a:hover { text-decoration: underline; }
 .alert-error { background: var(--danger-soft); color: #B42318; border-color: #F5CDCF; }
 .alert-success { background: var(--success-soft); color: #067647; border-color: #C4EDD6; }
 .alert-warning { background: var(--warning-soft); color: var(--warning); border-color: #F5DDB0; }
+.alert-info { background: var(--info-soft); color: var(--info); border-color: #CFE2FB; }
 
 /* ============ Table ============ */
 .table-wrap { overflow-x: auto; border-radius: var(--radius); }
@@ -700,6 +701,18 @@ a:hover { text-decoration: underline; }
 }
 .proof-add:hover { color: var(--primary); border-color: var(--primary); }
 .table .input-sm { width: 120px; padding: 6px 8px; font-size: 13px; text-align: right; }
+
+/* ============ Settings as a list of rules ============ */
+.rule-list { display: grid; gap: 14px; margin-bottom: 18px; }
+.rule-row { display: grid; grid-template-columns: minmax(200px, 300px) minmax(180px, 260px) 1fr; gap: 6px 16px; align-items: center; }
+.rule-row label { font-size: 13.5px; font-weight: 600; }
+.rule-input { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.rule-input .input { width: 84px; text-align: right; }
+.rule-row .hint { font-size: 12px; color: var(--text-3); }
+@media (max-width: 900px) { .rule-row { grid-template-columns: 1fr; } }
+
+.icon-btn.key-btn { display: inline-flex; }
+.icon-btn.key-btn:hover { background: var(--neutral-soft); color: var(--text); text-decoration: none; }
 
 /* ============ Report tiles ============ */
 .report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }

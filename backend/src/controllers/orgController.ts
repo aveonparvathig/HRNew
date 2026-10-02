@@ -4,10 +4,15 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { INDIAN_STATES } from '../services/payroll/constants';
 import { IMAGE_DATA_URI, LOGO_POSITIONS, MAX_SIGNATURE_CHARS } from '../services/masters';
+import {
+  LOGIN_RESULT_LABELS, POLICY_LABELS, POLICY_LIMITS, PasswordPolicyLike, ROLES,
+  expiryState, lockState, passwordProblem, policyInput, tempPasswordExpired,
+} from '../services/passwordPolicy';
+import { LOGIN_EVENT_DAYS, policyFor, setPassword } from '../services/accountSecurity';
+import { logPayrollAudit } from '../services/payroll/audit';
 
 const str = (v: any) => String(v ?? '');
 
-const ROLES = ['SUPER_ADMIN', 'HR', 'EMPLOYEE', 'MARKETING'];
 
 async function requireOwner(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -17,7 +22,27 @@ async function requireOwner(userId: string) {
   return user;
 }
 
-const memberJSON = (u: any) => ({
+const POLICY_KEYS = Object.keys(POLICY_LIMITS) as (keyof PasswordPolicyLike)[];
+const policyJSON = (p: any) => Object.fromEntries(POLICY_KEYS.map(k => [k, p[k]]));
+
+// Where a member's sign-in stands under the policy
+function securityOf(u: any, policy: PasswordPolicyLike, now: Date) {
+  const lock = lockState(u.lockedUntil, now);
+  const expiry = expiryState(policy, u.passwordChangedAt, now);
+  return {
+    lastLoginAt: u.lastLoginAt || null,
+    failedAttempts: lock.locked || !u.lockedUntil ? u.failedAttempts : 0,
+    locked: lock.locked,
+    lockedUntil: lock.locked && !lock.indefinite ? lock.until : null,
+    passwordChangedAt: u.passwordChangedAt || null,
+    passwordExpired: expiry.expired,
+    passwordDaysLeft: expiry.daysLeft,
+    tempPasswordExpired: tempPasswordExpired(policy, u.mustChangePassword, u.passwordChangedAt, now),
+  };
+}
+
+const memberJSON = (u: any, policy?: PasswordPolicyLike) => ({
+  ...(policy ? securityOf(u, policy, new Date()) : {}),
   id: u.id,
   email: u.email,
   firstName: u.firstName,
@@ -105,6 +130,7 @@ export const orgController = {
       orderBy: { createdAt: 'asc' },
     });
     const me = users.find(u => u.id === req.user?.userId);
+    const policy = await policyFor(req.user?.organizationId);
     const linkedIds = users.map(u => u.personId).filter(Boolean) as string[];
     const withoutLogin = await prisma.person.count({
       where: {
@@ -115,7 +141,8 @@ export const orgController = {
       },
     });
     res.json({
-      members: users.map(memberJSON),
+      members: users.map(u => memberJSON(u, policy)),
+      passwordMinLength: policy.minLength,
       myRole: me?.role || 'EMPLOYEE',
       myId: req.user?.userId,
       employeesWithoutLogin: withoutLogin,
@@ -159,6 +186,7 @@ export const orgController = {
           role: 'EMPLOYEE',
           personId: p.id,
           mustChangePassword: true,
+          passwordChangedAt: new Date(),
         },
       });
       created.push({ name: p.name, email, password });
@@ -187,7 +215,8 @@ export const orgController = {
     await requireOwner(req.user?.userId);
     const { email, password, firstName, lastName, role } = req.body;
     if (!email || !password) throw new AppError(400, 'Email and password are required');
-    if (String(password).length < 8) throw new AppError(400, 'Password must be at least 8 characters');
+    const problem = passwordProblem(await policyFor(req.user?.organizationId), String(password));
+    if (problem) throw new AppError(400, problem);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new AppError(409, 'A user with this email already exists');
     const user = await prisma.user.create({
@@ -198,6 +227,9 @@ export const orgController = {
         lastName: str(lastName),
         organizationId: req.user?.organizationId,
         role: ROLES.includes(role) ? role : 'EMPLOYEE',
+        // The admin knows this password, so it is a temporary one
+        mustChangePassword: true,
+        passwordChangedAt: new Date(),
       },
     });
     res.status(201).json(memberJSON(user));
@@ -237,6 +269,9 @@ export const orgController = {
       }
     }
     const updated = await prisma.user.update({ where: { id: member.id }, data });
+    if (updated.role !== member.role) {
+      await logPayrollAudit(req, [{ action: 'LOGIN_ROLE_CHANGED', field: member.email, oldValue: member.role, newValue: updated.role }]);
+    }
     res.json(memberJSON(updated));
   },
 
@@ -246,12 +281,71 @@ export const orgController = {
       where: { id: req.params.memberId, organizationId: req.user?.organizationId },
     });
     if (!member) throw new AppError(404, 'Team member not found');
-    const password = String(req.body.password || '');
-    if (password.length < 8) throw new AppError(400, 'Password must be at least 8 characters');
-    await prisma.user.update({
-      where: { id: member.id },
-      data: { password: await bcrypt.hash(password, 10) },
+    const own = member.id === req.user?.userId;
+    // A password set for someone else is temporary: they choose their own
+    // at next sign-in, and their open sessions are closed.
+    await setPassword(member, String(req.body.password || ''), await policyFor(member.organizationId), { temporary: !own });
+    if (!own) await prisma.refreshToken.deleteMany({ where: { userId: member.id } });
+    await logPayrollAudit(req, [{ action: 'PASSWORD_RESET', field: member.email }]);
+    res.json({
+      message: own ? 'Your password has been changed.'
+        : `Password reset for ${member.email}. They must choose their own at next sign-in.`,
     });
-    res.json({ message: `Password reset for ${member.email}` });
+  },
+
+  // Lift a lock and clear the count of wrong passwords.
+  async unlockMember(req: any, res: Response) {
+    await requireOwner(req.user?.userId);
+    const member = await prisma.user.findFirst({
+      where: { id: req.params.memberId, organizationId: req.user?.organizationId },
+    });
+    if (!member) throw new AppError(404, 'Team member not found');
+    await prisma.user.update({ where: { id: member.id }, data: { failedAttempts: 0, lockedUntil: null } });
+    await logPayrollAudit(req, [{ action: 'ACCOUNT_UNLOCKED', field: member.email }]);
+    res.json({ message: `${member.email} can sign in again.` });
+  },
+
+  // ---- Sign-in security -----------------------------------------------------
+  async getSecurity(req: any, res: Response) {
+    const policy = await policyFor(req.user?.organizationId);
+    res.json({ policy: policyJSON(policy), limits: POLICY_LIMITS, labels: POLICY_LABELS });
+  },
+
+  async updateSecurity(req: any, res: Response) {
+    await requireOwner(req.user?.userId);
+    const organizationId = req.user?.organizationId;
+    const before = await policyFor(organizationId);
+    const { policy, error } = policyInput(req.body, policyJSON(before) as any);
+    if (error) throw new AppError(400, error);
+    const updated = await prisma.passwordPolicy.update({ where: { organizationId }, data: policy });
+    await logPayrollAudit(req, POLICY_KEYS.filter(k => before[k] !== updated[k]).map(k => ({
+      action: 'SECURITY_POLICY_UPDATED' as const, field: POLICY_LABELS[k], oldValue: String(before[k]), newValue: String(updated[k]),
+    })));
+    res.json({ policy: policyJSON(updated), limits: POLICY_LIMITS, labels: POLICY_LABELS });
+  },
+
+  // Sign-in attempts on the organization's accounts, newest first.
+  async getLoginHistory(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+    await prisma.loginEvent.deleteMany({
+      where: { organizationId, createdAt: { lt: new Date(Date.now() - LOGIN_EVENT_DAYS * 24 * 60 * 60 * 1000) } },
+    });
+    const where: any = { organizationId };
+    if (req.query.failed === '1') where.result = { not: 'SUCCESS' };
+    if (req.query.userId) where.userId = String(req.query.userId);
+    const [rows, total] = await Promise.all([
+      prisma.loginEvent.findMany({ where, orderBy: { createdAt: 'desc' }, take: limit, skip: offset }),
+      prisma.loginEvent.count({ where }),
+    ]);
+    res.json({
+      rows: rows.map(r => ({
+        id: r.id, email: r.email, result: r.result,
+        resultLabel: (LOGIN_RESULT_LABELS as any)[r.result] || r.result,
+        ip: r.ip, userAgent: r.userAgent, createdAt: r.createdAt,
+      })),
+      total, limit, offset, keptDays: LOGIN_EVENT_DAYS,
+    });
   },
 };

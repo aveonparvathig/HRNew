@@ -150,6 +150,9 @@ export default function AppLayout() {
               </div>
             </>
           )}
+          <Link to="/change-password" className="icon-btn key-btn" title="Change password" aria-label="Change password">
+            <Icon name="key" size={16} className="" />
+          </Link>
           <button className="icon-btn" onClick={handleLogout} title="Sign out" aria-label="Sign out">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -161,6 +164,12 @@ export default function AppLayout() {
 
       <div className="app-main">
         <main className="app-content" id="main">
+          {user?.role === 'PAYROLL_VIEWER' && location.pathname.startsWith('/payroll') && (
+            <div className="alert alert-info no-print" role="note">
+              <span>ℹ</span>
+              <span>View-only access: you can open every payroll page and report, but changes are not saved.</span>
+            </div>
+          )}
           {/* A page's code loads on first visit; the menu stays put meanwhile */}
           <Suspense fallback={<LoadingBlock label="Loading…" />}>
             <Outlet />

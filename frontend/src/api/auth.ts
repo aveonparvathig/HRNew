@@ -15,9 +15,12 @@ export interface LoginResponse {
     role: string;
     personId?: string | null;
     mustChangePassword?: boolean;
+    passwordExpired?: boolean;
   };
   accessToken: string;
   refreshToken: string;
+  // Days left when the password is close to expiring
+  passwordExpiresInDays?: number | null;
 }
 
 export interface SignupRequest {

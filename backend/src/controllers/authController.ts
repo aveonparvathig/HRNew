@@ -4,6 +4,10 @@ import { createHash } from 'crypto';
 import { prisma } from '../config/database';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
+import {
+  DEFAULT_POLICY, afterWrongPassword, expiryState, lockState, passwordProblem, tempPasswordExpired,
+} from '../services/passwordPolicy';
+import { policyFor, recordLogin, setPassword } from '../services/accountSecurity';
 
 // Refresh tokens live in the database (hashed) - they survive restarts and
 // can be revoked per-session.
@@ -42,9 +46,9 @@ export const authController = {
     if (!email || !password || !organizationName) {
       throw new AppError(400, 'Email, password, and organization name are required');
     }
-    if (String(password).length < 8) {
-      throw new AppError(400, 'Password must be at least 8 characters');
-    }
+    // A new organization has no policy yet: the built-in rules apply
+    const problem = passwordProblem(DEFAULT_POLICY, String(password));
+    if (problem) throw new AppError(400, problem);
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -60,6 +64,7 @@ export const authController = {
           create: {
             email,
             password: hashedPassword,
+            passwordChangedAt: new Date(),
             firstName: firstName || '',
             lastName: lastName || '',
           },
@@ -83,24 +88,75 @@ export const authController = {
       throw new AppError(400, 'Email and password are required');
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
+    const found = await prisma.user.findUnique({ where: { email } });
+    if (!found) {
       throw new AppError(401, 'Invalid email or password');
+    }
+    const policy = await policyFor(found.organizationId);
+    const now = new Date();
+
+    // A locked account refuses even the right password until the lock ends
+    const lock = lockState(found.lockedUntil, now);
+    if (lock.locked) {
+      await recordLogin(found, 'LOCKED', req);
+      const minutes = Math.max(1, Math.ceil((lock.until!.getTime() - now.getTime()) / 60000));
+      throw new AppError(403, lock.indefinite
+        ? 'This account is locked after too many wrong passwords. Ask an admin to unlock it.'
+        : `This account is locked after too many wrong passwords. Try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}, or ask an admin to unlock it.`);
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, found.password);
     if (!isPasswordValid) {
-      throw new AppError(401, 'Invalid email or password');
+      // A lock that has run out starts the count afresh
+      const counted = found.lockedUntil ? 0 : found.failedAttempts;
+      const next = afterWrongPassword(policy, counted, now, found.role === 'SUPER_ADMIN');
+      await prisma.user.update({
+        where: { id: found.id }, data: { failedAttempts: next.failedAttempts, lockedUntil: next.lockedUntil },
+      });
+      await recordLogin(found, 'WRONG_PASSWORD', req);
+      if (next.lockedUntil) {
+        throw new AppError(401, 'Invalid email or password. The account is now locked after too many wrong passwords.');
+      }
+      throw new AppError(401, next.attemptsLeft !== null && next.attemptsLeft <= 2
+        ? `Invalid email or password. ${next.attemptsLeft} more wrong ${next.attemptsLeft === 1 ? 'attempt' : 'attempts'} will lock the account.`
+        : 'Invalid email or password');
     }
-    if (!user.isActive) {
+    if (!found.isActive) {
+      await recordLogin(found, 'DISABLED', req);
       throw new AppError(403, 'This account has been disabled. Contact your organization owner.');
     }
+    if (tempPasswordExpired(policy, found.mustChangePassword, found.passwordChangedAt, now)) {
+      await recordLogin(found, 'TEMP_EXPIRED', req);
+      throw new AppError(403, 'Your temporary password has expired. Ask an admin to set a new one.');
+    }
+
+    // A password past its age must be changed before anything else
+    const expiry = expiryState(policy, found.passwordChangedAt, now);
+    const user = await prisma.user.update({
+      where: { id: found.id },
+      data: {
+        failedAttempts: 0, lockedUntil: null, lastLoginAt: now,
+        mustChangePassword: found.mustChangePassword || expiry.expired,
+      },
+    });
+    await recordLogin(user, 'SUCCESS', req);
 
     const accessToken = generateAccessToken(user.id, email, user.organizationId);
     const refreshToken = generateRefreshToken(user.id, user.organizationId);
     await storeRefreshToken(user.id, refreshToken);
 
-    res.json({ user: userJSON(user), accessToken, refreshToken });
+    res.json({
+      user: { ...userJSON(user), passwordExpired: expiry.expired && !found.mustChangePassword },
+      accessToken, refreshToken,
+      // Set when the password is close to its expiry, for a reminder
+      passwordExpiresInDays: expiry.remind ? expiry.daysLeft : null,
+    });
+  },
+
+  // What a new password must satisfy, for the hint beside the field
+  async passwordRules(req: any, res: Response) {
+    const policy = await policyFor(req.user?.organizationId);
+    res.json({ minLength: policy.minLength, historyCount: policy.historyCount, expiryDays: policy.expiryDays });
   },
 
   // Authenticated password change; clears the first-login force flag
@@ -109,17 +165,12 @@ export const authController = {
     if (!currentPassword || !newPassword) {
       throw new AppError(400, 'Current and new password are required');
     }
-    if (String(newPassword).length < 8) {
-      throw new AppError(400, 'New password must be at least 8 characters');
-    }
     const user = await prisma.user.findUnique({ where: { id: req.user?.userId } });
     if (!user) throw new AppError(404, 'User not found');
     const ok = await bcrypt.compare(currentPassword, user.password);
-    if (!ok) throw new AppError(401, 'Current password is incorrect');
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { password: await bcrypt.hash(newPassword, 10), mustChangePassword: false },
-    });
+    // 400, not 401: the session is fine, only the typed password is wrong
+    if (!ok) throw new AppError(400, 'Current password is incorrect');
+    await setPassword(user, String(newPassword), await policyFor(user.organizationId), { temporary: false });
     res.json({ message: 'Password changed' });
   },
 

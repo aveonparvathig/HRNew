@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { ErrorAlert } from '../../components/ui';
+import { toast } from '../../components/feedback';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -22,6 +23,10 @@ export default function Login() {
       const { user, accessToken, refreshToken } = response.data;
       setUser(user);
       setTokens(accessToken, refreshToken);
+      const daysLeft = response.data.passwordExpiresInDays;
+      if (daysLeft) {
+        toast.info(`Your password expires in ${daysLeft} ${daysLeft === 1 ? 'day' : 'days'}. Change it from the key button beside your name.`);
+      }
       navigate(response.data.user?.mustChangePassword ? '/change-password' : '/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');

@@ -56,6 +56,7 @@ const MyLoans = lazy(() => import('./pages/My/MyLoans'));
 const MyDocument = lazy(() => import('./pages/My/MyDocument'));
 const CompanySettings = lazy(() => import('./pages/Organization/CompanySettings'));
 const Team = lazy(() => import('./pages/Organization/Team'));
+const Security = lazy(() => import('./pages/Organization/Security'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuthStore(state => state.user);
@@ -72,6 +73,8 @@ function RequireRole({ roles, children }: { roles: string[]; children: React.Rea
 }
 const SA = ['SUPER_ADMIN'];
 const SA_HR = ['SUPER_ADMIN', 'HR'];
+// Payroll pages open for the read-only viewer too; the API refuses its changes
+const PAYROLL = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'];
 const SA_EMP = ['SUPER_ADMIN', 'EMPLOYEE'];
 const SA_MKT = ['SUPER_ADMIN', 'MARKETING'];
 
@@ -112,25 +115,25 @@ function App() {
             <Route path="/expenses" element={<ExpensesList />} />
             <Route path="/expenses/:reportId" element={<ExpenseReportEditor />} />
             <Route path="/expenses/:reportId/print" element={<ExpenseReportView />} />
-            <Route path="/payroll" element={<RequireRole roles={SA_HR}><RunsList /></RequireRole>} />
-            <Route path="/payroll/runs/:runId" element={<RequireRole roles={SA_HR}><RunDetail /></RequireRole>} />
-            <Route path="/payroll/runs/:runId/reports/:kind" element={<RequireRole roles={SA_HR}><PayrollReport /></RequireRole>} />
-            <Route path="/payroll/runs/:runId/payout" element={<RequireRole roles={SA_HR}><Payout /></RequireRole>} />
-            <Route path="/payroll/runs/:runId/payslips" element={<RequireRole roles={SA_HR}><BulkPayslips /></RequireRole>} />
-            <Route path="/payroll/payslips/:entryId" element={<RequireRole roles={SA_HR}><PayslipView /></RequireRole>} />
-            <Route path="/payroll/settings" element={<RequireRole roles={SA_HR}><PayrollSettings /></RequireRole>} />
-            <Route path="/payroll/audit-log" element={<RequireRole roles={SA_HR}><AuditLog /></RequireRole>} />
-            <Route path="/payroll/remittances" element={<RequireRole roles={SA_HR}><Remittances /></RequireRole>} />
-            <Route path="/payroll/loans" element={<RequireRole roles={SA_HR}><LoansList /></RequireRole>} />
-            <Route path="/payroll/loans/:loanId" element={<RequireRole roles={SA_HR}><LoanDetail /></RequireRole>} />
-            <Route path="/payroll/adjustments" element={<RequireRole roles={SA_HR}><Adjustments /></RequireRole>} />
-            <Route path="/payroll/settlements/new" element={<RequireRole roles={SA_HR}><SettlementForm /></RequireRole>} />
-            <Route path="/payroll/settlements/:settlementId" element={<RequireRole roles={SA_HR}><SettlementForm /></RequireRole>} />
-            <Route path="/payroll/tds" element={<RequireRole roles={SA_HR}><TdsReturns /></RequireRole>} />
-            <Route path="/payroll/declarations" element={<RequireRole roles={SA_HR}><Declarations /></RequireRole>} />
-            <Route path="/payroll/declarations/:personId" element={<RequireRole roles={SA_HR}><DeclarationDetail /></RequireRole>} />
-            <Route path="/payroll/reports" element={<RequireRole roles={SA_HR}><ReportsHub /></RequireRole>} />
-            <Route path="/payroll/reports/:kind" element={<RequireRole roles={SA_HR}><PayrollReport /></RequireRole>} />
+            <Route path="/payroll" element={<RequireRole roles={PAYROLL}><RunsList /></RequireRole>} />
+            <Route path="/payroll/runs/:runId" element={<RequireRole roles={PAYROLL}><RunDetail /></RequireRole>} />
+            <Route path="/payroll/runs/:runId/reports/:kind" element={<RequireRole roles={PAYROLL}><PayrollReport /></RequireRole>} />
+            <Route path="/payroll/runs/:runId/payout" element={<RequireRole roles={PAYROLL}><Payout /></RequireRole>} />
+            <Route path="/payroll/runs/:runId/payslips" element={<RequireRole roles={PAYROLL}><BulkPayslips /></RequireRole>} />
+            <Route path="/payroll/payslips/:entryId" element={<RequireRole roles={PAYROLL}><PayslipView /></RequireRole>} />
+            <Route path="/payroll/settings" element={<RequireRole roles={PAYROLL}><PayrollSettings /></RequireRole>} />
+            <Route path="/payroll/audit-log" element={<RequireRole roles={PAYROLL}><AuditLog /></RequireRole>} />
+            <Route path="/payroll/remittances" element={<RequireRole roles={PAYROLL}><Remittances /></RequireRole>} />
+            <Route path="/payroll/loans" element={<RequireRole roles={PAYROLL}><LoansList /></RequireRole>} />
+            <Route path="/payroll/loans/:loanId" element={<RequireRole roles={PAYROLL}><LoanDetail /></RequireRole>} />
+            <Route path="/payroll/adjustments" element={<RequireRole roles={PAYROLL}><Adjustments /></RequireRole>} />
+            <Route path="/payroll/settlements/new" element={<RequireRole roles={PAYROLL}><SettlementForm /></RequireRole>} />
+            <Route path="/payroll/settlements/:settlementId" element={<RequireRole roles={PAYROLL}><SettlementForm /></RequireRole>} />
+            <Route path="/payroll/tds" element={<RequireRole roles={PAYROLL}><TdsReturns /></RequireRole>} />
+            <Route path="/payroll/declarations" element={<RequireRole roles={PAYROLL}><Declarations /></RequireRole>} />
+            <Route path="/payroll/declarations/:personId" element={<RequireRole roles={PAYROLL}><DeclarationDetail /></RequireRole>} />
+            <Route path="/payroll/reports" element={<RequireRole roles={PAYROLL}><ReportsHub /></RequireRole>} />
+            <Route path="/payroll/reports/:kind" element={<RequireRole roles={PAYROLL}><PayrollReport /></RequireRole>} />
             {/* An employee's own pay: the API scopes these to the person linked to the login */}
             <Route path="/my/payslips" element={<MyPayslips />} />
             <Route path="/my/payslips/:entryId" element={<MyDocument />} />
@@ -139,6 +142,7 @@ function App() {
             <Route path="/my/reports/:kind" element={<MyDocument />} />
             <Route path="/organization" element={<RequireRole roles={SA_HR}><CompanySettings /></RequireRole>} />
             <Route path="/organization/team" element={<RequireRole roles={SA}><Team /></RequireRole>} />
+            <Route path="/organization/security" element={<RequireRole roles={SA}><Security /></RequireRole>} />
           </Route>
 
           <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} />} />

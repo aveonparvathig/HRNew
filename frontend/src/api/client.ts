@@ -29,8 +29,12 @@ client.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    // A wrong password at sign-in is the page's to show; there is no
+    // session to renew.
+    const signingIn = /\/auth\/(login|signup)$/.test(originalRequest?.url || '');
+
     // Handle 401 - Try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !signingIn) {
       originalRequest._retry = true;
 
       try {
