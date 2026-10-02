@@ -8,6 +8,7 @@ import { applyDuePositions } from '../services/positions';
 import { hrDashboardController } from '../controllers/hrDashboardController';
 import { lettersController } from '../controllers/lettersController';
 import { employeeFilesController } from '../controllers/employeeFilesController';
+import { importController } from '../controllers/importController';
 
 const router = Router();
 
@@ -46,6 +47,17 @@ router.post('/letter-templates/:templateId/reset', staffOnly, asyncHandler((req,
 router.delete('/letter-templates/:templateId', staffOnly, asyncHandler((req, res) => lettersController.deleteTemplate(req, res)));
 router.post('/letters/preview', staffOnly, asyncHandler((req, res) => lettersController.preview(req, res)));
 router.post('/letters', staffOnly, asyncHandler((req, res) => lettersController.createLetters(req, res)));
+
+// Bulk imports: employees and salary revisions from a workbook, photos
+// and documents named by employee code (before /:personId routes)
+router.get('/import/employees/template.xlsx', staffOnly, asyncHandler((req, res) => importController.employeeTemplate(req, res)));
+router.post('/import/employees', staffOnly, asyncHandler((req, res) => importController.importEmployees(req, res)));
+router.get('/import/revisions/template.xlsx', staffOnly, asyncHandler((req, res) => importController.revisionTemplate(req, res)));
+router.post('/import/revisions', staffOnly, asyncHandler((req, res) => importController.importRevisions(req, res)));
+router.post('/import/files/match', staffOnly, asyncHandler((req, res) => importController.matchFiles(req, res)));
+router.post('/import/files', staffOnly, asyncHandler((req, res) => importController.importFiles(req, res)));
+router.get('/import/logs', staffOnly, asyncHandler((req, res) => importController.getLogs(req, res)));
+router.get('/import/logs/:logId', staffOnly, asyncHandler((req, res) => importController.getLog(req, res)));
 
 // Employee register export
 router.get('/export/employees.csv', staffOnly, asyncHandler((req, res) => peopleController.exportEmployeesCsv(req, res)));
