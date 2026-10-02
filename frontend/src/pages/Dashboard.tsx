@@ -14,7 +14,7 @@ const MODULES = [
   { to: '/proposals', icon: 'pen', tone: 'tone-success', name: 'Proposals', desc: 'Branded quotations from the module catalog' },
   { to: '/payroll', icon: 'banknote', tone: 'tone-primary', name: 'Payroll', desc: 'Monthly runs, statutory returns & payslips' },
   { to: '/my/payslips', icon: 'banknote', tone: 'tone-success', name: 'My Pay', desc: 'Your payslips, tax declaration and loans' },
-  { to: '/organization', icon: 'home', tone: 'tone-info', name: 'Organization', desc: 'Company profile and team logins' },
+  { to: '/organization', icon: 'home', tone: 'tone-info', name: 'Organization', desc: 'Company settings, bank accounts and lists' },
 ];
 
 // Which module cards each role sees (mirrors the API policy)
@@ -27,7 +27,7 @@ const MODULE_ROLES: Record<string, string[]> = {
   '/proposals': ['SUPER_ADMIN', 'MARKETING'],
   '/payroll': ['SUPER_ADMIN', 'HR'],
   '/my/payslips': ALL, // shown only when the login is linked to a person
-  '/organization': ['SUPER_ADMIN'],
+  '/organization': ['SUPER_ADMIN', 'HR'],
 };
 
 const monthLabel = (period: string) => {

@@ -12,6 +12,8 @@ export interface OrgBrand {
   brandAccent: string;
   signatoryName: string;
   signatoryDesignation: string;
+  signatureData: string;
+  logoPosition: string; // LEFT | CENTER | RIGHT
 }
 
 export async function orgBrand(organizationId: string): Promise<OrgBrand> {
@@ -30,8 +32,14 @@ export async function orgBrand(organizationId: string): Promise<OrgBrand> {
     brandAccent: org?.brandAccent || '#312e81',
     signatoryName: org?.signatoryName || '',
     signatoryDesignation: org?.signatoryDesignation || '',
+    signatureData: org?.signatureData || '',
+    logoPosition: org?.logoPosition || 'LEFT',
   };
 }
+
+// A signature image for the line someone signs on; empty when there is none.
+export const signatureImg = (data: string | null | undefined, height = 44) =>
+  (data ? `<img src="${data}" alt="" style="height:${height}px;max-width:200px;object-fit:contain;display:block;"/>` : '');
 
 export const brandContactLine = (b: OrgBrand) =>
   [b.phone, b.email, b.website].filter(Boolean).join(' · ');

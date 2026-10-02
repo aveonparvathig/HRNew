@@ -3,7 +3,7 @@
 import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
-import { orgBrand } from '../services/orgBrand';
+import { orgBrand, signatureImg } from '../services/orgBrand';
 import { financialYearFor, financialYearOf, periodsOfFinancialYear } from '../services/payroll/financialYear';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import { esc, amt, inr, monthLabel, reportShell } from '../services/payroll/reportHtml';
@@ -179,30 +179,32 @@ export const payrollControlController = {
     const organizationId = req.user?.organizationId;
     const batch = await prisma.payoutBatch.findFirst({
       where: { id: str(req.query.batchId), organizationId },
-      include: { run: true, entries: { include: { person: { select: PERSON } } } },
+      include: { run: true, bankAccount: true, entries: { include: { person: { select: PERSON } } } },
     });
     if (!batch) throw new AppError(404, 'Payment batch not found');
     if (batch.mode !== 'BANK') throw new AppError(400, 'A bank advice is only for bank transfer batches');
     batch.entries.sort(byName);
-    const [brand, settings] = await Promise.all([
-      orgBrand(organizationId),
-      prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} }),
-    ]);
+    const brand = await orgBrand(organizationId);
+    // The account the batch was made for; a batch from before accounts
+    // were listed uses the default one.
+    const from = batch.bankAccount || await prisma.companyBankAccount.findFirst({
+      where: { organizationId, isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
     const total = r2(batch.entries.reduce((s, e) => s + payAmount(e), 0));
     const rows = batch.entries.map((e, i) => `<tr>
       <td>${i + 1}</td><td class="nw">${esc(e.person.employeeNo)}</td><td class="nw">${esc(e.person.name)}</td>
       <td>${esc(e.person.bankName) || dash}</td><td class="nw">${esc(e.person.bankAccountNumber)}</td>
       <td class="nw">${esc(e.person.ifscCode)}</td><td class="amt">${inr(payAmount(e))}</td></tr>`).join('');
-    const account = settings.payoutAccountNumber
-      ? `our account number <strong>${esc(settings.payoutAccountNumber)}</strong>`
-      : 'our account <span class="muted">(add the salary account in Payroll Settings → Payout)</span>';
+    const account = from
+      ? `our account number <strong>${esc(from.accountNumber)}</strong>`
+      : 'our account <span class="muted">(add the company bank account in Company Settings → Bank accounts)</span>';
     const html = reportShell(brand, 'Bank Transfer Advice', `${monthLabel(batch.run.period)} · Batch ${batch.batchNo}`, `
   <div style="font-size:13px;margin-bottom:16px;">
     <p>Date: ${esc(dateLabel(batch.payDate))}</p>
-    <p>To<br/>The Manager<br/>${esc(settings.payoutBankName) || '____________________'}${settings.payoutBranch ? `<br/>${esc(settings.payoutBranch)}` : ''}</p>
+    <p>To<br/>The Manager<br/>${esc(from?.bankName) || '____________________'}${from?.branch ? `<br/>${esc(from.branch)}` : ''}</p>
     <p><strong>Subject: Salary transfer for ${esc(monthLabel(batch.run.period))}</strong></p>
     <p>Dear Sir / Madam,</p>
-    <p>Please debit ${account}${settings.payoutIfsc ? ` (IFSC ${esc(settings.payoutIfsc)})` : ''} with
+    <p>Please debit ${account}${from?.ifsc ? ` (IFSC ${esc(from.ifsc)})` : ''} with
       <strong>${inr(total)}</strong> (${esc(amountInWords(total))}) and credit the ${batch.entries.length}
       account${batch.entries.length === 1 ? '' : 's'} listed below towards salary for ${esc(monthLabel(batch.run.period))}.${batch.reference ? ` Reference: ${esc(batch.reference)}.` : ''}</p>
   </div>
@@ -213,7 +215,7 @@ export const payrollControlController = {
   </table>
   <div style="margin-top:44px;font-size:13px;display:flex;justify-content:space-between;">
     <div>For ${esc(brand.name)}</div>
-    <div style="text-align:right;">____________________________<br/>Authorised signatory${brand.signatoryName ? `<br/>${esc(brand.signatoryName)}${brand.signatoryDesignation ? `, ${esc(brand.signatoryDesignation)}` : ''}` : ''}</div>
+    <div style="text-align:right;">${brand.signatureData ? `<div style="display:flex;justify-content:flex-end;">${signatureImg(brand.signatureData)}</div>` : ''}____________________________<br/>Authorised signatory${brand.signatoryName ? `<br/>${esc(brand.signatoryName)}${brand.signatoryDesignation ? `, ${esc(brand.signatoryDesignation)}` : ''}` : ''}</div>
   </div>`);
     res.json({ html, title: `Bank Transfer Advice — ${monthLabel(batch.run.period)} — Batch ${batch.batchNo}` });
   },

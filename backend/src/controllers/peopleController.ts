@@ -7,6 +7,8 @@ import { loadActor } from '../middleware/roles';
 import { actorName } from '../services/payroll/audit';
 import { currentPeriodIST } from '../services/payroll/salaryStructure';
 import { syncDraftEntries } from '../services/payroll/draftSync';
+import { cleanIfsc, isValidIfsc } from '../services/masters';
+import { ensureListValues, listValuesFor } from '../services/listValues';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -73,8 +75,21 @@ export const EMPLOYMENT_STATUSES = [
   { value: 'TERMINATED', label: 'Terminated' },
 ];
 
-const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-const MARITAL_STATUSES = ['Single', 'Married', 'Other'];
+// An IFSC that is being set or changed must be well formed. One already
+// on record is left alone, so an old typo does not block other edits.
+function checkIfsc(b: any, before?: { ifscCode: string }) {
+  if (b.ifscCode === undefined) return;
+  const ifsc = cleanIfsc(b.ifscCode);
+  if (ifsc && ifsc !== cleanIfsc(before?.ifscCode) && !isValidIfsc(ifsc)) {
+    throw new AppError(400, 'IFSC must look like HDFC0001234: four letters, a zero, six characters');
+  }
+}
+
+// Values picked or typed on a person join their lists
+const personListValues = (p: any) => ({
+  DEPARTMENT: p.department, DESIGNATION: p.designation, BANK: p.bankName,
+  BLOOD_GROUP: p.bloodGroup, MARITAL_STATUS: p.maritalStatus, LEAVING_REASON: p.reasonForLeaving,
+});
 
 async function nextEmployeeCode(organizationId: string): Promise<string> {
   const count = await prisma.person.count({
@@ -174,7 +189,7 @@ function personData(b: any) {
     // Bank & statutory
     bankName: str(b.bankName),
     bankAccountNumber: str(b.bankAccountNumber),
-    ifscCode: str(b.ifscCode),
+    ifscCode: cleanIfsc(b.ifscCode),
     panNumber: str(b.panNumber),
     pfNumber: str(b.pfNumber),
     pfUan: str(b.pfUan),
@@ -247,8 +262,10 @@ export const peopleController = {
         value, label: t.label, kinds: t.kinds,
       })),
       employmentStatuses: EMPLOYMENT_STATUSES,
-      bloodGroups: BLOOD_GROUPS,
-      maritalStatuses: MARITAL_STATUSES,
+      // The editable lists a person's form picks from, active values only
+      lists: Object.fromEntries(Object.entries(
+        await listValuesFor(orgId, ['DEPARTMENT', 'DESIGNATION', 'BANK', 'BLOOD_GROUP', 'MARITAL_STATUS', 'LEAVING_REASON']),
+      ).map(([type, values]) => [type, values.filter(v => v.isActive).map(v => v.label)])),
       workLocations: await prisma.workLocation.findMany({
         where: { organizationId: orgId, isActive: true },
         select: { id: true, name: true, state: true },
@@ -400,6 +417,7 @@ export const peopleController = {
     await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim());
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
+    checkIfsc(b);
     // Added without a pipeline stage = direct employee; with an active
     // stage = candidate in hiring (auto-promotes on Selected/Joined).
     const stage = str(b.stage);
@@ -413,6 +431,7 @@ export const peopleController = {
         isEmployee: b.kind === 'CANDIDATE' ? employeeFromStage(stage, true) : false,
       },
     });
+    await ensureListValues(orgId, personListValues(person));
     res.status(201).json(person);
   },
 
@@ -461,6 +480,7 @@ export const peopleController = {
     }
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
+    checkIfsc(b, person);
 
     const fields = personData({ ...person, ...b });
     Object.assign(data, fields);
@@ -469,6 +489,7 @@ export const peopleController = {
       data.isEmployee = employeeFromStage(str(b.stage), person.isEmployee);
     }
     const updated = await prisma.person.update({ where: { id: person.id }, data });
+    await ensureListValues(orgId, personListValues(updated));
     // A package edited on the profile is a salary revision from this month;
     // the first package ever set is not.
     if (person.currentMonthlyPackage > 0 && updated.currentMonthlyPackage !== person.currentMonthlyPackage) {
@@ -614,6 +635,7 @@ export const peopleController = {
         status: OPENING_STATUSES.some(s => s.value === b.status) ? b.status : 'OPEN',
       },
     });
+    await ensureListValues(orgId, { DEPARTMENT: opening.department });
     res.status(201).json(opening);
   },
 

@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import { formatINR } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
+import ListSelect from '../../components/ListSelect';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -788,8 +789,7 @@ export default function RunDetail() {
             </p>
             <div className="field" style={{ marginBottom: 16 }}>
               <label>Reason *</label>
-              <input className="input" required autoFocus placeholder="e.g. Exit clearance pending" value={holdReason}
-                onChange={e => setHoldReason(e.target.value)} />
+              <ListSelect listType="HOLD_REASON" required autoFocus value={holdReason} onChange={setHoldReason} placeholder="Pick a reason" />
             </div>
             <div className="form-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setHoldModal(null)}>Cancel</button>

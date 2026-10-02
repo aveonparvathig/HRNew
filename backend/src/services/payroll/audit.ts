@@ -18,6 +18,7 @@ export type AuditAction =
   | 'PAY_SETTINGS_UPDATED' | 'PAYOUT_SETTINGS_UPDATED' | 'LEDGER_MAPPING_UPDATED'
   | 'PAYOUT_BATCH_CREATED' | 'PAYOUT_BATCH_PAID' | 'PAYOUT_BATCH_DELETED' | 'PAYOUT_BATCH_CHANGED'
   | 'PAID_OUTSIDE_MARKED' | 'PAID_OUTSIDE_UNDONE'
+  | 'BANK_ACCOUNT_SAVED' | 'BANK_ACCOUNT_DELETED' | 'LIST_VALUE_SAVED' | 'LIST_VALUE_DELETED'
   | 'CLAIM_ATTACHED' | 'CLAIM_DETACHED'
   | 'TDS_CHALLAN_RECORDED' | 'TDS_CHALLAN_DELETED' | 'FORM16_RELEASE_CHANGED' | 'FORM16_PART_A_SAVED'
   | 'ARREAR_RAISED' | 'ARREAR_CANCELLED' | 'SETTLEMENT_SAVED' | 'SETTLEMENT_DELETED';
@@ -114,6 +115,7 @@ const FIELD_LABELS: Record<string, string> = {
   esiCode: 'ESI employer code',
   ptRegistrationNo: 'Professional Tax registration no.',
   lwfRegistrationNo: 'Labour Welfare Fund no.',
+  gstNumber: 'GST number',
   tdsCircleAddress: 'Tax office address',
 };
 

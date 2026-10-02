@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { peopleAPI } from '../../api/people';
+import ListSelect from '../../components/ListSelect';
 import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, StatusBadge, Modal,
 } from '../../components/ui';
@@ -131,8 +132,7 @@ export default function JobOpenings() {
           <div className="form-grid" style={{ marginBottom: 14 }}>
             <div className="field">
               <label>Department</label>
-              <input className="input" value={form.department}
-                onChange={e => setForm({ ...form, department: e.target.value })} />
+              <ListSelect listType="DEPARTMENT" value={form.department} onChange={v => setForm({ ...form, department: v })} />
             </div>
             <div className="field">
               <label>Location</label>

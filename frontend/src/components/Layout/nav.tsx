@@ -88,7 +88,7 @@ const PAYROLL_ITEMS: NavItem[] = [
 ];
 
 const ORG_ITEMS: NavItem[] = [
-  { to: '/organization', icon: 'home', label: 'Company Profile' },
+  { to: '/organization', icon: 'home', label: 'Company Settings' },
   { to: '/organization/team', icon: 'users', label: 'Team' },
 ];
 
@@ -116,7 +116,10 @@ export function navSectionsFor(user: { role?: string; personId?: string | null }
   if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
   if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });
   if (isSA || isHR) sections.push({ key: 'payroll', label: 'Payroll', items: PAYROLL_ITEMS });
-  if (isSA) sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS });
+  // HR keeps the company's registrations, bank accounts and lists; logins are the Super Admin's
+  if (isSA || isHR) {
+    sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS.filter(i => isSA || i.to !== '/organization/team') });
+  }
   return sections;
 }
 

@@ -1,16 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 
-const ACCOUNT: [string, string, string][] = [
-  ['payoutBankName', 'Bank', 'e.g. HDFC Bank'],
-  ['payoutBranch', 'Branch', ''],
-  ['payoutAccountNumber', 'Account number', ''],
-  ['payoutIfsc', 'IFSC', ''],
-];
-
-// The account salaries are paid from, what happens on finalizing a run,
-// and the ledger accounts of the payroll journal voucher.
+// What happens on finalizing a run, and the ledger accounts of the
+// payroll journal voucher.
 export default function PayoutSettingsTab() {
   const [form, setForm] = useState<any>(null);
   const [accounts, setAccounts] = useState<any[]>([]);
@@ -57,21 +51,14 @@ export default function PayoutSettingsTab() {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <SuccessAlert message={success} />
 
-      <form onSubmit={e => { e.preventDefault(); save('settings', () => payrollAPI.updatePayoutSettings(form), 'Payout settings saved.'); }}>
+      <form onSubmit={e => { e.preventDefault(); save('settings', () => payrollAPI.updatePayoutSettings({ autoReleaseOnFinalize: form.autoReleaseOnFinalize, autoCreateNextRun: form.autoCreateNextRun }), 'Payout settings saved.'); }}>
         <div className="card card-pad mb-24">
           <h3 style={{ fontSize: 15, marginBottom: 4 }}>Salary account</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
-            The company account salaries are paid from. It is printed on the bank transfer advice.
+          <p className="text-muted" style={{ fontSize: 12.5 }}>
+            The accounts salaries are paid from are kept with the company's other details, in{' '}
+            <Link to="/organization?tab=bank">Company Settings → Bank accounts</Link>. The account picked for a
+            payment batch is printed on its bank transfer advice.
           </p>
-          <div className="form-grid">
-            {ACCOUNT.map(([key, label, placeholder]) => (
-              <div key={key} className="field">
-                <label>{label}</label>
-                <input className="input" placeholder={placeholder} value={form[key]}
-                  onChange={e => setForm({ ...form, [key]: e.target.value })} />
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="card card-pad mb-24">

@@ -12,6 +12,7 @@ import {
   payableOutside, paidOutside, outsidePayDate,
 } from '../services/payroll/payoutCalc';
 import { claimTotal, syncReimbursement } from '../services/payroll/payout';
+import { ensureListValues } from '../services/listValues';
 
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -35,7 +36,7 @@ async function fetchRun(runId: string, organizationId: string) {
     where: { id: runId, organizationId },
     include: {
       entries: { include: { person: { select: PERSON_PAY }, payoutBatch: true } },
-      payoutBatches: { orderBy: { batchNo: 'asc' } },
+      payoutBatches: { orderBy: { batchNo: 'asc' }, include: { bankAccount: true } },
     },
   });
   if (!run) throw new AppError(404, 'Payroll run not found');
@@ -91,8 +92,11 @@ function payState(entry: any): 'PAID' | 'IN_BATCH' | 'HELD' | 'UNPAID' | 'NOTHIN
   return payAmount(entry) > 0 ? 'UNPAID' : 'NOTHING';
 }
 
+const accountLabel = (a: any) => (a ? `${a.label || a.bankName} …${String(a.accountNumber).slice(-4)}` : '');
+
 const batchSummary = (batch: any, entries: any[]) => ({
   id: batch.id, batchNo: batch.batchNo, mode: batch.mode, modeLabel: modeLabel(batch.mode),
+  bankAccountId: batch.bankAccountId ?? null, bankAccount: accountLabel(batch.bankAccount),
   payDate: batch.payDate, reference: batch.reference, status: batch.status, notes: batch.notes,
   createdBy: batch.createdBy, paidAt: batch.paidAt,
   count: entries.length, total: r2(entries.reduce((s, e) => s + payAmount(e), 0)),
@@ -133,6 +137,7 @@ export const payrollPayoutController = {
       where: { id: entry.id },
       data: { payStatus: 'HOLD', holdReason: reason, heldAt: new Date(), holdReleasedAt: null },
     });
+    await ensureListValues(req.user?.organizationId, { HOLD_REASON: reason });
     await logPayrollAudit(req, [{
       action: 'SALARY_HELD', runId: entry.runId, entryId: entry.id, personId: entry.personId,
       period: entry.run.period, personName: entry.person.name, newValue: reason,
@@ -194,6 +199,7 @@ export const payrollPayoutController = {
     }
     if (!stopped) data.salaryStopReason = '';
     const updated = await prisma.person.update({ where: { id: before.id }, data });
+    await ensureListValues(organizationId, { STOP_REASON: updated.salaryStopReason });
     await logPayrollAudit(req, diffFields(before, updated, ['paymentMode', 'salaryStopped', 'salaryStopReason'])
       .map(c => ({ action: 'PAY_SETTINGS_UPDATED' as const, personId: before.id, personName: before.name, ...c })));
     res.json({ paymentMode: updated.paymentMode, salaryStopped: updated.salaryStopped, salaryStopReason: updated.salaryStopReason });
@@ -202,7 +208,7 @@ export const payrollPayoutController = {
   // ---- Payout of a run ------------------------------------------------------------
   async getPayout(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
-    const [run, settings] = await Promise.all([fetchRun(req.params.runId, organizationId), settingsFor(organizationId)]);
+    const run = await fetchRun(req.params.runId, organizationId);
     const entries = [...run.entries].sort((a, b) => a.person.name.localeCompare(b.person.name));
     const rows = entries.map(e => ({
       id: e.id,
@@ -221,10 +227,14 @@ export const payrollPayoutController = {
     const canMark = idsOf(payableOutside(run.entries));
     const markedOutside = idsOf(paidOutside(run.entries));
     const earlierMonths = await earlierUnpaidRuns(organizationId, run.period);
+    const bankAccounts = await prisma.companyBankAccount.findMany({
+      where: { organizationId, isActive: true }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+    });
     res.json({
       run: { id: run.id, period: run.period, status: run.status, releasedAt: run.releasedAt },
       stage: runStage(run, run.entries),
-      account: Object.fromEntries(PAYOUT_SETTINGS.map(f => [f, (settings as any)[f]])),
+      // The company accounts a bank batch can be paid from, default first
+      bankAccounts: bankAccounts.map(a => ({ id: a.id, name: accountLabel(a), isDefault: a.isDefault })),
       modes: PAYMENT_MODES,
       today: todayIST(),
       // Marking the month as paid outside the system
@@ -266,16 +276,26 @@ export const payrollPayoutController = {
     if (eligible.length === 0) {
       throw new AppError(400, `No unpaid ${modeLabel(mode).toLowerCase()} salaries to put in a batch`);
     }
+    // A bank batch is paid from the account picked, else the default one
+    let bankAccount: any = null;
+    if (mode === 'BANK') {
+      const accounts = await prisma.companyBankAccount.findMany({ where: { organizationId, isActive: true } });
+      bankAccount = req.body.bankAccountId
+        ? accounts.find(a => a.id === str(req.body.bankAccountId))
+        : accounts.find(a => a.isDefault) || accounts[0] || null;
+      if (req.body.bankAccountId && !bankAccount) throw new AppError(400, 'Pick the company account the batch is paid from');
+    }
     const last = await prisma.payoutBatch.findFirst({ where: { organizationId }, orderBy: { batchNo: 'desc' }, select: { batchNo: true } });
     const batch = await prisma.payoutBatch.create({
       data: {
         organizationId, runId: run.id, batchNo: (last?.batchNo || 0) + 1, mode, payDate,
+        bankAccountId: bankAccount?.id ?? null,
         reference: str(req.body.reference), notes: str(req.body.notes),
         createdBy: await actorName(req.user?.userId),
       },
     });
     await prisma.payslipEntry.updateMany({ where: { id: { in: eligible.map(e => e.id) } }, data: { payoutBatchId: batch.id } });
-    const summary = batchSummary(batch, eligible);
+    const summary = batchSummary({ ...batch, bankAccount }, eligible);
     await logPayrollAudit(req, [{
       action: 'PAYOUT_BATCH_CREATED', runId: run.id, period: run.period,
       field: `Batch ${batch.batchNo}`, newValue: `${modeLabel(mode)}: ${summary.count} salaries, ${summary.total}`,

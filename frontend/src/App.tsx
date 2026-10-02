@@ -54,7 +54,7 @@ const MyPayslips = lazy(() => import('./pages/My/MyPayslips'));
 const MyDeclaration = lazy(() => import('./pages/My/MyDeclaration'));
 const MyLoans = lazy(() => import('./pages/My/MyLoans'));
 const MyDocument = lazy(() => import('./pages/My/MyDocument'));
-const CompanyProfile = lazy(() => import('./pages/Organization/CompanyProfile'));
+const CompanySettings = lazy(() => import('./pages/Organization/CompanySettings'));
 const Team = lazy(() => import('./pages/Organization/Team'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -137,7 +137,7 @@ function App() {
             <Route path="/my/declaration" element={<MyDeclaration />} />
             <Route path="/my/loans" element={<MyLoans />} />
             <Route path="/my/reports/:kind" element={<MyDocument />} />
-            <Route path="/organization" element={<RequireRole roles={SA}><CompanyProfile /></RequireRole>} />
+            <Route path="/organization" element={<RequireRole roles={SA_HR}><CompanySettings /></RequireRole>} />
             <Route path="/organization/team" element={<RequireRole roles={SA}><Team /></RequireRole>} />
           </Route>
 

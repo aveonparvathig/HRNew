@@ -422,7 +422,7 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       {data.signatoryMissing && data.rows.length > 0 && (
         <div className="alert alert-warning">
           <span>✎</span>
-          <span>The signatory is not set. Add the name, designation and place in <Link to="/payroll/settings?tab=statutory">Payroll Settings → Statutory profile</Link>.</span>
+          <span>The signatory is not set. Add the name, designation and place in <Link to="/organization?tab=signatories">Company Settings → Signatories</Link>.</span>
         </div>
       )}
 

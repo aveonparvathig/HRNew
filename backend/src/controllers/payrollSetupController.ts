@@ -5,6 +5,9 @@ import { diffFields, fieldLabel, logPayrollAudit } from '../services/payroll/aud
 import {
   INDIAN_STATES, DEDUCTOR_TYPES, PAN_PATTERN, TAN_PATTERN,
 } from '../services/payroll/constants';
+import {
+  IMAGE_DATA_URI, MAX_SIGNATURE_CHARS, cleanGstin, gstinDetails, isValidGstin,
+} from '../services/masters';
 
 const str = (v: any) => String(v ?? '').trim();
 
@@ -18,8 +21,18 @@ const PROFILE_TEXT_FIELDS = [
   'form16SignatoryDesignation', 'form16SigningPlace',
 ];
 const PROFILE_FIELDS = [
-  'panNumber', 'tanNumber', 'responsiblePan', 'deductorType', ...PROFILE_TEXT_FIELDS,
+  'panNumber', 'tanNumber', 'gstNumber', 'responsiblePan', 'deductorType', ...PROFILE_TEXT_FIELDS,
 ];
+
+// The profile as the screens get it, with what the GST number says
+async function profileJSON(profile: any) {
+  const org = await prisma.organization.findUnique({ where: { id: profile.organizationId }, select: { state: true } });
+  return {
+    profile,
+    deductorTypes: DEDUCTOR_TYPES,
+    gst: gstinDetails(profile.gstNumber, { state: org?.state || '', pan: profile.panNumber }),
+  };
+}
 
 async function profileFor(organizationId: string) {
   return prisma.orgStatutoryProfile.upsert({
@@ -62,10 +75,7 @@ async function assertUniqueLocationName(organizationId: string, name: string, ex
 export const payrollSetupController = {
   // ---- Company statutory profile ------------------------------------------
   async getStatutoryProfile(req: any, res: Response) {
-    res.json({
-      profile: await profileFor(req.user?.organizationId),
-      deductorTypes: DEDUCTOR_TYPES,
-    });
+    res.json(await profileJSON(await profileFor(req.user?.organizationId)));
   },
 
   async updateStatutoryProfile(req: any, res: Response) {
@@ -85,6 +95,19 @@ export const payrollSetupController = {
       if (value && !pattern.test(value)) throw new AppError(400, message);
       data[field] = value;
     }
+    if (b.gstNumber !== undefined) {
+      const value = cleanGstin(b.gstNumber);
+      if (value && value !== before.gstNumber && !isValidGstin(value)) {
+        throw new AppError(400, 'That is not a valid GST number. It has 15 characters, such as 33ABCDE1234F1Z5, and the last one is a check character.');
+      }
+      data.gstNumber = value;
+    }
+    if (b.form16SignatureData !== undefined) {
+      const image = String(b.form16SignatureData || '');
+      if (image && !IMAGE_DATA_URI.test(image)) throw new AppError(400, 'The signature must be a PNG or JPG image');
+      if (image.length > MAX_SIGNATURE_CHARS) throw new AppError(400, 'The signature image is too large. Use a smaller picture.');
+      data.form16SignatureData = image;
+    }
     if (b.deductorType !== undefined) {
       const value = str(b.deductorType);
       if (value && !DEDUCTOR_TYPES.includes(value)) throw new AppError(400, 'Pick a deductor type from the list');
@@ -98,9 +121,15 @@ export const payrollSetupController = {
       where: { organizationId: orgId },
       data,
     });
-    await logPayrollAudit(req, diffFields(before, profile, PROFILE_FIELDS)
-      .map(c => ({ action: 'STATUTORY_PROFILE_UPDATED' as const, ...c })));
-    res.json({ profile, deductorTypes: DEDUCTOR_TYPES });
+    await logPayrollAudit(req, [
+      ...diffFields(before, profile, PROFILE_FIELDS).map(c => ({ action: 'STATUTORY_PROFILE_UPDATED' as const, ...c })),
+      // The image itself is not written to the log
+      ...(before.form16SignatureData !== profile.form16SignatureData ? [{
+        action: 'STATUTORY_PROFILE_UPDATED' as const, field: 'Form 16 signature image',
+        newValue: profile.form16SignatureData ? 'Uploaded' : 'Removed',
+      }] : []),
+    ]);
+    res.json(await profileJSON(profile));
   },
 
   // ---- Work locations -----------------------------------------------------

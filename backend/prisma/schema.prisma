@@ -29,6 +29,9 @@ model Organization {
   brandAccent          String @default("#312e81")
   signatoryName        String @default("")
   signatoryDesignation String @default("")
+  // The default signatory's signature (data URI), printed where they sign
+  signatureData        String @default("")
+  logoPosition         String @default("LEFT") // LEFT | CENTER | RIGHT, in report and letter headers
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1069,6 +1072,7 @@ model OrgStatutoryProfile {
   esiCode           String @default("")
   ptRegistrationNo  String @default("")
   lwfRegistrationNo String @default("")
+  gstNumber         String @default("")
   // Printed on the labour-law registers
   shopsRegistrationNo String @default("") // Shops and Establishments registration certificate
   labourIdNumber      String @default("") // LIN, on the central registers
@@ -1092,6 +1096,7 @@ model OrgStatutoryProfile {
   form16SignatoryFatherName  String @default("")
   form16SignatoryDesignation String @default("")
   form16SigningPlace         String @default("")
+  form16SignatureData        String @default("") // signature image (data URI)
 
   updatedAt DateTime @updatedAt
 
@@ -1226,15 +1231,56 @@ model PayoutBatch {
   notes          String    @default("")
   createdBy      String    @default("")
   paidAt         DateTime?
+  // The company account a bank batch is paid from
+  bankAccountId  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  run     PayrollRun     @relation(fields: [runId], references: [id], onDelete: Cascade)
-  entries PayslipEntry[]
+  run         PayrollRun          @relation(fields: [runId], references: [id], onDelete: Cascade)
+  bankAccount CompanyBankAccount? @relation(fields: [bankAccountId], references: [id], onDelete: SetNull)
+  entries     PayslipEntry[]
 
   @@unique([organizationId, batchNo])
   @@index([runId])
   @@map("payout_batches")
+}
+
+// A company bank account. Salary batches are paid from one of them; the
+// default is offered first.
+model CompanyBankAccount {
+  id             String   @id @default(cuid())
+  organizationId String
+  label          String   @default("") // what the account is called in-house, e.g. "Salary account"
+  bankName       String
+  branch         String   @default("")
+  accountNumber  String
+  ifsc           String   @default("")
+  isDefault      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  batches PayoutBatch[]
+
+  @@index([organizationId])
+  @@map("company_bank_accounts")
+}
+
+// One value of an editable list (department, designation, bank and so
+// on). Records store the label itself, so renaming a value renames it on
+// the records that use it.
+model ListValue {
+  id             String   @id @default(cuid())
+  organizationId String
+  listType       String // see LIST_TYPES in services/masters.ts
+  label          String
+  sortOrder      Int      @default(0)
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, listType, label])
+  @@map("list_values")
 }
 
 // Ledger account for a line of the payroll journal voucher. The key is a
