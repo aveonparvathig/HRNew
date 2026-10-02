@@ -114,4 +114,18 @@ describe('rules and catalogue', () => {
     expect(DEFAULT_DECLARATION_ITEMS.every(i => ['SECTION_80C', 'OTHER'].includes(i[4]))).toBe(true);
     expect(DEFAULT_DECLARATION_ITEMS.every(i => i[6] > 0 && i[6] <= 100)).toBe(true);
   });
+
+  it('lists the ordinary and the higher case of a limit as separate items', () => {
+    const limit = (code: string) => DEFAULT_DECLARATION_ITEMS.find(i => i[0] === code)?.[5];
+    expect([limit('MEDICLAIM_PARENTS_BELOW_60'), limit('MEDICLAIM_PARENTS')]).toEqual([25000, 50000]);
+    expect([limit('DISABLED_DEPENDANT_40'), limit('DISABLED_DEPENDANT')]).toEqual([75000, 125000]);
+    expect([limit('SPECIFIED_DISEASE_BELOW_60'), limit('SPECIFIED_DISEASE')]).toEqual([40000, 100000]);
+    expect([limit('SELF_DISABILITY_40'), limit('SELF_DISABILITY')]).toEqual([75000, 125000]);
+  });
+
+  it('allows the ordinary case only up to its own limit', () => {
+    const [code, name, section, , group, maxAmount, deductPercent] = DEFAULT_DECLARATION_ITEMS.find(i => i[0] === 'DISABLED_DEPENDANT_40')!;
+    const item = { id: code, name, section, group, maxAmount, deductPercent };
+    expect(lineDeduction(line(code, 125000), item, false)).toBe(75000);
+  });
 });

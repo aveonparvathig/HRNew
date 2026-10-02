@@ -37,6 +37,7 @@ export default function Payout() {
   const [success, setSuccess] = useState('');
   const [batchForm, setBatchForm] = useState<any>(null);  // new batch being created
   const [paidForm, setPaidForm] = useState<any>(null);    // batch being marked paid, with its entries
+  const [outsideForm, setOutsideForm] = useState<any>(null); // marking the month paid outside the system
   const [filter, setFilter] = useState('ALL');
   const [saving, setSaving] = useState(false);
 
@@ -95,6 +96,12 @@ export default function Payout() {
     if (ok) setPaidForm(null);
   };
 
+  const handlePaidOutside = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const ok = await act(() => payrollAPI.markPaidOutside(runId!, outsideForm));
+    if (ok) setOutsideForm(null);
+  };
+
   const downloadBankFile = async (batch: any) => {
     try {
       const { data: file } = await payrollAPI.getBankFile(batch.id);
@@ -108,7 +115,8 @@ export default function Payout() {
 
   if (!data) return error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading payout…" />;
 
-  const { run, totals } = data;
+  const { run, totals, outside } = data;
+  const earlierCount = outside.earlierMonths.length;
   const finalized = run.status === 'FINALIZED';
   const rows = data.entries.filter((r: any) => filter === 'ALL' || r.state === filter);
   const hasAccount = Boolean(data.account.payoutAccountNumber);
@@ -171,6 +179,31 @@ export default function Payout() {
               </button>
             ))}
           </div>
+          {outside.payable.count > 0 && (
+            <p className="text-muted" style={{ fontSize: 12.5, marginTop: 14 }}>
+              Already paid some other way, or before payments were recorded here?{' '}
+              <button className="link-button" onClick={() => setOutsideForm({ payDate: outside.suggestedDate, reference: '', earlier: false })}>
+                Mark this month as paid outside the system
+              </button>
+            </p>
+          )}
+        </div>
+      )}
+
+      {outside.paid.count > 0 && (
+        <div className="alert alert-warning" style={{ background: 'var(--info-soft)', color: 'var(--info)', borderColor: '#CFE2FB' }}>
+          <span>ℹ</span>
+          <span style={{ flex: 1 }}>
+            {outside.paid.count} {outside.paid.count === 1 ? 'salary' : 'salaries'} ({formatINR(outside.paid.amount)}) marked as paid outside the system, with no payment batch.
+          </span>
+          <button className="btn btn-secondary btn-sm" disabled={saving}
+            onClick={async () => await confirmDialog({
+              title: 'Undo the payment marking?',
+              message: `${outside.paid.count} ${outside.paid.count === 1 ? 'salary' : 'salaries'} of ${monthLabel(run.period)} will show as unpaid again.`,
+              confirmLabel: 'Undo',
+            }) && act(() => payrollAPI.undoPaidOutside(run.id))}>
+            Undo
+          </button>
         </div>
       )}
 
@@ -329,6 +362,49 @@ export default function Payout() {
             <div className="form-actions">
               <button type="button" className="btn btn-ghost" onClick={() => setBatchForm(null)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Creating…' : 'Create Batch'}</button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Paid outside the system */}
+      <Modal title="Mark as paid outside the system" open={Boolean(outsideForm)} onClose={() => setOutsideForm(null)}>
+        {outsideForm && (
+          <form onSubmit={handlePaidOutside}>
+            <p style={{ fontSize: 13.5, marginBottom: 14 }}>
+              <strong>{outside.payable.count}</strong> unpaid {outside.payable.count === 1 ? 'salary' : 'salaries'} of {monthLabel(run.period)},{' '}
+              <strong>{formatINR(outside.payable.amount)}</strong> in all, will be marked as paid. No payment batch or bank file is made.
+              Salaries on hold or already in a batch are left as they are.
+            </p>
+            <div className="form-grid" style={{ marginBottom: 14 }}>
+              <div className="field">
+                <label>Paid on *</label>
+                <input className="input" type="date" required value={outsideForm.payDate}
+                  onChange={e => setOutsideForm({ ...outsideForm, payDate: e.target.value })} />
+                <span className="hint">Printed as the payment date in the payment and wage registers.</span>
+              </div>
+              <div className="field">
+                <label>Reference</label>
+                <input className="input" value={outsideForm.reference} placeholder="Paid outside the system"
+                  onChange={e => setOutsideForm({ ...outsideForm, reference: e.target.value })} />
+              </div>
+            </div>
+            {earlierCount > 0 && (
+              <label className="checkbox-field" style={{ alignItems: 'flex-start', marginBottom: 14 }}>
+                <input type="checkbox" style={{ marginTop: 2 }} checked={outsideForm.earlier}
+                  onChange={e => setOutsideForm({ ...outsideForm, earlier: e.target.checked })} />
+                <span>
+                  Do the same for the {earlierCount} earlier {earlierCount === 1 ? 'month' : 'months'} with no payment recorded
+                  ({monthLabel(outside.earlierMonths[0].period)}{earlierCount > 1 && <> to {monthLabel(outside.earlierMonths[earlierCount - 1].period)}</>}).
+                  <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
+                    Each is marked paid on the last day of its own month. Correct a month's date by undoing it there and marking it again.
+                  </span>
+                </span>
+              </label>
+            )}
+            <div className="form-actions">
+              <button type="button" className="btn btn-ghost" onClick={() => setOutsideForm(null)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Mark as Paid'}</button>
             </div>
           </form>
         )}

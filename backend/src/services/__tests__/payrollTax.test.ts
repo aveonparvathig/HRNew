@@ -278,3 +278,42 @@ describe('TDS inside a payslip computation', () => {
     expect(r.totalDeductions).toBe(777);
   });
 });
+
+describe('Professional Tax deduction limit', () => {
+  const month = (period: string, pkg: number, professionalTax: number): MonthFigures => ({
+    period, taxableGross: pkg, basic: pkg * 0.5, da: pkg * 0.225, hra: pkg * 0.125,
+    pfEmployee: 0, professionalTax, tds: 0,
+  });
+  const inputs = (config: TdsInputs['config'], period: string, monthsAfter: number, professionalTax: number): TdsInputs => ({
+    config, fyLabel: '2026-27', period, monthsAfter, earlier: [],
+    current: { ...month(period, 100000, professionalTax), oneTime: 0 },
+    projection: { settings: SETTINGS, monthlyPackage: 100000, isEsiEligible: false, isPfApplicable: false },
+    profile: EMPTY_TAX_PROFILE, perquisites: 0, age: 30, hasValidPan: true,
+  });
+
+  it('stops a half-yearly deduction from being projected over every month left', () => {
+    // 1,250 deducted in September with six months to come: 8,750 uncapped
+    const r = computeTds(inputs(OLD, '2026-09', 6, 1250));
+    expect(r.working.deductions.professionalTax).toBe(2500);
+  });
+
+  it('leaves a year’s deduction below the limit as it is', () => {
+    const r = computeTds(inputs(OLD, '2026-04', 11, 200));
+    expect(r.working.deductions.professionalTax).toBe(2400);
+  });
+
+  it('is not applied when the limit is set to zero', () => {
+    const r = computeTds(inputs({ ...OLD, professionalTaxLimit: 0 }, '2026-09', 6, 1250));
+    expect(r.working.deductions.professionalTax).toBe(8750);
+  });
+
+  it('reduces taxable income by no more than the limit', () => {
+    const capped = computeTds(inputs(OLD, '2026-09', 6, 1250));
+    const uncapped = computeTds(inputs({ ...OLD, professionalTaxLimit: 0 }, '2026-09', 6, 1250));
+    expect(capped.working.taxableIncome - uncapped.working.taxableIncome).toBe(8750 - 2500);
+  });
+
+  it('gives nothing under the new regime', () => {
+    expect(computeTds(inputs(NEW, '2026-09', 6, 1250)).working.deductions.professionalTax).toBe(0);
+  });
+});

@@ -48,6 +48,7 @@ export async function taxConfigsFor(organizationId: string, fyStart: number) {
         cessPercent: c.cessPercent, seniorExemption: c.seniorExemption,
         superSeniorExemption: c.superSeniorExemption, allowsExemptions: c.allowsExemptions,
         section80CLimit: c.section80CLimit, housingInterestLimit: c.housingInterestLimit,
+        professionalTaxLimit: c.professionalTaxLimit,
         slabs: { create: c.slabs.map(s => ({
           incomeFrom: s.incomeFrom, incomeTo: s.incomeTo, ratePercent: s.ratePercent, surchargePercent: s.surchargePercent,
         })) },

@@ -12,6 +12,7 @@ const NUMBER_FIELDS: [string, string, string, boolean][] = [
   ['superSeniorExemption', 'Tax-free limit, age 80+', '₹', false],
   ['section80CLimit', 'Section 80C limit', '₹', true],
   ['housingInterestLimit', 'Housing-loan interest limit', '₹', true],
+  ['professionalTaxLimit', 'Professional Tax deduction limit (0 = none)', '₹', true],
 ];
 
 const EMPTY_SLAB = { incomeFrom: '', incomeTo: '', ratePercent: '', surchargePercent: '0' };

@@ -22,6 +22,22 @@ export const paymentModeOf = (entry: any): string =>
 export const hasBankDetails = (person: any) =>
   Boolean(String(person?.bankAccountNumber || '').trim() && String(person?.ifscCode || '').trim());
 
+// Salaries that can be marked as paid outside the system: something to
+// pay, not held, not paid, and not sitting in a payment batch.
+export const payableOutside = (entries: any[]) =>
+  entries.filter(e => !e.paidOn && e.payStatus !== 'HOLD' && !e.payoutBatchId && payAmount(e) > 0);
+
+// Salaries already marked that way: paid, with no batch behind the payment.
+export const paidOutside = (entries: any[]) => entries.filter(e => e.paidOn && !e.payoutBatchId);
+
+// The date offered for a month paid outside the system: the month's last
+// day once the month is over, today while it is still running.
+export function outsidePayDate(period: string, today: string): string {
+  const [y, m] = period.split('-').map(Number);
+  const last = `${period}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+  return last < today ? last : today;
+}
+
 // ---------------------------------------------------------------------------
 // Stage of a run
 // ---------------------------------------------------------------------------

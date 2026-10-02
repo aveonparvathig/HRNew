@@ -17,6 +17,7 @@ export type AuditAction =
   | 'INPUTS_LOCKED' | 'INPUTS_UNLOCKED' | 'SALARY_HELD' | 'SALARY_HOLD_RELEASED'
   | 'PAY_SETTINGS_UPDATED' | 'PAYOUT_SETTINGS_UPDATED' | 'LEDGER_MAPPING_UPDATED'
   | 'PAYOUT_BATCH_CREATED' | 'PAYOUT_BATCH_PAID' | 'PAYOUT_BATCH_DELETED' | 'PAYOUT_BATCH_CHANGED'
+  | 'PAID_OUTSIDE_MARKED' | 'PAID_OUTSIDE_UNDONE'
   | 'CLAIM_ATTACHED' | 'CLAIM_DETACHED'
   | 'TDS_CHALLAN_RECORDED' | 'TDS_CHALLAN_DELETED' | 'FORM16_RELEASE_CHANGED' | 'FORM16_PART_A_SAVED'
   | 'ARREAR_RAISED' | 'ARREAR_CANCELLED' | 'SETTLEMENT_SAVED' | 'SETTLEMENT_DELETED';
@@ -85,6 +86,7 @@ const FIELD_LABELS: Record<string, string> = {
   defaultTaxRegime: 'Default tax regime',
   loanBenchmarkRate: 'Loan benchmark rate %',
   loanPerquisiteExemptLimit: 'Loan perquisite exempt limit',
+  professionalTaxLimit: 'Professional Tax deduction limit',
   pfRoundToRupee: 'Round PF to the rupee',
   esiAutoCoverage: 'Automatic ESI coverage',
   epsPercent: 'EPS %',

@@ -9,6 +9,7 @@ import { todayIST } from '../services/payroll/loanLedger';
 import { monthLabel } from '../services/payroll/reportHtml';
 import {
   PAYMENT_MODES, modeLabel, payAmount, hasBankDetails, runStage, bankFileCsv, jvAccounts,
+  payableOutside, paidOutside, outsidePayDate,
 } from '../services/payroll/payoutCalc';
 import { claimTotal, syncReimbursement } from '../services/payroll/payout';
 
@@ -61,6 +62,22 @@ async function fetchEntry(entryId: string, organizationId: string) {
   });
   if (!entry) throw new AppError(404, 'Payslip entry not found');
   return entry;
+}
+
+// Earlier finalized months with no payment recorded at all: nothing paid
+// and no batch. These are the months run before payout tracking was used.
+async function earlierUnpaidRuns(organizationId: string, period: string) {
+  const runs = await prisma.payrollRun.findMany({
+    where: { organizationId, status: 'FINALIZED', period: { lt: period }, payoutBatches: { none: {} } },
+    select: {
+      id: true, period: true,
+      entries: { select: { id: true, paidOn: true, payStatus: true, payoutBatchId: true, netPayable: true, reimbursement: true } },
+    },
+    orderBy: { period: 'asc' },
+  });
+  return runs
+    .filter(r => !r.entries.some(e => e.paidOn) && payableOutside(r.entries).length > 0)
+    .map(r => ({ id: r.id, period: r.period, count: payableOutside(r.entries).length }));
 }
 
 const settingsFor = (organizationId: string) =>
@@ -200,12 +217,23 @@ export const payrollPayoutController = {
     const of = (state: string) => rows.filter(r => r.state === state);
     const total = (list: typeof rows) => ({ count: list.length, amount: r2(list.reduce((s, r) => s + r.amount, 0)) });
     const unpaid = of('UNPAID');
+    const idsOf = (list: any[]) => new Set(list.map(e => e.id));
+    const canMark = idsOf(payableOutside(run.entries));
+    const markedOutside = idsOf(paidOutside(run.entries));
+    const earlierMonths = await earlierUnpaidRuns(organizationId, run.period);
     res.json({
       run: { id: run.id, period: run.period, status: run.status, releasedAt: run.releasedAt },
       stage: runStage(run, run.entries),
       account: Object.fromEntries(PAYOUT_SETTINGS.map(f => [f, (settings as any)[f]])),
       modes: PAYMENT_MODES,
       today: todayIST(),
+      // Marking the month as paid outside the system
+      outside: {
+        payable: total(rows.filter(r => canMark.has(r.id))),
+        paid: total(rows.filter(r => markedOutside.has(r.id))),
+        suggestedDate: outsidePayDate(run.period, todayIST()),
+        earlierMonths,
+      },
       entries: rows,
       batches: run.payoutBatches.map(b => batchSummary(b, run.entries.filter(e => e.payoutBatchId === b.id))),
       totals: {
@@ -288,6 +316,65 @@ export const payrollPayoutController = {
       field: `Batch ${batch.batchNo}`, newValue: `Paid on ${payDate}${reference ? `, ref ${reference}` : ''}`,
     }]);
     res.json({ message: `Batch ${batch.batchNo} marked paid` });
+  },
+
+  // Salaries paid before payout tracking was in use, or paid some other
+  // way: every unpaid salary of the run is marked paid on the date given,
+  // with no batch and no bank file. Held salaries and salaries already in
+  // a batch are left alone. `earlier` does the same for earlier finalized
+  // months that have nothing recorded, each on its own month's last day.
+  async markPaidOutside(req: any, res: Response) {
+    const organizationId = req.user?.organizationId;
+    const run = await fetchRun(req.params.runId, organizationId);
+    if (run.status !== 'FINALIZED') throw new AppError(400, 'Finalize the run before marking it paid');
+    const payDate = dateInput(req.body.payDate, outsidePayDate(run.period, todayIST()));
+    const reference = str(req.body.reference).slice(0, 100) || 'Paid outside the system';
+    const targets: { run: any; payDate: string }[] = [{ run, payDate }];
+    if (req.body.earlier) {
+      for (const r of await earlierUnpaidRuns(organizationId, run.period)) {
+        targets.push({ run: await fetchRun(r.id, organizationId), payDate: outsidePayDate(r.period, todayIST()) });
+      }
+    }
+    const marked: { period: string; count: number; amount: number; payDate: string; runId: string }[] = [];
+    for (const t of targets) {
+      const entries = payableOutside(t.run.entries);
+      if (entries.length === 0) continue;
+      await prisma.payslipEntry.updateMany({
+        where: { id: { in: entries.map((e: any) => e.id) } },
+        data: { paidOn: t.payDate, paymentRef: reference },
+      });
+      marked.push({
+        period: t.run.period, runId: t.run.id, count: entries.length, payDate: t.payDate,
+        amount: r2(entries.reduce((s: number, e: any) => s + payAmount(e), 0)),
+      });
+    }
+    if (marked.length === 0) throw new AppError(400, 'There are no unpaid salaries to mark');
+    await logPayrollAudit(req, marked.map(m => ({
+      action: 'PAID_OUTSIDE_MARKED' as const, runId: m.runId, period: m.period,
+      newValue: `${m.count} salaries, ${m.amount}, paid on ${m.payDate} (${reference})`,
+    })));
+    const count = marked.reduce((s, m) => s + m.count, 0);
+    res.json({
+      marked,
+      message: marked.length === 1
+        ? `${count} ${count === 1 ? 'salary' : 'salaries'} marked as paid on ${marked[0].payDate}.`
+        : `${count} salaries across ${marked.length} months marked as paid.`,
+    });
+  },
+
+  // Undo for this run: salaries marked paid outside the system show as unpaid again.
+  async undoPaidOutside(req: any, res: Response) {
+    const run = await fetchRun(req.params.runId, req.user?.organizationId);
+    const entries = paidOutside(run.entries);
+    if (entries.length === 0) throw new AppError(400, 'No salary of this run is marked as paid outside the system');
+    await prisma.payslipEntry.updateMany({
+      where: { id: { in: entries.map(e => e.id) } }, data: { paidOn: null, paymentRef: '' },
+    });
+    await logPayrollAudit(req, [{
+      action: 'PAID_OUTSIDE_UNDONE', runId: run.id, period: run.period,
+      oldValue: `${entries.length} salaries, ${r2(entries.reduce((s, e) => s + payAmount(e), 0))}`,
+    }]);
+    res.json({ message: `${entries.length} ${entries.length === 1 ? 'salary shows' : 'salaries show'} as unpaid again.` });
   },
 
   // Take one salary out of a batch that has not been paid yet.

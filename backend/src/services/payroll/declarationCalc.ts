@@ -103,7 +103,8 @@ export const rentNeedsLandlordPan = (annualRent: number) => annualRent > LANDLOR
 // noted beside the familiar ones. Caps are the usual statutory limits,
 // each on its own item: limits shared between items (such as the health
 // check-up inside the medical-insurance limit) are for HR to apply when
-// approving. Review them each year.
+// approving. Where the law gives a higher limit for senior citizens or
+// severe disability, the two cases are separate items. Review them each year.
 export const DEFAULT_DECLARATION_ITEMS: [string, string, string, string, string, number | null, number][] = [
   // code, name, section, sectionNew, group, maxAmount, deductPercent
   ['LIFE_INSURANCE', 'Life insurance premium', '80C', '123', 'SECTION_80C', 150000, 100],
@@ -120,14 +121,18 @@ export const DEFAULT_DECLARATION_ITEMS: [string, string, string, string, string,
   ['NPS_EMPLOYEE', 'Employee contribution to NPS', '80CCD(1)', '124(5)', 'SECTION_80C', 150000, 100],
   ['NPS_ADDITIONAL', 'Additional contribution to NPS', '80CCD(1B)', '124(3)', 'OTHER', 50000, 100],
   ['MEDICLAIM_SELF', 'Medical insurance — self and family', '80D', '126', 'OTHER', 25000, 100],
-  ['MEDICLAIM_PARENTS', 'Medical insurance — parents', '80D', '126', 'OTHER', 50000, 100],
+  ['MEDICLAIM_PARENTS_BELOW_60', 'Medical insurance — parents (below 60)', '80D', '126', 'OTHER', 25000, 100],
+  ['MEDICLAIM_PARENTS', 'Medical insurance — parents (senior citizens)', '80D', '126', 'OTHER', 50000, 100],
   ['HEALTH_CHECKUP', 'Preventive health check-up', '80D', '126', 'OTHER', 5000, 100],
-  ['DISABLED_DEPENDANT', 'Treatment of a dependant with disability', '80DD', '127', 'OTHER', 125000, 100],
-  ['SPECIFIED_DISEASE', 'Treatment of specified disease', '80DDB', '128', 'OTHER', 100000, 100],
+  ['DISABLED_DEPENDANT_40', 'Dependant with disability (40% to 80%)', '80DD', '127', 'OTHER', 75000, 100],
+  ['DISABLED_DEPENDANT', 'Dependant with severe disability (80% or more)', '80DD', '127', 'OTHER', 125000, 100],
+  ['SPECIFIED_DISEASE_BELOW_60', 'Treatment of specified disease (patient below 60)', '80DDB', '128', 'OTHER', 40000, 100],
+  ['SPECIFIED_DISEASE', 'Treatment of specified disease (senior citizen)', '80DDB', '128', 'OTHER', 100000, 100],
   ['EDUCATION_LOAN', 'Interest on education loan', '80E', '129', 'OTHER', null, 100],
   ['EV_LOAN', 'Interest on electric-vehicle loan', '80EEB', '132', 'OTHER', 150000, 100],
   ['DONATION_FULL', 'Donations — fully deductible', '80G', '133', 'OTHER', null, 100],
   ['DONATION_HALF', 'Donations — 50% deductible', '80G', '133', 'OTHER', null, 50],
   ['SAVINGS_INTEREST', 'Interest on savings account', '80TTA', '153(2)(A)', 'OTHER', 10000, 100],
-  ['SELF_DISABILITY', 'Own disability', '80U', '154', 'OTHER', 125000, 100],
+  ['SELF_DISABILITY_40', 'Own disability (40% to 80%)', '80U', '154', 'OTHER', 75000, 100],
+  ['SELF_DISABILITY', 'Own severe disability (80% or more)', '80U', '154', 'OTHER', 125000, 100],
 ];

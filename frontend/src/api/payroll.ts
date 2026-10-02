@@ -73,6 +73,10 @@ export const payrollAPI = {
   // Payout of a run
   getPayout: (runId: string) => apiClient.get(`/payroll/runs/${runId}/payout`),
   createPayoutBatch: (runId: string, data: any) => apiClient.post(`/payroll/runs/${runId}/payout-batches`, data),
+  // Salaries paid outside the system: mark the run's unpaid salaries as paid, or undo that
+  markPaidOutside: (runId: string, data: { payDate: string; reference?: string; earlier?: boolean }) =>
+    apiClient.post(`/payroll/runs/${runId}/paid-outside`, data),
+  undoPaidOutside: (runId: string) => apiClient.delete(`/payroll/runs/${runId}/paid-outside`),
   getPayoutBatch: (batchId: string) => apiClient.get(`/payroll/payout-batches/${batchId}`),
   markPayoutBatchPaid: (batchId: string, data: any) => apiClient.post(`/payroll/payout-batches/${batchId}/paid`, data),
   deletePayoutBatch: (batchId: string) => apiClient.delete(`/payroll/payout-batches/${batchId}`),

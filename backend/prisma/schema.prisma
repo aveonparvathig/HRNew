@@ -763,6 +763,9 @@ model TaxRegimeConfig {
   allowsExemptions     Boolean @default(false)
   section80CLimit      Float   @default(150000)
   housingInterestLimit Float   @default(200000)
+  // Most Professional Tax that can be deducted from salary income in the
+  // year (0 = no limit)
+  professionalTaxLimit Float   @default(2500)
 
   updatedAt DateTime @updatedAt
 
