@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton } from '../../components/ui';
+import DownloadButton from '../../components/DownloadButton';
 
 const REPORT_LABELS: Record<string, string> = {
   // For one run
@@ -124,8 +125,19 @@ export default function PayrollReport() {
           title={doc.title}
           actions={<>
             {doc.register && <button className="btn btn-secondary" onClick={downloadWorkbook}>⤓ Excel</button>}
+            {kind === 'journal-voucher' && runId && (
+              <>
+                <DownloadButton path={`/payroll/runs/${runId}/journal-voucher/file`} params={{ format: 'xlsx' }}>⤓ Excel</DownloadButton>
+                <DownloadButton path={`/payroll/runs/${runId}/journal-voucher/file`} params={{ format: 'csv' }}>⤓ CSV</DownloadButton>
+              </>
+            )}
+            <DownloadButton
+              path={runId ? `/payroll/runs/${runId}/reports/${REPORT_LABELS[kind!] ? kind : 'pf-esi'}` : `/payroll/reports/${kind}`}
+              params={{ ...Object.fromEntries(new URLSearchParams(query)), format: 'pdf' }}>
+              ⤓ PDF
+            </DownloadButton>
             <button className="btn btn-primary" onClick={() => window.print()}>
-              🖨 Print / Save as PDF
+              🖨 Print
             </button>
           </>}
         />

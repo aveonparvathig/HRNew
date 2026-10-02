@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, StatusBadge, BackButton,
 } from '../../components/ui';
+import DownloadButton from '../../components/DownloadButton';
+import { toast } from '../../components/feedback';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -44,8 +46,17 @@ export default function BulkPayslips() {
           actions={
             <>
               <StatusBadge status={data.status === 'FINALIZED' ? 'finalized' : 'draft'} />
+              <DownloadButton path={`/payroll/runs/${data.runId}/payslips.zip`} busyLabel="Making the files…"
+                onDone={({ headers }) => {
+                  const skipped = Number(headers['x-skipped'] || 0);
+                  if (skipped) toast.info(`${headers['x-included']} payslips in the ZIP. ${skipped} left out: see NOT-INCLUDED.txt inside it.`);
+                }}>
+                ⤓ ZIP, a file each
+              </DownloadButton>
+              <DownloadButton path={`/payroll/runs/${data.runId}/payslips.pdf`} busyLabel="Making the file…">⤓ One PDF</DownloadButton>
+              <Link to={`/payroll/runs/${data.runId}/email`} className="btn btn-secondary">✉ Email</Link>
               <button className="btn btn-primary" onClick={() => window.print()}>
-                🖨 Print All / Save as PDF
+                🖨 Print All
               </button>
             </>
           }

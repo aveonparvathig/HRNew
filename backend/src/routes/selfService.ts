@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { selfServiceController } from '../controllers/selfServiceController';
+import { payrollFilesController, pdfFormat } from '../controllers/payrollFilesController';
 
 const router = Router();
 
@@ -13,6 +14,10 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
 // controller scopes every query to that record.
 router.use(authMiddleware);
 
+// A statement or form comes back as a PDF file when asked with ?format=pdf
+router.use(pdfFormat);
+router.get('/payslips.zip', asyncHandler((req, res) => payrollFilesController.myPayslipsZip(req, res)));
+router.get('/payslips/:entryId/pdf', asyncHandler((req, res) => payrollFilesController.myPayslipPdf(req, res)));
 router.get('/payslips', asyncHandler((req, res) => selfServiceController.getPayslips(req, res)));
 router.get('/payslips/:entryId', asyncHandler((req, res) => selfServiceController.getPayslip(req, res)));
 

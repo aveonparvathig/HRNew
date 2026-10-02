@@ -611,10 +611,55 @@ model PayrollSettings {
   payoutBranch        String @default("")
   payoutAccountNumber String @default("")
   payoutIfsc          String @default("")
+  // Payslips as files and by email
+  payslipPdfPassword String @default("NONE") // NONE | PAN | DOB
+  payslipFilePrefix  String @default("Payslip")
+  payslipFileContext String @default("EMPNO") // EMPNO | NAME | EMPNO_NAME
+  payslipEmailTo     String @default("OFFICIAL") // OFFICIAL | PERSONAL; the other is used when blank
+  jvFilePrefix       String @default("JV") // journal voucher download
 
   updatedAt DateTime @updatedAt
 
   @@map("payroll_settings")
+}
+
+// The mail server the organization sends through (any SMTP service).
+// Nothing is sent until it is switched on.
+model MailSettings {
+  organizationId String   @id
+  enabled        Boolean  @default(false)
+  host           String   @default("")
+  port           Int      @default(587)
+  security       String   @default("STARTTLS") // STARTTLS | SSL | NONE
+  username       String   @default("")
+  passwordEnc    String   @default("") // encrypted, see services/secretBox.ts
+  fromName       String   @default("")
+  fromEmail      String   @default("")
+  replyTo        String   @default("")
+  updatedAt      DateTime @updatedAt
+
+  @@map("mail_settings")
+}
+
+// Every mail the system tried to send.
+model MailLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  kind           String // PAYSLIP | TEST
+  toEmail        String
+  subject        String
+  status         String // SENT | FAILED
+  error          String   @default("")
+  runId          String?
+  entryId        String?
+  personId       String?
+  personName     String   @default("")
+  sentBy         String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([runId])
+  @@map("mail_logs")
 }
 
 model PayrollRun {

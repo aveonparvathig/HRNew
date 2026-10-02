@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState } from '../../components/ui';
 import { formatINR } from '../../utils/format';
+import DownloadButton from '../../components/DownloadButton';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -36,6 +37,7 @@ export default function MyPayslips() {
           <select className="select" style={{ width: 'auto' }} value={fy} onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
           </select>
+          <DownloadButton path="/self/payslips.zip" params={{ fy }} busyLabel="Making the files…">⤓ Year's payslips</DownloadButton>
           <Link to={`/my/reports/ytd-statement?fy=${fy}`} className="btn btn-secondary">Year-to-Date</Link>
           <Link to={`/my/reports/tax-statement?fy=${fy}`} className="btn btn-secondary">Tax Statement</Link>
           <Link to={`/my/reports/form-16?fy=${fy}`} className="btn btn-secondary">Form 16</Link>
@@ -65,6 +67,7 @@ export default function MyPayslips() {
                     <td>
                       <div className="row-actions">
                         <Link to={`/my/payslips/${e.id}`} className="btn btn-secondary btn-sm">View</Link>
+                        <DownloadButton path={`/self/payslips/${e.id}/pdf`} className="btn btn-secondary btn-sm">⤓ PDF</DownloadButton>
                       </div>
                     </td>
                   </tr>

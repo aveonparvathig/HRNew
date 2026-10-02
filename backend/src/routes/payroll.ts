@@ -14,6 +14,7 @@ import { payrollControlController } from '../controllers/payrollControlControlle
 import { payrollReturnsController } from '../controllers/payrollReturnsController';
 import { payrollArrearsController } from '../controllers/payrollArrearsController';
 import { payrollRegistersController, REGISTER_CODES } from '../controllers/payrollRegistersController';
+import { payrollFilesController, pdfFormat } from '../controllers/payrollFilesController';
 
 const router = Router();
 
@@ -26,6 +27,18 @@ router.use(authMiddleware);
 router.use(requireRole('SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'));
 // The viewer role reads every payroll page and report and changes nothing
 router.use(readOnlyFor('PAYROLL_VIEWER'));
+// Any report comes back as a PDF file when asked with ?format=pdf
+router.use(pdfFormat);
+
+// Payslips and the journal voucher as files, payslips by email
+router.get('/payslip-file-settings', asyncHandler((req, res) => payrollFilesController.getFileSettings(req, res)));
+router.put('/payslip-file-settings', asyncHandler((req, res) => payrollFilesController.updateFileSettings(req, res)));
+router.get('/entries/:entryId/payslip.pdf', asyncHandler((req, res) => payrollFilesController.payslipPdf(req, res)));
+router.post('/entries/:entryId/email-payslip', asyncHandler((req, res) => payrollFilesController.emailPayslip(req, res)));
+router.get('/runs/:runId/payslips.zip', asyncHandler((req, res) => payrollFilesController.runPayslipsZip(req, res)));
+router.get('/runs/:runId/payslips.pdf', asyncHandler((req, res) => payrollFilesController.runPayslipsPdf(req, res)));
+router.get('/runs/:runId/payslip-delivery', asyncHandler((req, res) => payrollFilesController.delivery(req, res)));
+router.get('/runs/:runId/journal-voucher/file', asyncHandler((req, res) => payrollFilesController.journalVoucherFile(req, res)));
 
 // Settings
 router.get('/settings', asyncHandler((req, res) => payrollController.getSettings(req, res)));

@@ -5,8 +5,9 @@ import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Menu, Modal, StatusBadge, BackButton, SuccessAlert,
 } from '../../components/ui';
 import { formatINR } from '../../utils/format';
-import { confirmDialog } from '../../components/feedback';
+import { confirmDialog, toast } from '../../components/feedback';
 import ListSelect from '../../components/ListSelect';
+import { downloadFile as fetchFile } from '../../api/files';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -35,6 +36,10 @@ const RUN_REPORTS: [string, string][] = [
   ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
   ['payment-register', 'Payment Register'], ['journal-voucher', 'Journal Voucher'],
 ];
+
+// Save a file from the API, with any refusal shown as a toast
+const saveFile = (path: string, params?: Record<string, string>) =>
+  fetchFile(path, params).catch(err => toast.error(err.message));
 
 export default function RunDetail() {
   const { runId } = useParams<{ runId: string }>();
@@ -308,6 +313,14 @@ export default function RunDetail() {
               <button className="menu-item" role="menuitem" onClick={handleExport}>⤓ Salary register (Excel)</button>
               <button className="menu-item" role="menuitem" onClick={() => downloadFile('pf-ecr')}>⤓ PF ECR file</button>
               <button className="menu-item" role="menuitem" onClick={() => downloadFile('esi-upload')}>⤓ ESI sheet</button>
+              <button className="menu-item" role="menuitem" onClick={() => saveFile(`/payroll/runs/${run.id}/journal-voucher/file`, { format: 'xlsx' })}>⤓ Journal voucher (Excel)</button>
+              <button className="menu-item" role="menuitem" onClick={() => saveFile(`/payroll/runs/${run.id}/journal-voucher/file`, { format: 'csv' })}>⤓ Journal voucher (CSV)</button>
+              {!isDraft && (
+                <>
+                  <div className="menu-heading">Payslips</div>
+                  <Link to={`/payroll/runs/${run.id}/email`} className="menu-item" role="menuitem">✉ Email payslips</Link>
+                </>
+              )}
             </Menu>
             <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
               🖨 All Payslips
