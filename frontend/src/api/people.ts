@@ -22,6 +22,8 @@ export const peopleAPI = {
   setManager: (personId: string, managerId: string) => apiClient.put(`/people/${personId}/manager`, { managerId }),
   // Everyone reporting directly to one manager moves under another ('' = no manager)
   transferReports: (data: { fromManagerId: string; toManagerId: string }) => apiClient.post('/people/transfer-reports', data),
+  // Headcount, joiners and leavers, birthdays, confirmations due, records with gaps
+  getHrDashboard: () => apiClient.get('/people/hr-dashboard'),
   getConfirmations: (days?: number) => apiClient.get('/people/confirmations', { params: days ? { days } : {} }),
   confirmEmployee: (personId: string, confirmationDate: string) => apiClient.post(`/people/${personId}/confirm`, { confirmationDate }),
 

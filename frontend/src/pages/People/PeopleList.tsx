@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
 import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, StatCard,
@@ -22,6 +22,14 @@ export const PEOPLE_STAGE_TONES: Record<string, string> = {
   JOINED: 'badge-success', REJECTED: 'badge-danger', ON_HOLD: 'badge-neutral',
 };
 
+// Records with something missing, as the dashboard counts them
+const MISSING: Record<string, { label: string; test: (p: any) => boolean }> = {
+  pan: { label: 'no PAN', test: p => !String(p.panNumber || '').trim() },
+  bank: { label: 'no bank account', test: p => !String(p.bankAccountNumber || '').trim() },
+  location: { label: 'no work location', test: p => !p.workLocationId },
+  joinDate: { label: 'no joining date', test: p => !p.joinDate },
+};
+
 export const stageLabel = (stages: any[], value: string) =>
   stages.find(s => s.value === value)?.label || value;
 
@@ -36,6 +44,8 @@ function EyeIcon({ open }: { open: boolean }) {
 export default function PeopleList() {
   const navigate = useNavigate();
   const { canManagePeople } = useRole();
+  const [params, setParams] = useSearchParams();
+  const missing = canManagePeople ? MISSING[params.get('missing') || ''] : undefined;
   const [data, setData] = useState<any>(null);
   const [meta, setMeta] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -88,14 +98,16 @@ export default function PeopleList() {
 
   if (loading && !data) return <LoadingBlock label="Loading people…" />;
 
-  const employees = data?.employees || [];
-  const candidates = data?.candidates || [];
-  const interns = data?.interns || [];
+  // Filtered to incomplete records, only current employees are listed
+  const employees = (data?.employees || []).filter((p: any) =>
+    !missing || (missing.test(p) && !['RESIGNED', 'TERMINATED'].includes(p.employmentStatus)));
+  const candidates = missing ? [] : data?.candidates || [];
+  const interns = missing ? [] : data?.interns || [];
   const totalCount = employees.length + candidates.length + interns.length;
 
   const INACTIVE = new Set(['RESIGNED', 'TERMINATED']);
   const activeEmployees = employees.filter((p: any) => !INACTIVE.has(p.employmentStatus));
-  const inactiveEmployees = employees.filter((p: any) => INACTIVE.has(p.employmentStatus));
+  const inactiveEmployees = missing ? [] : employees.filter((p: any) => INACTIVE.has(p.employmentStatus));
 
   const payHeader = canManagePeople ? <th className="num">Package</th> : null;
 
@@ -191,7 +203,18 @@ export default function PeopleList() {
         </div>
       )}
 
-      {data?.employeeStats && employees.length > 0 && (
+      {missing && (
+        <div className="alert alert-warning">
+          <span>⚑</span>
+          <span>
+            <strong>{activeEmployees.length} employee{activeEmployees.length === 1 ? '' : 's'} with {missing.label}.</strong>{' '}
+            Open each one to complete the record.{' '}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setParams({})}>Show everyone</button>
+          </span>
+        </div>
+      )}
+
+      {data?.employeeStats && employees.length > 0 && !missing && (
         <div className="stat-grid">
           <StatCard label="Active Employees" value={data.employeeStats.active} icon="☰" tone="primary" />
           {canManagePeople && <StatCard label="Monthly Payroll Cost"
@@ -216,16 +239,16 @@ export default function PeopleList() {
             onChange={e => setQ(e.target.value)} />
         </div>
         <span className="toolbar-count">
-          {employees.length} employee{employees.length !== 1 ? 's' : ''} · {candidates.length} candidate{candidates.length !== 1 ? 's' : ''} · {interns.length} intern{interns.length !== 1 ? 's' : ''}
+          {(missing ? activeEmployees : employees).length} employee{(missing ? activeEmployees : employees).length !== 1 ? 's' : ''} · {candidates.length} candidate{candidates.length !== 1 ? 's' : ''} · {interns.length} intern{interns.length !== 1 ? 's' : ''}
         </span>
       </div>
 
       {totalCount === 0 ? (
         <div className="card">
           <EmptyState icon="☰"
-            title={q ? 'No matching people' : 'No people yet'}
-            message={q ? 'Try a different search.' : 'Add your first employee or intern.'}
-            action={!q && (
+            title={missing ? `No employee with ${missing.label}` : q ? 'No matching people' : 'No people yet'}
+            message={missing ? 'Every record has it.' : q ? 'Try a different search.' : 'Add your first employee or intern.'}
+            action={!q && !missing && (
               <button className="btn btn-primary" onClick={() => setModal({ open: true, kind: 'CANDIDATE' })}>
                 + Add Employee
               </button>
