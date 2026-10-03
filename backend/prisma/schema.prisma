@@ -750,6 +750,23 @@ model MailSettings {
   @@map("mail_settings")
 }
 
+// One bulk import: who ran it, on what file, and what became of each row.
+// The rows say what happened and why, and which fields changed — never
+// the values, so the log holds no PAN, bank account or salary.
+model ImportLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  kind           String // EMPLOYEES_ADD | EMPLOYEES_UPDATE | SALARY_REVISIONS | PHOTOS | DOCUMENTS
+  fileName       String
+  ranByName      String   @default("")
+  summary        Json     @default("{}") // counts by result
+  rows           Json     @default("[]") // { row, employeeNo, name, result, messages[] }
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("import_logs")
+}
+
 // Where a company's uploaded files go. No row, or provider DB = in the
 // database. S3 = an object store that speaks the S3 interface (Amazon S3,
 // Cloudflare R2, Backblaze B2, DigitalOcean Spaces, MinIO).

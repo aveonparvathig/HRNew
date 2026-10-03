@@ -57,6 +57,15 @@ export const peopleAPI = {
   previewLetter: (data: { code?: string; template?: any; personId?: string; formData?: any }) => apiClient.post('/people/letters/preview', data),
   createLetters: (data: { docType: string; personIds: string[]; formData: any; visibleToEmployee: boolean }) => apiClient.post('/people/letters', data),
 
+  // Bulk imports: a dry run first, then the same call with dryRun false
+  importEmployees: (data: any) => apiClient.post('/people/import/employees', data),
+  importRevisions: (data: any) => apiClient.post('/people/import/revisions', data),
+  // Photos and documents named by employee code: match the names, then send the files in batches
+  matchImportFiles: (data: { kind: string; fileNames: string[] }) => apiClient.post('/people/import/files/match', data),
+  importFiles: (data: any) => apiClient.post('/people/import/files', data),
+  getImportLogs: () => apiClient.get('/people/import/logs'),
+  getImportLog: (logId: string) => apiClient.get(`/people/import/logs/${logId}`),
+
   // Files kept against a person
   getFiles: (personId: string) => apiClient.get(`/people/${personId}/files`),
   uploadFile: (personId: string, data: any) => apiClient.post(`/people/${personId}/files`, data),
