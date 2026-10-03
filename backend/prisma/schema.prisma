@@ -471,26 +471,30 @@ model Person {
   consultantTdsPercent Float  @default(10)
 
   // Job details
-  employmentType   String          @default("") // a value of the EMPLOYMENT_TYPE list
+  employmentType     String                  @default("") // a value of the EMPLOYMENT_TYPE list
   // A value of the GRADE list. Designation, department, work location and
   // grade here are the position today; PositionChange holds how it got there
-  grade            String          @default("")
+  grade              String                  @default("")
   // Probation in months from the joining date; 0 = none. The employee is
   // due for confirmation when it ends, until a confirmation date is set.
-  probationMonths  Int             @default(0)
-  confirmationDate String? // "YYYY-MM-DD"
+  probationMonths    Int                     @default(0)
+  confirmationDate   String? // "YYYY-MM-DD"
   // Notice the employee must give, in days; null = the company's usual one
-  noticePeriodDays Int?
-  firstHireDate    String? // for someone rehired
-  referredBy       String          @default("")
+  noticePeriodDays   Int?
+  firstHireDate      String? // for someone rehired
+  referredBy         String                  @default("")
   // Who the employee reports to
-  managerId        String?
-  manager          Person?         @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
-  reports          Person[]        @relation("ReportsTo")
-  arrearItems      ArrearItem[]
-  settlements      Settlement[]
-  expenseReports   ExpenseReport[]
-  user             User?
+  managerId          String?
+  manager            Person?                 @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
+  reports            Person[]                @relation("ReportsTo")
+  arrearItems        ArrearItem[]
+  settlements        Settlement[]
+  changeRequests     ChangeRequest[]
+  policyAcks         PolicyAcknowledgement[]
+  // When the employee last confirmed their details are up to date (data drive)
+  detailsConfirmedAt DateTime?
+  expenseReports     ExpenseReport[]
+  user               User?
 
   @@unique([organizationId, kind, name])
   @@index([organizationId, kind, stage])
@@ -2051,4 +2055,123 @@ model Settlement {
   @@unique([personId, sequence])
   @@index([organizationId, period])
   @@map("settlements")
+}
+
+// An employee's proposed change to their own details (phase 26). Nothing
+// on the Person changes until HR approves; a bank change needs a proof.
+model ChangeRequest {
+  id             String    @id @default(cuid())
+  organizationId String
+  personId       String
+  section        String // CONTACT | ADDRESS | EMERGENCY | BANK | FAMILY
+  // { field: { from, to } } for scalar sections; a proposed member for FAMILY
+  changes        Json      @default("{}")
+  status         String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  // Bank changes carry a proof file
+  fileName       String    @default("")
+  mimeType       String    @default("")
+  sizeBytes      Int       @default(0)
+  fileData       String    @default("")
+  storage        String    @default("DB")
+  storageKey     String    @default("")
+  reviewedByName String    @default("")
+  reviewNote     String    @default("")
+  reviewedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([personId])
+  @@map("change_requests")
+}
+
+// A notice on the bulletin board (phase 26). Employees in scope see it on
+// their updates until it expires.
+model Bulletin {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  body           String   @default("")
+  scope          String   @default("EVERYONE") // EVERYONE | DEPARTMENT | LOCATION
+  scopeValue     String   @default("") // department label or work-location id
+  fileName       String   @default("")
+  mimeType       String   @default("")
+  sizeBytes      Int      @default(0)
+  fileData       String   @default("")
+  storage        String   @default("DB")
+  storageKey     String   @default("")
+  expiresOn      String? // "YYYY-MM-DD"; null = no expiry
+  isActive       Boolean  @default(true)
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([organizationId, isActive])
+  @@map("bulletins")
+}
+
+// A company policy published to employees (phase 26), who record that they
+// have read it.
+model Policy {
+  id             String   @id @default(cuid())
+  organizationId String
+  title          String
+  body           String   @default("")
+  scope          String   @default("EVERYONE")
+  scopeValue     String   @default("")
+  fileName       String   @default("")
+  mimeType       String   @default("")
+  sizeBytes      Int      @default(0)
+  fileData       String   @default("")
+  storage        String   @default("DB")
+  storageKey     String   @default("")
+  isActive       Boolean  @default(true)
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  acknowledgements PolicyAcknowledgement[]
+
+  @@index([organizationId, isActive])
+  @@map("policies")
+}
+
+model PolicyAcknowledgement {
+  id             String   @id @default(cuid())
+  organizationId String
+  policyId       String
+  personId       String
+  acknowledgedAt DateTime @default(now())
+
+  policy Policy @relation(fields: [policyId], references: [id], onDelete: Cascade)
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([policyId, personId])
+  @@index([organizationId, policyId])
+  @@map("policy_acknowledgements")
+}
+
+// A mail sent to a group of employees (phase 26), sent one at a time in
+// the background through the company mail server; every mail is in the
+// mail log as well.
+model MailCampaign {
+  id             String    @id @default(cuid())
+  organizationId String
+  subject        String
+  body           String    @default("")
+  scope          String // EVERYONE | DEPARTMENT | LOCATION | CHOSEN
+  scopeValue     String    @default("")
+  personIds      Json      @default("[]") // for CHOSEN
+  status         String    @default("SENDING") // SENDING | DONE
+  total          Int       @default(0)
+  sent           Int       @default(0)
+  failed         Int       @default(0)
+  createdByName  String    @default("")
+  createdAt      DateTime  @default(now())
+  finishedAt     DateTime?
+
+  @@index([organizationId, createdAt])
+  @@map("mail_campaigns")
 }

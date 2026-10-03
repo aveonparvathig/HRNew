@@ -85,6 +85,26 @@ export const peopleAPI = {
   deleteIdentityDocument: (id: string) => apiClient.delete(`/people/identity-documents/${id}`),
   listIdentityDocuments: (params?: { type?: string; verified?: string; expiring?: string }) => apiClient.get('/people/identity-documents', { params }),
 
+  // Employee communication (phase 26): change requests, mail, bulletins, policies
+  getCommunicationMeta: () => apiClient.get('/people/communication/meta'),
+  getChangeRequests: (status?: string) => apiClient.get('/people/communication/change-requests', { params: status ? { status } : {} }),
+  getChangeRequestFile: (id: string) => apiClient.get(`/people/communication/change-requests/${id}/file`),
+  reviewChangeRequest: (id: string, data: { approve: boolean; note?: string }) => apiClient.post(`/people/communication/change-requests/${id}/review`, data),
+  getDetailsConfirmation: () => apiClient.get('/people/communication/details-confirmation'),
+  getBulletins: () => apiClient.get('/people/communication/bulletins'),
+  saveBulletin: (data: any) => apiClient.post('/people/communication/bulletins', data),
+  updateBulletin: (id: string, data: any) => apiClient.put(`/people/communication/bulletins/${id}`, data),
+  deleteBulletin: (id: string) => apiClient.delete(`/people/communication/bulletins/${id}`),
+  getPolicies: () => apiClient.get('/people/communication/policies'),
+  savePolicy: (data: any) => apiClient.post('/people/communication/policies', data),
+  updatePolicy: (id: string, data: any) => apiClient.put(`/people/communication/policies/${id}`, data),
+  deletePolicy: (id: string) => apiClient.delete(`/people/communication/policies/${id}`),
+  getPolicyCoverage: (id: string) => apiClient.get(`/people/communication/policies/${id}/coverage`),
+  mailAudienceCount: (data: any) => apiClient.post('/people/communication/mail/count', data),
+  createCampaign: (data: any) => apiClient.post('/people/communication/mail', data),
+  getCampaigns: () => apiClient.get('/people/communication/mail'),
+  getCampaign: (id: string) => apiClient.get(`/people/communication/mail/${id}`),
+
   // Interview rounds
   addInterview: (personId: string, data: any) =>
     apiClient.post(`/people/${personId}/interviews`, data),

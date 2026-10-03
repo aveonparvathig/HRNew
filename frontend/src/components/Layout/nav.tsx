@@ -60,6 +60,7 @@ const PEOPLE_ITEMS: NavItem[] = [
   { to: '/people', icon: 'users', label: 'People' },
   { to: '/people/org-chart', icon: 'layers', label: 'Organization Chart' },
   { to: '/people/letters', icon: 'pen', label: 'Letters', also: ['/people/documents'] },
+  { to: '/people/communication', icon: 'megaphone', label: 'Communication' },
   { to: '/people/identity-documents', icon: 'key', label: 'Identity Docs' },
   { to: '/people/pipeline', icon: 'kanban', label: 'Pipeline' },
   { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
@@ -75,6 +76,7 @@ const PROPOSAL_ITEMS: NavItem[] = [
 
 // Shown to anyone whose login is linked to a person record
 const MY_PAY_ITEMS: NavItem[] = [
+  { to: '/my/updates', icon: 'megaphone', label: 'My Updates' },
   { to: '/my/payslips', icon: 'banknote', label: 'My Payslips' },
   { to: '/my/declaration', icon: 'pen', label: 'My Tax Declaration' },
   { to: '/my/loans', icon: 'layers', label: 'My Loans' },

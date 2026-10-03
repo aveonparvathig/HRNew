@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { selfServiceController } from '../controllers/selfServiceController';
 import { payrollFilesController, pdfFormat } from '../controllers/payrollFilesController';
+import { selfCommunicationController as scc } from '../controllers/selfCommunicationController';
 
 const router = Router();
 
@@ -38,5 +39,14 @@ router.get('/loans', asyncHandler((req, res) => selfServiceController.getLoans(r
 router.get('/form16-part-a', asyncHandler((req, res) => selfServiceController.getForm16PartA(req, res)));
 router.get('/form16.pdf', asyncHandler((req, res) => selfServiceController.getForm16File(req, res)));
 router.get('/reports/:kind', asyncHandler((req, res) => selfServiceController.getReport(req, res)));
+
+// Employee communication (phase 26) — employee side
+router.get('/updates', asyncHandler((req, res) => scc.getUpdates(req, res)));
+router.get('/updates/bulletins/:id/file', asyncHandler((req, res) => scc.getBulletinFile(req, res)));
+router.get('/updates/policies/:id/file', asyncHandler((req, res) => scc.getPolicyFile(req, res)));
+router.post('/updates/policies/:id/ack', asyncHandler((req, res) => scc.acknowledgePolicy(req, res)));
+router.post('/updates/confirm-details', asyncHandler((req, res) => scc.confirmDetails(req, res)));
+router.get('/change-requests', asyncHandler((req, res) => scc.myChangeRequests(req, res)));
+router.post('/change-requests', asyncHandler((req, res) => scc.proposeChange(req, res)));
 
 export default router;
