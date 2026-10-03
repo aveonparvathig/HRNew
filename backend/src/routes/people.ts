@@ -8,7 +8,7 @@ import { applyDuePositions } from '../services/positions';
 import { hrDashboardController } from '../controllers/hrDashboardController';
 import { lettersController } from '../controllers/lettersController';
 import { employeeFilesController } from '../controllers/employeeFilesController';
-import { importController } from '../controllers/importController';
+import { profileController } from '../controllers/profileController';
 
 const router = Router();
 
@@ -66,6 +66,8 @@ router.get('/export/employees.xlsx', staffOnly, asyncHandler((req, res) => peopl
 // People
 router.get('/', asyncHandler((req, res) => peopleController.getPeople(req, res)));
 router.post('/', staffOnly, asyncHandler((req, res) => peopleController.createPerson(req, res)));
+// Every employee's identity documents in one list (before /:personId)
+router.get('/identity-documents', staffOnly, asyncHandler((req, res) => profileController.listIdentityDocuments(req, res)));
 router.get('/:personId', asyncHandler((req, res) => peopleController.getPersonDetail(req, res)));
 router.put('/:personId', staffOnly, asyncHandler((req, res) => peopleController.updatePerson(req, res)));
 router.post('/:personId/stage', staffOnly, asyncHandler((req, res) => peopleController.updatePersonStage(req, res)));
@@ -93,6 +95,26 @@ router.put('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFiles
 router.delete('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFilesController.deleteFile(req, res)));
 router.get('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.getFiles(req, res)));
 router.post('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.uploadFile(req, res)));
+
+// Fuller profile (phase 24): family, education, previous employment, identity documents
+router.get('/:personId/family', staffOnly, asyncHandler((req, res) => profileController.getFamily(req, res)));
+router.post('/:personId/family', staffOnly, asyncHandler((req, res) => profileController.addFamily(req, res)));
+router.put('/family/:id', staffOnly, asyncHandler((req, res) => profileController.updateFamily(req, res)));
+router.delete('/family/:id', staffOnly, asyncHandler((req, res) => profileController.deleteFamily(req, res)));
+router.get('/:personId/education', staffOnly, asyncHandler((req, res) => profileController.getEducation(req, res)));
+router.post('/:personId/education', staffOnly, asyncHandler((req, res) => profileController.addEducation(req, res)));
+router.put('/education/:id', staffOnly, asyncHandler((req, res) => profileController.updateEducation(req, res)));
+router.delete('/education/:id', staffOnly, asyncHandler((req, res) => profileController.deleteEducation(req, res)));
+router.get('/:personId/previous-employment', staffOnly, asyncHandler((req, res) => profileController.getPreviousEmployment(req, res)));
+router.post('/:personId/previous-employment', staffOnly, asyncHandler((req, res) => profileController.addPreviousEmployment(req, res)));
+router.put('/previous-employment/:id', staffOnly, asyncHandler((req, res) => profileController.updatePreviousEmployment(req, res)));
+router.delete('/previous-employment/:id', staffOnly, asyncHandler((req, res) => profileController.deletePreviousEmployment(req, res)));
+router.get('/:personId/identity-documents', staffOnly, asyncHandler((req, res) => profileController.getIdentityDocuments(req, res)));
+router.post('/:personId/identity-documents', staffOnly, asyncHandler((req, res) => profileController.addIdentityDocument(req, res)));
+router.put('/identity-documents/:id', staffOnly, asyncHandler((req, res) => profileController.updateIdentityDocument(req, res)));
+router.post('/identity-documents/:id/verify', staffOnly, asyncHandler((req, res) => profileController.verifyIdentityDocument(req, res)));
+router.get('/identity-documents/:id/file', staffOnly, asyncHandler((req, res) => profileController.openIdentityFile(req, res)));
+router.delete('/identity-documents/:id', staffOnly, asyncHandler((req, res) => profileController.deleteIdentityDocument(req, res)));
 
 // Interview rounds
 router.post('/:personId/interviews', staffOnly, asyncHandler((req, res) => peopleController.addInterview(req, res)));

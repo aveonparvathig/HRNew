@@ -28,7 +28,7 @@ const Pipeline = lazy(() => import('./pages/People/Pipeline'));
 const JobOpenings = lazy(() => import('./pages/People/JobOpenings'));
 const LetterView = lazy(() => import('./pages/People/LetterView'));
 const Letters = lazy(() => import('./pages/People/Letters'));
-const PeopleImport = lazy(() => import('./pages/People/Import'));
+const IdentityDocuments = lazy(() => import('./pages/People/IdentityDocuments'));
 const MyDocuments = lazy(() => import('./pages/My/MyDocuments'));
 const MyLetter = lazy(() => import('./pages/My/MyLetter'));
 const ProposalBuilder = lazy(() => import('./pages/Proposals/ProposalBuilder'));
@@ -115,7 +115,7 @@ function App() {
             <Route path="/people/openings" element={<RequireRole roles={SA_HR}><JobOpenings /></RequireRole>} />
             <Route path="/people/documents/:docId" element={<RequireRole roles={SA_HR}><LetterView /></RequireRole>} />
             <Route path="/people/letters" element={<RequireRole roles={SA_HR}><Letters /></RequireRole>} />
-            <Route path="/people/import" element={<RequireRole roles={SA_HR}><PeopleImport /></RequireRole>} />
+            <Route path="/people/identity-documents" element={<RequireRole roles={SA_HR}><IdentityDocuments /></RequireRole>} />
             <Route path="/people/:personId" element={<PersonDetail />} />
             <Route path="/proposals" element={<RequireRole roles={SA_MKT}><ProposalBuilder /></RequireRole>} />
             <Route path="/proposals/history" element={<RequireRole roles={SA_MKT}><ProposalHistory /></RequireRole>} />

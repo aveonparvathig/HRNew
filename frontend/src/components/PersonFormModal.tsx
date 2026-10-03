@@ -13,6 +13,18 @@ interface Props {
   onSaved: (person: any) => void;
 }
 
+const RESIDENTIAL_STATUSES = [
+  { value: 'RESIDENT', label: 'Resident' },
+  { value: 'NON_RESIDENT', label: 'Non-resident' },
+  { value: 'NOT_ORDINARILY_RESIDENT', label: 'Not ordinarily resident' },
+];
+const ACCOUNT_TYPES = [{ value: 'SAVINGS', label: 'Savings' }, { value: 'CURRENT', label: 'Current' }];
+const LWF_COVERAGE = [
+  { value: 'AUTO', label: 'Follow the work location' },
+  { value: 'YES', label: 'Covered' },
+  { value: 'NO', label: 'Not covered' },
+];
+
 const EMPTY = {
   kind: 'CANDIDATE', name: '', title: '', gender: '', email: '', phone: '',
   address: '', notes: '',
@@ -25,6 +37,12 @@ const EMPTY = {
   // personal
   photoData: '', dateOfBirth: '', bloodGroup: '', maritalStatus: '',
   parentSpouseName: '', aadharNo: '',
+  // personal, fuller (phase 24)
+  fatherName: '', spouseName: '', marriageDate: '', nationality: '', placeOfBirth: '',
+  residentialStatus: '', religion: '', physicallyChallenged: false, disabilityType: '', isDirector: false,
+  permanentAddress: '', emergencyName: '', emergencyRelation: '',
+  bankAccountName: '', bankBranch: '', bankAccountType: '',
+  pfJoinDate: '', epsMember: false, lwfCovered: 'AUTO',
   // contact
   officialEmail: '', officialNo: '', emergencyNo: '',
   // bank & statutory
@@ -203,9 +221,33 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
             {!isIntern && <F {...fp} label="Date of birth" k="dateOfBirth" type="date" />}
             {!isIntern && <F {...fp} label="Blood group" k="bloodGroup" list="BLOOD_GROUP" />}
             {!isIntern && <F {...fp} label="Marital status" k="maritalStatus" list="MARITAL_STATUS" />}
-            {!isIntern && <F {...fp} label="Father / spouse name" k="parentSpouseName" />}
+            {!isIntern && <F {...fp} label="Father's name" k="fatherName" />}
+            {!isIntern && <F {...fp} label="Spouse's name" k="spouseName" />}
+            {!isIntern && form.maritalStatus === 'Married' && <F {...fp} label="Marriage date" k="marriageDate" type="date" />}
             {!isIntern && <F {...fp} label="Aadhaar no." k="aadharNo" placeholder="XXXX XXXX XXXX" />}
+            {!isIntern && <F {...fp} label="Nationality" k="nationality" placeholder="Indian" />}
+            {!isIntern && <F {...fp} label="Place of birth" k="placeOfBirth" />}
+            {!isIntern && <F {...fp} label="Residential status" k="residentialStatus" options={RESIDENTIAL_STATUSES} />}
+            {!isIntern && <F {...fp} label="Religion" k="religion" />}
           </div>
+          {!isIntern && (
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
+              <label className="checkbox-field">
+                <input type="checkbox" checked={form.isDirector} onChange={e => set('isDirector', e.target.checked)} />
+                Director of the company
+              </label>
+              <label className="checkbox-field">
+                <input type="checkbox" checked={form.physicallyChallenged} onChange={e => set('physicallyChallenged', e.target.checked)} />
+                Physically challenged
+              </label>
+              {form.physicallyChallenged && (
+                <div className="field" style={{ minWidth: 200 }}>
+                  <input className="input" placeholder="Nature of disability" value={form.disabilityType}
+                    onChange={e => set('disabilityType', e.target.value)} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 2 — Contact */}
@@ -216,13 +258,29 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
             {!isIntern && <F {...fp} label="Official email" k="officialEmail" type="email" placeholder="name@company.com" />}
             <F {...fp} label="Contact no." k="phone" placeholder="+91…" />
             {!isIntern && <F {...fp} label="Official no." k="officialNo" />}
+            {!isIntern && <F {...fp} label="Emergency contact" k="emergencyName" placeholder="Name" />}
+            {!isIntern && <F {...fp} label="Emergency relationship" k="emergencyRelation" placeholder="e.g. Spouse" />}
             {!isIntern && <F {...fp} label="Emergency no." k="emergencyNo" />}
           </div>
-          <div className="field">
-            <label>Address</label>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>{isIntern ? 'Address' : 'Present address'}</label>
             <textarea className="input" rows={2} value={form.address}
               onChange={e => set('address', e.target.value)} />
           </div>
+          {!isIntern && (
+            <div className="field">
+              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>Permanent address</span>
+                <label style={{ fontWeight: 400, fontSize: 12.5, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                  <input type="checkbox" checked={Boolean(form.permanentAddress) && form.permanentAddress === form.address}
+                    onChange={e => set('permanentAddress', e.target.checked ? form.address : '')} />
+                  Same as present
+                </label>
+              </label>
+              <textarea className="input" rows={2} value={form.permanentAddress}
+                onChange={e => set('permanentAddress', e.target.value)} />
+            </div>
+          )}
         </div>
 
         {!isIntern ? (
@@ -313,12 +371,17 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
               <div className="form-section-title"><span className="step-dot">4</span> Bank &amp; statutory</div>
               <div className="form-grid" style={{ marginBottom: 14 }}>
                 <F {...fp} label="Bank name" k="bankName" list="BANK" />
+                <F {...fp} label="Name as per bank" k="bankAccountName" />
                 <F {...fp} label="Account number" k="bankAccountNumber" />
+                <F {...fp} label="Account type" k="bankAccountType" options={ACCOUNT_TYPES} />
+                <F {...fp} label="Branch" k="bankBranch" />
                 <F {...fp} label="IFSC code" k="ifscCode" placeholder="HDFC0001234" />
                 <F {...fp} label="PAN number" k="panNumber" />
                 <F {...fp} label="PF number" k="pfNumber" />
                 <F {...fp} label="PF UAN" k="pfUan" />
+                <F {...fp} label="PF join date" k="pfJoinDate" type="date" />
                 <F {...fp} label="ESI number" k="esiNumber" />
+                <F {...fp} label="LWF coverage" k="lwfCovered" options={LWF_COVERAGE} />
                 <F {...fp} label="Paid as" k="taxTreatment" options={meta.taxTreatments || []} />
                 {consultant ? (
                   <>
@@ -357,6 +420,11 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
                     <input type="checkbox" checked={form.isEsiEligible}
                       onChange={e => set('isEsiEligible', e.target.checked)} />
                     ESI eligible
+                  </label>
+                  <label className="checkbox-field">
+                    <input type="checkbox" checked={form.epsMember}
+                      onChange={e => set('epsMember', e.target.checked)} />
+                    Existing EPS member
                   </label>
                 </div>
               )}
