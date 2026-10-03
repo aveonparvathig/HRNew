@@ -73,26 +73,13 @@ export const peopleAPI = {
   getFile: (fileId: string) => apiClient.get(`/people/files/${fileId}`),
   deleteFile: (fileId: string) => apiClient.delete(`/people/files/${fileId}`),
 
-  // Fuller profile (phase 24): family, education, previous employment, identity documents
-  getFamily: (personId: string) => apiClient.get(`/people/${personId}/family`),
-  addFamily: (personId: string, data: any) => apiClient.post(`/people/${personId}/family`, data),
-  updateFamily: (id: string, data: any) => apiClient.put(`/people/family/${id}`, data),
-  deleteFamily: (id: string) => apiClient.delete(`/people/family/${id}`),
-  getEducation: (personId: string) => apiClient.get(`/people/${personId}/education`),
-  addEducation: (personId: string, data: any) => apiClient.post(`/people/${personId}/education`, data),
-  updateEducation: (id: string, data: any) => apiClient.put(`/people/education/${id}`, data),
-  deleteEducation: (id: string) => apiClient.delete(`/people/education/${id}`),
-  getPreviousEmployment: (personId: string) => apiClient.get(`/people/${personId}/previous-employment`),
-  addPreviousEmployment: (personId: string, data: any) => apiClient.post(`/people/${personId}/previous-employment`, data),
-  updatePreviousEmployment: (id: string, data: any) => apiClient.put(`/people/previous-employment/${id}`, data),
-  deletePreviousEmployment: (id: string) => apiClient.delete(`/people/previous-employment/${id}`),
-  getIdentityDocuments: (personId: string) => apiClient.get(`/people/${personId}/identity-documents`),
-  addIdentityDocument: (personId: string, data: any) => apiClient.post(`/people/${personId}/identity-documents`, data),
-  updateIdentityDocument: (id: string, data: any) => apiClient.put(`/people/identity-documents/${id}`, data),
-  verifyIdentityDocument: (id: string, verified: boolean) => apiClient.post(`/people/identity-documents/${id}/verify`, { verified }),
-  getIdentityFile: (id: string) => apiClient.get(`/people/identity-documents/${id}/file`),
-  deleteIdentityDocument: (id: string) => apiClient.delete(`/people/identity-documents/${id}`),
-  listIdentityDocuments: (params?: { type?: string; verified?: string; expiring?: string }) => apiClient.get('/people/identity-documents', { params }),
+  // Separation (phase 25): the leaving record and its status flow
+  getSeparation: (personId: string) => apiClient.get(`/people/${personId}/separation`),
+  saveSeparation: (personId: string, data: any) => apiClient.put(`/people/${personId}/separation`, data),
+  acceptSeparation: (personId: string) => apiClient.post(`/people/${personId}/separation/accept`),
+  relieveSeparation: (personId: string, data: { relievedOn?: string }) => apiClient.post(`/people/${personId}/separation/relieve`, data),
+  withdrawSeparation: (personId: string) => apiClient.post(`/people/${personId}/separation/withdraw`),
+  deleteSeparation: (personId: string) => apiClient.delete(`/people/${personId}/separation`),
 
   // Interview rounds
   addInterview: (personId: string, data: any) =>

@@ -8,7 +8,7 @@ import { applyDuePositions } from '../services/positions';
 import { hrDashboardController } from '../controllers/hrDashboardController';
 import { lettersController } from '../controllers/lettersController';
 import { employeeFilesController } from '../controllers/employeeFilesController';
-import { profileController } from '../controllers/profileController';
+import { separationController } from '../controllers/separationController';
 
 const router = Router();
 
@@ -96,25 +96,13 @@ router.delete('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFi
 router.get('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.getFiles(req, res)));
 router.post('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.uploadFile(req, res)));
 
-// Fuller profile (phase 24): family, education, previous employment, identity documents
-router.get('/:personId/family', staffOnly, asyncHandler((req, res) => profileController.getFamily(req, res)));
-router.post('/:personId/family', staffOnly, asyncHandler((req, res) => profileController.addFamily(req, res)));
-router.put('/family/:id', staffOnly, asyncHandler((req, res) => profileController.updateFamily(req, res)));
-router.delete('/family/:id', staffOnly, asyncHandler((req, res) => profileController.deleteFamily(req, res)));
-router.get('/:personId/education', staffOnly, asyncHandler((req, res) => profileController.getEducation(req, res)));
-router.post('/:personId/education', staffOnly, asyncHandler((req, res) => profileController.addEducation(req, res)));
-router.put('/education/:id', staffOnly, asyncHandler((req, res) => profileController.updateEducation(req, res)));
-router.delete('/education/:id', staffOnly, asyncHandler((req, res) => profileController.deleteEducation(req, res)));
-router.get('/:personId/previous-employment', staffOnly, asyncHandler((req, res) => profileController.getPreviousEmployment(req, res)));
-router.post('/:personId/previous-employment', staffOnly, asyncHandler((req, res) => profileController.addPreviousEmployment(req, res)));
-router.put('/previous-employment/:id', staffOnly, asyncHandler((req, res) => profileController.updatePreviousEmployment(req, res)));
-router.delete('/previous-employment/:id', staffOnly, asyncHandler((req, res) => profileController.deletePreviousEmployment(req, res)));
-router.get('/:personId/identity-documents', staffOnly, asyncHandler((req, res) => profileController.getIdentityDocuments(req, res)));
-router.post('/:personId/identity-documents', staffOnly, asyncHandler((req, res) => profileController.addIdentityDocument(req, res)));
-router.put('/identity-documents/:id', staffOnly, asyncHandler((req, res) => profileController.updateIdentityDocument(req, res)));
-router.post('/identity-documents/:id/verify', staffOnly, asyncHandler((req, res) => profileController.verifyIdentityDocument(req, res)));
-router.get('/identity-documents/:id/file', staffOnly, asyncHandler((req, res) => profileController.openIdentityFile(req, res)));
-router.delete('/identity-documents/:id', staffOnly, asyncHandler((req, res) => profileController.deleteIdentityDocument(req, res)));
+// Separation (phase 25): the leaving record and its status flow
+router.get('/:personId/separation', staffOnly, asyncHandler((req, res) => separationController.getSeparation(req, res)));
+router.put('/:personId/separation', staffOnly, asyncHandler((req, res) => separationController.saveSeparation(req, res)));
+router.post('/:personId/separation/accept', staffOnly, asyncHandler((req, res) => separationController.acceptSeparation(req, res)));
+router.post('/:personId/separation/relieve', staffOnly, asyncHandler((req, res) => separationController.relieveSeparation(req, res)));
+router.post('/:personId/separation/withdraw', staffOnly, asyncHandler((req, res) => separationController.withdrawSeparation(req, res)));
+router.delete('/:personId/separation', staffOnly, asyncHandler((req, res) => separationController.deleteSeparation(req, res)));
 
 // Interview rounds
 router.post('/:personId/interviews', staffOnly, asyncHandler((req, res) => peopleController.addInterview(req, res)));

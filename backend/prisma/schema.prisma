@@ -454,10 +454,6 @@ model Person {
   perquisiteValues    PerquisiteValue[]
   recurringComponents RecurringComponent[]
   positionChanges     PositionChange[]
-  familyMembers       FamilyMember[]
-  educations          Education[]
-  previousEmployments PreviousEmployment[]
-  identityDocuments   IdentityDocument[]
 
   // The employer's contribution to the National Pension System, as a
   // share of Basic + DA (0 = none), and the employee's PRAN
@@ -489,6 +485,7 @@ model Person {
   reports          Person[]        @relation("ReportsTo")
   arrearItems      ArrearItem[]
   settlements      Settlement[]
+  separation       Separation?
   expenseReports   ExpenseReport[]
   user             User?
 
@@ -584,26 +581,6 @@ model EmployeeDocument {
   uploadedByName    String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, personId])
-  @@map("employee_documents")
-}
-
-// Family members of an employee, for insurance and PF/gratuity nomination.
-model FamilyMember {
-  id             String   @id @default(cuid())
-  organizationId String
-  personId       String
-  name           String
-  relation       String // Spouse | Son | Daughter | Father | Mother | ...
-  dateOfBirth    String?
-  isDependant    Boolean  @default(false)
-  nomineeShare   Float    @default(0) // % of the nomination; 0 = not a nominee
-  sortOrder      Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
@@ -2068,4 +2045,46 @@ model Settlement {
   @@unique([personId, sequence])
   @@index([organizationId, period])
   @@map("settlements")
+}
+
+// How an employee is leaving (phase 25). One per person; the existing
+// leaving fields on Person (employmentStatus, leavingDate, reasonForLeaving)
+// are kept in step as the record moves to Relieved.
+model Separation {
+  id             String @id @default(cuid())
+  organizationId String
+  personId       String @unique
+  mode           String // RESIGNATION | TERMINATION | CONTRACT_END | RETIREMENT | DEATH
+  status         String @default("SUBMITTED") // SUBMITTED | ACCEPTED | RELIEVED | WITHDRAWN
+
+  // Resignation specifics
+  submittedOn         String? // "YYYY-MM-DD" the resignation was given
+  reason              String  @default("")
+  noticeDays          Int? // notice the employee owes; null = the company's usual
+  noticeLastDay       String? // last working day the notice implies (submittedOn + noticeDays)
+  agreedLastDay       String? // last working day actually agreed
+  noticeShortfallDays Int     @default(0) // days short of the required notice
+  noticeWaived        Boolean @default(false)
+  remarks             String  @default("")
+
+  // Outcome
+  relievedOn String? // the actual relieving date; copied to Person.leavingDate
+
+  // Exit checklist
+  assetsReturned    Boolean @default(false)
+  accessRevoked     Boolean @default(false)
+  handoverDone      Boolean @default(false)
+  exitInterviewDone Boolean @default(false)
+  fitToRehire       String  @default("") // YES | NO | '' (not decided)
+
+  acceptedByName String   @default("")
+  relievedByName String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("separations")
 }
