@@ -22,6 +22,10 @@ import PersonPayCard from '../../components/PersonPayCard';
 import { EXPENSE_STATUS_TONES } from '../Expenses/ExpensesList';
 import { confirmDialog } from '../../components/feedback';
 
+const RESIDENTIAL_LABELS: Record<string, string> = {
+  RESIDENT: 'Resident', NON_RESIDENT: 'Non-resident', NOT_ORDINARILY_RESIDENT: 'Not ordinarily resident',
+};
+
 const DOC_BADGES: Record<string, string> = {
   EMPLOYMENT_OFFER: 'badge-info',
   APPOINTMENT: 'badge-warning',
@@ -207,14 +211,23 @@ export default function PersonDetail() {
           {!isIntern && <InfoRow label="Official email" value={person.officialEmail} />}
           <InfoRow label="Contact no." value={person.phone} />
           {!isIntern && <InfoRow label="Official no." value={person.officialNo} />}
-          {!isIntern && <InfoRow label="Emergency no." value={person.emergencyNo} />}
+          {!isIntern && <InfoRow label="Emergency contact" value={[person.emergencyName, person.emergencyRelation && `(${person.emergencyRelation})`, person.emergencyNo].filter(Boolean).join(' ')} />}
           <InfoRow label="Gender" value={person.gender} />
           {!isIntern && <InfoRow label="Date of birth" value={person.dateOfBirth && formatDate(person.dateOfBirth)} />}
           {!isIntern && <InfoRow label="Blood group" value={person.bloodGroup} />}
           {!isIntern && <InfoRow label="Marital status" value={person.maritalStatus} />}
-          {!isIntern && <InfoRow label="Father / spouse" value={person.parentSpouseName} />}
+          {!isIntern && person.marriageDate && <InfoRow label="Marriage date" value={formatDate(person.marriageDate)} />}
+          {!isIntern && <InfoRow label="Father's name" value={person.fatherName || person.parentSpouseName} />}
+          {!isIntern && person.spouseName && <InfoRow label="Spouse's name" value={person.spouseName} />}
+          {!isIntern && <InfoRow label="Nationality" value={person.nationality} />}
+          {!isIntern && <InfoRow label="Place of birth" value={person.placeOfBirth} />}
+          {!isIntern && <InfoRow label="Residential status" value={(RESIDENTIAL_LABELS as any)[person.residentialStatus]} />}
+          {!isIntern && <InfoRow label="Religion" value={person.religion} />}
+          {!isIntern && person.physicallyChallenged && <InfoRow label="Physically challenged" value={person.disabilityType ? `Yes — ${person.disabilityType}` : 'Yes'} />}
+          {!isIntern && person.isDirector && <InfoRow label="Director" value="Yes" />}
           {!isIntern && <InfoRow label="Aadhaar" value={person.aadharNo} />}
-          <InfoRow label="Address" value={person.address} />
+          <InfoRow label={isIntern ? 'Address' : 'Present address'} value={person.address} />
+          {!isIntern && person.permanentAddress && <InfoRow label="Permanent address" value={person.permanentAddress} />}
           {person.notes && <InfoRow label="Notes" value={person.notes} />}
         </div>
 
@@ -293,14 +306,20 @@ export default function PersonDetail() {
             <div className="card card-pad">
               <h3 style={{ fontSize: 15, marginBottom: 8 }}>Bank &amp; statutory</h3>
               <InfoRow label="Bank" value={person.bankName} />
+              {person.bankAccountName && <InfoRow label="Name as per bank" value={person.bankAccountName} />}
               <InfoRow label="Account no." value={person.bankAccountNumber} />
+              {person.bankAccountType && <InfoRow label="Account type" value={person.bankAccountType === 'CURRENT' ? 'Current' : 'Savings'} />}
+              {person.bankBranch && <InfoRow label="Branch" value={person.bankBranch} />}
               <InfoRow label="IFSC" value={person.ifscCode} />
               <InfoRow label="PAN" value={person.panNumber} />
               <InfoRow label="PF no." value={person.pfNumber} />
               <InfoRow label="PF UAN" value={person.pfUan} />
+              {person.pfJoinDate && <InfoRow label="PF join date" value={formatDate(person.pfJoinDate)} />}
               <InfoRow label="ESI no." value={person.esiNumber} />
               <InfoRow label="PF applicable" value={person.isPfApplicable ? 'Yes' : 'No'} />
               <InfoRow label="ESI eligible" value={person.isEsiEligible ? 'Yes' : 'No'} />
+              {person.epsMember && <InfoRow label="EPS member" value="Yes" />}
+              {person.lwfCovered && person.lwfCovered !== 'AUTO' && <InfoRow label="LWF coverage" value={person.lwfCovered === 'YES' ? 'Covered' : 'Not covered'} />}
             </div>
             {person.stage && (
               <div className="card card-pad">

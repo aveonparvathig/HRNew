@@ -410,6 +410,33 @@ model Person {
   startDate      String?
   endDate        String?
 
+  // HR profile: fuller personal (phase 24). address above is the present
+  // address; parentSpouseName is kept for the PF/ESI registers and is set
+  // from fatherName.
+  fatherName           String  @default("")
+  spouseName           String  @default("")
+  marriageDate         String?
+  nationality          String  @default("")
+  placeOfBirth         String  @default("")
+  residentialStatus    String  @default("") // RESIDENT | NON_RESIDENT | NOT_ORDINARILY_RESIDENT
+  religion             String  @default("")
+  physicallyChallenged Boolean @default(false)
+  disabilityType       String  @default("")
+  isDirector           Boolean @default(false)
+  permanentAddress     String  @default("")
+  // Emergency contact (phase 24); emergencyNo above is the phone
+  emergencyName        String  @default("")
+  emergencyRelation    String  @default("")
+  // Bank, fuller (phase 24)
+  bankAccountName      String  @default("") // name as it reads on the bank account
+  bankBranch           String  @default("")
+  bankAccountType      String  @default("") // SAVINGS | CURRENT
+  // Statutory, fuller (phase 24). lwfCovered is recorded but not yet wired
+  // into payroll, which still follows the work-location LWF policy.
+  pfJoinDate           String?
+  epsMember            Boolean @default(false)
+  lwfCovered           String  @default("AUTO") // AUTO | YES | NO
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -558,7 +585,81 @@ model EmployeeDocument {
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, personId])
-  @@map("employee_documents")
+  @@map("family_members")
+}
+
+// An employee's qualifications.
+model Education {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  qualification  String
+  institute      String   @default("")
+  fromYear       Int?
+  toYear         Int?
+  grade          String   @default("")
+  isHighest      Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@map("education")
+}
+
+// Where an employee worked before. Total prior experience is worked out
+// from these.
+model PreviousEmployment {
+  id               String   @id @default(cuid())
+  organizationId   String
+  personId         String
+  employer         String
+  designation      String   @default("")
+  fromDate         String? // "YYYY-MM" or "YYYY-MM-DD"
+  toDate           String?
+  lastSalary       Float    @default(0)
+  reasonForLeaving String   @default("")
+  sortOrder        Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@map("previous_employments")
+}
+
+// Identity proofs held against an employee, any number each. PAN and
+// Aadhaar already on the profile show as rows too, until a real one of
+// that type is added.
+model IdentityDocument {
+  id             String    @id @default(cuid())
+  organizationId String
+  personId       String
+  docType        String // PAN | AADHAAR | PASSPORT | DRIVING_LICENCE | VOTER_ID
+  number         String    @default("")
+  nameOnDocument String    @default("")
+  expiryDate     String? // "YYYY-MM-DD"
+  fileName       String    @default("")
+  mimeType       String    @default("")
+  sizeBytes      Int       @default(0)
+  fileData       String    @default("") // data URI; empty when in object storage
+  storage        String    @default("DB")
+  storageKey     String    @default("")
+  verified       Boolean   @default(false)
+  verifiedByName String    @default("")
+  verifiedAt     DateTime?
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@index([organizationId, docType])
+  @@map("identity_documents")
 }
 
 model InterviewRound {
@@ -749,6 +850,23 @@ model MailSettings {
   updatedAt      DateTime @updatedAt
 
   @@map("mail_settings")
+}
+
+// One bulk import: who ran it, on what file, and what became of each row.
+// The rows say what happened and why, and which fields changed — never
+// the values, so the log holds no PAN, bank account or salary.
+model ImportLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  kind           String // EMPLOYEES_ADD | EMPLOYEES_UPDATE | SALARY_REVISIONS | PHOTOS | DOCUMENTS
+  fileName       String
+  ranByName      String   @default("")
+  summary        Json     @default("{}") // counts by result
+  rows           Json     @default("[]") // { row, employeeNo, name, result, messages[] }
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("import_logs")
 }
 
 // Where a company's uploaded files go. No row, or provider DB = in the
