@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  confirmationState, confirmationsDue, jobDetailsInput, managerProblem, managersOf, noticeDaysFor, orgTree,
+  approvalChainOf, confirmationState, confirmationsDue, jobDetailsInput, managerProblem, managersOf, noticeDaysFor, orgTree,
   probationEnds, teamOf,
 } from '../orgChart';
 
@@ -37,6 +37,13 @@ describe('reporting lines', () => {
     const loop = [{ id: 'a', managerId: 'b' }, { id: 'b', managerId: 'a' }];
     expect(managersOf('a', loop)).toEqual(['b']);
     expect(teamOf('a', loop)).toEqual(['b']);
+  });
+
+  it('builds the approval chain, nearest manager first up to the top', () => {
+    expect(approvalChainOf('dev', people).map(p => p.id)).toEqual(['lead', 'head', 'ceo']);
+    expect(approvalChainOf('head', people).map(p => p.name)).toEqual(['Chitra']);
+    expect(approvalChainOf('ceo', people)).toEqual([]); // top-level: nobody above
+    expect(approvalChainOf('solo', people)).toEqual([]);
   });
 });
 

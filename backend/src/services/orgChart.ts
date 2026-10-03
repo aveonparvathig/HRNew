@@ -17,6 +17,15 @@ export function managersOf(personId: string, people: ReportLike[]): string[] {
   return chain;
 }
 
+// The approval chain for a person: each manager above them, nearest first
+// up to the top, resolved to the actual records. This is the order a
+// request (e.g. an expense claim) travels for sign-off. Empty = nobody
+// above them (a top-level person), whose requests fall to HR.
+export function approvalChainOf<T extends ReportLike>(personId: string, people: T[]): T[] {
+  const byId = new Map(people.map(p => [p.id, p]));
+  return managersOf(personId, people).map(id => byId.get(id)).filter((p): p is T => Boolean(p));
+}
+
 // Everyone below a person, at any depth.
 export function teamOf(personId: string, people: ReportLike[]): string[] {
   const reports = new Map<string, string[]>();
