@@ -8,7 +8,8 @@ import { applyDuePositions } from '../services/positions';
 import { hrDashboardController } from '../controllers/hrDashboardController';
 import { lettersController } from '../controllers/lettersController';
 import { employeeFilesController } from '../controllers/employeeFilesController';
-import { separationController } from '../controllers/separationController';
+import { profileController } from '../controllers/profileController';
+import { communicationController as cc } from '../controllers/communicationController';
 
 const router = Router();
 
@@ -108,5 +109,27 @@ router.delete('/:personId/separation', staffOnly, asyncHandler((req, res) => sep
 router.post('/:personId/interviews', staffOnly, asyncHandler((req, res) => peopleController.addInterview(req, res)));
 router.put('/interviews/:interviewId', staffOnly, asyncHandler((req, res) => peopleController.updateInterview(req, res)));
 router.delete('/interviews/:interviewId', staffOnly, asyncHandler((req, res) => peopleController.deleteInterview(req, res)));
+
+// Employee communication (phase 26) — HR side
+router.get('/communication/meta', staffOnly, asyncHandler((req, res) => cc.getMeta(req, res)));
+router.get('/communication/change-requests', staffOnly, asyncHandler((req, res) => cc.listChangeRequests(req, res)));
+router.get('/communication/change-requests/:id/file', staffOnly, asyncHandler((req, res) => cc.getChangeRequestFile(req, res)));
+router.post('/communication/change-requests/:id/review', staffOnly, asyncHandler((req, res) => cc.reviewChangeRequest(req, res)));
+router.get('/communication/details-confirmation', staffOnly, asyncHandler((req, res) => cc.detailsConfirmation(req, res)));
+router.get('/communication/bulletins', staffOnly, asyncHandler((req, res) => cc.listBulletins(req, res)));
+router.post('/communication/bulletins', staffOnly, asyncHandler((req, res) => cc.saveBulletin(req, res)));
+router.put('/communication/bulletins/:id', staffOnly, asyncHandler((req, res) => cc.saveBulletin(req, res)));
+router.delete('/communication/bulletins/:id', staffOnly, asyncHandler((req, res) => cc.deleteBulletin(req, res)));
+router.get('/communication/bulletins/:id/file', staffOnly, asyncHandler((req, res) => cc.getBulletinFile(req, res)));
+router.get('/communication/policies', staffOnly, asyncHandler((req, res) => cc.listPolicies(req, res)));
+router.post('/communication/policies', staffOnly, asyncHandler((req, res) => cc.savePolicy(req, res)));
+router.put('/communication/policies/:id', staffOnly, asyncHandler((req, res) => cc.savePolicy(req, res)));
+router.delete('/communication/policies/:id', staffOnly, asyncHandler((req, res) => cc.deletePolicy(req, res)));
+router.get('/communication/policies/:id/file', staffOnly, asyncHandler((req, res) => cc.getPolicyFile(req, res)));
+router.get('/communication/policies/:id/coverage', staffOnly, asyncHandler((req, res) => cc.policyCoverage(req, res)));
+router.post('/communication/mail/count', staffOnly, asyncHandler((req, res) => cc.audienceCount(req, res)));
+router.post('/communication/mail', staffOnly, asyncHandler((req, res) => cc.createCampaign(req, res)));
+router.get('/communication/mail', staffOnly, asyncHandler((req, res) => cc.listCampaigns(req, res)));
+router.get('/communication/mail/:id', staffOnly, asyncHandler((req, res) => cc.getCampaign(req, res)));
 
 export default router;

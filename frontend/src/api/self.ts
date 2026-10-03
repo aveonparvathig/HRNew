@@ -19,6 +19,15 @@ export const selfAPI = {
   getDocumentLetter: (docId: string) => apiClient.get(`/self/documents/letters/${docId}`),
   getDocumentFile: (fileId: string) => apiClient.get(`/self/documents/files/${fileId}`),
 
+  // Communication (phase 26): bulletins, policies, propose changes to own details
+  getUpdates: () => apiClient.get('/self/updates'),
+  getBulletinFile: (id: string) => apiClient.get(`/self/updates/bulletins/${id}/file`),
+  getPolicyFile: (id: string) => apiClient.get(`/self/updates/policies/${id}/file`),
+  acknowledgePolicy: (id: string) => apiClient.post(`/self/updates/policies/${id}/ack`),
+  confirmDetails: () => apiClient.post('/self/updates/confirm-details'),
+  myChangeRequests: () => apiClient.get('/self/change-requests'),
+  proposeChange: (data: any) => apiClient.post('/self/change-requests', data),
+
   getLoans: () => apiClient.get('/self/loans'),
   getForm16PartA: (fy: string) => apiClient.get('/self/form16-part-a', { params: { fy } }),
   // Form 16 as one PDF (Part A + Part B): downloadFile('/self/form16.pdf', { fy })

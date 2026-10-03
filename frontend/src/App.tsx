@@ -28,6 +28,8 @@ const Pipeline = lazy(() => import('./pages/People/Pipeline'));
 const JobOpenings = lazy(() => import('./pages/People/JobOpenings'));
 const LetterView = lazy(() => import('./pages/People/LetterView'));
 const Letters = lazy(() => import('./pages/People/Letters'));
+const Communication = lazy(() => import('./pages/People/Communication'));
+const MyUpdates = lazy(() => import('./pages/My/MyUpdates'));
 const IdentityDocuments = lazy(() => import('./pages/People/IdentityDocuments'));
 const MyDocuments = lazy(() => import('./pages/My/MyDocuments'));
 const MyLetter = lazy(() => import('./pages/My/MyLetter'));
@@ -115,6 +117,7 @@ function App() {
             <Route path="/people/openings" element={<RequireRole roles={SA_HR}><JobOpenings /></RequireRole>} />
             <Route path="/people/documents/:docId" element={<RequireRole roles={SA_HR}><LetterView /></RequireRole>} />
             <Route path="/people/letters" element={<RequireRole roles={SA_HR}><Letters /></RequireRole>} />
+            <Route path="/people/communication" element={<RequireRole roles={SA_HR}><Communication /></RequireRole>} />
             <Route path="/people/identity-documents" element={<RequireRole roles={SA_HR}><IdentityDocuments /></RequireRole>} />
             <Route path="/people/:personId" element={<PersonDetail />} />
             <Route path="/proposals" element={<RequireRole roles={SA_MKT}><ProposalBuilder /></RequireRole>} />
@@ -145,6 +148,7 @@ function App() {
             <Route path="/payroll/reports" element={<RequireRole roles={PAYROLL}><ReportsHub /></RequireRole>} />
             <Route path="/payroll/reports/:kind" element={<RequireRole roles={PAYROLL}><PayrollReport /></RequireRole>} />
             {/* An employee's own pay: the API scopes these to the person linked to the login */}
+            <Route path="/my/updates" element={<MyUpdates />} />
             <Route path="/my/payslips" element={<MyPayslips />} />
             <Route path="/my/payslips/:entryId" element={<MyDocument />} />
             <Route path="/my/declaration" element={<MyDeclaration />} />
