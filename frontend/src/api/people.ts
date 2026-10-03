@@ -64,6 +64,14 @@ export const peopleAPI = {
   getFile: (fileId: string) => apiClient.get(`/people/files/${fileId}`),
   deleteFile: (fileId: string) => apiClient.delete(`/people/files/${fileId}`),
 
+  // Separation (phase 25): the leaving record and its status flow
+  getSeparation: (personId: string) => apiClient.get(`/people/${personId}/separation`),
+  saveSeparation: (personId: string, data: any) => apiClient.put(`/people/${personId}/separation`, data),
+  acceptSeparation: (personId: string) => apiClient.post(`/people/${personId}/separation/accept`),
+  relieveSeparation: (personId: string, data: { relievedOn?: string }) => apiClient.post(`/people/${personId}/separation/relieve`, data),
+  withdrawSeparation: (personId: string) => apiClient.post(`/people/${personId}/separation/withdraw`),
+  deleteSeparation: (personId: string) => apiClient.delete(`/people/${personId}/separation`),
+
   // Interview rounds
   addInterview: (personId: string, data: any) =>
     apiClient.post(`/people/${personId}/interviews`, data),

@@ -15,6 +15,7 @@ import SalaryRevisionsCard from '../../components/SalaryRevisionsCard';
 import PersonStructureCard from '../../components/PersonStructureCard';
 import PositionHistoryCard from '../../components/PositionHistoryCard';
 import EmployeeFilesCard from '../../components/EmployeeFilesCard';
+import SeparationCard from '../../components/SeparationCard';
 import PersonLoansCard from '../../components/PersonLoansCard';
 import PersonTaxCard from '../../components/PersonTaxCard';
 import PersonPayCard from '../../components/PersonPayCard';
@@ -386,6 +387,10 @@ export default function PersonDetail() {
       </div>
 
       {canManagePeople && <EmployeeFilesCard person={person} />}
+      {canManagePeople && !isIntern && person.isEmployee && (
+        <SeparationCard person={person} onChanged={fetchData}
+          onIssueLetter={(docType, docLabel) => setDocModal({ open: true, docType, docLabel })} />
+      )}
 
       {/* Expense reports */}
       {expenseReports.length > 0 && (

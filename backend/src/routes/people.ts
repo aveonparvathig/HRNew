@@ -8,6 +8,7 @@ import { applyDuePositions } from '../services/positions';
 import { hrDashboardController } from '../controllers/hrDashboardController';
 import { lettersController } from '../controllers/lettersController';
 import { employeeFilesController } from '../controllers/employeeFilesController';
+import { separationController } from '../controllers/separationController';
 
 const router = Router();
 
@@ -81,6 +82,14 @@ router.put('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFiles
 router.delete('/files/:fileId', staffOnly, asyncHandler((req, res) => employeeFilesController.deleteFile(req, res)));
 router.get('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.getFiles(req, res)));
 router.post('/:personId/files', staffOnly, asyncHandler((req, res) => employeeFilesController.uploadFile(req, res)));
+
+// Separation (phase 25): the leaving record and its status flow
+router.get('/:personId/separation', staffOnly, asyncHandler((req, res) => separationController.getSeparation(req, res)));
+router.put('/:personId/separation', staffOnly, asyncHandler((req, res) => separationController.saveSeparation(req, res)));
+router.post('/:personId/separation/accept', staffOnly, asyncHandler((req, res) => separationController.acceptSeparation(req, res)));
+router.post('/:personId/separation/relieve', staffOnly, asyncHandler((req, res) => separationController.relieveSeparation(req, res)));
+router.post('/:personId/separation/withdraw', staffOnly, asyncHandler((req, res) => separationController.withdrawSeparation(req, res)));
+router.delete('/:personId/separation', staffOnly, asyncHandler((req, res) => separationController.deleteSeparation(req, res)));
 
 // Interview rounds
 router.post('/:personId/interviews', staffOnly, asyncHandler((req, res) => peopleController.addInterview(req, res)));

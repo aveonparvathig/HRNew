@@ -11,16 +11,16 @@ datasource db {
 // Auth
 // ---------------------------------------------------------------------------
 model Organization {
-  id        String   @id @default(cuid())
-  name      String
-  tagline   String   @default("")
-  address   String   @default("")
-  city      String   @default("")
-  state     String   @default("")
-  country   String   @default("India")
-  phone     String   @default("")
-  email     String   @default("")
-  website   String   @default("")
+  id           String @id @default(cuid())
+  name         String
+  tagline      String @default("")
+  address      String @default("")
+  city         String @default("")
+  state        String @default("")
+  country      String @default("India")
+  phone        String @default("")
+  email        String @default("")
+  website      String @default("")
   jurisdiction String @default("")
 
   // Branding (logo stored as a data URI, resized client-side)
@@ -50,33 +50,33 @@ model Organization {
 }
 
 model User {
-  id             String   @id @default(cuid())
-  email          String   @unique
-  password       String
-  firstName      String   @default("")
-  lastName       String   @default("")
-  organizationId String
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  password           String
+  firstName          String    @default("")
+  lastName           String    @default("")
+  organizationId     String
   // Signup creates the org's first user, hence SUPER_ADMIN by default.
   // SUPER_ADMIN: everything · HR: people/recruitment/payroll/expenses ·
   // EMPLOYEE: own clients (income), people directory, own expenses ·
   // MARKETING: proposals they generated + own expenses ·
   // PAYROLL_VIEWER: reads payroll and people, changes nothing (auditors).
-  role           String   @default("SUPER_ADMIN") // SUPER_ADMIN | HR | PAYROLL_VIEWER | EMPLOYEE | MARKETING
-  isActive       Boolean  @default(true)
+  role               String    @default("SUPER_ADMIN") // SUPER_ADMIN | HR | PAYROLL_VIEWER | EMPLOYEE | MARKETING
+  isActive           Boolean   @default(true)
   // Employee logins link to their Person record — "own data" scoping key
-  personId           String?  @unique
-  mustChangePassword Boolean  @default(false)
+  personId           String?   @unique
+  mustChangePassword Boolean   @default(false)
   // Sign-in security: wrong passwords in a row, the lock they led to
   // (year 9999 = until an admin unlocks), and when the password was set
   failedAttempts     Int       @default(0)
   lockedUntil        DateTime?
   passwordChangedAt  DateTime?
   lastLoginAt        DateTime?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  person          Person?          @relation(fields: [personId], references: [id], onDelete: SetNull)
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  person          Person?           @relation(fields: [personId], references: [id], onDelete: SetNull)
   refreshTokens   RefreshToken[]
   passwordHistory PasswordHistory[]
   proposalRecords ProposalRecord[]
@@ -243,36 +243,36 @@ model PaymentReceipt {
 }
 
 model ClientOnboarding {
-  clientId           String   @id
-  organizationId     String
-  stage              String   @default("ONBOARDING")
-  contactPerson      String   @default("")
-  contactDesignation String   @default("")
-  contactPhone       String   @default("")
-  contactEmail       String   @default("")
-  institutionType    String   @default("")
-  address            String   @default("")
-  city               String   @default("")
-  studentStrength    Int?
-  onboardedOn        String?
-  goLiveDate         String?
-  engineer           String   @default("") // kept in sync with the latest billing engineer
-  supportEngineer    String   @default("") // second engineer on larger institutions
-  poReceived         Boolean  @default(false)
-  poNumber           String   @default("")
-  poDate             String?
-  poDocumentData     String   @default("") // data URI (pdf/image), <=8MB
-  poFilename         String   @default("")
-  agreementSigned       Boolean @default(false)
-  agreementDocumentData String  @default("") // data URI (pdf/image), <=8MB
-  agreementFilename     String  @default("")
+  clientId              String   @id
+  organizationId        String
+  stage                 String   @default("ONBOARDING")
+  contactPerson         String   @default("")
+  contactDesignation    String   @default("")
+  contactPhone          String   @default("")
+  contactEmail          String   @default("")
+  institutionType       String   @default("")
+  address               String   @default("")
+  city                  String   @default("")
+  studentStrength       Int?
+  onboardedOn           String?
+  goLiveDate            String?
+  engineer              String   @default("") // kept in sync with the latest billing engineer
+  supportEngineer       String   @default("") // second engineer on larger institutions
+  poReceived            Boolean  @default(false)
+  poNumber              String   @default("")
+  poDate                String?
+  poDocumentData        String   @default("") // data URI (pdf/image), <=8MB
+  poFilename            String   @default("")
+  agreementSigned       Boolean  @default(false)
+  agreementDocumentData String   @default("") // data URI (pdf/image), <=8MB
+  agreementFilename     String   @default("")
   agreementYears        Int?
   agreementStart        String?
   agreementEnd          String?
-  reminderDays          Int     @default(90)
-  notes              String   @default("")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  reminderDays          Int      @default(90)
+  notes                 String   @default("")
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   client IncomeClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
@@ -337,16 +337,16 @@ model ProposalRecord {
 // recruitment pipeline (job openings + interview rounds).
 // ---------------------------------------------------------------------------
 model Person {
-  id             String   @id @default(cuid())
+  id             String @id @default(cuid())
   organizationId String
   kind           String // CANDIDATE | INTERN
   name           String
-  title          String   @default("") // Mr./Ms./Mrs.
-  gender         String   @default("")
-  email          String   @default("")
-  phone          String   @default("")
-  address        String   @default("")
-  notes          String   @default("")
+  title          String @default("") // Mr./Ms./Mrs.
+  gender         String @default("")
+  email          String @default("")
+  phone          String @default("")
+  address        String @default("")
+  notes          String @default("")
 
   // Candidate / employee
   isEmployee  Boolean @default(false) // auto-set when pipeline stage reaches SELECTED/JOINED
@@ -370,14 +370,14 @@ model Person {
   emergencyNo   String @default("")
 
   // HR profile: employment
-  employmentStatus String  @default("ACTIVE") // ACTIVE | PROBATION | NOTICE_PERIOD | RESIGNED | TERMINATED
-  biometricId      String  @default("")
-  agreementSigned  Boolean @default(false)
-  agreementSignDate String?
-  currentMonthlyPackage Float @default(0)
-  reasonForLeaving String  @default("")
+  employmentStatus      String  @default("ACTIVE") // ACTIVE | PROBATION | NOTICE_PERIOD | RESIGNED | TERMINATED
+  biometricId           String  @default("")
+  agreementSigned       Boolean @default(false)
+  agreementSignDate     String?
+  currentMonthlyPackage Float   @default(0)
+  reasonForLeaving      String  @default("")
   // Drives state-wise statutory rules (Professional Tax, Labour Welfare Fund)
-  workLocationId   String?
+  workLocationId        String?
 
   // Bank & statutory
   bankName          String  @default("")
@@ -413,25 +413,25 @@ model Person {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  appliedFor     JobOpening?      @relation(fields: [appliedForId], references: [id], onDelete: SetNull)
-  workLocation   WorkLocation?    @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
-  interviews     InterviewRound[]
-  documents      PersonDocument[]
-  files          EmployeeDocument[]
-  payslipEntries PayslipEntry[]
-  salaryRevisions SalaryRevision[]
-  loans          Loan[]
-  taxProfiles    EmployeeTaxProfile[]
-  form16PartAs Form16PartA[]
-  perquisiteValues PerquisiteValue[]
+  organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  appliedFor          JobOpening?          @relation(fields: [appliedForId], references: [id], onDelete: SetNull)
+  workLocation        WorkLocation?        @relation(fields: [workLocationId], references: [id], onDelete: SetNull)
+  interviews          InterviewRound[]
+  documents           PersonDocument[]
+  files               EmployeeDocument[]
+  payslipEntries      PayslipEntry[]
+  salaryRevisions     SalaryRevision[]
+  loans               Loan[]
+  taxProfiles         EmployeeTaxProfile[]
+  form16PartAs        Form16PartA[]
+  perquisiteValues    PerquisiteValue[]
   recurringComponents RecurringComponent[]
-  positionChanges PositionChange[]
+  positionChanges     PositionChange[]
 
   // The employer's contribution to the National Pension System, as a
   // share of Basic + DA (0 = none), and the employee's PRAN
-  npsEmployerPercent Float  @default(0)
-  npsPran            String @default("")
+  npsEmployerPercent   Float  @default(0)
+  npsPran              String @default("")
   // SALARY: an employee, taxed on salary. CONSULTANT: paid professional or
   // contract fees through payroll, with tax deducted at a flat rate under
   // the section given and no PF, ESI, Professional Tax or LWF.
@@ -440,26 +440,27 @@ model Person {
   consultantTdsPercent Float  @default(10)
 
   // Job details
-  employmentType   String  @default("") // a value of the EMPLOYMENT_TYPE list
+  employmentType   String          @default("") // a value of the EMPLOYMENT_TYPE list
   // A value of the GRADE list. Designation, department, work location and
   // grade here are the position today; PositionChange holds how it got there
-  grade            String  @default("")
+  grade            String          @default("")
   // Probation in months from the joining date; 0 = none. The employee is
   // due for confirmation when it ends, until a confirmation date is set.
-  probationMonths  Int     @default(0)
+  probationMonths  Int             @default(0)
   confirmationDate String? // "YYYY-MM-DD"
   // Notice the employee must give, in days; null = the company's usual one
   noticePeriodDays Int?
   firstHireDate    String? // for someone rehired
-  referredBy       String  @default("")
+  referredBy       String          @default("")
   // Who the employee reports to
   managerId        String?
-  manager          Person?  @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
-  reports          Person[] @relation("ReportsTo")
-  arrearItems    ArrearItem[]
-  settlements    Settlement[]
-  expenseReports ExpenseReport[]
-  user           User?
+  manager          Person?         @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
+  reports          Person[]        @relation("ReportsTo")
+  arrearItems      ArrearItem[]
+  settlements      Settlement[]
+  separation       Separation?
+  expenseReports   ExpenseReport[]
+  user             User?
 
   @@unique([organizationId, kind, name])
   @@index([organizationId, kind, stage])
@@ -487,19 +488,19 @@ model JobOpening {
 }
 
 model PersonDocument {
-  id             String   @id @default(cuid())
-  organizationId String
-  personId       String
-  docType        String // the code of the letter template it was written from
-  title          String
-  formData       Json     @default("{}") // snapshot - prefills the next letter of the same type
-  html           String // the letter exactly as issued
+  id                String   @id @default(cuid())
+  organizationId    String
+  personId          String
+  docType           String // the code of the letter template it was written from
+  title             String
+  formData          Json     @default("{}") // snapshot - prefills the next letter of the same type
+  html              String // the letter exactly as issued
   // The template as it stood is not kept: the html is. This only says which one.
-  templateId     String?
+  templateId        String?
   // Shown to the employee under My Documents
-  visibleToEmployee Boolean @default(false)
-  createdByName  String   @default("")
-  createdAt      DateTime @default(now())
+  visibleToEmployee Boolean  @default(false)
+  createdByName     String   @default("")
+  createdAt         DateTime @default(now())
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
@@ -535,24 +536,24 @@ model LetterTemplate {
 // signed letter. The file itself is either in the row (a data URI) or in
 // the company's object storage, as the row says.
 model EmployeeDocument {
-  id             String   @id @default(cuid())
-  organizationId String
-  personId       String
-  category       String // a value of the DOCUMENT_CATEGORY list
-  title          String
-  documentDate   String? // "YYYY-MM-DD": the date on the document, when it has one
-  fileName       String
-  mimeType       String
-  sizeBytes      Int
-  fileData       String   @default("") // data URI; empty when the file is in object storage
+  id                String   @id @default(cuid())
+  organizationId    String
+  personId          String
+  category          String // a value of the DOCUMENT_CATEGORY list
+  title             String
+  documentDate      String? // "YYYY-MM-DD": the date on the document, when it has one
+  fileName          String
+  mimeType          String
+  sizeBytes         Int
+  fileData          String   @default("") // data URI; empty when the file is in object storage
   // Where this file is: DB (fileData) or S3 (storageKey in the bucket of
   // StorageSettings). A file stays where it was put until it is moved.
-  storage        String   @default("DB")
-  storageKey     String   @default("")
-  visibleToEmployee Boolean @default(false)
-  uploadedByName String   @default("")
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  storage           String   @default("DB")
+  storageKey        String   @default("")
+  visibleToEmployee Boolean  @default(false)
+  uploadedByName    String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
@@ -602,8 +603,8 @@ model ExpenseReport {
 
   payrollEntry PayslipEntry? @relation(fields: [payrollEntryId], references: [id], onDelete: SetNull)
   // Restrict, like payslips: an employee with expense history stays on record.
-  person Person        @relation(fields: [personId], references: [id], onDelete: Restrict)
-  lines  ExpenseLine[]
+  person       Person        @relation(fields: [personId], references: [id], onDelete: Restrict)
+  lines        ExpenseLine[]
 
   @@unique([organizationId, reportNumber])
   @@index([organizationId, status])
@@ -645,9 +646,9 @@ model PayrollSettings {
   transportPercentOfBasic Float @default(20)
   foodPercentOfBasic      Float @default(10)
 
-  esiEmployeePercent Float @default(0.75)
-  esiEmployerPercent Float @default(3.25)
-  esiWageCeiling     Float @default(21000)
+  esiEmployeePercent Float   @default(0.75)
+  esiEmployerPercent Float   @default(3.25)
+  esiWageCeiling     Float   @default(21000)
   // Off: ESI follows each employee's flag. On: new runs cover everyone
   // whose wage is within the ceiling, and keep them covered until the
   // contribution period (Apr–Sep / Oct–Mar) ends.
@@ -660,28 +661,28 @@ model PayrollSettings {
   pfEmployerMatchesEmployee Boolean @default(true)
   pfRoundToRupee            Boolean @default(false)
   // Employer-side split and charges — reported, not deducted from pay
-  epsPercent     Float @default(8.33)
-  epsWageCap     Float @default(15000)
-  edliPercent    Float @default(0.5)
-  edliWageCap    Float @default(15000)
-  pfAdminPercent Float @default(0.5)
-  pfAdminMinimum Float @default(500)
+  epsPercent                Float   @default(8.33)
+  epsWageCap                Float   @default(15000)
+  edliPercent               Float   @default(0.5)
+  edliWageCap               Float   @default(15000)
+  pfAdminPercent            Float   @default(0.5)
+  pfAdminMinimum            Float   @default(500)
 
   // Loan perquisite: interest the employee saves against this benchmark
   // rate is taxable, unless their loans total no more than the limit.
-  loanBenchmarkRate        Float @default(0)
+  loanBenchmarkRate         Float @default(0)
   loanPerquisiteExemptLimit Float @default(20000)
 
   // Income tax: TDS is typed by hand until this month ("YYYY-MM"); from it
   // onward payroll computes it. Blank keeps TDS manual.
-  tdsAutoFrom      String @default("")
-  defaultTaxRegime String @default("NEW") // NEW | OLD, when an employee has none set
+  tdsAutoFrom             String  @default("")
+  defaultTaxRegime        String  @default("NEW") // NEW | OLD, when an employee has none set
   // Titles printed on the tax forms. The Income-tax Act, 2025 renumbers
   // them, so they are data: set them to what the year's rules call them.
-  form24qName  String @default("Form 24Q")
-  form16Name   String @default("Form 16")
-  form12baName String @default("Form 12BA")
-  form27aName  String @default("Form 27A")
+  form24qName             String  @default("Form 24Q")
+  form16Name              String  @default("Form 16")
+  form12baName            String  @default("Form 12BA")
+  form27aName             String  @default("Form 27A")
   // Quarterly return: list employees with no tax deducted in Annexure I,
   // and leave employees with no tax for the year out of Annexure II
   tdsAnnexure1IncludeZero Boolean @default(false)
@@ -704,24 +705,24 @@ model PayrollSettings {
   autoReleaseOnFinalize Boolean @default(false)
   autoCreateNextRun     Boolean @default(false)
   // The account salaries are paid from, printed on the bank advice
-  payoutBankName      String @default("")
-  payoutBranch        String @default("")
-  payoutAccountNumber String @default("")
-  payoutIfsc          String @default("")
+  payoutBankName        String  @default("")
+  payoutBranch          String  @default("")
+  payoutAccountNumber   String  @default("")
+  payoutIfsc            String  @default("")
   // Payslips as files and by email
-  payslipPdfPassword String @default("NONE") // NONE | PAN | DOB
-  payslipFilePrefix  String @default("Payslip")
-  payslipFileContext String @default("EMPNO") // EMPNO | NAME | EMPNO_NAME
-  payslipEmailTo     String @default("OFFICIAL") // OFFICIAL | PERSONAL; the other is used when blank
+  payslipPdfPassword    String  @default("NONE") // NONE | PAN | DOB
+  payslipFilePrefix     String  @default("Payslip")
+  payslipFileContext    String  @default("EMPNO") // EMPNO | NAME | EMPNO_NAME
+  payslipEmailTo        String  @default("OFFICIAL") // OFFICIAL | PERSONAL; the other is used when blank
   // On releasing a run's payslips: mail nobody (NONE), a notice that the
   // payslip can be seen (NOTICE), or the payslip itself (PAYSLIP)
-  releaseMail        String @default("NONE")
-  jvFilePrefix       String @default("JV") // journal voucher download
+  releaseMail           String  @default("NONE")
+  jvFilePrefix          String  @default("JV") // journal voucher download
   // Journal voucher as one voucher ("") or one per DEPARTMENT / LOCATION
-  jvSplitBy          String @default("")
+  jvSplitBy             String  @default("")
   // Day of the month after which a draft run's inputs lock on their own
   // (0 = locked by hand only; 31 = the month's last day)
-  inputCutoffDay     Int    @default(0)
+  inputCutoffDay        Int     @default(0)
 
   updatedAt DateTime @updatedAt
 
@@ -807,10 +808,10 @@ model PayrollRun {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  entries      PayslipEntry[]
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  entries         PayslipEntry[]
   taxComputations TaxComputation[]
-  payoutBatches PayoutBatch[]
+  payoutBatches   PayoutBatch[]
 
   @@unique([organizationId, period])
   @@map("payroll_runs")
@@ -824,13 +825,13 @@ model PayslipEntry {
 
   // Snapshot at entry-creation time so a later increment never
   // retroactively changes an already-generated month.
-  monthlyPackage Float
+  monthlyPackage       Float
   // The structure template the pay was split with: its name, and its
   // percentages as JSON. Blank = the company's own split in Payroll Settings.
-  structureName  String @default("")
-  structureSplit String @default("")
+  structureName        String @default("")
+  structureSplit       String @default("")
   // Employer's NPS contribution for the month: part of CTC, not of pay
-  npsEmployer    Float  @default(0)
+  npsEmployer          Float  @default(0)
   // A consultant's fee: the section tax was deducted under and the rate.
   // Blank = salary.
   consultantSection    String @default("")
@@ -844,10 +845,10 @@ model PayslipEntry {
   payDays          Float @default(0)
 
   // Rare manual one-offs.
-  internetAllowance     Float @default(0)
-  salaryArrearAllowance Float @default(0)
-  salaryAdvance         Float @default(0)
-  tds                   Float @default(0)
+  internetAllowance     Float   @default(0)
+  salaryArrearAllowance Float   @default(0)
+  salaryAdvance         Float   @default(0)
+  tds                   Float   @default(0)
   // Under computed TDS: true when the amount was typed over the calculation
   tdsOverridden         Boolean @default(false)
 
@@ -898,17 +899,17 @@ model PayslipEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payoutBatch PayoutBatch? @relation(fields: [payoutBatchId], references: [id], onDelete: SetNull)
+  payoutBatch    PayoutBatch?           @relation(fields: [payoutBatchId], references: [id], onDelete: SetNull)
   expenseReports ExpenseReport[]
   tdsAllocations TdsChallanAllocation[]
-  arrearsRaised  ArrearItem[] @relation("ArrearSource")
-  arrearsPaid    ArrearItem[] @relation("ArrearPaid")
+  arrearsRaised  ArrearItem[]           @relation("ArrearSource")
+  arrearsPaid    ArrearItem[]           @relation("ArrearPaid")
   settlements    Settlement[]
-  run    PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  run            PayrollRun             @relation(fields: [runId], references: [id], onDelete: Cascade)
   // Restrict, deliberately: a person with payslip history can never be
   // deleted, only marked inactive.
-  person Person     @relation(fields: [personId], references: [id], onDelete: Restrict)
-  lines  PayslipLine[]
+  person         Person                 @relation(fields: [personId], references: [id], onDelete: Restrict)
+  lines          PayslipLine[]
 
   @@unique([runId, personId])
   @@index([organizationId])
@@ -965,17 +966,17 @@ model PayslipLine {
 // A salary split of its own: the same percentages Payroll Settings holds
 // for the company, for the employees the template is assigned to.
 model StructureTemplate {
-  id             String   @id @default(cuid())
-  organizationId String
-  name           String
+  id                      String   @id @default(cuid())
+  organizationId          String
+  name                    String
   basicPercentOfPackage   Float
   daPercentOfBasic        Float
   hraPercentOfBasic       Float
   transportPercentOfBasic Float
   foodPercentOfBasic      Float
-  isActive       Boolean  @default(true)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  isActive                Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   assignments StructureAssignment[]
 
@@ -1050,7 +1051,7 @@ model SalaryRevision {
   createdByName     String   @default("")
   createdAt         DateTime @default(now())
 
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  person      Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
   arrearItems ArrearItem[]
 
   @@index([organizationId, personId])
@@ -1065,27 +1066,27 @@ model TaxRegimeConfig {
   fyStart        Int
   regime         String // NEW | OLD
 
-  standardDeduction    Float
+  standardDeduction       Float
   // Rebate: tax up to rebateMaxAmount is waived when taxable income is
   // within rebateIncomeLimit; with marginal relief, tax just above the
   // limit is capped at the income over it.
-  rebateIncomeLimit    Float
-  rebateMaxAmount      Float
-  rebateMarginalRelief Boolean @default(false)
-  cessPercent          Float   @default(4)
+  rebateIncomeLimit       Float
+  rebateMaxAmount         Float
+  rebateMarginalRelief    Boolean @default(false)
+  cessPercent             Float   @default(4)
   // Higher tax-free limit for ages 60+ and 80+ (0 = no special limit)
-  seniorExemption      Float   @default(0)
-  superSeniorExemption Float   @default(0)
+  seniorExemption         Float   @default(0)
+  superSeniorExemption    Float   @default(0)
   // Old-regime reliefs: HRA exemption, Professional Tax, Chapter VI-A
   // deductions and interest on a housing loan
-  allowsExemptions     Boolean @default(false)
-  section80CLimit      Float   @default(150000)
-  housingInterestLimit Float   @default(200000)
+  allowsExemptions        Boolean @default(false)
+  section80CLimit         Float   @default(150000)
+  housingInterestLimit    Float   @default(200000)
   // Most Professional Tax that can be deducted from salary income in the
   // year (0 = no limit)
-  professionalTaxLimit Float   @default(2500)
+  professionalTaxLimit    Float   @default(2500)
   // Employer's NPS contribution deductible up to this share of Basic + DA (section 80CCD(2))
-  employerNpsLimitPercent Float @default(10)
+  employerNpsLimitPercent Float   @default(10)
 
   updatedAt DateTime @updatedAt
 
@@ -1130,7 +1131,7 @@ model EmployeeTaxProfile {
 
   // Proof of investment: once considered, tax uses the approved amounts
   // (an item with nothing approved counts as nil) instead of the declared.
-  poiConsidered           Boolean @default(false)
+  poiConsidered           Boolean   @default(false)
   rentApproved            Float?
   housingInterestApproved Float?
   submittedAt             DateTime? // employee's last save
@@ -1275,20 +1276,20 @@ model DeclarationProof {
 // Per financial year: whether employees may edit their declaration, upload
 // proofs, and choose their own tax regime.
 model TaxYearControl {
-  organizationId   String
-  fyStart          Int
-  declarationOpen  Boolean  @default(false)
-  proofOpen        Boolean  @default(false)
-  employeeCanChooseRegime Boolean @default(false)
+  organizationId          String
+  fyStart                 Int
+  declarationOpen         Boolean  @default(false)
+  proofOpen               Boolean  @default(false)
+  employeeCanChooseRegime Boolean  @default(false)
   // Employees can see their Form 16 for the year once HR releases it
-  form16Released          Boolean @default(false)
+  form16Released          Boolean  @default(false)
   // One-off dates: the declaration window closes after this day, and proof
   // submission opens from this month. Each clears itself once it has acted.
   declarationLockOn       String? // "YYYY-MM-DD"
   proofOpenFrom           String? // "YYYY-MM"
   // Employees see a tax estimate that counts salary not yet released
-  employeeTaxEstimate     Boolean @default(false)
-  updatedAt        DateTime @updatedAt
+  employeeTaxEstimate     Boolean  @default(false)
+  updatedAt               DateTime @updatedAt
 
   @@id([organizationId, fyStart])
   @@map("tax_year_controls")
@@ -1388,18 +1389,18 @@ model LoanTransaction {
 // one from the half-year's gross (Apr–Sep / Oct–Mar) and recover it either
 // spread over the months or as a lump sum in the listed months.
 model PtPolicy {
-  id             String   @id @default(cuid())
-  organizationId String
-  state          String
+  id              String   @id @default(cuid())
+  organizationId  String
+  state           String
   // The town (local body) the slabs belong to, matched to a work
   // location's city; blank = the whole state
-  locality       String   @default("")
-  effectiveFrom  String // "YYYY-MM"
-  frequency      String // MONTHLY | HALF_YEARLY
-  deductionMode  String   @default("SPREAD") // SPREAD | LUMP_SUM (half-yearly only)
-  deductionMonths String  @default("") // LUMP_SUM: month numbers, e.g. "9,3"
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  locality        String   @default("")
+  effectiveFrom   String // "YYYY-MM"
+  frequency       String // MONTHLY | HALF_YEARLY
+  deductionMode   String   @default("SPREAD") // SPREAD | LUMP_SUM (half-yearly only)
+  deductionMonths String   @default("") // LUMP_SUM: month numbers, e.g. "9,3"
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   slabs PtSlab[]
 
@@ -1461,13 +1462,13 @@ model OrgStatutoryProfile {
   organizationId String @id
 
   // Registrations
-  panNumber         String @default("")
-  tanNumber         String @default("")
-  pfCode            String @default("")
-  esiCode           String @default("")
-  ptRegistrationNo  String @default("")
-  lwfRegistrationNo String @default("")
-  gstNumber         String @default("")
+  panNumber           String @default("")
+  tanNumber           String @default("")
+  pfCode              String @default("")
+  esiCode             String @default("")
+  ptRegistrationNo    String @default("")
+  lwfRegistrationNo   String @default("")
+  gstNumber           String @default("")
   // Printed on the labour-law registers
   shopsRegistrationNo String @default("") // Shops and Establishments registration certificate
   labourIdNumber      String @default("") // LIN, on the central registers
@@ -1488,14 +1489,14 @@ model OrgStatutoryProfile {
 
   // Addresses as the TDS return takes them, field by field. Blank fields
   // fall back to the company address and to responsibleAddress.
-  deductorFlat           String  @default("")
-  deductorBuilding       String  @default("")
-  deductorStreet         String  @default("")
-  deductorArea           String  @default("")
-  deductorCity           String  @default("")
-  deductorState          String  @default("")
-  deductorPin            String  @default("")
-  deductorAddressChanged Boolean @default(false) // since the last return
+  deductorFlat              String  @default("")
+  deductorBuilding          String  @default("")
+  deductorStreet            String  @default("")
+  deductorArea              String  @default("")
+  deductorCity              String  @default("")
+  deductorState             String  @default("")
+  deductorPin               String  @default("")
+  deductorAddressChanged    Boolean @default(false) // since the last return
   responsibleFlat           String  @default("")
   responsibleBuilding       String  @default("")
   responsibleStreet         String  @default("")
@@ -1529,8 +1530,8 @@ model WorkLocation {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  people       Person[]
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  people          Person[]
   positionChanges PositionChange[]
 
   @@unique([organizationId, name])
@@ -1838,7 +1839,7 @@ model Form16PartA {
 // revision, or loss-of-pay days reversed. It is paid as a line on a later
 // payslip, with PF and ESI on it.
 model ArrearItem {
-  id             String    @id @default(cuid())
+  id             String  @id @default(cuid())
   organizationId String
   personId       String
   // REVISION (amounts are negative for a back-dated cut that is recovered)
@@ -1847,9 +1848,9 @@ model ArrearItem {
   sourcePeriod   String // "YYYY-MM" the month being corrected
   sourceEntryId  String
   revisionId     String?
-  lopDays        Float     @default(0) // days reversed (LOP_REVERSAL) or added (LOP_RECOVERY)
-  fromPackage    Float     @default(0)
-  toPackage      Float     @default(0)
+  lopDays        Float   @default(0) // days reversed (LOP_REVERSAL) or added (LOP_RECOVERY)
+  fromPackage    Float   @default(0)
+  toPackage      Float   @default(0)
 
   basic              Float @default(0)
   da                 Float @default(0)
@@ -1886,11 +1887,11 @@ model ArrearItem {
 // paid as lines on the employee's payslip for the chosen month. A later
 // correction is a new settlement (sequence 2, 3…) that pays the difference.
 model Settlement {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   organizationId String
   personId       String
-  sequence       Int      @default(1)
-  settlementNo   String   @default("") // from the number series, when one is set up
+  sequence       Int     @default(1)
+  settlementNo   String  @default("") // from the number series, when one is set up
   period         String // "YYYY-MM" the payroll month it is paid in
   entryId        String?
 
@@ -1926,4 +1927,46 @@ model Settlement {
   @@unique([personId, sequence])
   @@index([organizationId, period])
   @@map("settlements")
+}
+
+// How an employee is leaving (phase 25). One per person; the existing
+// leaving fields on Person (employmentStatus, leavingDate, reasonForLeaving)
+// are kept in step as the record moves to Relieved.
+model Separation {
+  id             String @id @default(cuid())
+  organizationId String
+  personId       String @unique
+  mode           String // RESIGNATION | TERMINATION | CONTRACT_END | RETIREMENT | DEATH
+  status         String @default("SUBMITTED") // SUBMITTED | ACCEPTED | RELIEVED | WITHDRAWN
+
+  // Resignation specifics
+  submittedOn         String? // "YYYY-MM-DD" the resignation was given
+  reason              String  @default("")
+  noticeDays          Int? // notice the employee owes; null = the company's usual
+  noticeLastDay       String? // last working day the notice implies (submittedOn + noticeDays)
+  agreedLastDay       String? // last working day actually agreed
+  noticeShortfallDays Int     @default(0) // days short of the required notice
+  noticeWaived        Boolean @default(false)
+  remarks             String  @default("")
+
+  // Outcome
+  relievedOn String? // the actual relieving date; copied to Person.leavingDate
+
+  // Exit checklist
+  assetsReturned    Boolean @default(false)
+  accessRevoked     Boolean @default(false)
+  handoverDone      Boolean @default(false)
+  exitInterviewDone Boolean @default(false)
+  fitToRehire       String  @default("") // YES | NO | '' (not decided)
+
+  acceptedByName String   @default("")
+  relievedByName String   @default("")
+  createdByName  String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("separations")
 }
