@@ -16,6 +16,7 @@ import { POSITION_REASONS } from '../services/positionCalc';
 import { ensureStartingPosition, followProfileEdit } from '../services/positions';
 import { letterTypesFor } from '../services/letters';
 import { removeStored } from '../services/fileStore';
+import { canSeeFullAadhaar, maskAadhaar, personalInput, profileData } from '../services/profileCalc';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -354,10 +355,12 @@ export const peopleController = {
       pfCount: activeEmployees.filter(p => p.isPfApplicable).length,
     };
     // Employees get a plain directory: no salary, bank, statutory or ID data
-    const strip = stripForEmployee(await loadActor(req));
+    const listActor = await loadActor(req);
+    const strip = stripForEmployee(listActor);
     if (strip) rows = rows.map(stripPersonFields);
+    else if (!canSeeFullAadhaar(listActor.role)) rows = rows.map(r => ({ ...r, aadharNo: maskAadhaar(r.aadharNo) }));
     res.json({
-      employees: strip ? rows.filter(p => p.kind === 'CANDIDATE' && p.isEmployee) : employees,
+      employees: rows.filter(p => p.kind === 'CANDIDATE' && p.isEmployee),
       candidates: rows.filter(p => p.kind === 'CANDIDATE' && !p.isEmployee),
       interns: rows.filter(p => p.kind === 'INTERN'),
       employeeStats: strip ? { ...stats, monthlyCost: null } : stats,
@@ -466,6 +469,8 @@ export const peopleController = {
     await checkDuplicateName(orgId, b.kind, name);
     await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim());
     checkPayTreatment(b);
+    const personal = personalInput(b);
+    if (typeof personal === 'string') throw new AppError(400, personal);
     await checkJobDetails(orgId, b, b);
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
@@ -476,6 +481,7 @@ export const peopleController = {
     const person = await prisma.person.create({
       data: {
         ...personData(b),
+        ...profileData(b),
         organizationId: orgId,
         kind: b.kind,
         name,
@@ -520,6 +526,7 @@ export const peopleController = {
     const staff = ['SUPER_ADMIN', 'HR'].includes(actor.role);
     res.json({
       ...person,
+      aadharNo: canSeeFullAadhaar(actor.role) ? person.aadharNo : maskAadhaar(person.aadharNo),
       // Letters not shared with the employee are HR's alone
       documents: staff ? person.documents : person.documents.filter(d => d.visibleToEmployee),
       // Where the employee stands on confirmation, and the notice the company asks for by default
@@ -549,13 +556,15 @@ export const peopleController = {
       await checkDuplicateEmployeeCode(orgId, str(b.employeeNo).trim(), person.id);
     }
     checkPayTreatment(b);
+    const personal = personalInput(b);
+    if (typeof personal === 'string') throw new AppError(400, personal);
     await checkJobDetails(orgId, b, { ...person, ...b }, person.id);
     await validatePipelineFields(orgId, b);
     await validateWorkLocation(orgId, b);
     checkIfsc(b, person);
 
     const fields = personData({ ...person, ...b });
-    Object.assign(data, fields);
+    Object.assign(data, fields, profileData({ ...person, ...b }));
     if (b.stage !== undefined && b.stage !== person.stage) {
       data.stageUpdatedAt = new Date();
       data.isEmployee = employeeFromStage(str(b.stage), person.isEmployee);
