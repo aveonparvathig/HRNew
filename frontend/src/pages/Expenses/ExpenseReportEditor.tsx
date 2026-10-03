@@ -230,6 +230,34 @@ export default function ExpenseReportEditor() {
         <StatCard label="Business Purpose" value={report.businessPurpose || '—'} icon="✎" tone="warning" />
       </div>
 
+      {report.approvals?.length > 0 && (
+        <div className="card card-pad mb-24">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+            <h3 style={{ fontSize: 15, margin: 0 }}>Approval chain</h3>
+            {report.canApproveNow && <span className="badge badge-warning">Awaiting your approval</span>}
+          </div>
+          <div className="approval-chain">
+            {report.approvals.map((s: any) => {
+              const state = s.decision === 'APPROVED' ? 'done' : s.decision === 'REJECTED' ? 'rejected'
+                : (s.level === report.approvalLevel && report.status === 'SUBMITTED') ? 'current' : 'pending';
+              return (
+                <div key={s.level} className={`approval-step ${state}`}>
+                  <span className="step-mark">{state === 'done' ? '✓' : state === 'rejected' ? '✗' : s.level}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="step-name">{s.approverName}</div>
+                    <div className="step-sub">
+                      {s.decision === 'APPROVED' ? `Approved${s.decidedAt ? ' · ' + formatDate(s.decidedAt) : ''}`
+                        : s.decision === 'REJECTED' ? 'Rejected' : state === 'current' ? 'Awaiting' : 'Waiting'}
+                      {s.note ? ` — ${s.note}` : ''}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* OCR drop zone */}
       {report.editable && (
         <div

@@ -24,25 +24,29 @@ export default function ExpensesList() {
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [awaiting, setAwaiting] = useState(false);
+  const [awaitingCount, setAwaitingCount] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<any>(EMPTY);
   const [saving, setSaving] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [listRes, metaRes] = await Promise.all([
-        expensesAPI.getReports({ q, status }),
+      const [listRes, metaRes, awaitRes] = await Promise.all([
+        expensesAPI.getReports(awaiting ? { awaiting: '1' } : { q, status }),
         expensesAPI.getMeta(),
+        expensesAPI.getReports({ awaiting: '1' }),
       ]);
       setData(listRes.data);
       setMeta(metaRes.data);
+      setAwaitingCount(awaitRes.data.reports.length);
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load expense reports');
     } finally {
       setLoading(false);
     }
-  }, [q, status]);
+  }, [q, status, awaiting]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -86,22 +90,31 @@ export default function ExpensesList() {
         </div>
       )}
 
-      <div className="toolbar">
-        <div className="search-input">
-          <input className="input" placeholder="Search by title, number or employee…"
-            value={q} onChange={e => setQ(e.target.value)} />
-        </div>
-        <select className="select" value={status} onChange={e => setStatus(e.target.value)}>
-          <option value="">All statuses</option>
-          {meta.statuses.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
-        </select>
+      <div className="segmented" style={{ marginBottom: 14, display: 'inline-flex' }}>
+        <button type="button" className={awaiting ? '' : 'active'} onClick={() => setAwaiting(false)}>All reports</button>
+        <button type="button" className={awaiting ? 'active' : ''} onClick={() => setAwaiting(true)}>
+          Awaiting my approval{awaitingCount ? ` (${awaitingCount})` : ''}
+        </button>
       </div>
+
+      {!awaiting && (
+        <div className="toolbar">
+          <div className="search-input">
+            <input className="input" placeholder="Search by title, number or employee…"
+              value={q} onChange={e => setQ(e.target.value)} />
+          </div>
+          <select className="select" value={status} onChange={e => setStatus(e.target.value)}>
+            <option value="">All statuses</option>
+            {meta.statuses.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className="card">
         {(data?.reports || []).length === 0 ? (
-          <EmptyState icon="⌯" title={q || status ? 'No matching reports' : 'No expense reports yet'}
-            message="Create a report, then drop receipt photos on it — OCR fills the lines."
-            action={!(q || status) && (
+          <EmptyState icon="⌯" title={awaiting ? 'Nothing awaiting your approval' : q || status ? 'No matching reports' : 'No expense reports yet'}
+            message={awaiting ? 'Reports waiting for your sign-off will appear here.' : 'Create a report, then drop receipt photos on it — OCR fills the lines.'}
+            action={!awaiting && !(q || status) && (
               <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Report</button>
             )} />
         ) : (

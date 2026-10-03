@@ -277,6 +277,15 @@ export default function PersonDetail() {
                   ))}</span>
                 } />
               )}
+              {person.isEmployee && (
+                <InfoRow label="Approval chain" value={
+                  (person.approvalChain || []).length > 0 ? (
+                    <span>{person.approvalChain.map((a: any, i: number) => (
+                      <span key={a.id}>{i > 0 && ' → '}<Link to={`/people/${a.id}`} title={a.designation || ''}>{a.name}</Link></span>
+                    ))}</span>
+                  ) : <span className="text-muted">No manager — requests go to HR</span>
+                } />
+              )}
               {person.probationMonths > 0 && <InfoRow label="Probation" value={`${person.probationMonths} month${person.probationMonths === 1 ? '' : 's'}`} />}
               {(person.confirmationDate || person.confirmation) && (
                 <InfoRow label="Confirmation" value={person.confirmationDate ? formatDate(person.confirmationDate) : (

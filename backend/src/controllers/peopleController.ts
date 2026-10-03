@@ -9,7 +9,7 @@ import { cleanIfsc, isValidIfsc } from '../services/masters';
 import { ensureListValues, listValuesFor } from '../services/listValues';
 import { nextEmployeeCode, noteEmployeeCodeUsed } from '../services/numberSeries';
 import { CONSULTANT_SECTIONS, TAX_TREATMENTS, isConsultantSection, npsPercentInput, taxTreatmentInput } from '../services/payroll/consultantCalc';
-import { confirmationState, jobDetailsInput } from '../services/orgChart';
+import { approvalChainOf, confirmationState, jobDetailsInput } from '../services/orgChart';
 import { assertManager } from './orgChartController';
 import { todayIST } from '../services/payroll/loanLedger';
 import { POSITION_REASONS } from '../services/positionCalc';
@@ -524,6 +524,16 @@ export const peopleController = {
     }
     const settings = await prisma.payrollSettings.findUnique({ where: { organizationId: orgId }, select: { noticePeriodDays: true } });
     const staff = ['SUPER_ADMIN', 'HR'].includes(actor.role);
+    // The approval chain up the reporting line (manager → … → top). A
+    // top-level person has an empty chain; their requests fall to HR.
+    let approvalChain: any[] = [];
+    if (person.isEmployee) {
+      const employees = await prisma.person.findMany({
+        where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true },
+        select: { id: true, managerId: true, name: true, designation: true, employeeNo: true },
+      });
+      approvalChain = approvalChainOf(person.id, employees);
+    }
     res.json({
       ...person,
       aadharNo: canSeeFullAadhaar(actor.role) ? person.aadharNo : maskAadhaar(person.aadharNo),
@@ -532,6 +542,7 @@ export const peopleController = {
       // Where the employee stands on confirmation, and the notice the company asks for by default
       confirmation: person.isEmployee ? confirmationState(person, todayIST()) : null,
       companyNoticeDays: settings?.noticePeriodDays ?? 30,
+      approvalChain,
     });
   },
 

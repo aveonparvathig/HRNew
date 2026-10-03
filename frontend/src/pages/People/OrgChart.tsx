@@ -3,14 +3,16 @@ import { Link } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
 import { useAuthStore } from '../../store/authStore';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
-import { toast } from '../../components/feedback';
+import { toast, confirmDialog } from '../../components/feedback';
 
 type Node = { person: any; reports: Node[]; directCount: number; teamCount: number };
 
 const flatten = (nodes: Node[]): Node[] => nodes.flatMap(n => [n, ...flatten(n.reports)]);
 const teamIds = (node: Node): string[] => node.reports.flatMap(r => [r.person.id, ...teamIds(r)]);
+const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || '☺';
 
-// Who reports to whom, as a tree. HR can move one person or a whole team.
+// Who reports to whom, as a top-down chart. HR can drag a person onto a new
+// manager, or onto the top strip to clear their manager.
 export default function OrgChart() {
   const role = useAuthStore(state => state.user?.role) || '';
   const canManage = role === 'SUPER_ADMIN' || role === 'HR';
@@ -18,22 +20,19 @@ export default function OrgChart() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [closed, setClosed] = useState<Set<string>>(new Set());
-  // { node, mode: 'manager' | 'team', target }
-  const [move, setMove] = useState<any>(null);
+  const [move, setMove] = useState<any>(null); // Change-Manager / Move-Team modal (keyboard fallback)
   const [saving, setSaving] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null); // the person being dragged
+  const [dropId, setDropId] = useState<string | null>(null); // the card currently hovered as a target
 
   const fetchData = useCallback(async () => {
-    try {
-      setData((await peopleAPI.getOrgChart()).data);
-      setError('');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Failed to load the organization chart');
-    }
+    try { setData((await peopleAPI.getOrgChart()).data); setError(''); }
+    catch (err: any) { setError(err.response?.data?.error || 'Failed to load the organization chart'); }
   }, []);
-
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const all = useMemo(() => (data ? flatten(data.tree) : []), [data]);
+  const nodeById = useMemo(() => new Map(all.map(n => [n.person.id, n])), [all]);
   const nameOf = useMemo(() => new Map<string, string>((data?.people || []).map((p: any) => [p.id, p.name])), [data]);
 
   const toggle = (id: string) => setClosed(prev => {
@@ -43,74 +42,118 @@ export default function OrgChart() {
   });
 
   const save = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+    e.preventDefault(); setSaving(true);
     try {
       const res = move.mode === 'team'
         ? await peopleAPI.transferReports({ fromManagerId: move.node.person.id, toManagerId: move.target })
         : await peopleAPI.setManager(move.node.person.id, move.target);
-      toast.success(res.data.message);
-      setMove(null);
-      setError('');
-      fetchData();
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Could not save the change');
-      setMove(null);
-    } finally {
-      setSaving(false);
-    }
+      toast.success(res.data.message); setMove(null); setError(''); fetchData();
+    } catch (err: any) { setError(err.response?.data?.error || 'Could not save the change'); setMove(null); }
+    finally { setSaving(false); }
   };
+
+  // ---- Drag and drop ----------------------------------------------------------------------------
+  // Everyone the dragged person cannot move under: themselves and their own team.
+  const blockedForDrag = useMemo(() => {
+    if (!dragId) return new Set<string>();
+    const n = nodeById.get(dragId);
+    return new Set<string>(n ? [dragId, ...teamIds(n)] : [dragId]);
+  }, [dragId, nodeById]);
+
+  const canDropOn = (targetId: string | null) => {
+    if (!dragId) return false;
+    const dragged = nodeById.get(dragId)?.person;
+    if (!dragged) return false;
+    if (targetId && blockedForDrag.has(targetId)) return false; // self or a descendant
+    const currentManager = dragged.managerId || null;
+    return (targetId || null) !== currentManager; // not a no-op
+  };
+
+  const applyDrop = async (targetId: string | null) => {
+    const id = dragId; setDragId(null); setDropId(null);
+    if (!id || !canDropOn(targetId)) return;
+    const dragName = nameOf.get(id) || 'this person';
+    const ok = await confirmDialog({
+      title: targetId ? `Make ${dragName} report to ${nameOf.get(targetId)}?` : `Move ${dragName} to the top?`,
+      message: targetId
+        ? `${dragName} (and their team) will report to ${nameOf.get(targetId)}.`
+        : `${dragName} will have no manager and sit at the top of the chart.`,
+      confirmLabel: 'Move',
+    });
+    if (!ok) return;
+    try { const res = await peopleAPI.setManager(id, targetId || ''); toast.success(res.data.message); fetchData(); }
+    catch (err: any) { setError(err.response?.data?.error || 'Could not move them'); }
+  };
+
+  const dragProps = (node: Node) => (canManage ? {
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => { setDragId(node.person.id); e.dataTransfer.effectAllowed = 'move'; },
+    onDragEnd: () => { setDragId(null); setDropId(null); },
+  } : {});
+  const dropProps = (targetId: string | null) => (canManage ? {
+    onDragOver: (e: React.DragEvent) => { if (canDropOn(targetId)) { e.preventDefault(); setDropId(targetId ?? '__top__'); } },
+    onDragLeave: () => setDropId(prev => (prev === (targetId ?? '__top__') ? null : prev)),
+    onDrop: (e: React.DragEvent) => { e.preventDefault(); applyDrop(targetId); },
+  } : {});
 
   if (!data) return error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading the organization chart…" />;
 
   const q = search.trim().toLowerCase();
   const matches = q ? all.filter(n => `${n.person.name} ${n.person.employeeNo} ${n.person.designation} ${n.person.department}`.toLowerCase().includes(q)) : [];
 
-  const card = (node: Node) => (
-    <div className="org-node">
-      {node.reports.length > 0 ? (
-        <button type="button" className="org-toggle" aria-expanded={!closed.has(node.person.id)}
-          aria-label={`${closed.has(node.person.id) ? 'Show' : 'Hide'} the team of ${node.person.name}`}
-          onClick={() => toggle(node.person.id)}>{closed.has(node.person.id) ? '▸' : '▾'}</button>
-      ) : <span className="org-toggle" aria-hidden="true" />}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <Link to={`/people/${node.person.id}`} style={{ fontWeight: 600 }}>{node.person.name}</Link>
-        <span className="text-muted" style={{ fontSize: 12.5 }}>
-          {' '}{[node.person.designation, node.person.department].filter(Boolean).join(' · ')}
-          {node.person.employeeNo ? ` · ${node.person.employeeNo}` : ''}
-        </span>
-      </div>
-      {node.directCount > 0 && (
-        <span className="badge badge-neutral" title={`${node.directCount} report directly; ${node.teamCount} in the whole team`}>
-          {node.directCount} direct{node.teamCount > node.directCount ? ` · ${node.teamCount} in all` : ''}
-        </span>
-      )}
-      {canManage && (
-        <span className="row-actions no-print">
-          <button type="button" className="btn btn-secondary btn-sm"
-            onClick={() => setMove({ node, mode: 'manager', target: node.person.managerId && nameOf.has(node.person.managerId) ? node.person.managerId : '' })}>
-            Change Manager
-          </button>
+  // ---- One card ---------------------------------------------------------------------------------
+  const card = (node: Node, depth: number) => {
+    const p = node.person;
+    const isDragging = dragId === p.id;
+    const isTarget = dropId === p.id && canDropOn(p.id);
+    const invalid = Boolean(dragId) && !isDragging && blockedForDrag.has(p.id);
+    const tier = depth === 0 ? 'top' : node.directCount > 0 ? 'manager' : 'member';
+    return (
+      <div className={`org-card tier-${tier}${isDragging ? ' dragging' : ''}${isTarget ? ' drop-target' : ''}${invalid ? ' drop-blocked' : ''}`}
+        {...dragProps(node)} {...dropProps(p.id)} title={canManage ? 'Drag onto another person to set their manager' : undefined}>
+        <div className="org-card-head">
+          <span className="org-avatar" aria-hidden="true">{p.photoData ? <img src={p.photoData} alt="" /> : initials(p.name)}</span>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <Link to={`/people/${p.id}`} className="org-name">{p.name}</Link>
+            <div className="org-meta">{[p.designation, p.department].filter(Boolean).join(' · ') || '—'}{p.employeeNo ? ` · ${p.employeeNo}` : ''}</div>
+          </div>
           {node.directCount > 0 && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setMove({ node, mode: 'team', target: '' })}>Move Team</button>
+            <button type="button" className="org-toggle" aria-expanded={!closed.has(p.id)}
+              aria-label={`${closed.has(p.id) ? 'Show' : 'Hide'} the team of ${p.name}`} onClick={() => toggle(p.id)}>
+              {closed.has(p.id) ? '▸' : '▾'}
+            </button>
           )}
-        </span>
-      )}
-    </div>
-  );
+        </div>
+        <div className="org-card-foot">
+          {depth === 0 && <span className="badge badge-neutral">Top</span>}
+          {node.directCount > 0 && (
+            <span className="text-muted" style={{ fontSize: 11.5 }} title={`${node.teamCount} in the whole team`}>
+              {node.directCount} direct{node.teamCount > node.directCount ? ` · ${node.teamCount} in all` : ''}
+            </span>
+          )}
+          {canManage && (
+            <button type="button" className="org-edit no-print"
+              onClick={() => setMove({ node, mode: 'manager', target: p.managerId && nameOf.has(p.managerId) ? p.managerId : '' })}>Manager</button>
+          )}
+          {canManage && node.directCount > 0 && (
+            <button type="button" className="org-edit no-print" onClick={() => setMove({ node, mode: 'team', target: '' })}>Move team</button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
-  const branch = (nodes: Node[]) => (
-    <ul className="org-tree">
+  const branch = (nodes: Node[], depth: number) => (
+    <ul>
       {nodes.map(node => (
         <li key={node.person.id}>
-          {card(node)}
-          {node.reports.length > 0 && !closed.has(node.person.id) && branch(node.reports)}
+          {card(node, depth)}
+          {node.reports.length > 0 && !closed.has(node.person.id) && branch(node.reports, depth + 1)}
         </li>
       ))}
     </ul>
   );
 
-  // Someone cannot report to themselves or to anyone below them
   const blocked = move ? new Set([move.node.person.id, ...(move.mode === 'manager' ? teamIds(move.node) : [])]) : new Set<string>();
   const options = (data.people as any[]).filter(p => !blocked.has(p.id));
 
@@ -118,7 +161,7 @@ export default function OrgChart() {
     <>
       <PageHeader
         title="Organization Chart"
-        subtitle={`${data.people.length} employee${data.people.length === 1 ? '' : 's'}${data.withoutManager ? ` · ${data.withoutManager} with no manager, shown at the top` : ''}`}
+        subtitle={`${data.people.length} employee${data.people.length === 1 ? '' : 's'}${data.withoutManager ? ` · ${data.withoutManager} with no manager, shown at the top` : ''}${canManage ? ' · drag a card onto a manager to set reporting' : ''}`}
         actions={<>
           <input className="input" style={{ width: 220 }} placeholder="Search name, code or designation…" aria-label="Search the chart"
             value={search} onChange={e => setSearch(e.target.value)} />
@@ -136,20 +179,29 @@ export default function OrgChart() {
       ) : q ? (
         <div className="card card-pad">
           {matches.length === 0 ? <p className="text-muted">Nobody matches “{search}”.</p> : (
-            <ul className="org-tree" style={{ paddingLeft: 0, borderLeft: 0 }}>
+            <div className="org-search-list">
               {matches.map(node => (
-                <li key={node.person.id}>
-                  {card(node)}
-                  <div className="text-muted" style={{ fontSize: 12, margin: '-2px 0 8px 30px' }}>
+                <div key={node.person.id}>
+                  {card(node, node.person.managerId && nameOf.has(node.person.managerId) ? 1 : 0)}
+                  <div className="text-muted" style={{ fontSize: 12, margin: '2px 0 10px 8px' }}>
                     {node.person.managerId && nameOf.has(node.person.managerId) ? `Reports to ${nameOf.get(node.person.managerId)}` : 'No manager'}
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       ) : (
-        <div className="card card-pad print-area">{branch(data.tree)}</div>
+        <>
+          {canManage && (
+            <div className={`org-top-drop no-print${dropId === '__top__' && canDropOn(null) ? ' drop-target' : ''}${dragId ? ' active' : ''}`} {...dropProps(null)}>
+              {dragId ? 'Drop here to move to the top (no manager)' : 'Top of the organization'}
+            </div>
+          )}
+          <div className="card card-pad print-area org-scroll">
+            <div className="orgchart">{branch(data.tree, 0)}</div>
+          </div>
+        </>
       )}
 
       <Modal title={move ? (move.mode === 'team' ? `Move the Team of ${move.node.person.name}` : `Manager of ${move.node.person.name}`) : ''}
