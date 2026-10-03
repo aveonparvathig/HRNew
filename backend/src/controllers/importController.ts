@@ -10,7 +10,7 @@ import { ensureListValues, listValuesFor } from '../services/listValues';
 import { noteEmployeeCodeUsed } from '../services/numberSeries';
 import { ensureStartingPosition, followProfileEdit } from '../services/positions';
 import {
-  EMPLOYEE_COLUMNS, ImportColumn, REVISION_COLUMNS, RowResult, UPDATABLE_COLUMNS, checkEmployeeImport, checkRevisionImport,
+  EMPLOYEE_COLUMNS, ImportColumn, REVISION_COLUMNS, RowResult, UPDATABLE_COLUMNS, checkEmployeeImport, checkRevisionImport, employeeColumn,
   matchFile, matchFiles,
 } from '../services/importCalc';
 import { MAX_SHEET_ROWS, TemplateColumn, readSheet, sendWorkbook, templateWorkbook } from '../services/sheets';
@@ -142,12 +142,16 @@ export const importController = {
     const b = req.body || {};
     const mode = b.mode === 'UPDATE' ? 'UPDATE' : 'ADD';
     const dryRun = b.dryRun !== false;
-    const chosen = Array.isArray(b.columns) && b.columns.length ? b.columns.map(str) : undefined;
+    // For an update: the columns to take. None given = every column the sheet has
+    const chosen = Array.isArray(b.columns) ? b.columns.map(str) : undefined;
     const sheet = await readSheet(b.fileBase64);
     const ctx = await employeeContext(organizationId);
     const check = checkEmployeeImport(sheet.headers, sheet.rows, ctx, mode, chosen);
+    const inSheet = new Set(sheet.headers.map(h => employeeColumn(h)?.key).filter(Boolean));
     const base = {
       mode, problem: check.problem, columns: check.columns, unknownHeaders: check.unknownHeaders, counts: check.counts,
+      // The columns of the sheet an update could take, chosen or not
+      sheetColumns: UPDATABLE_COLUMNS.filter(c => inSheet.has(c.key)).map(c => ({ key: c.key, header: c.header })),
       newValues: check.newValues.map(v => ({ ...v, listLabel: LIST_TYPES.find(t => t.type === v.list)?.label || v.list })),
       // Every column a sheet may carry, for choosing what an update touches
       updatable: UPDATABLE_COLUMNS.map(c => ({ key: c.key, header: c.header })),
@@ -161,8 +165,11 @@ export const importController = {
       return;
     }
 
-    // Saving. Values new to a list are added only when that was asked for
-    const addNewValues = Boolean(b.addNewValues);
+    // Saving. Values new to a list are added only when that was asked for:
+    // without it the whole save is refused, so rows are never taken in part
+    if (check.newValues.length && !b.addNewValues) {
+      throw new AppError(400, `Not in your lists yet: ${check.newValues.map(v => v.label).join(', ')}. Tick "Add these values to the lists", or correct the sheet.`);
+    }
     const before = new Map(ctx.people.map(p => [p.id, p]));
     const idOfCode = new Map(ctx.people.filter(p => p.employeeNo).map(p => [p.employeeNo.toLowerCase(), p.id]));
     const rows: any[] = [];
@@ -172,10 +179,6 @@ export const importController = {
       rows.push(out);
       if (r.result === 'ERROR') continue;
       if (r.result === 'UNCHANGED') { out.result = 'UNCHANGED'; continue; }
-      if (r.newValues.length && !addNewValues) {
-        out.messages.unshift(`Not in the lists: ${r.newValues.map(v => v.label).join(', ')}. Tick "Add new values to the lists", or correct the sheet.`);
-        continue;
-      }
       try {
         if (mode === 'ADD') {
           const person = await prisma.person.create({
@@ -201,7 +204,7 @@ export const importController = {
     for (const link of linkLater) {
       const managerId = idOfCode.get(link.managerCode.toLowerCase());
       if (managerId) await prisma.person.update({ where: { id: link.id }, data: { managerId } });
-      else rows.find(x => x.name === link.name)?.messages.push(`The manager ${link.managerCode} was not added, so no manager is set`);
+      // Already said on the row when its manager's row was refused
     }
     const summary = countBy(rows);
     const log = await saveLog(req, mode === 'ADD' ? 'EMPLOYEES_ADD' : 'EMPLOYEES_UPDATE', b.fileName, summary, rows);

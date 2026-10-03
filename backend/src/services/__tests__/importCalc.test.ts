@@ -159,6 +159,13 @@ describe('adding employees: the row checks', () => {
     expect(check.results[4].errors[0]).toMatch(/no employee has the code C-1/); // a candidate is not a manager
   });
 
+  it('warns when the manager is on a row of the file that will not be taken', () => {
+    const check = add(['Employee Code', 'Name', 'Date of Joining', 'Reporting Manager Code'], ['EMP-75', 'Usha', '31-02-2026', ''], ['EMP-76', 'Varun', '', 'EMP-75']);
+    expect(check.results[0].result).toBe('ERROR');
+    expect(check.results[1].result).toBe('NEW');
+    expect(check.results[1].warnings[0]).toMatch(/manager EMP-75 is on a row that will not be taken/);
+  });
+
   it('warns about a PAN or Aadhaar that looks wrong, without refusing the row', () => {
     const check = add(['Employee Code', 'Name', 'PAN Number', 'Aadhaar Number', 'Account Number'], ['EMP-80', 'Uma', 'abcde1234f', '1234 1234 1234', 501001234567891234], ['EMP-81', 'Vel', 'ABC123', '1234', '']);
     expect(check.results[0]).toMatchObject({ result: 'NEW', data: { panNumber: 'ABCDE1234F', aadharNo: '123412341234' } });
@@ -226,6 +233,21 @@ describe('updating employees', () => {
     expect(fine.results[0].changes).toEqual([{ field: 'Reporting Manager Code', from: 'Bala', to: 'Asha' }]);
   });
 
+  it('does not call a name that differs only in its spacing a change', () => {
+    const spaced = { ...ctx, people: [...ctx.people, person({ employeeNo: 'EMP-50', name: 'Naveen  Prasath ', address: 'Line one\nLine two' })] };
+    const s = sheet(['Employee Code', 'Name', 'Address'], ['EMP-50', 'Naveen Prasath', 'Line one Line two']);
+    expect(checkEmployeeImport(s.headers, s.rows, spaced, 'UPDATE').results[0]).toMatchObject({ result: 'UNCHANGED', changes: [] });
+  });
+
+  it('refuses a code that two people on record share, and lists no changes for a refused row', () => {
+    const twins = { ...ctx, people: [...ctx.people, person({ employeeNo: 'emp-1', name: 'Asha Two', department: 'Support' })] };
+    const s = sheet(['Employee Code', 'Department'], ['EMP-1', 'Support']);
+    const check = checkEmployeeImport(s.headers, s.rows, twins, 'UPDATE');
+    expect(check.results[0].result).toBe('ERROR');
+    expect(check.results[0].errors[0]).toMatch(/Asha and Asha Two share the code EMP-1 on record/);
+    expect(check.results[0].changes).toEqual([]);
+  });
+
   it('shows a location change by name', () => {
     const check = update(undefined, ['Employee Code', 'Work Location'], ['EMP-1', 'Coimbatore Office']);
     expect(check.results[0].changes).toEqual([{ field: 'Work Location', from: '—', to: 'Coimbatore Office' }]);
@@ -279,6 +301,12 @@ describe('salary revisions from a sheet', () => {
     expect(r.results[2].errors[0]).toMatch(/one revision an employee at a time/);
   });
 
+  it('refuses a code that two employees share', () => {
+    const twins = [...people, { ...people[0], id: 'p9', name: 'Asha Two' }];
+    const s = sheet(H, ['EMP-1', '', 55000, 'Oct 2026', '']);
+    expect(checkRevisionImport(s.headers, s.rows, twins).results[0].errors[0]).toMatch(/Asha and Asha Two share the code EMP-1/);
+  });
+
   it('needs its three columns', () => {
     const s = sheet(['Employee Code', 'Reason'], ['EMP-1', 'x']);
     expect(checkRevisionImport(s.headers, s.rows, people).problem).toMatch(/New Monthly Package \(₹\)", "Effective Month/);
@@ -305,6 +333,12 @@ describe('files named by employee code', () => {
     expect(matchFile('EMP-1x.pdf', people).personId).toBeNull();
     expect(matchFile('AV 007 (passport).pdf', people)).toMatchObject({ personId: 'c', title: 'passport' });
     expect(matchFile('random.pdf', people).personId).toBeNull();
+  });
+
+  it('does not guess between two employees who share a code', () => {
+    const twins = [...people, { id: 'z', employeeNo: 'emp-1', name: 'Asha Two' }];
+    expect(matchFile('EMP-1.jpg', twins)).toMatchObject({ personId: null, problem: 'Asha and Asha Two share the code EMP-1 on record. Give each their own code first.' });
+    expect(matchFile('EMP-10.jpg', twins)).toMatchObject({ personId: 'b', problem: null });
   });
 
   it('allows one photo an employee', () => {

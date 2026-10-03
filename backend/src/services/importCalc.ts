@@ -200,7 +200,22 @@ export interface EmployeeImportCheck {
 
 const codeKey = (v: any) => textCell(v).toLowerCase();
 const shown = (v: any) => (v === null || v === undefined || v === '' ? '—' : v === true ? 'Yes' : v === false ? 'No' : String(v));
-const same = (a: any, b: any) => (a ?? '') === (b ?? '') || String(a ?? '') === String(b ?? '');
+// Whether a cell says what the record already says. Text is compared as
+// it would be stored: a name on record with a stray space is not a change.
+const same = (a: any, b: any) => (a ?? '') === (b ?? '') || textCell(a) === textCell(b);
+
+// People on record under each code. A code held by two people cannot say
+// which of them a row, or a file, is for.
+function peopleByCode<T extends { employeeNo: string }>(people: T[]) {
+  const map = new Map<string, T[]>();
+  for (const p of people) {
+    const code = codeKey(p.employeeNo);
+    if (code) map.set(code, [...(map.get(code) || []), p]);
+  }
+  return map;
+}
+const sharedCode = (code: string, holders: { name: string }[]) =>
+  `${holders.map(h => h.name).join(' and ')} share the code ${code} on record. Give each their own code first.`;
 
 // Check every row of an employee sheet. Nothing is saved here: the result
 // says what each row would do and why a row cannot be taken.
@@ -234,7 +249,8 @@ export function checkEmployeeImport(
   const filled = rows.filter(r => Object.values(r.cells).some(v => textCell(v) !== ''));
   if (filled.length === 0) return { ...empty, unknownHeaders, columns: used.map(c => ({ key: c.key, header: c.header })), problem: 'The sheet has no rows under the headings' };
 
-  const byCode = new Map(ctx.people.filter(p => p.employeeNo).map(p => [codeKey(p.employeeNo), p]));
+  const holders = peopleByCode(ctx.people);
+  const byCode = new Map([...holders].map(([code, list]) => [code, list[0]]));
   const namesOnRecord = new Set(ctx.people.filter(p => p.kind === 'CANDIDATE').map(p => labelKey(p.name)));
   const rowsOfCode = new Map<string, number[]>();
   const rowsOfName = new Map<string, number[]>();
@@ -267,8 +283,10 @@ export function checkEmployeeImport(
       bad(`Employee code ${employeeNo} is on rows ${rowsOfCode.get(employeeNo.toLowerCase())!.join(' and ')} of the file`);
     } else if (mode === 'ADD' && existing) bad(`Employee code ${employeeNo} is already in use, by ${existing.name}`);
     else if (mode === 'UPDATE' && !existing) bad(`No employee has the code ${employeeNo}`);
+    else if (mode === 'UPDATE' && (holders.get(employeeNo.toLowerCase()) || []).length > 1) bad(sharedCode(employeeNo, holders.get(employeeNo.toLowerCase())!));
     else if (mode === 'UPDATE' && existing && !(existing.kind === 'CANDIDATE' && existing.isEmployee)) bad(`${existing.name} is not an employee`);
-    if (mode === 'UPDATE' && existing) out.personId = existing.id;
+    // Only when the code says, beyond doubt, whose row this is
+    if (mode === 'UPDATE' && existing && out.errors.length === 0) out.personId = existing.id;
 
     for (const c of used) {
       const raw = cell(r, c.key);
@@ -366,8 +384,9 @@ export function checkEmployeeImport(
       out.data[c.key] = value;
     }
 
-    // The name must stay one of a kind among employees and candidates
-    if (out.data.name !== undefined) {
+    // The name must stay one of a kind among employees and candidates. When
+    // an update cannot tell whose row it is, the name is not judged.
+    if (out.data.name !== undefined && !(mode === 'UPDATE' && !out.personId)) {
       const key = labelKey(out.data.name);
       const renamed = !existing || labelKey(existing.name) !== key;
       if ((rowsOfName.get(key) || []).length > 1) bad(`The name ${out.data.name} is on rows ${rowsOfName.get(key)!.join(' and ')} of the file`);
@@ -394,10 +413,23 @@ export function checkEmployeeImport(
       if (out.managerCode !== undefined && !('managerId' in out.data)) delete out.managerCode;
       out.newValues = out.newValues.filter(v => Object.values(out.data).includes(v.label));
       if (out.errors.length === 0 && out.changes.length === 0) out.result = 'UNCHANGED';
+      // A row that is not taken changes nothing: listing changes for it would mislead
+      if (out.errors.length) out.changes = [];
     }
     if (out.errors.length) out.result = 'ERROR';
     return out;
   });
+
+  // A manager who comes in with the same file is only there if their own row is taken
+  if (mode === 'ADD') {
+    const resultOfCode = new Map(results.map(r => [r.employeeNo.toLowerCase(), r.result]));
+    for (const r of results) {
+      if (r.result === 'ERROR' || !r.managerCode || r.data.managerId) continue;
+      if (resultOfCode.get(r.managerCode.toLowerCase()) === 'ERROR') {
+        r.warnings.push(`The manager ${r.managerCode} is on a row that will not be taken, so no manager will be set`);
+      }
+    }
+  }
 
   const newValues = new Map<string, { list: string; label: string; rows: number }>();
   for (const r of results) {
@@ -462,7 +494,8 @@ export function checkRevisionImport(headers: string[], rows: SheetRow[], people:
   const filled = rows.filter(r => ['employeeNo', 'newMonthlyPackage', 'effectiveMonth'].some(k => textCell(cell(r, k)) !== ''));
   if (filled.length === 0) return { problem: 'The sheet has no rows under the headings', results: [] as RevisionRow[], counts: { REVISE: 0, ERROR: 0 } };
 
-  const byCode = new Map(people.filter(p => p.employeeNo).map(p => [codeKey(p.employeeNo), p]));
+  const holders = peopleByCode(people);
+  const byCode = new Map([...holders].map(([code, list]) => [code, list[0]]));
   const rowsOfCode = new Map<string, number[]>();
   for (const r of filled) {
     const code = codeKey(cell(r, 'employeeNo'));
@@ -480,6 +513,7 @@ export function checkRevisionImport(headers: string[], rows: SheetRow[], people:
     else if ((rowsOfCode.get(employeeNo.toLowerCase()) || []).length > 1) {
       out.errors.push(`Employee code ${employeeNo} is on rows ${rowsOfCode.get(employeeNo.toLowerCase())!.join(' and ')} of the file: one revision an employee at a time`);
     } else if (!person) out.errors.push(`No employee has the code ${employeeNo}`);
+    else if ((holders.get(employeeNo.toLowerCase()) || []).length > 1) out.errors.push(sharedCode(employeeNo, holders.get(employeeNo.toLowerCase())!));
     else if (!person.isEmployee) out.errors.push(`${person.name} is not an employee`);
 
     const month = monthCell(cell(r, 'effectiveMonth'));
@@ -539,6 +573,8 @@ export function matchFile(fileName: string, people: { id: string; employeeNo: st
     if (!best || code.length > best.employeeNo.trim().length) best = p;
   }
   if (!best) return { fileName, personId: null, employeeNo: '', name: '', title: '', problem: 'No employee code matches this file name' };
+  const sharing = people.filter(p => String(p.employeeNo || '').trim().toLowerCase() === best!.employeeNo.trim().toLowerCase());
+  if (sharing.length > 1) return { fileName, personId: null, employeeNo: best.employeeNo, name: '', title: '', problem: sharedCode(best.employeeNo, sharing) };
   const title = base.slice(best.employeeNo.trim().length).replace(/^[\s_.\-()]+|[\s_.\-()]+$/g, '').replace(/[_]+/g, ' ').replace(/\s+/g, ' ');
   return { fileName, personId: best.id, employeeNo: best.employeeNo, name: best.name, title, problem: null };
 }
