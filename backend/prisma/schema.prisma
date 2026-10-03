@@ -467,30 +467,35 @@ model Person {
   consultantTdsPercent Float  @default(10)
 
   // Job details
-  employmentType     String                  @default("") // a value of the EMPLOYMENT_TYPE list
+  employmentType      String                  @default("") // a value of the EMPLOYMENT_TYPE list
   // A value of the GRADE list. Designation, department, work location and
   // grade here are the position today; PositionChange holds how it got there
-  grade              String                  @default("")
+  grade               String                  @default("")
   // Probation in months from the joining date; 0 = none. The employee is
   // due for confirmation when it ends, until a confirmation date is set.
-  probationMonths    Int                     @default(0)
-  confirmationDate   String? // "YYYY-MM-DD"
+  probationMonths     Int                     @default(0)
+  confirmationDate    String? // "YYYY-MM-DD"
   // Notice the employee must give, in days; null = the company's usual one
-  noticePeriodDays   Int?
-  firstHireDate      String? // for someone rehired
-  referredBy         String                  @default("")
+  noticePeriodDays    Int?
+  firstHireDate       String? // for someone rehired
+  referredBy          String                  @default("")
   // Who the employee reports to
-  managerId          String?
-  manager            Person?                 @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
-  reports            Person[]                @relation("ReportsTo")
-  arrearItems        ArrearItem[]
-  settlements        Settlement[]
-  changeRequests     ChangeRequest[]
-  policyAcks         PolicyAcknowledgement[]
+  managerId           String?
+  manager             Person?                 @relation("ReportsTo", fields: [managerId], references: [id], onDelete: SetNull)
+  reports             Person[]                @relation("ReportsTo")
+  arrearItems         ArrearItem[]
+  settlements         Settlement[]
+  familyMembers       FamilyMember[]
+  educations          Education[]
+  previousEmployments PreviousEmployment[]
+  identityDocuments   IdentityDocument[]
+  separation          Separation?
+  changeRequests      ChangeRequest[]
+  policyAcks          PolicyAcknowledgement[]
   // When the employee last confirmed their details are up to date (data drive)
-  detailsConfirmedAt DateTime?
-  expenseReports     ExpenseReport[]
-  user               User?
+  detailsConfirmedAt  DateTime?
+  expenseReports      ExpenseReport[]
+  user                User?
 
   @@unique([organizationId, kind, name])
   @@index([organizationId, kind, stage])
@@ -588,7 +593,7 @@ model EmployeeDocument {
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, personId])
-  @@map("family_members")
+  @@map("employee_documents")
 }
 
 // An employee's qualifications.
@@ -858,6 +863,57 @@ model MailSettings {
 // One bulk import: who ran it, on what file, and what became of each row.
 // The rows say what happened and why, and which fields changed — never
 // the values, so the log holds no PAN, bank account or salary.
+model FamilyMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  name           String
+  relation       String // Spouse | Son | Daughter | Father | Mother | ...
+  dateOfBirth    String?
+  isDependant    Boolean  @default(false)
+  nomineeShare   Float    @default(0) // % of the nomination; 0 = not a nominee
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId])
+  @@map("family_members")
+}
+
+model Separation {
+  id                  String   @id @default(cuid())
+  organizationId      String
+  personId            String   @unique
+  mode                String // RESIGNATION | TERMINATION | CONTRACT_END | RETIREMENT | DEATH
+  status              String   @default("SUBMITTED") // SUBMITTED | ACCEPTED | RELIEVED | WITHDRAWN
+  submittedOn         String?
+  reason              String   @default("")
+  noticeDays          Int?
+  noticeLastDay       String?
+  agreedLastDay       String?
+  noticeShortfallDays Int      @default(0)
+  noticeWaived        Boolean  @default(false)
+  remarks             String   @default("")
+  relievedOn          String?
+  assetsReturned      Boolean  @default(false)
+  accessRevoked       Boolean  @default(false)
+  handoverDone        Boolean  @default(false)
+  exitInterviewDone   Boolean  @default(false)
+  fitToRehire         String   @default("")
+  acceptedByName      String   @default("")
+  relievedByName      String   @default("")
+  createdByName       String   @default("")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@map("separations")
+}
+
 model ImportLog {
   id             String   @id @default(cuid())
   organizationId String

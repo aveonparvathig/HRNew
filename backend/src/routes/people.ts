@@ -10,6 +10,8 @@ import { lettersController } from '../controllers/lettersController';
 import { employeeFilesController } from '../controllers/employeeFilesController';
 import { profileController } from '../controllers/profileController';
 import { communicationController as cc } from '../controllers/communicationController';
+import { importController } from '../controllers/importController';
+import { separationController } from '../controllers/separationController';
 
 const router = Router();
 

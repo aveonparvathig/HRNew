@@ -101,6 +101,27 @@ export const peopleAPI = {
   getCampaigns: () => apiClient.get('/people/communication/mail'),
   getCampaign: (id: string) => apiClient.get(`/people/communication/mail/${id}`),
 
+  // Fuller profile (phase 24): family, education, previous employment, identity documents
+  getFamily: (personId: string) => apiClient.get(`/people/${personId}/family`),
+  addFamily: (personId: string, data: any) => apiClient.post(`/people/${personId}/family`, data),
+  updateFamily: (id: string, data: any) => apiClient.put(`/people/family/${id}`, data),
+  deleteFamily: (id: string) => apiClient.delete(`/people/family/${id}`),
+  getEducation: (personId: string) => apiClient.get(`/people/${personId}/education`),
+  addEducation: (personId: string, data: any) => apiClient.post(`/people/${personId}/education`, data),
+  updateEducation: (id: string, data: any) => apiClient.put(`/people/education/${id}`, data),
+  deleteEducation: (id: string) => apiClient.delete(`/people/education/${id}`),
+  getPreviousEmployment: (personId: string) => apiClient.get(`/people/${personId}/previous-employment`),
+  addPreviousEmployment: (personId: string, data: any) => apiClient.post(`/people/${personId}/previous-employment`, data),
+  updatePreviousEmployment: (id: string, data: any) => apiClient.put(`/people/previous-employment/${id}`, data),
+  deletePreviousEmployment: (id: string) => apiClient.delete(`/people/previous-employment/${id}`),
+  getIdentityDocuments: (personId: string) => apiClient.get(`/people/${personId}/identity-documents`),
+  addIdentityDocument: (personId: string, data: any) => apiClient.post(`/people/${personId}/identity-documents`, data),
+  updateIdentityDocument: (id: string, data: any) => apiClient.put(`/people/identity-documents/${id}`, data),
+  verifyIdentityDocument: (id: string, verified: boolean) => apiClient.post(`/people/identity-documents/${id}/verify`, { verified }),
+  getIdentityFile: (id: string) => apiClient.get(`/people/identity-documents/${id}/file`),
+  deleteIdentityDocument: (id: string) => apiClient.delete(`/people/identity-documents/${id}`),
+  listIdentityDocuments: (params?: { type?: string; verified?: string; expiring?: string }) => apiClient.get('/people/identity-documents', { params }),
+
   // Interview rounds
   addInterview: (personId: string, data: any) =>
     apiClient.post(`/people/${personId}/interviews`, data),
