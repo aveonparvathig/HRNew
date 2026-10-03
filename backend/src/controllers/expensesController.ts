@@ -4,6 +4,9 @@ import { AppError } from '../middleware/errorHandler';
 import { loadActor } from '../middleware/roles';
 import { orgBrand } from '../services/orgBrand';
 import { amountInWords } from '../services/payrollCalc';
+import { approvalChainOf } from '../services/orgChart';
+import { afterDecision, approvalSteps, canApprove } from '../services/expenseApproval';
+import { actorName } from '../services/payroll/audit';
 
 export const EXPENSE_CATEGORIES = [
   { value: 'TRAVEL', label: 'Travel / Fuel', icon: '⛟' },
@@ -96,6 +99,26 @@ async function requireApprover(req: any) {
 // EMPLOYEE and MARKETING roles only ever see / edit reports for their own Person
 const selfScoped = (actor: any) => !['SUPER_ADMIN', 'HR'].includes(actor?.role);
 
+// On submit, snapshot the submitter's reporting chain into approval steps.
+// No chain (a top-level employee) means HR approves directly, as before.
+async function startApprovalChain(organizationId: string, report: { id: string; personId: string }) {
+  const employees = await prisma.person.findMany({
+    where: { organizationId, kind: 'CANDIDATE', isEmployee: true },
+    select: { id: true, managerId: true, name: true },
+  });
+  const steps = approvalSteps(approvalChainOf(report.personId, employees));
+  await prisma.expenseApproval.deleteMany({ where: { reportId: report.id } }); // clear any from a prior submit
+  if (steps.length === 0) return { currentApproverId: null, approvalLevel: 0 };
+  await prisma.expenseApproval.createMany({
+    data: steps.map(s => ({ organizationId, reportId: report.id, level: s.level, approverId: s.approverId, approverName: s.approverName })),
+  });
+  return { currentApproverId: steps[0].approverId, approvalLevel: 1 };
+}
+
+const approvalView = (steps: any[]) => steps
+  .sort((a, b) => a.level - b.level)
+  .map(s => ({ level: s.level, approverId: s.approverId, approverName: s.approverName, decision: s.decision, note: s.note, decidedAt: s.decidedAt }));
+
 async function assertReportAccess(req: any, reportPersonId: string) {
   const actor = await loadActor(req);
   if (selfScoped(actor) && actor.personId !== reportPersonId) {
@@ -137,6 +160,8 @@ export const expensesController = {
     const orgId = req.user?.organizationId;
     const status = str(req.query.status);
     const actor = await loadActor(req);
+    // "Awaiting my approval" — reports currently at this person's step
+    const awaiting = str(req.query.awaiting) === '1';
     const personId = selfScoped(actor)
       ? (actor.personId || 'none') // own reports only
       : str(req.query.personId);
@@ -144,8 +169,9 @@ export const expensesController = {
     const reports = await prisma.expenseReport.findMany({
       where: {
         organizationId: orgId,
-        ...(status ? { status } : {}),
-        ...(personId ? { personId } : {}),
+        ...(awaiting
+          ? { currentApproverId: actor.personId || 'none', status: 'SUBMITTED' }
+          : { ...(status ? { status } : {}), ...(personId ? { personId } : {}) }),
         ...(q ? {
           OR: [
             { title: { contains: q, mode: 'insensitive' as const } },
@@ -207,14 +233,26 @@ export const expensesController = {
   async getReportDetail(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId, 'summary');
-    await assertReportAccess(req, report.personId);
+    const actor = await loadActor(req);
+    const staff = ['SUPER_ADMIN', 'HR'].includes(actor.role);
+    const isOwner = actor.personId === report.personId;
+    const steps = await prisma.expenseApproval.findMany({ where: { reportId: report.id } });
+    // The owner, HR, and anyone on the approval chain (current or past) can open it
+    const onChain = Boolean(actor.personId) && steps.some(s => s.approverId === actor.personId);
+    if (!staff && !isOwner && !onChain) throw new AppError(404, 'Expense report not found');
+    const canApproveNow = report.status === 'SUBMITTED' && (report.currentApproverId ? canApprove(report, actor.role, actor.personId) : staff);
     res.json({
       ...report,
       lines: report.lines.map(lineJSON),
       total: totalOf(report.lines),
-      editable: EDITABLE_STATUSES.has(report.status),
-      actions: Object.keys(TRANSITIONS[report.status] || {}).filter(a =>
-        !OWNER_ACTIONS.has(a) || ['SUPER_ADMIN', 'HR'].includes((req as any).actor?.role)),
+      approvals: approvalView(steps),
+      canApproveNow,
+      editable: EDITABLE_STATUSES.has(report.status) && (isOwner || staff),
+      actions: Object.keys(TRANSITIONS[report.status] || {}).filter(a => {
+        if (!OWNER_ACTIONS.has(a)) return isOwner || staff; // submit
+        if (a === 'reimburse') return staff;
+        return canApproveNow; // approve / reject
+      }),
     });
   },
 
@@ -261,28 +299,50 @@ export const expensesController = {
   async changeStatus(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const report = await fetchOrgReport(req.params.reportId, orgId);
-    await assertReportAccess(req, report.personId);
+    const actor = await loadActor(req);
     const action = str(req.body.action);
     const next = TRANSITIONS[report.status]?.[action];
-    if (!next) {
-      throw new AppError(400, `Cannot ${action} a ${report.status.toLowerCase()} report`);
-    }
-    if (OWNER_ACTIONS.has(action)) await requireApprover(req);
+    if (!next) throw new AppError(400, `Cannot ${action} a ${report.status.toLowerCase()} report`);
     if (report.payrollEntryId) {
       throw new AppError(400, 'This claim is being paid with a month\'s salary. Remove it from that payroll run first.');
     }
+
+    // Approve / reject — route through the reporting chain when there is one
+    if (action === 'approve' || action === 'reject') {
+      const steps = await prisma.expenseApproval.findMany({ where: { reportId: report.id }, orderBy: { level: 'asc' } });
+      if (steps.length > 0) {
+        if (!canApprove(report, actor.role, actor.personId)) throw new AppError(403, 'This report is waiting for someone else to approve it.');
+        const level = report.approvalLevel || 1;
+        const outcome = afterDecision(action, level, steps.length);
+        await prisma.expenseApproval.updateMany({
+          where: { reportId: report.id, level },
+          data: { decision: action === 'approve' ? 'APPROVED' : 'REJECTED', note: str(req.body.note).slice(0, 300), decidedAt: new Date(), approverName: await actorName(req.user?.userId) },
+        });
+        const nextStep = outcome.nextLevel ? steps.find(s => s.level === outcome.nextLevel) : null;
+        const updated = await prisma.expenseReport.update({
+          where: { id: report.id },
+          data: { status: outcome.status, currentApproverId: nextStep?.approverId ?? null, approvalLevel: nextStep?.level ?? level },
+        });
+        return res.json({ ...updated, message: outcome.status === 'SUBMITTED' ? `Approved — now with ${nextStep?.approverName}` : `Report ${outcome.status.toLowerCase()}` });
+      }
+      // No chain (top-level employee): HR approves directly, as before
+      await requireApprover(req);
+      const updated = await prisma.expenseReport.update({ where: { id: report.id }, data: { status: next, currentApproverId: null } });
+      return res.json({ ...updated, message: `Report ${next.toLowerCase()}` });
+    }
+
+    // Owner / staff actions: submit (owner), reimburse (HR)
+    await assertReportAccess(req, report.personId);
+    if (OWNER_ACTIONS.has(action)) await requireApprover(req);
     if (action === 'submit') {
       const lineCount = await prisma.expenseLine.count({ where: { reportId: report.id } });
       if (lineCount === 0) throw new AppError(400, 'Add at least one expense line before submitting');
     }
-    const updated = await prisma.expenseReport.update({
-      where: { id: report.id },
-      data: {
-        status: next,
-        ...(action === 'submit' ? { submittedOn: new Date().toISOString().split('T')[0] } : {}),
-      },
-    });
-    res.json({ ...updated, message: `Report ${next.toLowerCase()}` });
+    const extra = action === 'submit'
+      ? { submittedOn: new Date().toISOString().split('T')[0], ...(await startApprovalChain(orgId, report)) }
+      : {};
+    const updated = await prisma.expenseReport.update({ where: { id: report.id }, data: { status: next, ...extra } });
+    res.json({ ...updated, message: action === 'submit' && updated.currentApproverId ? 'Submitted — sent for approval' : `Report ${next.toLowerCase()}` });
   },
 
   // ---- Lines -------------------------------------------------------------

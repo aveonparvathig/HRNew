@@ -693,33 +693,59 @@ model InterviewRound {
 // (captured via in-browser OCR), approval workflow.
 // ---------------------------------------------------------------------------
 model ExpenseReport {
-  id              String   @id @default(cuid())
-  organizationId  String
-  personId        String
-  reportNumber    String // ER-2026-0001
-  title           String
-  businessPurpose String   @default("")
-  reportTo        String   @default("")
-  periodStart     String?
-  periodEnd       String?
-  submittedOn     String?
-  status          String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | REJECTED | REIMBURSED
-  currency        String   @default("INR")
+  id                String   @id @default(cuid())
+  organizationId    String
+  personId          String
+  reportNumber      String // ER-2026-0001
+  title             String
+  businessPurpose   String   @default("")
+  reportTo          String   @default("")
+  periodStart       String?
+  periodEnd         String?
+  submittedOn       String?
+  status            String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | REJECTED | REIMBURSED
+  currency          String   @default("INR")
   // Set while the claim is being paid with a month's salary
-  payrollEntryId  String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  payrollEntryId    String?
+  // Approval routing up the reporting line (phase 26 org chart). Null
+  // approver + level 0 = no chain (top-level employee) -> HR approves.
+  currentApproverId String?
+  approvalLevel     Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  payrollEntry PayslipEntry? @relation(fields: [payrollEntryId], references: [id], onDelete: SetNull)
+  payrollEntry PayslipEntry?     @relation(fields: [payrollEntryId], references: [id], onDelete: SetNull)
   // Restrict, like payslips: an employee with expense history stays on record.
-  person       Person        @relation(fields: [personId], references: [id], onDelete: Restrict)
+  person       Person            @relation(fields: [personId], references: [id], onDelete: Restrict)
   lines        ExpenseLine[]
+  approvals    ExpenseApproval[]
 
   @@unique([organizationId, reportNumber])
   @@index([organizationId, status])
   @@index([personId])
   @@index([payrollEntryId])
   @@map("expense_reports")
+}
+
+// One step of an expense report's approval chain (phase 26). Levels run
+// 1 = direct manager up to the top; each is signed off in order.
+model ExpenseApproval {
+  id             String    @id @default(cuid())
+  organizationId String
+  reportId       String
+  level          Int
+  approverId     String // the Person who signs this level
+  approverName   String    @default("") // snapshot, in case they later leave
+  decision       String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  note           String    @default("")
+  decidedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  report ExpenseReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, level])
+  @@index([organizationId, approverId])
+  @@map("expense_approvals")
 }
 
 model ExpenseLine {

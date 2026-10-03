@@ -3,7 +3,7 @@ import apiClient from './client';
 export const expensesAPI = {
   getMeta: () => apiClient.get('/expenses/meta'),
 
-  getReports: (params?: { status?: string; personId?: string; q?: string }) =>
+  getReports: (params?: { status?: string; personId?: string; q?: string; awaiting?: string }) =>
     apiClient.get('/expenses', { params }),
   createReport: (data: any) => apiClient.post('/expenses', data),
   getReportDetail: (reportId: string) => apiClient.get(`/expenses/${reportId}`),
