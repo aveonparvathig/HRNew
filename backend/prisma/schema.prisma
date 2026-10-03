@@ -454,10 +454,6 @@ model Person {
   perquisiteValues    PerquisiteValue[]
   recurringComponents RecurringComponent[]
   positionChanges     PositionChange[]
-  familyMembers       FamilyMember[]
-  educations          Education[]
-  previousEmployments PreviousEmployment[]
-  identityDocuments   IdentityDocument[]
 
   // The employer's contribution to the National Pension System, as a
   // share of Basic + DA (0 = none), and the employee's PRAN
@@ -588,26 +584,6 @@ model EmployeeDocument {
   uploadedByName    String   @default("")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, personId])
-  @@map("employee_documents")
-}
-
-// Family members of an employee, for insurance and PF/gratuity nomination.
-model FamilyMember {
-  id             String   @id @default(cuid())
-  organizationId String
-  personId       String
-  name           String
-  relation       String // Spouse | Son | Daughter | Father | Mother | ...
-  dateOfBirth    String?
-  isDependant    Boolean  @default(false)
-  nomineeShare   Float    @default(0) // % of the nomination; 0 = not a nominee
-  sortOrder      Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
 
   person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
 
@@ -877,6 +853,23 @@ model MailSettings {
   updatedAt      DateTime @updatedAt
 
   @@map("mail_settings")
+}
+
+// One bulk import: who ran it, on what file, and what became of each row.
+// The rows say what happened and why, and which fields changed — never
+// the values, so the log holds no PAN, bank account or salary.
+model ImportLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  kind           String // EMPLOYEES_ADD | EMPLOYEES_UPDATE | SALARY_REVISIONS | PHOTOS | DOCUMENTS
+  fileName       String
+  ranByName      String   @default("")
+  summary        Json     @default("{}") // counts by result
+  rows           Json     @default("[]") // { row, employeeNo, name, result, messages[] }
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@map("import_logs")
 }
 
 // Where a company's uploaded files go. No row, or provider DB = in the

@@ -30,6 +30,33 @@ async function fetchFile(fileId: string, organizationId: string) {
   return file;
 }
 
+// Keep one file against a person, as the upload screen and the bulk
+// upload both do it: checked, stored where the company keeps its files,
+// its category added to the list, and the upload logged.
+export async function addEmployeeFile(req: any, person: { id: string; name: string }, b: any) {
+  const organizationId = req.user?.organizationId;
+  const input = documentInput(b);
+  if (typeof input === 'string') throw new AppError(400, input);
+  // The file goes where the company keeps its files; the row says where
+  const stored = await saveFile(organizationId, person.id, input.mimeType, input.fileData);
+  let file;
+  try {
+    file = await prisma.employeeDocument.create({
+      data: { organizationId, personId: person.id, ...input, ...stored, uploadedByName: await actorName(req.user?.userId) },
+      select: FILE_CARD,
+    });
+  } catch (err) {
+    await removeStored(organizationId, [stored]);
+    throw err;
+  }
+  await ensureListValues(organizationId, { DOCUMENT_CATEGORY: input.category });
+  await logPayrollAudit(req, [{
+    action: 'DOCUMENT_UPLOADED', personId: person.id, personName: person.name, field: `${input.category} · ${input.title}`,
+    newValue: `${input.fileName} (${sizeLabel(input.sizeBytes)})${input.visibleToEmployee ? ', shown to the employee' : ''}`,
+  }]);
+  return file;
+}
+
 export const employeeFilesController = {
   async getFiles(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
@@ -46,26 +73,7 @@ export const employeeFilesController = {
   async uploadFile(req: any, res: Response) {
     const organizationId = req.user?.organizationId;
     const person = await fetchPerson(req.params.personId, organizationId);
-    const input = documentInput(req.body);
-    if (typeof input === 'string') throw new AppError(400, input);
-    // The file goes where the company keeps its files; the row says where
-    const stored = await saveFile(organizationId, person.id, input.mimeType, input.fileData);
-    let file;
-    try {
-      file = await prisma.employeeDocument.create({
-        data: { organizationId, personId: person.id, ...input, ...stored, uploadedByName: await actorName(req.user?.userId) },
-        select: FILE_CARD,
-      });
-    } catch (err) {
-      await removeStored(organizationId, [stored]);
-      throw err;
-    }
-    await ensureListValues(organizationId, { DOCUMENT_CATEGORY: input.category });
-    await logPayrollAudit(req, [{
-      action: 'DOCUMENT_UPLOADED', personId: person.id, personName: person.name, field: `${input.category} · ${input.title}`,
-      newValue: `${input.fileName} (${sizeLabel(input.sizeBytes)})${input.visibleToEmployee ? ', shown to the employee' : ''}`,
-    }]);
-    res.status(201).json(file);
+    res.status(201).json(await addEmployeeFile(req, person, req.body));
   },
 
   // Title, category, date and whether the employee sees it. The file

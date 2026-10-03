@@ -62,6 +62,58 @@ const revisionJSON = (r: any) => ({
   reason: r.reason, createdByName: r.createdByName, createdAt: r.createdAt,
 });
 
+// One salary revision, recorded the way the revision screen does it:
+// the revision, the employee's current package, draft payslips from that
+// month and arrears for months already finalized. The sheet import calls
+// this for each of its rows.
+export async function reviseSalary(req: any, personId: string, b: any) {
+  const orgId = req.user?.organizationId;
+  const person = await fetchOrgEmployee(personId, orgId);
+  const month = str(b.effectiveMonth); // "YYYY-MM"
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new AppError(400, 'Pick the month the new salary applies from');
+  const newPackage = Number(b.newMonthlyPackage);
+  if (!isFinite(newPackage) || newPackage <= 0) throw new AppError(400, 'Enter the new monthly package');
+
+  const existing = await prisma.salaryRevision.findMany({ where: { organizationId: orgId, personId: person.id } });
+  if (existing.some(r => r.effectiveFrom.slice(0, 7) > month)) {
+    throw new AppError(400, 'A later revision already exists. Remove it first, or pick a later month.');
+  }
+  const oldPackage = packageForPeriod(person.currentMonthlyPackage, existing, month);
+  if (oldPackage === newPackage) throw new AppError(400, 'The new package is the same as the current one');
+
+  const finalized = await prisma.payslipEntry.findFirst({
+    where: { organizationId: orgId, personId: person.id, run: { period: { gte: month }, status: 'FINALIZED' } },
+    include: { run: { select: { period: true } } },
+    orderBy: { run: { period: 'desc' } },
+  });
+
+  const revision = await prisma.salaryRevision.create({
+    data: {
+      organizationId: orgId, personId: person.id,
+      effectiveFrom: `${month}-01`,
+      oldMonthlyPackage: oldPackage, newMonthlyPackage: newPackage,
+      reason: str(b.reason),
+      createdByName: await actorName(req.user?.userId),
+    },
+  });
+  const current = packageForPeriod(person.currentMonthlyPackage, [...existing, revision], currentPeriodIST());
+  await prisma.person.update({ where: { id: person.id }, data: { currentMonthlyPackage: current } });
+  await logPayrollAudit(req, [{
+    action: 'SALARY_REVISED', personId: person.id, personName: person.name, period: month,
+    field: 'Monthly package', oldValue: String(oldPackage), newValue: String(newPackage),
+  }]);
+  const draftEntriesUpdated = await syncDraftEntries(req, person.id, month);
+  return {
+    revision: revisionJSON(revision),
+    currentMonthlyPackage: current,
+    draftEntriesUpdated,
+    // Finalized months on or after the effective month keep their old
+    // package; the difference is raised as arrears
+    finalizedThrough: finalized?.run.period || null,
+    arrears: finalized ? await raiseRevisionArrears(req, person.id, month, revision.id) : null,
+  };
+}
+
 export const payrollStructureController = {
   // ---- Pay components -----------------------------------------------------
   async getComponents(req: any, res: Response) {
@@ -147,51 +199,7 @@ export const payrollStructureController = {
   },
 
   async createRevision(req: any, res: Response) {
-    const orgId = req.user?.organizationId;
-    const person = await fetchOrgEmployee(req.params.personId, orgId);
-    const month = str(req.body.effectiveMonth); // "YYYY-MM"
-    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new AppError(400, 'Pick the month the new salary applies from');
-    const newPackage = Number(req.body.newMonthlyPackage);
-    if (!isFinite(newPackage) || newPackage <= 0) throw new AppError(400, 'Enter the new monthly package');
-
-    const existing = await prisma.salaryRevision.findMany({ where: { organizationId: orgId, personId: person.id } });
-    if (existing.some(r => r.effectiveFrom.slice(0, 7) > month)) {
-      throw new AppError(400, 'A later revision already exists. Remove it first, or pick a later month.');
-    }
-    const oldPackage = packageForPeriod(person.currentMonthlyPackage, existing, month);
-    if (oldPackage === newPackage) throw new AppError(400, 'The new package is the same as the current one');
-
-    const finalized = await prisma.payslipEntry.findFirst({
-      where: { organizationId: orgId, personId: person.id, run: { period: { gte: month }, status: 'FINALIZED' } },
-      include: { run: { select: { period: true } } },
-      orderBy: { run: { period: 'desc' } },
-    });
-
-    const revision = await prisma.salaryRevision.create({
-      data: {
-        organizationId: orgId, personId: person.id,
-        effectiveFrom: `${month}-01`,
-        oldMonthlyPackage: oldPackage, newMonthlyPackage: newPackage,
-        reason: str(req.body.reason),
-        createdByName: await actorName(req.user?.userId),
-      },
-    });
-    const current = packageForPeriod(person.currentMonthlyPackage, [...existing, revision], currentPeriodIST());
-    await prisma.person.update({ where: { id: person.id }, data: { currentMonthlyPackage: current } });
-    await logPayrollAudit(req, [{
-      action: 'SALARY_REVISED', personId: person.id, personName: person.name, period: month,
-      field: 'Monthly package', oldValue: String(oldPackage), newValue: String(newPackage),
-    }]);
-    const draftEntriesUpdated = await syncDraftEntries(req, person.id, month);
-    res.status(201).json({
-      revision: revisionJSON(revision),
-      currentMonthlyPackage: current,
-      draftEntriesUpdated,
-      // Finalized months on or after the effective month keep their old
-      // package; the difference is raised as arrears
-      finalizedThrough: finalized?.run.period || null,
-      arrears: finalized ? await raiseRevisionArrears(req, person.id, month, revision.id) : null,
-    });
+    res.status(201).json(await reviseSalary(req, req.params.personId, req.body));
   },
 
   // Take back what a back-dated cut overpaid in months already finalized.
