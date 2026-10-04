@@ -111,7 +111,7 @@ export function navSectionsFor(user: { role?: string; personId?: string | null }
 
   if (isSA || role === 'EMPLOYEE') {
     sections.push({
-      key: 'income', label: 'Income',
+      key: 'income', label: 'Project',
       items: INCOME_ITEMS.filter(i => isSA || !['/income/academic-years', '/income/import-export'].includes(i.to)),
     });
   }

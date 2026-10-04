@@ -8,7 +8,7 @@ import { formatINR } from '../utils/format';
 import HrPanel from '../components/HrPanel';
 
 const MODULES = [
-  { to: '/income', icon: 'chart', tone: 'tone-primary', name: 'Income', desc: 'Client billing, payments & analytics' },
+  { to: '/income', icon: 'chart', tone: 'tone-primary', name: 'Project', desc: 'Client billing, payments & analytics' },
   { to: '/recruitment', icon: 'megaphone', tone: 'tone-warning', name: 'Recruitment', desc: 'Job postings & hiring pipeline' },
   { to: '/people', icon: 'users', tone: 'tone-info', name: 'People', desc: 'Employees, candidates, interns & interviews' },
   { to: '/expenses', icon: 'receipt', tone: 'tone-warning', name: 'Expenses', desc: 'Expense reports and claims' },
