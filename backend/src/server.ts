@@ -14,6 +14,8 @@ import orgRoutes from './routes/org';
 import mastersRoutes from './routes/masters';
 import expenseRoutes from './routes/expenses';
 import selfServiceRoutes from './routes/selfService';
+import platformRoutes from './routes/platform';
+import { seedPlatformOwner } from './services/platform';
 
 // Initialize Express app
 const app: Express = express();
@@ -69,6 +71,8 @@ app.use('/api/org', orgRoutes);
 app.use('/api/masters', mastersRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/self', selfServiceRoutes);
+// Platform-owner console — sits above all tenants, its own auth scope
+app.use('/api/platform', platformRoutes);
 
 // 404 handler
 app.use(notFoundHandler);
@@ -85,6 +89,8 @@ async function startServer() {
     // Connect to database
     try {
       await connectDatabase();
+      // Seed the first platform owner from env, once (no-op without env/when one exists)
+      await seedPlatformOwner().catch(err => console.warn('⚠ Platform owner seed skipped:', err?.message));
     } catch (dbError) {
       console.warn('⚠ Database connection delayed, will retry on first request');
     }

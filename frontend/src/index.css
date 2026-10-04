@@ -1564,3 +1564,24 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
 .approval-step.current .step-mark { background: var(--primary); color: #fff; border-color: var(--primary); }
 .approval-step.rejected { border-color: var(--danger); }
 .approval-step.rejected .step-mark { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
+
+/* Platform-owner console — a deliberately distinct, dark-topped shell */
+.platform-shell { min-height: 100vh; background: var(--bg); }
+.platform-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; height: 56px; background: #0f172a; color: #e2e8f0;
+  position: sticky; top: 0; z-index: 20;
+}
+.platform-brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; color: #fff; text-decoration: none; }
+.platform-mark { color: #a5b4fc; font-size: 17px; }
+.platform-bar-right { display: flex; align-items: center; gap: 14px; }
+.platform-owner { font-size: 13px; color: #94a3b8; }
+.platform-bar .btn-ghost { color: #cbd5e1; }
+.platform-bar .btn-ghost:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.platform-main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
+.platform-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+.platform-head h1 { font-size: 22px; margin: 0; }
+@media (max-width: 640px) {
+  .platform-main { padding: 18px 16px 40px; }
+  .platform-head { flex-direction: column; }
+}

@@ -14,6 +14,10 @@ const envSchema = z.object({
   EMAIL_HOST_USER: z.string().optional(),
   EMAIL_HOST_PASSWORD: z.string().optional(),
   DEFAULT_FROM_EMAIL: z.string().email().optional(),
+  // Seeds the first platform owner on boot (once, only if none exists).
+  PLATFORM_OWNER_EMAIL: z.string().optional(),
+  PLATFORM_OWNER_PASSWORD: z.string().optional(),
+  PLATFORM_OWNER_NAME: z.string().optional(),
 });
 
 type Env = z.infer<typeof envSchema>;
