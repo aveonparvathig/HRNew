@@ -25,9 +25,14 @@ router.post('/auth/refresh', asyncHandler((req, res) => platformController.refre
 router.use(requirePlatform);
 router.get('/auth/me', asyncHandler((req, res) => platformController.me(req, res)));
 router.get('/tenants', asyncHandler((req, res) => platformController.getTenants(req, res)));
+router.post('/tenants', asyncHandler((req, res) => platformController.createTenant(req, res)));
 router.get('/tenants/:id', asyncHandler((req, res) => platformController.getTenant(req, res)));
 router.post('/tenants/:id/suspend', asyncHandler((req, res) => platformController.suspend(req, res)));
 router.post('/tenants/:id/reactivate', asyncHandler((req, res) => platformController.reactivate(req, res)));
+router.delete('/tenants/:id', asyncHandler((req, res) => platformController.deleteTenant(req, res)));
+router.get('/owners', asyncHandler((req, res) => platformController.getOwners(req, res)));
+router.post('/owners', asyncHandler((req, res) => platformController.addOwner(req, res)));
+router.post('/owners/:id/active', asyncHandler((req, res) => platformController.setOwnerActive(req, res)));
 router.get('/audit', asyncHandler((req, res) => platformController.getAudit(req, res)));
 
 export default router;
