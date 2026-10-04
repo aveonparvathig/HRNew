@@ -33,6 +33,13 @@ model Organization {
   signatureData        String @default("")
   logoPosition         String @default("LEFT") // LEFT | CENTER | RIGHT, in report and letter headers
 
+  // Tenancy lifecycle, managed from the platform-owner console.
+  // A SUSPENDED tenant's logins are refused (login, refresh and loadActor).
+  status          String    @default("ACTIVE") // ACTIVE | SUSPENDED
+  suspendedAt     DateTime?
+  suspendedReason String    @default("")
+  createdVia      String    @default("SIGNUP") // SIGNUP | OWNER
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -47,6 +54,37 @@ model Organization {
   workLocations WorkLocation[]
 
   @@map("organizations")
+}
+
+// Platform owners live OUTSIDE every tenant: they run the SaaS itself and are
+// never tied to an organizationId, so org-scoped queries and per-org role
+// checks are untouched. Their tokens carry scope "PLATFORM" (see middleware).
+// The first owner is seeded from env on boot; the rest are added in-console.
+model PlatformAdmin {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  password    String
+  name        String    @default("")
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("platform_admins")
+}
+
+// Every platform-owner action is logged here. Only what changed is kept, never
+// a tenant's own data values. organizationId is the tenant acted on, if any.
+model PlatformAuditLog {
+  id             String   @id @default(cuid())
+  actorEmail     String
+  action         String
+  organizationId String?
+  detail         String   @default("")
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("platform_audit_logs")
 }
 
 model User {

@@ -125,6 +125,14 @@ export const authController = {
       await recordLogin(found, 'DISABLED', req);
       throw new AppError(403, 'This account has been disabled. Contact your organization owner.');
     }
+    // A suspended tenant cannot sign in at all, whatever the credentials.
+    const org = await prisma.organization.findUnique({
+      where: { id: found.organizationId }, select: { status: true },
+    });
+    if (org?.status === 'SUSPENDED') {
+      await recordLogin(found, 'DISABLED', req);
+      throw new AppError(403, 'This organization has been suspended. Contact support.');
+    }
     if (tempPasswordExpired(policy, found.mustChangePassword, found.passwordChangedAt, now)) {
       await recordLogin(found, 'TEMP_EXPIRED', req);
       throw new AppError(403, 'Your temporary password has expired. Ask an admin to set a new one.');
@@ -192,12 +200,17 @@ export const authController = {
       throw new AppError(401, 'Refresh token has been revoked');
     }
 
-    const user = await prisma.user.findUnique({ where: { id: decoded.userId } });
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.userId }, include: { organization: { select: { status: true } } },
+    });
     if (!user) {
       throw new AppError(404, 'User not found');
     }
     if (!user.isActive) {
       throw new AppError(403, 'This account has been disabled. Contact your organization owner.');
+    }
+    if (user.organization?.status === 'SUSPENDED') {
+      throw new AppError(403, 'This organization has been suspended. Contact support.');
     }
 
     const newAccessToken = generateAccessToken(user.id, user.email, user.organizationId);

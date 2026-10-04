@@ -10,9 +10,16 @@ export async function loadActor(req: any) {
   if (req.actor) return req.actor;
   const user = await prisma.user.findUnique({
     where: { id: req.user?.userId },
-    select: { id: true, role: true, isActive: true, personId: true, organizationId: true },
+    select: {
+      id: true, role: true, isActive: true, personId: true, organizationId: true,
+      organization: { select: { status: true } },
+    },
   });
   if (!user || !user.isActive) throw new AppError(401, 'Account is inactive');
+  // A suspended tenant is frozen even for already-issued sessions.
+  if (user.organization?.status === 'SUSPENDED') {
+    throw new AppError(403, 'This organization has been suspended. Contact support.');
+  }
   req.actor = user;
   return user;
 }

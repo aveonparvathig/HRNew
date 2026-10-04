@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
+import { usePlatformStore } from './store/platformStore';
 import AppLayout from './components/Layout/AppLayout';
 import Login from './pages/Auth/Login';
 import { LoadingBlock } from './components/ui';
@@ -65,6 +66,11 @@ const MyDocument = lazy(() => import('./pages/My/MyDocument'));
 const CompanySettings = lazy(() => import('./pages/Organization/CompanySettings'));
 const Team = lazy(() => import('./pages/Organization/Team'));
 const Security = lazy(() => import('./pages/Organization/Security'));
+// Platform-owner console — a separate app above all tenants
+const PlatformLogin = lazy(() => import('./pages/Platform/PlatformLogin'));
+const PlatformLayout = lazy(() => import('./pages/Platform/PlatformLayout'));
+const PlatformTenants = lazy(() => import('./pages/Platform/PlatformTenants'));
+const PlatformTenantDetail = lazy(() => import('./pages/Platform/PlatformTenantDetail'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuthStore(state => state.user);
@@ -86,14 +92,29 @@ const PAYROLL = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'];
 const SA_EMP = ['SUPER_ADMIN', 'EMPLOYEE'];
 const SA_MKT = ['SUPER_ADMIN', 'MARKETING'];
 
+// Platform console guard — the owner session is entirely separate from any tenant login
+function RequirePlatform({ children }: { children: React.ReactNode }) {
+  const admin = usePlatformStore(state => state.admin);
+  if (!admin) return <Navigate to="/platform/login" replace />;
+  return <>{children}</>;
+}
+
 function App() {
   const user = useAuthStore(state => state.user);
+  const platformAdmin = usePlatformStore(state => state.admin);
 
   return (
     <Router>
       <FeedbackHost />
       <Suspense fallback={<LoadingBlock label="Loading…" />}>
         <Routes>
+          {/* Platform-owner console — above all tenants, its own auth */}
+          <Route path="/platform/login" element={!platformAdmin ? <PlatformLogin /> : <Navigate to="/platform" />} />
+          <Route element={<RequirePlatform><PlatformLayout /></RequirePlatform>}>
+            <Route path="/platform" element={<PlatformTenants />} />
+            <Route path="/platform/tenants/:id" element={<PlatformTenantDetail />} />
+          </Route>
+
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
           <Route path="/change-password" element={user ? <ChangePassword /> : <Navigate to="/login" />} />
