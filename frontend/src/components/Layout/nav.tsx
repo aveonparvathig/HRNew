@@ -68,6 +68,13 @@ const PEOPLE_ITEMS: NavItem[] = [
   { to: '/expenses', icon: 'receipt', label: 'Expenses' },
 ];
 
+const LEAVE_ITEMS: NavItem[] = [
+  { to: '/leave', icon: 'calendar', label: 'Leave', also: ['/leave/requests'] },
+  { to: '/leave/balances', icon: 'layers', label: 'Balances' },
+  { to: '/leave/holidays', icon: 'pin', label: 'Holidays' },
+  { to: '/leave/settings', icon: 'sliders', label: 'Settings' },
+];
+
 const PROPOSAL_ITEMS: NavItem[] = [
   { to: '/proposals', icon: 'pen', label: 'Builder' },
   { to: '/proposals/history', icon: 'history', label: 'History' },
@@ -109,6 +116,7 @@ const ITEM_MODULES: { prefix: string; module: string }[] = [
   { prefix: '/proposals', module: 'proposals' },
   { prefix: '/expenses', module: 'expenses' },
   { prefix: '/payroll', module: 'payroll' },
+  { prefix: '/leave', module: 'leave' },
 ];
 function itemModule(to: string): string | null {
   const m = ITEM_MODULES.find(x => to === x.prefix || to.startsWith(x.prefix + '/'));
@@ -138,6 +146,11 @@ export function navSectionsFor(
       (isSA || isHR) ? true
         : isMarketing ? i.to === '/expenses' // marketing: own expenses only
         : ['/people', '/people/org-chart', '/expenses'].includes(i.to)),
+  });
+  // Leave: everyone can apply for their own; HR also gets balances/holidays/settings
+  sections.push({
+    key: 'leave', label: 'Leave',
+    items: LEAVE_ITEMS.filter(i => (isSA || isHR) ? true : i.to === '/leave'),
   });
   if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
   if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });

@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthStore>()(
 
 // All gated modules — the fallback when the plan context is unknown, so a
 // tenant with no plan (or before /auth/me resolves) sees everything.
-export const ALL_MODULES = ['project', 'recruitment', 'proposals', 'expenses', 'payroll'];
+export const ALL_MODULES = ['project', 'recruitment', 'proposals', 'expenses', 'payroll', 'leave'];
 
 export function useEnabledModules(): string[] {
   const org = useAuthStore(s => s.org);

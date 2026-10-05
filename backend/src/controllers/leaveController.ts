@@ -1,0 +1,394 @@
+import { Response } from 'express';
+import { prisma } from '../config/database';
+import { AppError } from '../middleware/errorHandler';
+import { loadActor } from '../middleware/roles';
+import { afterDecision, canApprove } from '../services/expenseApproval';
+import { actorName } from '../services/payroll/audit';
+import { workingDaysBetween, leaveYearOf, balanceOf, validateRequest, type LeaveTypePolicy } from '../services/leaveCalc';
+import {
+  ensureDefaultLeaveTypes, settingsFor, holidaySetFor, grantLeave,
+  nextRequestNumber, startApprovalChain, onApproved, onCancelled,
+} from '../services/leave/leaveService';
+
+const str = (v: any) => String(v ?? '');
+const num = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+export const LEAVE_STATUSES = [
+  { value: 'DRAFT', label: 'Draft' },
+  { value: 'SUBMITTED', label: 'Submitted' },
+  { value: 'APPROVED', label: 'Approved' },
+  { value: 'REJECTED', label: 'Rejected' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const TRANSITIONS: Record<string, Record<string, string>> = {
+  DRAFT: { submit: 'SUBMITTED', cancel: 'CANCELLED' },
+  SUBMITTED: { approve: 'APPROVED', reject: 'REJECTED', cancel: 'CANCELLED' },
+  APPROVED: { cancel: 'CANCELLED' },
+  REJECTED: { submit: 'SUBMITTED' },
+  CANCELLED: {},
+};
+const APPROVER_ACTIONS = new Set(['approve', 'reject']);
+const EDITABLE_STATUSES = new Set(['DRAFT', 'REJECTED']);
+
+const selfScoped = (actor: any) => !['SUPER_ADMIN', 'HR'].includes(actor?.role);
+
+async function fetchOrgRequest(id: string, organizationId: string) {
+  const request = await prisma.leaveRequest.findFirst({
+    where: { id, organizationId },
+    include: {
+      person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true, gender: true, employmentStatus: true, workLocationId: true } },
+      leaveType: true,
+    },
+  });
+  if (!request) throw new AppError(404, 'Leave request not found');
+  return request as any;
+}
+
+async function assertRequestAccess(req: any, personId: string) {
+  const actor = await loadActor(req);
+  if (selfScoped(actor) && actor.personId !== personId) throw new AppError(404, 'Leave request not found');
+}
+
+async function requireApprover(req: any) {
+  const actor = await loadActor(req);
+  if (!['SUPER_ADMIN', 'HR'].includes(actor.role)) throw new AppError(403, 'Only admins and HR can approve or reject');
+}
+
+const policyOf = (t: any): LeaveTypePolicy => ({
+  code: t.code, paid: t.paid, genderGate: t.genderGate, halfDayAllowed: t.halfDayAllowed,
+  requiresAttachment: t.requiresAttachment, eligibleAfterProbation: t.eligibleAfterProbation,
+});
+
+// Working days of a request using the person's location holidays + week-offs.
+async function computeDays(orgId: string, person: any, startDate: string, endDate: string, halfStart: boolean, halfEnd: boolean) {
+  const settings = await settingsFor(orgId);
+  const holidays = await holidaySetFor(orgId, person?.workLocationId);
+  return round2(workingDaysBetween(startDate, endDate, settings.weekOffDays, holidays, halfStart, halfEnd));
+}
+
+async function balanceFor(orgId: string, personId: string, leaveTypeId: string, year: number) {
+  const row = await prisma.leaveBalance.findUnique({
+    where: { organizationId_personId_leaveTypeId_year: { organizationId: orgId, personId, leaveTypeId, year } },
+  });
+  return row ? balanceOf(row) : 0;
+}
+
+// Pending (SUBMITTED) days a person has for a type in a year — the "Applied" column.
+async function pendingDays(orgId: string, personId: string, leaveTypeId: string) {
+  const rows = await prisma.leaveRequest.findMany({
+    where: { organizationId: orgId, personId, leaveTypeId, status: 'SUBMITTED' }, select: { days: true },
+  });
+  return round2(rows.reduce((s, r) => s + r.days, 0));
+}
+
+async function hasOverlap(orgId: string, personId: string, startDate: string, endDate: string, excludeId?: string) {
+  const live = await prisma.leaveRequest.findMany({
+    where: {
+      organizationId: orgId, personId, status: { in: ['SUBMITTED', 'APPROVED'] },
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+    },
+    select: { startDate: true, endDate: true },
+  });
+  return live.some(r => r.startDate <= endDate && r.endDate >= startDate);
+}
+
+const approvalView = (steps: any[]) => steps
+  .sort((a, b) => a.level - b.level)
+  .map(s => ({ level: s.level, approverId: s.approverId, approverName: s.approverName, decision: s.decision, note: s.note, decidedAt: s.decidedAt }));
+
+export const leaveController = {
+  async getMeta(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    await ensureDefaultLeaveTypes(orgId);
+    const actor = await loadActor(req);
+    const [types, settings] = await Promise.all([
+      prisma.leaveType.findMany({ where: { organizationId: orgId, active: true }, orderBy: { sortOrder: 'asc' } }),
+      settingsFor(orgId),
+    ]);
+    const employees = selfScoped(actor)
+      ? await prisma.person.findMany({ where: { id: actor.personId || 'none', organizationId: orgId }, select: { id: true, name: true, employeeNo: true } })
+      : await prisma.person.findMany({ where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } }, orderBy: { name: 'asc' }, select: { id: true, name: true, employeeNo: true } });
+    res.json({ types, statuses: LEAVE_STATUSES, employees, weekOffDays: settings.weekOffDays, canApplyOnBehalf: !selfScoped(actor) && settings.hrApplyOnBehalf });
+  },
+
+  async getRequests(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const actor = await loadActor(req);
+    const status = str(req.query.status);
+    const awaiting = str(req.query.awaiting) === '1';
+    const personId = selfScoped(actor) ? (actor.personId || 'none') : str(req.query.personId);
+    const q = str(req.query.q).trim();
+    const requests = await prisma.leaveRequest.findMany({
+      where: {
+        organizationId: orgId,
+        ...(awaiting
+          ? { currentApproverId: actor.personId || 'none', status: 'SUBMITTED' }
+          : { ...(status ? { status } : {}), ...(personId ? { personId } : {}) }),
+        ...(q ? {
+          OR: [
+            { requestNumber: { contains: q, mode: 'insensitive' as const } },
+            { reason: { contains: q, mode: 'insensitive' as const } },
+            { person: { name: { contains: q, mode: 'insensitive' as const } } },
+          ],
+        } : {}),
+      },
+      include: { person: { select: { id: true, name: true, employeeNo: true } }, leaveType: { select: { code: true, name: true, paid: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({
+      requests,
+      pendingCount: requests.filter(r => r.status === 'SUBMITTED').length,
+      takenDays: round2(requests.filter(r => r.status === 'APPROVED').reduce((s, r) => s + r.days, 0)),
+    });
+  },
+
+  async createRequest(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const actor = await loadActor(req);
+    const targetPersonId = selfScoped(actor) ? (actor.personId || '') : str(b.personId);
+    const person = await prisma.person.findFirst({ where: { id: targetPersonId, organizationId: orgId, isEmployee: true } });
+    if (!person) throw new AppError(400, 'Pick the employee this leave is for');
+    const type = await prisma.leaveType.findFirst({ where: { id: str(b.leaveTypeId), organizationId: orgId, active: true } });
+    if (!type) throw new AppError(400, 'Pick a leave type');
+    const startDate = str(b.startDate), endDate = str(b.endDate);
+    if (!DATE.test(startDate) || !DATE.test(endDate)) throw new AppError(400, 'Pick valid from/to dates');
+    if (endDate < startDate) throw new AppError(400, 'The end date is before the start date');
+    const halfDayStart = Boolean(b.halfDayStart), halfDayEnd = Boolean(b.halfDayEnd);
+    const days = await computeDays(orgId, person, startDate, endDate, halfDayStart, halfDayEnd);
+    const request = await prisma.leaveRequest.create({
+      data: {
+        organizationId: orgId, personId: person.id, requestNumber: await nextRequestNumber(orgId),
+        leaveTypeId: type.id, startDate, endDate, halfDayStart, halfDayEnd, days,
+        reason: str(b.reason), attachmentData: str(b.attachmentData).slice(0, 4_000_000),
+        appliedOnBehalf: selfScoped(actor) ? false : person.id !== actor.personId,
+      },
+    });
+    res.status(201).json(request);
+  },
+
+  async getRequestDetail(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const request = await fetchOrgRequest(req.params.requestId, orgId);
+    const actor = await loadActor(req);
+    const staff = ['SUPER_ADMIN', 'HR'].includes(actor.role);
+    const isOwner = actor.personId === request.personId;
+    const steps = await prisma.leaveApproval.findMany({ where: { requestId: request.id } });
+    const onChain = Boolean(actor.personId) && steps.some(s => s.approverId === actor.personId);
+    if (!staff && !isOwner && !onChain) throw new AppError(404, 'Leave request not found');
+    const canApproveNow = request.status === 'SUBMITTED' && (request.currentApproverId ? canApprove(request, actor.role, actor.personId) : staff);
+    res.json({
+      ...request,
+      approvals: approvalView(steps),
+      canApproveNow,
+      editable: EDITABLE_STATUSES.has(request.status) && (isOwner || staff),
+      canCancel: ['DRAFT', 'SUBMITTED', 'APPROVED'].includes(request.status) && (isOwner || staff),
+      actions: Object.keys(TRANSITIONS[request.status] || {}).filter(a => {
+        if (APPROVER_ACTIONS.has(a)) return canApproveNow;
+        return isOwner || staff; // submit / cancel
+      }),
+    });
+  },
+
+  async updateRequest(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const request = await fetchOrgRequest(req.params.requestId, orgId);
+    await assertRequestAccess(req, request.personId);
+    if (!EDITABLE_STATUSES.has(request.status)) throw new AppError(400, `A ${request.status.toLowerCase()} request is locked`);
+    const b = req.body;
+    const data: any = {};
+    let recompute = false;
+    if (b.leaveTypeId !== undefined) {
+      const type = await prisma.leaveType.findFirst({ where: { id: str(b.leaveTypeId), organizationId: orgId } });
+      if (!type) throw new AppError(400, 'Pick a valid leave type');
+      data.leaveTypeId = type.id;
+    }
+    for (const f of ['startDate', 'endDate']) if (b[f] !== undefined) { if (!DATE.test(str(b[f]))) throw new AppError(400, 'Pick valid dates'); data[f] = str(b[f]); recompute = true; }
+    for (const f of ['halfDayStart', 'halfDayEnd']) if (b[f] !== undefined) { data[f] = Boolean(b[f]); recompute = true; }
+    if (b.reason !== undefined) data.reason = str(b.reason);
+    if (b.attachmentData !== undefined) data.attachmentData = str(b.attachmentData).slice(0, 4_000_000);
+    const startDate = data.startDate ?? request.startDate, endDate = data.endDate ?? request.endDate;
+    if (endDate < startDate) throw new AppError(400, 'The end date is before the start date');
+    if (recompute) data.days = await computeDays(orgId, request.person, startDate, endDate, data.halfDayStart ?? request.halfDayStart, data.halfDayEnd ?? request.halfDayEnd);
+    const updated = await prisma.leaveRequest.update({ where: { id: request.id }, data });
+    res.json(updated);
+  },
+
+  async deleteRequest(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const request = await fetchOrgRequest(req.params.requestId, orgId);
+    await assertRequestAccess(req, request.personId);
+    if (request.status !== 'DRAFT') throw new AppError(400, 'Only draft requests can be deleted');
+    await prisma.leaveRequest.delete({ where: { id: request.id } });
+    res.json({ message: `Deleted ${request.requestNumber}` });
+  },
+
+  async changeStatus(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const request = await fetchOrgRequest(req.params.requestId, orgId);
+    const actor = await loadActor(req);
+    const action = str(req.body.action);
+    const next = TRANSITIONS[request.status]?.[action];
+    if (!next) throw new AppError(400, `Cannot ${action} a ${request.status.toLowerCase()} request`);
+
+    // Approve / reject — route up the reporting chain when there is one
+    if (action === 'approve' || action === 'reject') {
+      const steps = await prisma.leaveApproval.findMany({ where: { requestId: request.id }, orderBy: { level: 'asc' } });
+      if (steps.length > 0) {
+        if (!canApprove(request, actor.role, actor.personId)) throw new AppError(403, 'This request is waiting for someone else to approve it.');
+        const level = request.approvalLevel || 1;
+        const outcome = afterDecision(action, level, steps.length);
+        await prisma.leaveApproval.updateMany({
+          where: { requestId: request.id, level },
+          data: { decision: action === 'approve' ? 'APPROVED' : 'REJECTED', note: str(req.body.note).slice(0, 300), decidedAt: new Date(), approverName: await actorName(req.user?.userId) },
+        });
+        const nextStep = outcome.nextLevel ? steps.find(s => s.level === outcome.nextLevel) : null;
+        const updated = await prisma.leaveRequest.update({
+          where: { id: request.id },
+          data: { status: outcome.status, currentApproverId: nextStep?.approverId ?? null, approvalLevel: nextStep?.level ?? level },
+        });
+        if (outcome.status === 'APPROVED') await onApproved(req, { ...request, days: request.days });
+        return res.json({ ...updated, message: outcome.status === 'SUBMITTED' ? `Approved — now with ${nextStep?.approverName}` : `Request ${outcome.status.toLowerCase()}` });
+      }
+      // No chain: HR approves directly
+      await requireApprover(req);
+      const updated = await prisma.leaveRequest.update({ where: { id: request.id }, data: { status: next, currentApproverId: null } });
+      if (next === 'APPROVED') await onApproved(req, request);
+      return res.json({ ...updated, message: `Request ${next.toLowerCase()}` });
+    }
+
+    // Owner / staff actions
+    await assertRequestAccess(req, request.personId);
+    if (action === 'submit') {
+      const year = leaveYearOf(request.startDate, (await settingsFor(orgId)).leaveYearStartMonth);
+      const problem = validateRequest({
+        type: policyOf(request.leaveType),
+        gender: request.person.gender || '',
+        confirmed: request.person.employmentStatus !== 'PROBATION',
+        days: request.days,
+        balance: await balanceFor(orgId, request.personId, request.leaveTypeId, year),
+        hasAttachment: Boolean(request.attachmentData),
+        overlaps: await hasOverlap(orgId, request.personId, request.startDate, request.endDate, request.id),
+        halfDay: request.halfDayStart || request.halfDayEnd,
+      });
+      if (problem) throw new AppError(400, problem);
+      const chain = await startApprovalChain(orgId, request);
+      const updated = await prisma.leaveRequest.update({
+        where: { id: request.id },
+        data: { status: next, submittedOn: new Date().toISOString().split('T')[0], ...chain },
+      });
+      return res.json({ ...updated, message: updated.currentApproverId ? 'Submitted — sent for approval' : 'Submitted — awaiting HR approval' });
+    }
+    if (action === 'cancel') {
+      const wasApproved = request.status === 'APPROVED';
+      const updated = await prisma.leaveRequest.update({ where: { id: request.id }, data: { status: 'CANCELLED', currentApproverId: null } });
+      if (wasApproved) await onCancelled(req, request);
+      return res.json({ ...updated, message: 'Request cancelled' });
+    }
+    throw new AppError(400, 'Unsupported action');
+  },
+
+  // --- HR: balances & grants ----------------------------------------------
+  async getBalances(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const actor = await loadActor(req);
+    const personId = selfScoped(actor) ? (actor.personId || 'none') : str(req.query.personId);
+    if (!personId || personId === 'none') throw new AppError(400, 'Pick an employee');
+    await assertRequestAccess(req, personId);
+    await ensureDefaultLeaveTypes(orgId);
+    const settings = await settingsFor(orgId);
+    const year = req.query.year ? parseInt(str(req.query.year)) : leaveYearOf(new Date().toISOString().slice(0, 10), settings.leaveYearStartMonth);
+    const types = await prisma.leaveType.findMany({ where: { organizationId: orgId, active: true }, orderBy: { sortOrder: 'asc' } });
+    const rows = [];
+    for (const t of types) {
+      const bal = await prisma.leaveBalance.findUnique({
+        where: { organizationId_personId_leaveTypeId_year: { organizationId: orgId, personId, leaveTypeId: t.id, year } },
+      });
+      const b = bal || { opening: 0, granted: 0, taken: 0, lapsed: 0, encashed: 0 };
+      rows.push({
+        leaveTypeId: t.id, code: t.code, name: t.name, paid: t.paid,
+        opening: round2(b.opening), granted: round2(b.granted), availed: round2(b.taken),
+        applied: await pendingDays(orgId, personId, t.id), lapsed: round2(b.lapsed), encashed: round2(b.encashed),
+        balance: round2(balanceOf(b)),
+      });
+    }
+    res.json({ year, rows });
+  },
+
+  async grantLeave(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const person = await prisma.person.findFirst({ where: { id: str(b.personId), organizationId: orgId, isEmployee: true } });
+    if (!person) throw new AppError(400, 'Pick a valid employee');
+    const type = await prisma.leaveType.findFirst({ where: { id: str(b.leaveTypeId), organizationId: orgId } });
+    if (!type) throw new AppError(400, 'Pick a valid leave type');
+    const days = num(b.days);
+    if (!days) throw new AppError(400, 'Enter a number of days (negative to deduct)');
+    const effectiveDate = DATE.test(str(b.effectiveDate)) ? str(b.effectiveDate) : new Date().toISOString().slice(0, 10);
+    await grantLeave(req, orgId, person.id, type.id, days, str(b.note), effectiveDate);
+    res.json({ message: `Granted ${days} day(s) of ${type.code} to ${person.name}` });
+  },
+
+  // --- HR: holidays --------------------------------------------------------
+  async listHolidays(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const year = req.query.year ? str(req.query.year) : String(new Date().getFullYear());
+    const [holidays, locations] = await Promise.all([
+      prisma.holiday.findMany({ where: { organizationId: orgId, date: { startsWith: year } }, orderBy: { date: 'asc' }, include: { workLocation: { select: { id: true, name: true } } } }),
+      prisma.workLocation.findMany({ where: { organizationId: orgId, isActive: true }, select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+    ]);
+    res.json({ year, holidays, locations });
+  },
+
+  async saveHoliday(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const date = str(b.date);
+    if (!DATE.test(date)) throw new AppError(400, 'Pick a valid date');
+    const name = str(b.name).trim();
+    if (!name) throw new AppError(400, 'Enter the holiday name');
+    const type = ['PUBLIC', 'RESTRICTED'].includes(str(b.type)) ? str(b.type) : 'PUBLIC';
+    const workLocationId = b.workLocationId || null;
+    if (b.id) {
+      const updated = await prisma.holiday.update({ where: { id: str(b.id) }, data: { date, name, type, workLocationId } });
+      return res.json(updated);
+    }
+    const created = await prisma.holiday.create({ data: { organizationId: orgId, date, name, type, workLocationId } });
+    res.status(201).json(created);
+  },
+
+  async deleteHoliday(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const h = await prisma.holiday.findFirst({ where: { id: req.params.holidayId, organizationId: orgId } });
+    if (!h) throw new AppError(404, 'Holiday not found');
+    await prisma.holiday.delete({ where: { id: h.id } });
+    res.json({ message: 'Holiday removed' });
+  },
+
+  // --- HR: settings --------------------------------------------------------
+  async getSettings(req: any, res: Response) {
+    res.json(await settingsFor(req.user?.organizationId));
+  },
+
+  async saveSettings(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const data: any = {};
+    if (b.weekOffDays !== undefined) {
+      if (!Array.isArray(b.weekOffDays)) throw new AppError(400, 'weekOffDays must be a list');
+      data.weekOffDays = [...new Set(b.weekOffDays.map((d: any) => parseInt(d)).filter((d: number) => d >= 0 && d <= 6))];
+    }
+    if (b.leaveYearStartMonth !== undefined) {
+      const m = parseInt(b.leaveYearStartMonth);
+      if (m < 1 || m > 12) throw new AppError(400, 'Leave year start month must be 1-12');
+      data.leaveYearStartMonth = m;
+    }
+    if (b.hrApplyOnBehalf !== undefined) data.hrApplyOnBehalf = Boolean(b.hrApplyOnBehalf);
+    await settingsFor(orgId);
+    const updated = await prisma.leaveSettings.update({ where: { organizationId: orgId }, data });
+    res.json(updated);
+  },
+};

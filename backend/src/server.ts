@@ -13,6 +13,7 @@ import payrollRoutes from './routes/payroll';
 import orgRoutes from './routes/org';
 import mastersRoutes from './routes/masters';
 import expenseRoutes from './routes/expenses';
+import leaveRoutes from './routes/leave';
 import selfServiceRoutes from './routes/selfService';
 import platformRoutes from './routes/platform';
 import { seedPlatformOwner, seedPlans } from './services/platform';
@@ -70,6 +71,7 @@ app.use('/api/payroll', payrollRoutes);
 app.use('/api/org', orgRoutes);
 app.use('/api/masters', mastersRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/leave', leaveRoutes);
 app.use('/api/self', selfServiceRoutes);
 // Platform-owner console — sits above all tenants, its own auth scope
 app.use('/api/platform', platformRoutes);

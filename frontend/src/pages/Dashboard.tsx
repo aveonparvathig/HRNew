@@ -12,6 +12,7 @@ const MODULES = [
   { to: '/recruitment', icon: 'megaphone', tone: 'tone-warning', name: 'Recruitment', desc: 'Job postings & hiring pipeline' },
   { to: '/people', icon: 'users', tone: 'tone-info', name: 'People', desc: 'Employees, candidates, interns & interviews' },
   { to: '/expenses', icon: 'receipt', tone: 'tone-warning', name: 'Expenses', desc: 'Expense reports and claims' },
+  { to: '/leave', icon: 'calendar', tone: 'tone-info', name: 'Leave', desc: 'Apply for leave, balances & holidays' },
   { to: '/proposals', icon: 'pen', tone: 'tone-success', name: 'Proposals', desc: 'Branded quotations from the module catalog' },
   { to: '/payroll', icon: 'banknote', tone: 'tone-primary', name: 'Payroll', desc: 'Monthly runs, statutory returns & payslips' },
   { to: '/my/payslips', icon: 'banknote', tone: 'tone-success', name: 'My Pay', desc: 'Your payslips, tax declaration and loans' },
@@ -21,7 +22,7 @@ const MODULES = [
 // A tile's gated module, if any (core tiles are always shown)
 const TILE_MODULE: Record<string, string> = {
   '/income': 'project', '/recruitment': 'recruitment', '/expenses': 'expenses',
-  '/proposals': 'proposals', '/payroll': 'payroll',
+  '/proposals': 'proposals', '/payroll': 'payroll', '/leave': 'leave',
 };
 
 // Which module cards each role sees (mirrors the API policy)
@@ -31,6 +32,7 @@ const MODULE_ROLES: Record<string, string[]> = {
   '/recruitment': ['SUPER_ADMIN', 'HR'],
   '/people': ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER', 'EMPLOYEE'],
   '/expenses': ALL,
+  '/leave': ALL,
   '/proposals': ['SUPER_ADMIN', 'MARKETING'],
   '/payroll': ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'],
   '/my/payslips': ALL, // shown only when the login is linked to a person
