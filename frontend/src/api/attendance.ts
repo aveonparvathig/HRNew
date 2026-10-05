@@ -16,4 +16,10 @@ export const attendanceAPI = {
   deleteSwipe: (swipeId: string) => apiClient.delete(`/attendance/swipes/${swipeId}`),
   importSwipes: (text: string) => apiClient.post('/attendance/swipes/import', { text }),
   getExceptions: (month?: string) => apiClient.get('/attendance/exceptions', { params: month ? { month } : {} }),
+
+  getMuster: (month?: string) => apiClient.get('/attendance/muster', { params: month ? { month } : {} }),
+  process: (month: string) => apiClient.post('/attendance/process', { month }),
+  override: (data: { personId: string; date: string; status: string; note?: string }) => apiClient.post('/attendance/override', data),
+  finalise: (month: string) => apiClient.post('/attendance/finalise', { month }),
+  reopen: (month: string) => apiClient.post('/attendance/reopen', { month }),
 };

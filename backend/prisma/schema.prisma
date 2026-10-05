@@ -571,6 +571,7 @@ model Person {
   attendanceProfile   AttendanceProfile?
   shiftAssignments    ShiftAssignment[]
   swipes              Swipe[]
+  attendanceDays      AttendanceDay[]
   user                User?
 
   @@unique([organizationId, kind, name])
@@ -1096,6 +1097,41 @@ model Swipe {
   @@map("swipes")
 }
 
+// A processed attendance day (phase 7): the status derived from the roster,
+// week-offs, holidays, approved leave and swipes — or a manual override.
+model AttendanceDay {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  date           String // "YYYY-MM-DD"
+  // PRESENT | HALF_DAY | ABSENT | WEEKOFF | HOLIDAY | LEAVE | LOP
+  status         String
+  workedMinutes  Int      @default(0)
+  shiftCode      String   @default("")
+  source         String   @default("COMPUTED") // COMPUTED | OVERRIDE
+  note           String   @default("")
+  updatedAt      DateTime @updatedAt
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, personId, date])
+  @@index([organizationId, date])
+  @@map("attendance_days")
+}
+
+// Per-org per-month attendance lock. FINALISED freezes the month and pushes
+// present/LOP days into that month's payroll run.
+model AttendancePeriod {
+  organizationId String
+  month          String // "YYYY-MM"
+  status         String    @default("OPEN") // OPEN | FINALISED
+  finalisedAt    DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  @@id([organizationId, month])
+  @@map("attendance_periods")
+}
+
 // ---------------------------------------------------------------------------
 // Payroll - org-level rates, monthly runs, computed payslip entries.
 // Defaults reproduce the source Salary Excel's hardcoded values exactly.
@@ -1374,10 +1410,13 @@ model PayslipEntry {
   lopDays          Float @default(0)
   presentDays      Float @default(0)
   payDays          Float @default(0)
-  // LOP contributed by approved leave (Leave module). Kept apart from the
-  // hand-typed LOP so a re-sync never double counts: effective lopDays =
-  // manual LOP + leaveLopDays.
-  leaveLopDays     Float @default(0)
+  // LOP contributed by approved leave (Leave module) and by attendance
+  // processing (unauthorised absences). Kept apart from the hand-typed LOP so a
+  // re-sync never double counts: effective lopDays = manual + leaveLopDays +
+  // attendanceLopDays (leave and attendance never cover the same day).
+  leaveLopDays          Float @default(0)
+  attendanceLopDays     Float @default(0)
+  attendancePresentDays Float @default(0)
 
   // Rare manual one-offs.
   internetAllowance     Float   @default(0)

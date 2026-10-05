@@ -29,4 +29,10 @@ router.delete('/swipes/:swipeId', hrOnly, asyncHandler((req, res) => attendanceC
 router.post('/swipes/import', hrOnly, asyncHandler((req, res) => attendanceController.importSwipes(req, res)));
 router.get('/exceptions', hrOnly, asyncHandler((req, res) => attendanceController.exceptions(req, res)));
 
+router.get('/muster', hrOnly, asyncHandler((req, res) => attendanceController.getMuster(req, res)));
+router.post('/process', hrOnly, asyncHandler((req, res) => attendanceController.process(req, res)));
+router.post('/override', hrOnly, asyncHandler((req, res) => attendanceController.override(req, res)));
+router.post('/finalise', hrOnly, asyncHandler((req, res) => attendanceController.finalise(req, res)));
+router.post('/reopen', hrOnly, asyncHandler((req, res) => attendanceController.reopen(req, res)));
+
 export default router;

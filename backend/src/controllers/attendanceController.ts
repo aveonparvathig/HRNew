@@ -4,7 +4,9 @@ import { AppError } from '../middleware/errorHandler';
 import {
   ensureDefaultShifts, getRoster, assignShifts, clearAssignment, setProfile,
   getSwipeDays, addSwipe, deleteSwipe, importSwipes, swipeExceptions,
+  processMonth, getMuster, overrideDay, finalisePeriod, reopenPeriod, periodStatus,
 } from '../services/attendance/attendanceService';
+import { ATTENDANCE_STATUSES } from '../services/attendanceCalc';
 
 const str = (v: any) => String(v ?? '');
 const num = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
@@ -89,6 +91,43 @@ export const attendanceController = {
     if (!DATE.test(str(date))) throw new AppError(400, 'Pick a valid date');
     await clearAssignment(orgId, str(personId), str(date));
     res.json({ message: 'Cleared' });
+  },
+
+  // --- Processing / muster / finalisation ---
+  async process(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const month = MONTH.test(str(req.body.month)) ? str(req.body.month) : new Date().toISOString().slice(0, 7);
+    if (await periodStatus(orgId, month) === 'FINALISED') throw new AppError(400, 'This month is finalised. Reopen it to reprocess.');
+    res.json(await processMonth(orgId, month));
+  },
+
+  async getMuster(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const month = MONTH.test(str(req.query.month)) ? str(req.query.month) : new Date().toISOString().slice(0, 7);
+    res.json(await getMuster(orgId, month));
+  },
+
+  async override(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    if (!DATE.test(str(b.date))) throw new AppError(400, 'Pick a valid date');
+    const status = str(b.status).toUpperCase();
+    if (!ATTENDANCE_STATUSES.includes(status as any)) throw new AppError(400, 'Invalid status');
+    const person = await prisma.person.findFirst({ where: { id: str(b.personId), organizationId: orgId, isEmployee: true } });
+    if (!person) throw new AppError(400, 'Pick a valid employee');
+    res.json(await overrideDay(orgId, person.id, str(b.date), status, str(b.note)));
+  },
+
+  async finalise(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const month = MONTH.test(str(req.body.month)) ? str(req.body.month) : new Date().toISOString().slice(0, 7);
+    res.json(await finalisePeriod(orgId, month));
+  },
+
+  async reopen(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const month = MONTH.test(str(req.body.month)) ? str(req.body.month) : new Date().toISOString().slice(0, 7);
+    res.json(await reopenPeriod(orgId, month));
   },
 
   // --- Swipes ---

@@ -1644,3 +1644,16 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
 .roster-cell { padding: 3px 2px; min-width: 26px; height: 26px; color: var(--text-muted); }
 .roster-cell.ov { font-weight: 700; color: var(--primary); background: var(--primary-soft); cursor: pointer; }
 .roster-cell.wo { background: var(--surface-2); color: var(--text-muted); }
+
+/* Attendance muster */
+.muster-cell { padding: 3px 2px; min-width: 24px; height: 24px; font-size: 10.5px; font-weight: 600; cursor: pointer; color: var(--text-muted); }
+.muster-cell.ovr { outline: 1.5px solid var(--primary); outline-offset: -1.5px; }
+.muster-tot { min-width: 34px; font-weight: 600; background: var(--surface-2); }
+.muster-swatch { display: inline-block; min-width: 18px; text-align: center; border-radius: 3px; padding: 0 3px; margin-right: 3px; font-size: 10px; }
+.st-PRESENT { background: var(--success-soft); color: var(--success); }
+.st-HALF_DAY { background: var(--warning-soft); color: var(--warning); }
+.st-ABSENT { background: var(--danger-soft); color: var(--danger); }
+.st-LEAVE { background: var(--info-soft, var(--primary-soft)); color: var(--primary); }
+.st-LOP { background: var(--danger-soft); color: var(--danger); }
+.st-WEEKOFF { background: var(--surface-2); color: var(--text-muted); }
+.st-HOLIDAY { background: var(--primary-soft); color: var(--primary); }
