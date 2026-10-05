@@ -1,5 +1,13 @@
 import * as bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 import { prisma } from '../config/database';
+
+// A temporary password for an owner-created tenant admin: random, with a fixed
+// tail so it always clears the default policy (length + mixed classes). The
+// owner relays it once; the admin must change it at first sign-in.
+export function genTempPassword(): string {
+  return randomBytes(9).toString('base64url') + 'aA1!';
+}
 
 // One tenant's headline usage, for the console list and detail.
 export interface TenantUsage {

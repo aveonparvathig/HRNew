@@ -71,6 +71,8 @@ const PlatformLogin = lazy(() => import('./pages/Platform/PlatformLogin'));
 const PlatformLayout = lazy(() => import('./pages/Platform/PlatformLayout'));
 const PlatformTenants = lazy(() => import('./pages/Platform/PlatformTenants'));
 const PlatformTenantDetail = lazy(() => import('./pages/Platform/PlatformTenantDetail'));
+const PlatformOwners = lazy(() => import('./pages/Platform/PlatformOwners'));
+const PlatformAudit = lazy(() => import('./pages/Platform/PlatformAudit'));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const user = useAuthStore(state => state.user);
@@ -113,6 +115,8 @@ function App() {
           <Route element={<RequirePlatform><PlatformLayout /></RequirePlatform>}>
             <Route path="/platform" element={<PlatformTenants />} />
             <Route path="/platform/tenants/:id" element={<PlatformTenantDetail />} />
+            <Route path="/platform/owners" element={<PlatformOwners />} />
+            <Route path="/platform/audit" element={<PlatformAudit />} />
           </Route>
 
           <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" />} />

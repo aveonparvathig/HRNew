@@ -1,4 +1,4 @@
-import { Outlet, Link, useNavigate } from 'react-router-dom';
+import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { usePlatformStore } from '../../store/platformStore';
 
 // A deliberately minimal shell for the owner console — no tenant sidebar, so
@@ -16,9 +16,16 @@ export default function PlatformLayout() {
   return (
     <div className="platform-shell">
       <header className="platform-bar">
-        <Link to="/platform" className="platform-brand">
-          <span className="platform-mark">◆</span> Platform Console
-        </Link>
+        <div className="platform-bar-left">
+          <Link to="/platform" className="platform-brand">
+            <span className="platform-mark">◆</span> Platform Console
+          </Link>
+          <nav className="platform-nav">
+            <NavLink to="/platform" end className={({ isActive }) => isActive ? 'active' : ''}>Tenants</NavLink>
+            <NavLink to="/platform/owners" className={({ isActive }) => isActive ? 'active' : ''}>Owners</NavLink>
+            <NavLink to="/platform/audit" className={({ isActive }) => isActive ? 'active' : ''}>Audit</NavLink>
+          </nav>
+        </div>
         <div className="platform-bar-right">
           <span className="platform-owner">{admin?.email}</span>
           <button className="btn btn-ghost btn-sm" onClick={signOut}>Sign out</button>

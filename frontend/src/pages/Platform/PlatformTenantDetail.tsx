@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { platformAPI, type Tenant, type PlatformAuditEntry } from '../../api/platform';
 import { StatCard, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
 import { toast, confirmDialog } from '../../components/feedback';
@@ -15,6 +15,7 @@ const ACTION_LABEL: Record<string, string> = {
 
 export default function PlatformTenantDetail() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [audit, setAudit] = useState<PlatformAuditEntry[]>([]);
   const [error, setError] = useState('');
@@ -22,6 +23,8 @@ export default function PlatformTenantDetail() {
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [confirmName, setConfirmName] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +73,19 @@ export default function PlatformTenantDetail() {
     }
   };
 
+  const doDelete = async () => {
+    setBusy(true);
+    try {
+      await platformAPI.deleteTenant(id, confirmName.trim());
+      toast.success(`${tenant?.name} and all its data were deleted.`);
+      navigate('/platform');
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Could not delete tenant');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingBlock label="Loading tenant…" />;
   if (!tenant) return (
     <>
@@ -97,6 +113,7 @@ export default function PlatformTenantDetail() {
           {suspended
             ? <button className="btn btn-primary" onClick={doReactivate}>Reactivate</button>
             : <button className="btn btn-danger" onClick={() => setSuspendOpen(true)}>Suspend</button>}
+          <button className="btn btn-ghost" onClick={() => { setConfirmName(''); setDeleteOpen(true); }}>Delete</button>
         </div>
       </div>
 
@@ -153,6 +170,25 @@ export default function PlatformTenantDetail() {
           <button type="button" className="btn btn-ghost" onClick={() => setSuspendOpen(false)}>Cancel</button>
           <button type="button" className="btn btn-danger" disabled={busy} onClick={doSuspend}>
             {busy ? 'Suspending…' : 'Suspend tenant'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal title={`Delete ${tenant.name}?`} open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+        <div className="alert alert-danger" style={{ marginBottom: 14 }}>
+          This permanently removes the organization and <strong>all its data</strong> — users, employees,
+          payroll, documents, everything. This cannot be undone.
+        </div>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Type <strong>{tenant.name}</strong> to confirm</label>
+          <input className="input" value={confirmName} onChange={e => setConfirmName(e.target.value)}
+            placeholder={tenant.name} autoComplete="off" />
+        </div>
+        <div className="form-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setDeleteOpen(false)}>Cancel</button>
+          <button type="button" className="btn btn-danger" disabled={busy || confirmName.trim() !== tenant.name}
+            onClick={doDelete}>
+            {busy ? 'Deleting…' : 'Delete permanently'}
           </button>
         </div>
       </Modal>
