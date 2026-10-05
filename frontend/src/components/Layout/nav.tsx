@@ -74,6 +74,7 @@ const LEAVE_ITEMS: NavItem[] = [
   { to: '/leave/balances', icon: 'layers', label: 'Balances' },
   { to: '/leave/roster', icon: 'kanban', label: 'Roster' },
   { to: '/leave/swipes', icon: 'pin', label: 'Swipes' },
+  { to: '/leave/muster', icon: 'kanban', label: 'Muster' },
   { to: '/leave/shifts', icon: 'history', label: 'Shifts' },
   { to: '/leave/holidays', icon: 'pin', label: 'Holidays' },
   { to: '/leave/settings', icon: 'sliders', label: 'Settings' },

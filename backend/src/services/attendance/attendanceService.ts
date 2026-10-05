@@ -1,9 +1,23 @@
 import { prisma } from '../../config/database';
+import { AppError } from '../../middleware/errorHandler';
 import { settingsFor } from '../leave/leaveService';
-import { daySummary, type Punch } from '../attendanceCalc';
+import { daySummary, dayStatus, monthTotals, type Punch } from '../attendanceCalc';
+import { recomputeEntry } from '../payroll/arrears';
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+const r2 = (n: number) => Math.round(n * 100) / 100;
+
+function monthRange(month: string) {
+  const [y, m] = month.split('-').map(Number);
+  const first = `${month}-01`;
+  const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const last = `${month}-${String(dim).padStart(2, '0')}`;
+  const dates: string[] = [];
+  for (let d = 1; d <= dim; d++) dates.push(`${month}-${String(d).padStart(2, '0')}`);
+  return { first, last, dates };
+}
+const dowOf = (date: string) => new Date(date + 'T00:00:00Z').getUTCDay();
 
 const DEFAULT_SHIFTS = [
   { code: 'GEN', name: 'General', startTime: '09:00', endTime: '18:00', workHours: 8, sortOrder: 0 },
@@ -164,6 +178,143 @@ export async function swipeExceptions(organizationId: string, month: string) {
     .filter(e => !e.summary.complete)
     .map(e => ({ personId: e.personId, name: e.name, date: e.date, punches: e.list.length, firstIn: e.summary.firstIn, lastOut: e.summary.lastOut }));
   return { month, exceptions };
+}
+
+// --- Processing, muster & finalisation (phase 7) --------------------------
+
+export async function periodStatus(organizationId: string, month: string): Promise<string> {
+  const p = await prisma.attendancePeriod.findUnique({ where: { organizationId_month: { organizationId, month } } });
+  return p?.status || 'OPEN';
+}
+
+// Compute each employee's status for every day of the month and store it,
+// preserving manual overrides. Idempotent.
+export async function processMonth(organizationId: string, month: string) {
+  const { first, last, dates } = monthRange(month);
+  const [employees, shifts, settings, holidays, assigns, swipes, leaves, overrides] = await Promise.all([
+    prisma.person.findMany({
+      where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
+      select: { id: true, workLocationId: true, attendanceProfile: { select: { defaultShiftId: true, weekOffDays: true } } },
+    }),
+    prisma.shift.findMany({ where: { organizationId } }),
+    settingsFor(organizationId),
+    prisma.holiday.findMany({ where: { organizationId, date: { gte: first, lte: last } }, select: { date: true, workLocationId: true } }),
+    prisma.shiftAssignment.findMany({ where: { organizationId, date: { gte: first, lte: last } }, select: { personId: true, date: true, shiftId: true } }),
+    prisma.swipe.findMany({ where: { organizationId, date: { gte: first, lte: last } }, orderBy: [{ date: 'asc' }, { time: 'asc' }], select: { personId: true, date: true, time: true, direction: true } }),
+    prisma.leaveRequest.findMany({ where: { organizationId, status: 'APPROVED', startDate: { lte: last }, endDate: { gte: first }, leaveType: { is: {} } }, select: { personId: true, startDate: true, endDate: true, leaveType: { select: { paid: true } } } }),
+    prisma.attendanceDay.findMany({ where: { organizationId, date: { gte: first, lte: last }, source: 'OVERRIDE' }, select: { personId: true, date: true } }),
+  ]);
+
+  const shiftById = new Map(shifts.map(s => [s.id, s]));
+  const allHol = new Set(holidays.filter(h => !h.workLocationId).map(h => h.date));
+  const locHol = new Map<string, Set<string>>();
+  for (const h of holidays) if (h.workLocationId) (locHol.get(h.workLocationId) || locHol.set(h.workLocationId, new Set()).get(h.workLocationId)!).add(h.date);
+  const assignBy = new Map(assigns.map(a => [`${a.personId}|${a.date}`, a.shiftId]));
+  const punchesBy: Record<string, Punch[]> = {};
+  for (const s of swipes) (punchesBy[`${s.personId}|${s.date}`] = punchesBy[`${s.personId}|${s.date}`] || []).push({ time: s.time, direction: s.direction });
+  const leaveBy: Record<string, 'PAID' | 'UNPAID'> = {};
+  for (const lv of leaves) for (const d of dates) if (d >= lv.startDate && d <= lv.endDate) {
+    const kind = lv.leaveType?.paid ? 'PAID' : 'UNPAID';
+    if (kind === 'UNPAID' || !leaveBy[`${lv.personId}|${d}`]) leaveBy[`${lv.personId}|${d}`] = kind;
+  }
+  const overridden = new Set(overrides.map(o => `${o.personId}|${o.date}`));
+
+  const rows: any[] = [];
+  for (const e of employees) {
+    const weekOff = new Set(e.attendanceProfile?.weekOffDays?.length ? e.attendanceProfile.weekOffDays : settings.weekOffDays);
+    for (const date of dates) {
+      if (overridden.has(`${e.id}|${date}`)) continue;
+      const shiftId = assignBy.get(`${e.id}|${date}`) || e.attendanceProfile?.defaultShiftId || null;
+      const shift = shiftId ? shiftById.get(shiftId) : null;
+      const punches = punchesBy[`${e.id}|${date}`] || [];
+      const worked = daySummary(punches).workedMinutes;
+      const status = dayStatus({
+        isWeekOff: weekOff.has(dowOf(date)),
+        isHoliday: allHol.has(date) || (e.workLocationId ? locHol.get(e.workLocationId)?.has(date) ?? false : false),
+        onLeave: leaveBy[`${e.id}|${date}`] || null,
+        workedMinutes: worked,
+        shiftMinutes: shift ? shift.workHours * 60 : 0,
+      });
+      rows.push({ organizationId, personId: e.id, date, status, workedMinutes: worked, shiftCode: shift?.code || '', source: 'COMPUTED' });
+    }
+  }
+  await prisma.attendanceDay.deleteMany({ where: { organizationId, date: { gte: first, lte: last }, source: 'COMPUTED' } });
+  if (rows.length) await prisma.attendanceDay.createMany({ data: rows });
+  return { month, days: rows.length, employees: employees.length };
+}
+
+// The muster grid: each employee's daily status + monthly totals.
+export async function getMuster(organizationId: string, month: string) {
+  const { first, last } = monthRange(month);
+  const [employees, days, status] = await Promise.all([
+    prisma.person.findMany({
+      where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
+      orderBy: { name: 'asc' }, select: { id: true, name: true, employeeNo: true },
+    }),
+    prisma.attendanceDay.findMany({ where: { organizationId, date: { gte: first, lte: last } }, select: { personId: true, date: true, status: true, source: true } }),
+    periodStatus(organizationId, month),
+  ]);
+  const byPerson: Record<string, Record<string, { status: string; source: string }>> = {};
+  for (const d of days) (byPerson[d.personId] = byPerson[d.personId] || {})[d.date] = { status: d.status, source: d.source };
+  return {
+    month, status, processed: days.length > 0,
+    rows: employees.map(e => {
+      const cells = byPerson[e.id] || {};
+      const totals = monthTotals(Object.values(cells).map(c => c.status));
+      return { personId: e.id, name: e.name, employeeNo: e.employeeNo, cells, totals };
+    }),
+  };
+}
+
+export async function overrideDay(organizationId: string, personId: string, date: string, status: string, note: string) {
+  if (await periodStatus(organizationId, date.slice(0, 7)) === 'FINALISED') {
+    throw new AppError(400, 'This month is finalised. Reopen it to make changes.');
+  }
+  return prisma.attendanceDay.upsert({
+    where: { organizationId_personId_date: { organizationId, personId, date } },
+    create: { organizationId, personId, date, status, source: 'OVERRIDE', note },
+    update: { status, source: 'OVERRIDE', note },
+  });
+}
+
+// Finalise the month: lock it and push present/LOP days into its DRAFT payroll
+// run. attendanceLopDays stays apart from leaveLopDays so neither double-counts.
+export async function finalisePeriod(organizationId: string, month: string) {
+  await processMonth(organizationId, month);
+  await prisma.attendancePeriod.upsert({
+    where: { organizationId_month: { organizationId, month } },
+    create: { organizationId, month, status: 'FINALISED', finalisedAt: new Date() },
+    update: { status: 'FINALISED', finalisedAt: new Date() },
+  });
+
+  const run = await prisma.payrollRun.findFirst({ where: { organizationId, period: month, status: 'DRAFT' } });
+  let pushed = 0;
+  if (run) {
+    const { first, last } = monthRange(month);
+    const days = await prisma.attendanceDay.findMany({ where: { organizationId, date: { gte: first, lte: last } }, select: { personId: true, status: true } });
+    const byPerson: Record<string, string[]> = {};
+    for (const d of days) (byPerson[d.personId] = byPerson[d.personId] || []).push(d.status);
+    const entries = await prisma.payslipEntry.findMany({ where: { organizationId, runId: run.id }, select: { id: true, personId: true, lopDays: true, attendanceLopDays: true } });
+    for (const e of entries) {
+      const t = monthTotals(byPerson[e.personId] || []);
+      const newLop = r2(Math.max(0, e.lopDays - e.attendanceLopDays + t.attendanceLop));
+      await recomputeEntry(organizationId, e.id, {
+        lopDays: newLop, attendanceLopDays: r2(t.attendanceLop), attendancePresentDays: r2(t.presentDays),
+        presentDays: r2(t.presentDays), empLeaveDays: r2(t.leave),
+      });
+      pushed++;
+    }
+  }
+  return { month, finalised: true, payrollEntriesUpdated: pushed, hasDraftRun: !!run };
+}
+
+export async function reopenPeriod(organizationId: string, month: string) {
+  await prisma.attendancePeriod.upsert({
+    where: { organizationId_month: { organizationId, month } },
+    create: { organizationId, month, status: 'OPEN' },
+    update: { status: 'OPEN', finalisedAt: null },
+  });
+  return { month, status: 'OPEN' };
 }
 
 export async function setProfile(organizationId: string, personId: string, defaultShiftId: string | null, weekOffDays: number[] | undefined) {

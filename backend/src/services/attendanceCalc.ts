@@ -46,3 +46,42 @@ export function daySummary(punches: Punch[]): DaySummary {
 export function isException(punches: Punch[]): boolean {
   return punches.length > 0 && !daySummary(punches).complete;
 }
+
+export const ATTENDANCE_STATUSES = ['PRESENT', 'HALF_DAY', 'ABSENT', 'WEEKOFF', 'HOLIDAY', 'LEAVE', 'LOP'] as const;
+export type AttendanceStatus = typeof ATTENDANCE_STATUSES[number];
+
+export interface DayStatusInput {
+  isWeekOff: boolean;
+  isHoliday: boolean;
+  onLeave: 'PAID' | 'UNPAID' | null; // approved leave on the day
+  workedMinutes: number;
+  shiftMinutes: number; // expected work minutes (0 → treated as 8h)
+}
+
+// Derive a day's attendance status. Holiday/week-off/leave take precedence over
+// swipes; otherwise worked time against the shift decides present/half/absent.
+export function dayStatus(i: DayStatusInput): AttendanceStatus {
+  if (i.isHoliday) return 'HOLIDAY';
+  if (i.isWeekOff) return 'WEEKOFF';
+  if (i.onLeave === 'PAID') return 'LEAVE';
+  if (i.onLeave === 'UNPAID') return 'LOP';
+  const need = i.shiftMinutes > 0 ? i.shiftMinutes : 480;
+  if (i.workedMinutes >= need * 0.75) return 'PRESENT';
+  if (i.workedMinutes >= need * 0.25) return 'HALF_DAY';
+  return 'ABSENT';
+}
+
+// Roll month statuses into totals. attendanceLop counts unauthorised absence
+// only (unpaid-leave LOP is owned by the Leave module, so it is NOT added here —
+// leave and attendance never cover the same day).
+export function monthTotals(statuses: string[]) {
+  const c = (s: string) => statuses.filter(x => x === s).length;
+  const present = c('PRESENT'), half = c('HALF_DAY'), absent = c('ABSENT');
+  const weekoff = c('WEEKOFF'), holiday = c('HOLIDAY'), leave = c('LEAVE'), lop = c('LOP');
+  return {
+    present, half, absent, weekoff, holiday, leave, lop,
+    attendanceLop: absent + half * 0.5,
+    presentDays: present + half * 0.5 + leave + weekoff + holiday,
+    workingDays: present + half + absent + leave + lop,
+  };
+}

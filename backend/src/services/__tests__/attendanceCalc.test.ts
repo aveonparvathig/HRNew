@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { daySummary, isException, minToHHMM, type Punch } from '../attendanceCalc';
+import { daySummary, isException, minToHHMM, dayStatus, monthTotals, type Punch } from '../attendanceCalc';
 
 const P = (time: string, direction: string): Punch => ({ time, direction });
 
@@ -48,5 +48,30 @@ describe('attendanceCalc.minToHHMM', () => {
   it('formats minutes', () => {
     expect(minToHHMM(540)).toBe('09:00');
     expect(minToHHMM(485)).toBe('08:05');
+  });
+});
+
+describe('attendanceCalc.dayStatus', () => {
+  const base = { isWeekOff: false, isHoliday: false, onLeave: null as any, workedMinutes: 0, shiftMinutes: 480 };
+  it('holiday/week-off/leave take precedence', () => {
+    expect(dayStatus({ ...base, isHoliday: true, workedMinutes: 500 })).toBe('HOLIDAY');
+    expect(dayStatus({ ...base, isWeekOff: true })).toBe('WEEKOFF');
+    expect(dayStatus({ ...base, onLeave: 'PAID' })).toBe('LEAVE');
+    expect(dayStatus({ ...base, onLeave: 'UNPAID' })).toBe('LOP');
+  });
+  it('worked time decides present / half / absent', () => {
+    expect(dayStatus({ ...base, workedMinutes: 480 })).toBe('PRESENT');  // full
+    expect(dayStatus({ ...base, workedMinutes: 360 })).toBe('PRESENT');  // 75%
+    expect(dayStatus({ ...base, workedMinutes: 240 })).toBe('HALF_DAY'); // 50%
+    expect(dayStatus({ ...base, workedMinutes: 0 })).toBe('ABSENT');
+  });
+});
+
+describe('attendanceCalc.monthTotals', () => {
+  it('counts statuses; attendanceLop = absent + half/2, excludes leave-LOP', () => {
+    const t = monthTotals(['PRESENT', 'PRESENT', 'HALF_DAY', 'ABSENT', 'WEEKOFF', 'HOLIDAY', 'LEAVE', 'LOP']);
+    expect(t.present).toBe(2);
+    expect(t.attendanceLop).toBe(1.5); // 1 absent + 0.5 half (LOP-leave not counted)
+    expect(t.presentDays).toBe(2 + 0.5 + 1 + 1 + 1); // present + half/2 + leave + weekoff + holiday
   });
 });
