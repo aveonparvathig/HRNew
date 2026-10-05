@@ -15,6 +15,9 @@ const ACTION_LABEL: Record<string, string> = {
   OWNER_ADDED: 'Owner added',
   OWNER_DISABLED: 'Owner disabled',
   OWNER_ENABLED: 'Owner enabled',
+  TENANT_PLAN_SET: 'Plan changed',
+  PLAN_UPDATED: 'Plan edited',
+  TENANT_IMPERSONATED: 'Support session',
 };
 const ACTION_TONE: Record<string, string> = {
   TENANT_SUSPENDED: 'badge-danger', TENANT_DELETED: 'badge-danger', OWNER_DISABLED: 'badge-danger',

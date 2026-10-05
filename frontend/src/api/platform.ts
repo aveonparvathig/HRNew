@@ -80,6 +80,11 @@ export const platformAPI = {
     client.post<{ tenant: Tenant }>(`/platform/tenants/${id}/reactivate`, {}),
   deleteTenant: (id: string, confirmName: string) =>
     client.delete<{ ok: boolean }>(`/platform/tenants/${id}`, { data: { confirmName } }),
+  impersonate: (id: string) =>
+    client.post<{
+      accessToken: string; readOnly: boolean; impersonatedBy: string; tenantName: string;
+      user: any; org: any;
+    }>(`/platform/tenants/${id}/impersonate`, {}),
 
   getPlans: () => client.get<{ plans: Plan[]; modules: string[] }>('/platform/plans'),
   updatePlan: (id: string, data: Partial<Plan>) =>

@@ -24,17 +24,21 @@ export async function loadActor(req: any) {
   });
   if (!user || !user.isActive) throw new AppError(401, 'Account is inactive');
   const org = user.organization;
-  // A trial that has run out suspends the tenant on first touch after expiry.
-  if (org?.status === 'ACTIVE' && trialExpired(org)) {
-    await prisma.organization.update({
-      where: { id: user.organizationId },
-      data: { status: 'SUSPENDED', suspendedAt: new Date(), suspendedReason: 'Trial ended' },
-    });
-    throw new AppError(403, 'Your trial has ended. Contact support to continue.');
-  }
-  // A suspended tenant is frozen even for already-issued sessions.
-  if (org?.status === 'SUSPENDED') {
-    throw new AppError(403, 'This organization has been suspended. Contact support.');
+  // A platform-owner support session may view a suspended or trial-ended
+  // tenant; everyone else is blocked.
+  if (!req.user?.support) {
+    // A trial that has run out suspends the tenant on first touch after expiry.
+    if (org?.status === 'ACTIVE' && trialExpired(org)) {
+      await prisma.organization.update({
+        where: { id: user.organizationId },
+        data: { status: 'SUSPENDED', suspendedAt: new Date(), suspendedReason: 'Trial ended' },
+      });
+      throw new AppError(403, 'Your trial has ended. Contact support to continue.');
+    }
+    // A suspended tenant is frozen even for already-issued sessions.
+    if (org?.status === 'SUSPENDED') {
+      throw new AppError(403, 'This organization has been suspended. Contact support.');
+    }
   }
   (user as any).orgLimits = effectiveLimits(org || {});
   req.actor = user;

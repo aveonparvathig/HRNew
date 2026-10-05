@@ -31,6 +31,7 @@ router.post('/tenants/:id/suspend', asyncHandler((req, res) => platformControlle
 router.post('/tenants/:id/reactivate', asyncHandler((req, res) => platformController.reactivate(req, res)));
 router.delete('/tenants/:id', asyncHandler((req, res) => platformController.deleteTenant(req, res)));
 router.post('/tenants/:id/plan', asyncHandler((req, res) => platformController.setTenantPlan(req, res)));
+router.post('/tenants/:id/impersonate', asyncHandler((req, res) => platformController.impersonate(req, res)));
 router.get('/plans', asyncHandler((req, res) => platformController.getPlans(req, res)));
 router.put('/plans/:id', asyncHandler((req, res) => platformController.updatePlan(req, res)));
 router.get('/owners', asyncHandler((req, res) => platformController.getOwners(req, res)));

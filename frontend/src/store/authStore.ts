@@ -22,9 +22,17 @@ export interface OrgContext {
   limits: { maxEmployees: number; maxUsers: number };
 }
 
+// A platform-owner "log in as" support session, viewing this tenant read-only.
+export interface Impersonation {
+  by: string;        // platform owner email
+  tenant: string;    // tenant name
+  readOnly: boolean;
+}
+
 interface AuthStore {
   user: User | null;
   org: OrgContext | null;
+  impersonation: Impersonation | null;
   accessToken: string | null;
   refreshToken: string | null;
   isLoading: boolean;
@@ -33,6 +41,7 @@ interface AuthStore {
   // Actions
   setUser: (user: User) => void;
   setOrg: (org: OrgContext | null) => void;
+  setImpersonation: (imp: Impersonation | null) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -44,6 +53,7 @@ export const useAuthStore = create<AuthStore>()(
     (set) => ({
       user: null,
       org: null,
+      impersonation: null,
       accessToken: null,
       refreshToken: null,
       isLoading: false,
@@ -51,6 +61,7 @@ export const useAuthStore = create<AuthStore>()(
 
       setUser: (user) => set({ user }),
       setOrg: (org) => set({ org }),
+      setImpersonation: (impersonation) => set({ impersonation }),
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }),
       setLoading: (loading) => set({ isLoading: loading }),
@@ -59,6 +70,7 @@ export const useAuthStore = create<AuthStore>()(
         set({
           user: null,
           org: null,
+          impersonation: null,
           accessToken: null,
           refreshToken: null,
           error: null,
@@ -69,6 +81,7 @@ export const useAuthStore = create<AuthStore>()(
       partialize: (state) => ({
         user: state.user,
         org: state.org,
+        impersonation: state.impersonation,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
       }),
