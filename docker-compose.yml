@@ -35,10 +35,12 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
-      # Seeds the first platform owner on boot (dev defaults; set real values in prod)
-      PLATFORM_OWNER_EMAIL: ${PLATFORM_OWNER_EMAIL:-owner@platform.local}
+      # Seeds the FIRST platform owner on boot, once, only if none exists yet.
+      # The password is a secret: set PLATFORM_OWNER_PASSWORD in .env (dev) or
+      # the Railway dashboard (prod) — the value below is only a dev fallback.
+      PLATFORM_OWNER_EMAIL: ${PLATFORM_OWNER_EMAIL:-ranjithkumar@aveoninfotech.com}
       PLATFORM_OWNER_PASSWORD: ${PLATFORM_OWNER_PASSWORD:-platform-owner-dev-2026}
-      PLATFORM_OWNER_NAME: ${PLATFORM_OWNER_NAME:-Platform Owner}
+      PLATFORM_OWNER_NAME: ${PLATFORM_OWNER_NAME:-Ranjith Kumar}
     ports:
       - "${BACKEND_PORT:-3000}:3000"
     depends_on:
