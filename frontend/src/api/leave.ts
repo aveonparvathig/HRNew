@@ -17,6 +17,9 @@ export const leaveAPI = {
   createType: (data: any) => apiClient.post('/leave/types', data),
   updateType: (typeId: string, data: any) => apiClient.put(`/leave/types/${typeId}`, data),
   runAccrual: (period: string, dryRun: boolean) => apiClient.post('/leave/accrual/run', { period, dryRun }),
+  runYearEnd: (year: number, dryRun: boolean) => apiClient.post('/leave/year-end/run', { year, dryRun }),
+  recalculate: (personId?: string) => apiClient.post('/leave/recalculate', personId ? { personId } : {}),
+  encash: (data: any) => apiClient.post('/leave/encash', data),
 
   // HR: balances & grants
   getBalances: (params: { personId: string; year?: number }) => apiClient.get('/leave/balances', { params }),
