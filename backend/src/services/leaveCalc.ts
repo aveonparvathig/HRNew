@@ -67,6 +67,44 @@ export function balanceOf(b: {
   return (b.opening || 0) + (b.granted || 0) - (b.taken || 0) - (b.lapsed || 0) - (b.encashed || 0);
 }
 
+export interface AccrualType {
+  accrualFrequency: string; // NONE | MONTHLY | ANNUAL
+  accrualRate: number;      // days/month when MONTHLY
+  annualQuota: number;      // credited when ANNUAL
+  eligibleAfterProbation: boolean;
+}
+
+// Days to credit `type` for one person in one month ("YYYY-MM"). Monthly
+// accrual prorates the join and leave months by calendar days present; annual
+// accrual gives the whole quota in the leave-year's start month. Returns 0 when
+// not joined yet, already left, or (for gated types) not yet confirmed. The
+// caller decides `confirmed` (e.g. active + any confirmation date already past).
+export function accrualForMonth(
+  type: AccrualType, period: string,
+  joinDate: string | null, leaveDate: string | null, confirmed: boolean,
+  leaveYearStartMonth = 1,
+): number {
+  if (type.accrualFrequency === 'NONE') return 0;
+  const [y, m] = period.split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const first = `${period}-01`;
+  const last = `${period}-${String(daysInMonth).padStart(2, '0')}`;
+
+  if (joinDate && joinDate > last) return 0;       // not joined yet
+  if (leaveDate && leaveDate < first) return 0;    // already left
+  if (type.eligibleAfterProbation && !confirmed) return 0;
+
+  if (type.accrualFrequency === 'ANNUAL') {
+    return m === leaveYearStartMonth ? type.annualQuota : 0;
+  }
+  // MONTHLY — prorate the partial join/leave month by calendar days present
+  const startDay = joinDate && joinDate.slice(0, 7) === period ? Number(joinDate.slice(8, 10)) : 1;
+  const endDay = leaveDate && leaveDate.slice(0, 7) === period ? Number(leaveDate.slice(8, 10)) : daysInMonth;
+  const present = Math.max(0, endDay - startDay + 1);
+  if (present >= daysInMonth) return type.accrualRate;
+  return Math.round(type.accrualRate * present / daysInMonth * 100) / 100;
+}
+
 export interface ValidateInput {
   type: LeaveTypePolicy;
   gender: string;      // the person's gender ("" | M | F)

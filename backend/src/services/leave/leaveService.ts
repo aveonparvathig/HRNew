@@ -2,7 +2,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
 import { approvalChainOf } from '../orgChart';
 import { approvalSteps } from '../expenseApproval';
-import { splitByPeriod, leaveYearOf } from '../leaveCalc';
+import { splitByPeriod, leaveYearOf, accrualForMonth } from '../leaveCalc';
 import { recomputeEntry, addRetroLop, reverseLop } from '../payroll/arrears';
 import { actorName } from '../payroll/audit';
 
@@ -10,11 +10,11 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 
 // Default leave-type catalogue, seeded once per org (count-then-createMany).
 const DEFAULT_LEAVE_TYPES = [
-  { code: 'CL', name: 'Casual Leave', paid: true, sortOrder: 0, annualQuota: 12, halfDayAllowed: true },
-  { code: 'SL', name: 'Sick Leave', paid: true, sortOrder: 1, annualQuota: 12, halfDayAllowed: true, requiresAttachment: false },
-  { code: 'PL', name: 'Privilege Leave', paid: true, sortOrder: 2, annualQuota: 15, halfDayAllowed: true, encashable: true, eligibleAfterProbation: true },
+  { code: 'CL', name: 'Casual Leave', paid: true, sortOrder: 0, annualQuota: 12, halfDayAllowed: true, accrualFrequency: 'MONTHLY', accrualRate: 1 },
+  { code: 'SL', name: 'Sick Leave', paid: true, sortOrder: 1, annualQuota: 12, halfDayAllowed: true, accrualFrequency: 'MONTHLY', accrualRate: 1 },
+  { code: 'PL', name: 'Privilege Leave', paid: true, sortOrder: 2, annualQuota: 15, halfDayAllowed: true, encashable: true, eligibleAfterProbation: true, accrualFrequency: 'MONTHLY', accrualRate: 1.25 },
   { code: 'COF', name: 'Comp Off', paid: true, sortOrder: 3, annualQuota: 0, halfDayAllowed: true },
-  { code: 'FL', name: 'Floating / Festival Leave', paid: true, sortOrder: 4, annualQuota: 2, halfDayAllowed: false },
+  { code: 'FL', name: 'Floating / Festival Leave', paid: true, sortOrder: 4, annualQuota: 2, halfDayAllowed: false, accrualFrequency: 'ANNUAL' },
   { code: 'LOP', name: 'Loss of Pay', paid: false, sortOrder: 9, annualQuota: 0, halfDayAllowed: true },
 ];
 
@@ -53,7 +53,7 @@ export async function recomputeBalance(organizationId: string, personId: string,
     where: { organizationId, personId, leaveTypeId, year },
   });
   const sum = (k: string) => txns.filter(t => t.kind === k).reduce((s, t) => s + t.days, 0);
-  const granted = r2(sum('GRANT') + sum('ADJUST'));
+  const granted = r2(sum('GRANT') + sum('ADJUST') + sum('ACCRUAL'));
   // AVAIL/REVERSAL days are stored signed (avail negative, reversal positive)
   const taken = r2(-(sum('AVAIL') + sum('REVERSAL')));
   const lapsed = r2(-sum('LAPSE'));
@@ -77,6 +77,60 @@ export async function grantLeave(
     },
   });
   await recomputeBalance(organizationId, personId, leaveTypeId, year);
+}
+
+// Credit automatic accrual for one month ("YYYY-MM"). Idempotent — an employee
+// already credited for that month/type is skipped, so re-running is safe.
+// Pass dryRun to preview without writing.
+export async function runAccrual(req: any, organizationId: string, period: string, dryRun = false) {
+  const settings = await settingsFor(organizationId);
+  const year = leaveYearOf(`${period}-01`, settings.leaveYearStartMonth);
+  const first = `${period}-01`;
+  const types = await prisma.leaveType.findMany({
+    where: { organizationId, active: true, accrualFrequency: { not: 'NONE' } },
+  });
+  if (!types.length) return { period, credited: [], totalDays: 0, dryRun };
+
+  const employees = await prisma.person.findMany({
+    where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { not: 'TERMINATED' } },
+    select: { id: true, name: true, joinDate: true, firstHireDate: true, leavingDate: true, confirmationDate: true, employmentStatus: true },
+  });
+  const [py, pm] = period.split('-').map(Number);
+  const monthEnd = `${period}-${String(new Date(Date.UTC(py, pm, 0)).getUTCDate()).padStart(2, '0')}`;
+  // Confirmed as of this month = not on probation and any confirmation date already reached.
+  const confirmedAsOf = (e: any) => e.employmentStatus !== 'PROBATION' && (!e.confirmationDate || e.confirmationDate <= monthEnd);
+  const already = new Set((await prisma.leaveTransaction.findMany({
+    where: { organizationId, kind: 'ACCRUAL', effectiveDate: first }, select: { personId: true, leaveTypeId: true },
+  })).map(t => `${t.personId}|${t.leaveTypeId}`));
+
+  const credited: { personId: string; leaveTypeId: string; name: string; code: string; days: number }[] = [];
+  let total = 0;
+  for (const t of types) {
+    for (const e of employees) {
+      if (already.has(`${e.id}|${t.id}`)) continue;
+      const join = e.firstHireDate || e.joinDate || null;
+      const days = accrualForMonth(t, period, join, e.leavingDate, confirmedAsOf(e), settings.leaveYearStartMonth);
+      if (days <= 0) continue;
+      credited.push({ personId: e.id, leaveTypeId: t.id, name: e.name, code: t.code, days });
+      total = r2(total + days);
+    }
+  }
+
+  if (!dryRun && credited.length) {
+    const createdBy = await actorName(req.user?.userId);
+    await prisma.leaveTransaction.createMany({
+      data: credited.map(c => ({
+        organizationId, personId: c.personId, leaveTypeId: c.leaveTypeId, year,
+        kind: 'ACCRUAL', days: c.days, effectiveDate: first, note: `Accrual ${period}`, createdBy,
+      })),
+    });
+    const pairs = new Set(credited.map(c => `${c.personId}|${c.leaveTypeId}`));
+    for (const pair of pairs) {
+      const [personId, leaveTypeId] = pair.split('|');
+      await recomputeBalance(organizationId, personId, leaveTypeId, year);
+    }
+  }
+  return { period, credited, totalDays: total, dryRun };
 }
 
 export async function nextRequestNumber(organizationId: string): Promise<string> {

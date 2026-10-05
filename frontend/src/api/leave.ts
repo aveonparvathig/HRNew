@@ -14,7 +14,9 @@ export const leaveAPI = {
 
   getCalendar: (month?: string) => apiClient.get('/leave/calendar', { params: month ? { month } : {} }),
   getOverview: () => apiClient.get('/leave/overview'),
+  createType: (data: any) => apiClient.post('/leave/types', data),
   updateType: (typeId: string, data: any) => apiClient.put(`/leave/types/${typeId}`, data),
+  runAccrual: (period: string, dryRun: boolean) => apiClient.post('/leave/accrual/run', { period, dryRun }),
 
   // HR: balances & grants
   getBalances: (params: { personId: string; year?: number }) => apiClient.get('/leave/balances', { params }),
