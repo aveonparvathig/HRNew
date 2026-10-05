@@ -21,6 +21,9 @@ router.get('/overview', hrOnly, asyncHandler((req, res) => leaveController.getOv
 router.post('/types', hrOnly, asyncHandler((req, res) => leaveController.createLeaveType(req, res)));
 router.put('/types/:typeId', hrOnly, asyncHandler((req, res) => leaveController.updateLeaveType(req, res)));
 router.post('/accrual/run', hrOnly, asyncHandler((req, res) => leaveController.runAccrual(req, res)));
+router.post('/year-end/run', hrOnly, asyncHandler((req, res) => leaveController.runYearEnd(req, res)));
+router.post('/recalculate', hrOnly, asyncHandler((req, res) => leaveController.recalculate(req, res)));
+router.post('/encash', hrOnly, asyncHandler((req, res) => leaveController.encash(req, res)));
 router.get('/balances', asyncHandler((req, res) => leaveController.getBalances(req, res)));
 router.post('/grant', hrOnly, asyncHandler((req, res) => leaveController.grantLeave(req, res)));
 

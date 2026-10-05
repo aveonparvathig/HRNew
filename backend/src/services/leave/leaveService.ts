@@ -2,7 +2,7 @@ import { prisma } from '../../config/database';
 import { AppError } from '../../middleware/errorHandler';
 import { approvalChainOf } from '../orgChart';
 import { approvalSteps } from '../expenseApproval';
-import { splitByPeriod, leaveYearOf, accrualForMonth } from '../leaveCalc';
+import { splitByPeriod, leaveYearOf, accrualForMonth, balanceOf } from '../leaveCalc';
 import { recomputeEntry, addRetroLop, reverseLop } from '../payroll/arrears';
 import { actorName } from '../payroll/audit';
 
@@ -12,7 +12,7 @@ const r2 = (n: number) => Math.round(n * 100) / 100;
 const DEFAULT_LEAVE_TYPES = [
   { code: 'CL', name: 'Casual Leave', paid: true, sortOrder: 0, annualQuota: 12, halfDayAllowed: true, accrualFrequency: 'MONTHLY', accrualRate: 1 },
   { code: 'SL', name: 'Sick Leave', paid: true, sortOrder: 1, annualQuota: 12, halfDayAllowed: true, accrualFrequency: 'MONTHLY', accrualRate: 1 },
-  { code: 'PL', name: 'Privilege Leave', paid: true, sortOrder: 2, annualQuota: 15, halfDayAllowed: true, encashable: true, eligibleAfterProbation: true, accrualFrequency: 'MONTHLY', accrualRate: 1.25 },
+  { code: 'PL', name: 'Privilege Leave', paid: true, sortOrder: 2, annualQuota: 15, halfDayAllowed: true, encashable: true, eligibleAfterProbation: true, accrualFrequency: 'MONTHLY', accrualRate: 1.25, carryForward: true, carryForwardCap: 45 },
   { code: 'COF', name: 'Comp Off', paid: true, sortOrder: 3, annualQuota: 0, halfDayAllowed: true },
   { code: 'FL', name: 'Floating / Festival Leave', paid: true, sortOrder: 4, annualQuota: 2, halfDayAllowed: false, accrualFrequency: 'ANNUAL' },
   { code: 'LOP', name: 'Loss of Pay', paid: false, sortOrder: 9, annualQuota: 0, halfDayAllowed: true },
@@ -53,6 +53,8 @@ export async function recomputeBalance(organizationId: string, personId: string,
     where: { organizationId, personId, leaveTypeId, year },
   });
   const sum = (k: string) => txns.filter(t => t.kind === k).reduce((s, t) => s + t.days, 0);
+  // Opening balance = what carried in from the prior year (year-end CARRY rows).
+  const opening = r2(sum('CARRY'));
   const granted = r2(sum('GRANT') + sum('ADJUST') + sum('ACCRUAL'));
   // AVAIL/REVERSAL days are stored signed (avail negative, reversal positive)
   const taken = r2(-(sum('AVAIL') + sum('REVERSAL')));
@@ -60,8 +62,8 @@ export async function recomputeBalance(organizationId: string, personId: string,
   const encashed = r2(-sum('ENCASH'));
   await prisma.leaveBalance.upsert({
     where: { organizationId_personId_leaveTypeId_year: { organizationId, personId, leaveTypeId, year } },
-    create: { organizationId, personId, leaveTypeId, year, granted, taken, lapsed, encashed },
-    update: { granted, taken, lapsed, encashed },
+    create: { organizationId, personId, leaveTypeId, year, opening, granted, taken, lapsed, encashed },
+    update: { opening, granted, taken, lapsed, encashed },
   });
 }
 
@@ -131,6 +133,82 @@ export async function runAccrual(req: any, organizationId: string, period: strin
     }
   }
   return { period, credited, totalDays: total, dryRun };
+}
+
+// Close a leave year: carry each balance into the next year up to its cap and
+// lapse the rest. Idempotent — a (person, type) already closed for the year is
+// skipped. Opening balances for year+1 come from the CARRY ledger rows.
+export async function runYearEnd(req: any, organizationId: string, year: number, dryRun = false) {
+  const yearEnd = `${year}-12-31`;
+  const nextStart = `${year + 1}-01-01`;
+  const types = new Map((await prisma.leaveType.findMany({
+    where: { organizationId }, select: { id: true, code: true, carryForward: true, carryForwardCap: true },
+  })).map(t => [t.id, t]));
+  const balances = await prisma.leaveBalance.findMany({ where: { organizationId, year } });
+  const markers = await prisma.leaveTransaction.findMany({
+    where: { organizationId, OR: [{ kind: 'LAPSE', effectiveDate: yearEnd }, { kind: 'CARRY', effectiveDate: nextStart }] },
+    select: { personId: true, leaveTypeId: true },
+  });
+  const done = new Set(markers.map(m => `${m.personId}|${m.leaveTypeId}`));
+
+  const results: { personId: string; code: string; balance: number; carried: number; lapsed: number }[] = [];
+  const txns: any[] = [];
+  const recompute = new Set<string>();
+  const createdBy = await actorName(req.user?.userId);
+  for (const b of balances) {
+    const key = `${b.personId}|${b.leaveTypeId}`;
+    if (done.has(key)) continue;
+    const t = types.get(b.leaveTypeId);
+    if (!t) continue;
+    const bal = r2(balanceOf(b));
+    if (bal <= 0) continue;
+    const carried = t.carryForward ? (t.carryForwardCap > 0 ? Math.min(bal, t.carryForwardCap) : bal) : 0;
+    const lapsed = r2(bal - carried);
+    results.push({ personId: b.personId, code: t.code, balance: bal, carried: r2(carried), lapsed });
+    if (!dryRun) {
+      if (lapsed > 0) txns.push({ organizationId, personId: b.personId, leaveTypeId: b.leaveTypeId, year, kind: 'LAPSE', days: -lapsed, effectiveDate: yearEnd, note: `Year-end ${year}`, createdBy });
+      if (carried > 0) txns.push({ organizationId, personId: b.personId, leaveTypeId: b.leaveTypeId, year: year + 1, kind: 'CARRY', days: r2(carried), effectiveDate: nextStart, note: `Carried from ${year}`, createdBy });
+      recompute.add(`${key}|${year}`);
+      recompute.add(`${key}|${year + 1}`);
+    }
+  }
+  if (!dryRun && txns.length) {
+    await prisma.leaveTransaction.createMany({ data: txns });
+    for (const r of recompute) { const [pid, tid, y] = r.split('|'); await recomputeBalance(organizationId, pid, tid, Number(y)); }
+  }
+  return {
+    year, processed: results.length, dryRun,
+    carriedTotal: r2(results.reduce((s, r) => s + r.carried, 0)),
+    lapsedTotal: r2(results.reduce((s, r) => s + r.lapsed, 0)),
+    results,
+  };
+}
+
+// Rebuild balance aggregates from the ledger (after manual edits / corrections).
+export async function recalculateBalances(organizationId: string, personId?: string) {
+  const groups = await prisma.leaveTransaction.groupBy({
+    by: ['personId', 'leaveTypeId', 'year'],
+    where: { organizationId, ...(personId ? { personId } : {}) },
+  });
+  for (const g of groups) await recomputeBalance(organizationId, g.personId, g.leaveTypeId, g.year);
+  return { recomputed: groups.length };
+}
+
+// Encash leave: reduce the balance of an encashable type (ledger side). The
+// payout is made through payroll / final settlement separately.
+export async function encashLeave(req: any, organizationId: string, personId: string, leaveTypeId: string, days: number, note: string, effectiveDate: string) {
+  const type = await prisma.leaveType.findFirst({ where: { id: leaveTypeId, organizationId } });
+  if (!type) throw new AppError(400, 'Pick a valid leave type');
+  if (!type.encashable) throw new AppError(400, `${type.code} is not encashable`);
+  const year = leaveYearOf(effectiveDate, (await settingsFor(organizationId)).leaveYearStartMonth);
+  const bal = balanceOf(await prisma.leaveBalance.findUnique({
+    where: { organizationId_personId_leaveTypeId_year: { organizationId, personId, leaveTypeId, year } },
+  }) || {});
+  if (days > bal + 1e-9) throw new AppError(400, `Only ${r2(bal)} day(s) of ${type.code} available to encash`);
+  await prisma.leaveTransaction.create({
+    data: { organizationId, personId, leaveTypeId, year, kind: 'ENCASH', days: -r2(days), effectiveDate, note: note || 'Encashment', createdBy: await actorName(req.user?.userId) },
+  });
+  await recomputeBalance(organizationId, personId, leaveTypeId, year);
 }
 
 export async function nextRequestNumber(organizationId: string): Promise<string> {

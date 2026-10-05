@@ -8,6 +8,7 @@ import { workingDaysBetween, leaveYearOf, balanceOf, validateRequest, type Leave
 import {
   ensureDefaultLeaveTypes, settingsFor, holidaySetFor, grantLeave,
   nextRequestNumber, startApprovalChain, onApproved, onCancelled, runAccrual as runAccrualJob,
+  runYearEnd as runYearEndJob, recalculateBalances, encashLeave,
 } from '../services/leave/leaveService';
 
 const ACCRUAL_FREQ = ['NONE', 'MONTHLY', 'ANNUAL'];
@@ -249,6 +250,34 @@ export const leaveController = {
     res.json(result);
   },
 
+  // Preview or run year-end carry-forward + lapse (HR). Idempotent.
+  async runYearEnd(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const year = parseInt(str(req.body.year));
+    if (!year || year < 2000 || year > 2100) throw new AppError(400, 'Pick a valid year');
+    const result = await runYearEndJob(req, orgId, year, Boolean(req.body.dryRun));
+    res.json(result);
+  },
+
+  async recalculate(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const personId = str(req.body.personId) || undefined;
+    const result = await recalculateBalances(orgId, personId);
+    res.json(result);
+  },
+
+  async encash(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const person = await prisma.person.findFirst({ where: { id: str(b.personId), organizationId: orgId, isEmployee: true } });
+    if (!person) throw new AppError(400, 'Pick a valid employee');
+    const days = num(b.days);
+    if (days <= 0) throw new AppError(400, 'Enter the number of days to encash');
+    const effectiveDate = DATE.test(str(b.effectiveDate)) ? str(b.effectiveDate) : new Date().toISOString().slice(0, 10);
+    await encashLeave(req, orgId, person.id, str(b.leaveTypeId), days, str(b.note), effectiveDate);
+    res.json({ message: `Encashed ${days} day(s) for ${person.name}` });
+  },
+
   async createRequest(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const b = req.body;
@@ -413,7 +442,7 @@ export const leaveController = {
       });
       const b = bal || { opening: 0, granted: 0, taken: 0, lapsed: 0, encashed: 0 };
       rows.push({
-        leaveTypeId: t.id, code: t.code, name: t.name, paid: t.paid,
+        leaveTypeId: t.id, code: t.code, name: t.name, paid: t.paid, encashable: t.encashable,
         opening: round2(b.opening), granted: round2(b.granted), availed: round2(b.taken),
         applied: await pendingDays(orgId, personId, t.id), lapsed: round2(b.lapsed), encashed: round2(b.encashed),
         balance: round2(balanceOf(b)),
