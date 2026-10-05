@@ -568,6 +568,8 @@ model Person {
   leaveRequests       LeaveRequest[]
   leaveBalances       LeaveBalance[]
   leaveTransactions   LeaveTransaction[]
+  attendanceProfile   AttendanceProfile?
+  shiftAssignments    ShiftAssignment[]
   user                User?
 
   @@unique([organizationId, kind, name])
@@ -1011,6 +1013,65 @@ model LeaveSettings {
   updatedAt           DateTime @updatedAt
 
   @@map("leave_settings")
+}
+
+// ---------------------------------------------------------------------------
+// Attendance (Workforce Management, phase 5+). Shifts define working hours;
+// an AttendanceProfile sets a person's default shift + week-off override;
+// ShiftAssignment overrides the shift for specific dates (the roster).
+// ---------------------------------------------------------------------------
+
+model Shift {
+  id             String   @id @default(cuid())
+  organizationId String
+  code           String // GEN | MOR | NGT | ...
+  name           String
+  startTime      String   @default("09:00") // "HH:MM"
+  endTime        String   @default("18:00")
+  workHours      Float    @default(8)
+  isNight        Boolean  @default(false) // end time is the next day
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  assignments ShiftAssignment[]
+  profiles    AttendanceProfile[]
+
+  @@unique([organizationId, code])
+  @@map("shifts")
+}
+
+// One per employee: their default shift and (optional) week-off override.
+model AttendanceProfile {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String   @unique
+  defaultShiftId String?
+  weekOffDays    Int[] // empty = fall back to the org's LeaveSettings week-offs
+  updatedAt      DateTime @updatedAt
+
+  person       Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  defaultShift Shift? @relation(fields: [defaultShiftId], references: [id], onDelete: SetNull)
+
+  @@map("attendance_profiles")
+}
+
+// Roster: the shift a person works on a specific date (overrides the default).
+model ShiftAssignment {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  date           String // "YYYY-MM-DD"
+  shiftId        String
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  shift  Shift  @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, personId, date])
+  @@index([organizationId, date])
+  @@map("shift_assignments")
 }
 
 // ---------------------------------------------------------------------------

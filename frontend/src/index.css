@@ -1631,3 +1631,16 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
   .leave-cal-cell { min-height: 64px; font-size: 10px; }
   .leave-cal-chip { font-size: 9px; }
 }
+
+/* Shift roster grid */
+.roster-table { border-collapse: collapse; font-size: 11.5px; }
+.roster-table th, .roster-table td { border: 1px solid var(--border); text-align: center; }
+.roster-emp { position: sticky; left: 0; background: var(--surface); z-index: 1; text-align: left !important; padding: 4px 8px; min-width: 190px; white-space: nowrap; }
+.roster-empname { display: flex; flex-direction: column; align-items: flex-start; background: none; border: none; cursor: pointer; color: var(--text); font-weight: 600; padding: 0 0 0 6px; text-align: left; }
+.roster-empname:hover { color: var(--primary); }
+.roster-empsub { font-weight: 400; font-size: 10.5px; color: var(--text-muted); }
+.roster-day { padding: 2px 4px; min-width: 26px; }
+.roster-dow { font-size: 9px; color: var(--text-muted); font-weight: 400; }
+.roster-cell { padding: 3px 2px; min-width: 26px; height: 26px; color: var(--text-muted); }
+.roster-cell.ov { font-weight: 700; color: var(--primary); background: var(--primary-soft); cursor: pointer; }
+.roster-cell.wo { background: var(--surface-2); color: var(--text-muted); }
