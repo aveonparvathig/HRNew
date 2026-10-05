@@ -23,4 +23,10 @@ router.post('/roster/assign', hrOnly, asyncHandler((req, res) => attendanceContr
 router.post('/roster/clear', hrOnly, asyncHandler((req, res) => attendanceController.clearAssignment(req, res)));
 router.post('/profile', hrOnly, asyncHandler((req, res) => attendanceController.setProfile(req, res)));
 
+router.get('/swipes', asyncHandler((req, res) => attendanceController.getSwipes(req, res)));
+router.post('/swipes', hrOnly, asyncHandler((req, res) => attendanceController.addSwipe(req, res)));
+router.delete('/swipes/:swipeId', hrOnly, asyncHandler((req, res) => attendanceController.deleteSwipe(req, res)));
+router.post('/swipes/import', hrOnly, asyncHandler((req, res) => attendanceController.importSwipes(req, res)));
+router.get('/exceptions', hrOnly, asyncHandler((req, res) => attendanceController.exceptions(req, res)));
+
 export default router;

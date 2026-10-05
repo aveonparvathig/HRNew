@@ -47,6 +47,7 @@ const LeaveRequestEditor = lazy(() => import('./pages/Leave/LeaveRequestEditor')
 const LeaveBalances = lazy(() => import('./pages/Leave/LeaveBalances'));
 const Roster = lazy(() => import('./pages/Leave/Roster'));
 const Shifts = lazy(() => import('./pages/Leave/Shifts'));
+const Swipes = lazy(() => import('./pages/Leave/Swipes'));
 const Holidays = lazy(() => import('./pages/Leave/Holidays'));
 const LeaveSettings = lazy(() => import('./pages/Leave/LeaveSettings'));
 const RunsList = lazy(() => import('./pages/Payroll/RunsList'));
@@ -168,6 +169,7 @@ function App() {
             <Route path="/leave/calendar" element={<LeaveCalendar />} />
             <Route path="/leave/balances" element={<RequireRole roles={SA_HR}><LeaveBalances /></RequireRole>} />
             <Route path="/leave/roster" element={<RequireRole roles={SA_HR}><Roster /></RequireRole>} />
+            <Route path="/leave/swipes" element={<RequireRole roles={SA_HR}><Swipes /></RequireRole>} />
             <Route path="/leave/shifts" element={<RequireRole roles={SA_HR}><Shifts /></RequireRole>} />
             <Route path="/leave/holidays" element={<RequireRole roles={SA_HR}><Holidays /></RequireRole>} />
             <Route path="/leave/settings" element={<RequireRole roles={SA_HR}><LeaveSettings /></RequireRole>} />

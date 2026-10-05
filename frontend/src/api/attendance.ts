@@ -10,4 +10,10 @@ export const attendanceAPI = {
   clear: (personId: string, date: string) => apiClient.post('/attendance/roster/clear', { personId, date }),
   setProfile: (data: { personId: string; defaultShiftId?: string | null; weekOffDays?: number[] }) =>
     apiClient.post('/attendance/profile', data),
+
+  getSwipes: (personId: string, month?: string) => apiClient.get('/attendance/swipes', { params: { personId, ...(month ? { month } : {}) } }),
+  addSwipe: (data: any) => apiClient.post('/attendance/swipes', data),
+  deleteSwipe: (swipeId: string) => apiClient.delete(`/attendance/swipes/${swipeId}`),
+  importSwipes: (text: string) => apiClient.post('/attendance/swipes/import', { text }),
+  getExceptions: (month?: string) => apiClient.get('/attendance/exceptions', { params: month ? { month } : {} }),
 };

@@ -1,5 +1,9 @@
 import { prisma } from '../../config/database';
 import { settingsFor } from '../leave/leaveService';
+import { daySummary, type Punch } from '../attendanceCalc';
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 const DEFAULT_SHIFTS = [
   { code: 'GEN', name: 'General', startTime: '09:00', endTime: '18:00', workHours: 8, sortOrder: 0 },
@@ -78,6 +82,88 @@ export async function assignShifts(organizationId: string, personIds: string[], 
 
 export async function clearAssignment(organizationId: string, personId: string, date: string) {
   await prisma.shiftAssignment.deleteMany({ where: { organizationId, personId, date } });
+}
+
+// --- Swipes (phase 6) -----------------------------------------------------
+
+// One person's swipes for a month, grouped by date with a worked-time summary.
+export async function getSwipeDays(organizationId: string, personId: string, month: string) {
+  const [y, m] = month.split('-').map(Number);
+  const first = `${month}-01`;
+  const last = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+  const swipes = await prisma.swipe.findMany({
+    where: { organizationId, personId, date: { gte: first, lte: last } },
+    orderBy: [{ date: 'asc' }, { time: 'asc' }],
+  });
+  const byDate: Record<string, any[]> = {};
+  for (const s of swipes) (byDate[s.date] = byDate[s.date] || []).push(s);
+  const days = Object.entries(byDate).map(([date, list]) => ({
+    date,
+    swipes: list.map(s => ({ id: s.id, time: s.time, direction: s.direction, source: s.source })),
+    summary: daySummary(list.map(s => ({ time: s.time, direction: s.direction } as Punch))),
+  }));
+  return { month, days };
+}
+
+export async function addSwipe(organizationId: string, personId: string, date: string, time: string, direction: string, source = 'MANUAL', note = '') {
+  return prisma.swipe.create({ data: { organizationId, personId, date, time, direction, source, note } });
+}
+
+export async function deleteSwipe(organizationId: string, swipeId: string) {
+  const s = await prisma.swipe.findFirst({ where: { id: swipeId, organizationId } });
+  if (!s) return false;
+  await prisma.swipe.delete({ where: { id: s.id } });
+  return true;
+}
+
+// Import swipes from CSV text: "empNo, date (YYYY-MM-DD), time (HH:MM), direction (IN/OUT)".
+// A header line and blank lines are skipped; direction accepts IN/OUT/I/O.
+export async function importSwipes(organizationId: string, text: string) {
+  const people = await prisma.person.findMany({
+    where: { organizationId, kind: 'CANDIDATE', isEmployee: true }, select: { id: true, employeeNo: true },
+  });
+  const byCode = new Map(people.filter(p => p.employeeNo).map(p => [p.employeeNo.trim().toLowerCase(), p.id]));
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const rows: any[] = [];
+  const skipped: { line: number; reason: string }[] = [];
+  lines.forEach((line, i) => {
+    const c = line.split(/[,\t;]/).map(x => x.trim());
+    if (i === 0 && /emp|code|date|time|direction|punch/i.test(line) && !DATE.test(c[1] || '')) return; // header
+    const [code, date, time, dirRaw] = c;
+    const personId = byCode.get((code || '').toLowerCase());
+    if (!personId) { skipped.push({ line: i + 1, reason: `unknown employee "${code}"` }); return; }
+    if (!DATE.test(date)) { skipped.push({ line: i + 1, reason: 'bad date (need YYYY-MM-DD)' }); return; }
+    if (!TIME.test(time)) { skipped.push({ line: i + 1, reason: 'bad time (need HH:MM)' }); return; }
+    const d = (dirRaw || '').toUpperCase();
+    const direction = d === 'IN' || d === 'I' ? 'IN' : d === 'OUT' || d === 'O' ? 'OUT' : '';
+    if (!direction) { skipped.push({ line: i + 1, reason: 'direction must be IN or OUT' }); return; }
+    rows.push({ organizationId, personId, date, time, direction, source: 'IMPORT' });
+  });
+  if (rows.length) await prisma.swipe.createMany({ data: rows });
+  return { created: rows.length, skipped };
+}
+
+// Days this month with punches that don't pair up cleanly (attendance exceptions).
+export async function swipeExceptions(organizationId: string, month: string) {
+  const [y, m] = month.split('-').map(Number);
+  const first = `${month}-01`;
+  const last = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+  const swipes = await prisma.swipe.findMany({
+    where: { organizationId, date: { gte: first, lte: last } },
+    include: { person: { select: { name: true, employeeNo: true } } },
+    orderBy: [{ date: 'asc' }, { time: 'asc' }],
+  });
+  const byKey: Record<string, { personId: string; name: string; date: string; list: Punch[] }> = {};
+  for (const s of swipes) {
+    const key = `${s.personId}|${s.date}`;
+    if (!byKey[key]) byKey[key] = { personId: s.personId, name: s.person.name, date: s.date, list: [] };
+    byKey[key].list.push({ time: s.time, direction: s.direction });
+  }
+  const exceptions = Object.values(byKey)
+    .map(e => ({ ...e, summary: daySummary(e.list) }))
+    .filter(e => !e.summary.complete)
+    .map(e => ({ personId: e.personId, name: e.name, date: e.date, punches: e.list.length, firstIn: e.summary.firstIn, lastOut: e.summary.lastOut }));
+  return { month, exceptions };
 }
 
 export async function setProfile(organizationId: string, personId: string, defaultShiftId: string | null, weekOffDays: number[] | undefined) {
