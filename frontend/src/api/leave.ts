@@ -12,6 +12,10 @@ export const leaveAPI = {
   changeStatus: (requestId: string, action: string, note?: string) =>
     apiClient.post(`/leave/${requestId}/status`, { action, note }),
 
+  getCalendar: (month?: string) => apiClient.get('/leave/calendar', { params: month ? { month } : {} }),
+  getOverview: () => apiClient.get('/leave/overview'),
+  updateType: (typeId: string, data: any) => apiClient.put(`/leave/types/${typeId}`, data),
+
   // HR: balances & grants
   getBalances: (params: { personId: string; year?: number }) => apiClient.get('/leave/balances', { params }),
   grant: (data: any) => apiClient.post('/leave/grant', data),

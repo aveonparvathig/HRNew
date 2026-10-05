@@ -864,6 +864,9 @@ model LeaveType {
   encashable             Boolean  @default(false)
   carryForward           Boolean  @default(false) // consumed in later phases
   carryForwardCap        Float    @default(0)
+  // A designated reviewer (Person) who approves all requests of this type,
+  // instead of the reporting-manager chain. Blank = route up the org chart.
+  reviewerId             String?
   active                 Boolean  @default(true)
   createdAt              DateTime @default(now())
   updatedAt              DateTime @updatedAt

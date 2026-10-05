@@ -95,15 +95,31 @@ export async function nextRequestNumber(organizationId: string): Promise<string>
   }
 }
 
-// Snapshot the submitter's reporting chain into approval steps (clone of the
-// expenses version). No chain (top-level employee) ⇒ HR approves directly.
-export async function startApprovalChain(organizationId: string, request: { id: string; personId: string }) {
+// Snapshot the approval steps for a request. A leave type with a designated
+// reviewer routes to that one reviewer; otherwise it goes up the reporting
+// chain (clone of the expenses version). No chain ⇒ HR approves directly.
+export async function startApprovalChain(
+  organizationId: string, request: { id: string; personId: string; leaveType?: { reviewerId?: string | null } | null },
+) {
+  await prisma.leaveApproval.deleteMany({ where: { requestId: request.id } });
+
+  const reviewerId = request.leaveType?.reviewerId;
+  if (reviewerId && reviewerId !== request.personId) {
+    const reviewer = await prisma.person.findFirst({
+      where: { id: reviewerId, organizationId, isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
+      select: { id: true, name: true },
+    });
+    if (reviewer) {
+      await prisma.leaveApproval.create({ data: { organizationId, requestId: request.id, level: 1, approverId: reviewer.id, approverName: reviewer.name } });
+      return { currentApproverId: reviewer.id, approvalLevel: 1 };
+    }
+  }
+
   const employees = await prisma.person.findMany({
     where: { organizationId, kind: 'CANDIDATE', isEmployee: true },
     select: { id: true, managerId: true, name: true },
   });
   const steps = approvalSteps(approvalChainOf(request.personId, employees));
-  await prisma.leaveApproval.deleteMany({ where: { requestId: request.id } });
   if (steps.length === 0) return { currentApproverId: null, approvalLevel: 0 };
   await prisma.leaveApproval.createMany({
     data: steps.map(s => ({ organizationId, requestId: request.id, level: s.level, approverId: s.approverId, approverName: s.approverName })),

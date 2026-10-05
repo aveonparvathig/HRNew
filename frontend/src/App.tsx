@@ -42,6 +42,7 @@ const ExpensesList = lazy(() => import('./pages/Expenses/ExpensesList'));
 const ExpenseReportEditor = lazy(() => import('./pages/Expenses/ExpenseReportEditor'));
 const ExpenseReportView = lazy(() => import('./pages/Expenses/ExpenseReportView'));
 const LeaveList = lazy(() => import('./pages/Leave/LeaveList'));
+const LeaveCalendar = lazy(() => import('./pages/Leave/LeaveCalendar'));
 const LeaveRequestEditor = lazy(() => import('./pages/Leave/LeaveRequestEditor'));
 const LeaveBalances = lazy(() => import('./pages/Leave/LeaveBalances'));
 const Holidays = lazy(() => import('./pages/Leave/Holidays'));
@@ -162,6 +163,7 @@ function App() {
             <Route path="/expenses/:reportId" element={<ExpenseReportEditor />} />
             <Route path="/expenses/:reportId/print" element={<ExpenseReportView />} />
             <Route path="/leave" element={<LeaveList />} />
+            <Route path="/leave/calendar" element={<LeaveCalendar />} />
             <Route path="/leave/balances" element={<RequireRole roles={SA_HR}><LeaveBalances /></RequireRole>} />
             <Route path="/leave/holidays" element={<RequireRole roles={SA_HR}><Holidays /></RequireRole>} />
             <Route path="/leave/settings" element={<RequireRole roles={SA_HR}><LeaveSettings /></RequireRole>} />
