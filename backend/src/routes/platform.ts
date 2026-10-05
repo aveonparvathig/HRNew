@@ -24,6 +24,7 @@ router.post('/auth/refresh', asyncHandler((req, res) => platformController.refre
 // Everything below requires a platform-owner token
 router.use(requirePlatform);
 router.get('/auth/me', asyncHandler((req, res) => platformController.me(req, res)));
+router.get('/overview', asyncHandler((req, res) => platformController.getOverview(req, res)));
 router.get('/tenants', asyncHandler((req, res) => platformController.getTenants(req, res)));
 router.post('/tenants', asyncHandler((req, res) => platformController.createTenant(req, res)));
 router.get('/tenants/:id', asyncHandler((req, res) => platformController.getTenant(req, res)));

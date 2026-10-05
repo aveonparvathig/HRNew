@@ -6,7 +6,7 @@ import {
   generatePlatformAccessToken, generatePlatformRefreshToken, verifyPlatformRefreshToken,
   generateImpersonationToken,
 } from '../middleware/auth';
-import { logPlatform, tenantsOverview, tenantDetail, genTempPassword } from '../services/platform';
+import { logPlatform, tenantsOverview, tenantDetail, genTempPassword, platformOverview } from '../services/platform';
 import { GATED_MODULES, effectiveLimits } from '../services/planLimits';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -54,6 +54,11 @@ export const platformController = {
 
   async me(req: any, res: Response) {
     res.json({ admin: req.platformAdmin });
+  },
+
+  // Platform-wide usage: totals, plan split, signup trend, per-tenant table.
+  async getOverview(_req: any, res: Response) {
+    res.json(await platformOverview());
   },
 
   // Every tenant with headline usage.

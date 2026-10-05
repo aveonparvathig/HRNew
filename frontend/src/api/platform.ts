@@ -13,6 +13,8 @@ export interface Tenant {
   employees: number;
   people: number;
   lastLoginAt: string | null;
+  payrollRuns: number;
+  storageBytes: number;
   planId: string | null;
   planName: string | null;
   planCode: string | null;
@@ -62,7 +64,19 @@ export interface CreateTenantInput {
   adminPassword?: string;
 }
 
+export interface PlatformOverview {
+  totals: {
+    tenants: number; active: number; suspended: number;
+    users: number; employees: number; people: number; payrollRuns: number; storageBytes: number;
+  };
+  byPlan: { name: string; count: number }[];
+  signups: { month: string; count: number }[];
+  tenants: Tenant[];
+}
+
 export const platformAPI = {
+  getOverview: () => client.get<PlatformOverview>('/platform/overview'),
+
   login: (email: string, password: string) =>
     client.post<{ admin: { id: string; email: string; name: string }; accessToken: string; refreshToken: string }>(
       '/platform/auth/login', { email, password },
