@@ -18,7 +18,9 @@ const hrOnly = requireRole('SUPER_ADMIN', 'HR');
 router.get('/meta', asyncHandler((req, res) => leaveController.getMeta(req, res)));
 router.get('/calendar', asyncHandler((req, res) => leaveController.getCalendar(req, res)));
 router.get('/overview', hrOnly, asyncHandler((req, res) => leaveController.getOverview(req, res)));
+router.post('/types', hrOnly, asyncHandler((req, res) => leaveController.createLeaveType(req, res)));
 router.put('/types/:typeId', hrOnly, asyncHandler((req, res) => leaveController.updateLeaveType(req, res)));
+router.post('/accrual/run', hrOnly, asyncHandler((req, res) => leaveController.runAccrual(req, res)));
 router.get('/balances', asyncHandler((req, res) => leaveController.getBalances(req, res)));
 router.post('/grant', hrOnly, asyncHandler((req, res) => leaveController.grantLeave(req, res)));
 

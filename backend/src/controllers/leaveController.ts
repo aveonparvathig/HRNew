@@ -7,8 +7,10 @@ import { actorName } from '../services/payroll/audit';
 import { workingDaysBetween, leaveYearOf, balanceOf, validateRequest, type LeaveTypePolicy } from '../services/leaveCalc';
 import {
   ensureDefaultLeaveTypes, settingsFor, holidaySetFor, grantLeave,
-  nextRequestNumber, startApprovalChain, onApproved, onCancelled,
+  nextRequestNumber, startApprovalChain, onApproved, onCancelled, runAccrual as runAccrualJob,
 } from '../services/leave/leaveService';
+
+const ACCRUAL_FREQ = ['NONE', 'MONTHLY', 'ANNUAL'];
 
 const str = (v: any) => String(v ?? '');
 const num = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
@@ -198,10 +200,53 @@ export const leaveController = {
     if (!type) throw new AppError(404, 'Leave type not found');
     const b = req.body;
     const data: any = {};
+    if (b.name !== undefined) { const n = str(b.name).trim(); if (!n) throw new AppError(400, 'Name is required'); data.name = n; }
+    if (b.accrualFrequency !== undefined) {
+      if (!ACCRUAL_FREQ.includes(str(b.accrualFrequency))) throw new AppError(400, 'Invalid accrual frequency');
+      data.accrualFrequency = str(b.accrualFrequency);
+    }
+    for (const f of ['annualQuota', 'accrualRate', 'carryForwardCap']) if (b[f] !== undefined) data[f] = Math.max(0, num(b[f]));
+    for (const f of ['paid', 'halfDayAllowed', 'requiresAttachment', 'eligibleAfterProbation', 'encashable', 'carryForward', 'active']) if (b[f] !== undefined) data[f] = Boolean(b[f]);
+    if (b.genderGate !== undefined) data.genderGate = ['', 'M', 'F'].includes(str(b.genderGate)) ? str(b.genderGate) : '';
     if (b.reviewerId !== undefined) data.reviewerId = b.reviewerId || null;
-    if (b.active !== undefined) data.active = Boolean(b.active);
     const updated = await prisma.leaveType.update({ where: { id: type.id }, data });
     res.json(updated);
+  },
+
+  async createLeaveType(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const code = str(b.code).trim().toUpperCase();
+    if (!code || code.length > 10) throw new AppError(400, 'Enter a short code (up to 10 characters)');
+    const name = str(b.name).trim();
+    if (!name) throw new AppError(400, 'Enter the leave type name');
+    const exists = await prisma.leaveType.findUnique({ where: { organizationId_code: { organizationId: orgId, code } } });
+    if (exists) throw new AppError(409, 'A leave type with this code already exists');
+    const created = await prisma.leaveType.create({
+      data: {
+        organizationId: orgId, code, name,
+        paid: b.paid !== false,
+        annualQuota: Math.max(0, num(b.annualQuota)),
+        accrualFrequency: ACCRUAL_FREQ.includes(str(b.accrualFrequency)) ? str(b.accrualFrequency) : 'NONE',
+        accrualRate: Math.max(0, num(b.accrualRate)),
+        halfDayAllowed: b.halfDayAllowed !== false,
+        requiresAttachment: Boolean(b.requiresAttachment),
+        eligibleAfterProbation: Boolean(b.eligibleAfterProbation),
+        encashable: Boolean(b.encashable),
+        genderGate: ['', 'M', 'F'].includes(str(b.genderGate)) ? str(b.genderGate) : '',
+        sortOrder: num(b.sortOrder) || 10,
+      },
+    });
+    res.status(201).json(created);
+  },
+
+  // Preview or run automatic accrual for a month (HR). Idempotent.
+  async runAccrual(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const period = str(req.body.period);
+    if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) throw new AppError(400, 'Pick a valid month');
+    const result = await runAccrualJob(req, orgId, period, Boolean(req.body.dryRun));
+    res.json(result);
   },
 
   async createRequest(req: any, res: Response) {

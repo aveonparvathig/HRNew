@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  workingDaysBetween, splitByPeriod, leaveYearOf, balanceOf, validateRequest, type LeaveTypePolicy,
+  workingDaysBetween, splitByPeriod, leaveYearOf, balanceOf, validateRequest, accrualForMonth,
+  type LeaveTypePolicy, type AccrualType,
 } from '../leaveCalc';
 
 const MON_FRI = [0, 6]; // Sat + Sun off
@@ -88,5 +89,38 @@ describe('leaveCalc.validateRequest', () => {
   });
   it('a clean request passes', () => {
     expect(validateRequest({ ...base, type: paid, days: 2, balance: 10 })).toBeNull();
+  });
+});
+
+describe('leaveCalc.accrualForMonth', () => {
+  const monthly: AccrualType = { accrualFrequency: 'MONTHLY', accrualRate: 1, annualQuota: 12, eligibleAfterProbation: false };
+  const annual: AccrualType = { accrualFrequency: 'ANNUAL', accrualRate: 0, annualQuota: 12, eligibleAfterProbation: false };
+
+  it('NONE accrues nothing', () => {
+    expect(accrualForMonth({ ...monthly, accrualFrequency: 'NONE' }, '2026-05', null, null, true)).toBe(0);
+  });
+  it('monthly full month = the rate', () => {
+    expect(accrualForMonth(monthly, '2026-05', '2024-01-01', null, true)).toBe(1);
+  });
+  it('monthly join mid-month prorates by calendar days', () => {
+    // joined 16 May, May has 31 days, present = 16 → 16/31 ≈ 0.52
+    expect(accrualForMonth(monthly, '2026-05', '2026-05-16', null, true)).toBeCloseTo(0.52, 2);
+  });
+  it('monthly leave mid-month prorates', () => {
+    expect(accrualForMonth(monthly, '2026-05', '2024-01-01', '2026-05-10', true)).toBeCloseTo(0.32, 2);
+  });
+  it('not joined yet / already left = 0', () => {
+    expect(accrualForMonth(monthly, '2026-05', '2026-06-01', null, true)).toBe(0);
+    expect(accrualForMonth(monthly, '2026-05', '2024-01-01', '2026-04-30', true)).toBe(0);
+  });
+  it('probation gate holds accrual until confirmed', () => {
+    const gated: AccrualType = { ...monthly, eligibleAfterProbation: true };
+    expect(accrualForMonth(gated, '2026-05', '2026-01-01', null, false)).toBe(0);
+    expect(accrualForMonth(gated, '2026-08', '2026-01-01', null, true)).toBe(1);
+  });
+  it('annual credits the whole quota only in the leave-year start month', () => {
+    expect(accrualForMonth(annual, '2026-01', '2024-01-01', null, true, 1)).toBe(12);
+    expect(accrualForMonth(annual, '2026-02', '2024-01-01', null, true, 1)).toBe(0);
+    expect(accrualForMonth(annual, '2026-04', '2024-01-01', null, true, 4)).toBe(12);
   });
 });

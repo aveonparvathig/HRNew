@@ -15,6 +15,10 @@ export default function LeaveBalances() {
   const [grantOpen, setGrantOpen] = useState(false);
   const [form, setForm] = useState<any>({ leaveTypeId: '', days: '', effectiveDate: '', note: '' });
   const [saving, setSaving] = useState(false);
+  const [accrualOpen, setAccrualOpen] = useState(false);
+  const [accrualMonth, setAccrualMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [preview, setPreview] = useState<any>(null);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => { leaveAPI.getMeta().then(r => setMeta(r.data)).catch(() => {}); }, []);
 
@@ -45,10 +49,31 @@ export default function LeaveBalances() {
     }
   };
 
+  const runAccrual = async (dryRun: boolean) => {
+    setRunning(true);
+    try {
+      const res = await leaveAPI.runAccrual(accrualMonth, dryRun);
+      if (dryRun) { setPreview(res.data); }
+      else {
+        toast.success(`Credited ${res.data.totalDays} day(s) to ${new Set(res.data.credited.map((c: any) => c.personId)).size} employee(s).`);
+        setAccrualOpen(false); setPreview(null); load();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Accrual failed');
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
     <>
-      <PageHeader title="Leave balances" subtitle="Per-employee leave ledger. Grant or adjust balances here."
-        actions={personId && <button className="btn btn-primary" onClick={() => setGrantOpen(true)}>+ Grant / Adjust</button>} />
+      <PageHeader title="Leave balances" subtitle="Per-employee leave ledger. Grant, adjust, or run monthly accrual."
+        actions={
+          <>
+            <button className="btn btn-secondary" onClick={() => { setPreview(null); setAccrualOpen(true); }}>Run accrual</button>
+            {personId && <button className="btn btn-primary" onClick={() => setGrantOpen(true)}>+ Grant / Adjust</button>}
+          </>
+        } />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
@@ -109,6 +134,34 @@ export default function LeaveBalances() {
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Apply'}</button>
           </div>
         </form>
+      </Modal>
+
+      <Modal title="Run monthly accrual" open={accrualOpen} onClose={() => setAccrualOpen(false)}>
+        <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+          Credits each employee their leave accrual for the month, per each type's policy. Safe to re-run — anyone already credited for the month is skipped.
+        </p>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Month</label>
+          <input className="input" type="month" style={{ maxWidth: 200 }} value={accrualMonth}
+            onChange={e => { setAccrualMonth(e.target.value); setPreview(null); }} />
+        </div>
+        {preview && (
+          <div className="card" style={{ background: 'var(--surface-2)', marginBottom: 14 }}>
+            {preview.credited.length === 0 ? <span className="text-muted">Nothing to credit for {preview.period} (already done, or no accruing types).</span> : (
+              <>
+                <div style={{ marginBottom: 6 }}><strong>{new Set(preview.credited.map((c: any) => c.personId)).size}</strong> employee(s) · <strong>{preview.totalDays}</strong> day(s) total</div>
+                <div className="text-muted" style={{ fontSize: 12 }}>
+                  {Object.entries(preview.credited.reduce((m: any, c: any) => { m[c.code] = (m[c.code] || 0) + c.days; return m; }, {})).map(([code, d]: any) => `${code}: ${Math.round(d * 100) / 100}`).join(' · ')}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        <div className="form-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setAccrualOpen(false)}>Close</button>
+          <button type="button" className="btn btn-secondary" disabled={running} onClick={() => runAccrual(true)}>{running ? '…' : 'Preview'}</button>
+          <button type="button" className="btn btn-primary" disabled={running || (preview && preview.credited.length === 0)} onClick={() => runAccrual(false)}>{running ? 'Crediting…' : 'Credit now'}</button>
+        </div>
       </Modal>
     </>
   );

@@ -856,7 +856,10 @@ model LeaveType {
   sortOrder              Int      @default(0)
   paid                   Boolean  @default(true) // LOP = false: approved days become payroll LOP
   unit                   String   @default("DAY") // DAY (HOUR reserved for later)
-  annualQuota            Float    @default(0) // informational / validation ceiling in the manual-grant era
+  annualQuota            Float    @default(0) // ANNUAL accrual amount / validation ceiling
+  // Automatic accrual (phase 3). NONE = manual grant only.
+  accrualFrequency       String   @default("NONE") // NONE | MONTHLY | ANNUAL
+  accrualRate            Float    @default(0) // days credited per month when MONTHLY
   genderGate             String   @default("") // "" | M | F (maternity/paternity)
   halfDayAllowed         Boolean  @default(true)
   requiresAttachment     Boolean  @default(false)
