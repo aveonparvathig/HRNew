@@ -4,6 +4,7 @@ import { platformAPI, type Tenant, type PlatformAuditEntry, type Plan } from '..
 import { StatCard, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
 import { toast, confirmDialog } from '../../components/feedback';
 import { formatDate } from '../../utils/format';
+import { useAuthStore } from '../../store/authStore';
 
 const cap = (n: number) => (n > 0 ? n : '∞');
 const MODULE_LABELS: Record<string, string> = {
@@ -16,6 +17,7 @@ const dateTime = (d: string) =>
 const ACTION_LABEL: Record<string, string> = {
   TENANT_SUSPENDED: 'Suspended', TENANT_REACTIVATED: 'Reactivated',
   PLATFORM_LOGIN: 'Owner signed in', TENANT_CREATED: 'Created',
+  TENANT_PLAN_SET: 'Plan changed', TENANT_IMPERSONATED: 'Support session',
 };
 
 export default function PlatformTenantDetail() {
@@ -96,6 +98,25 @@ export default function PlatformTenantDetail() {
     }
   };
 
+  const loginAs = async () => {
+    if (!(await confirmDialog({
+      title: `Open a support session for ${tenant?.name}?`,
+      message: 'You will see the tenant exactly as their admin does, read-only. Every support session is logged. Use "Exit support" to return here.',
+      confirmLabel: 'Log in as tenant',
+    }))) return;
+    try {
+      const res = await platformAPI.impersonate(id);
+      const s = useAuthStore.getState();
+      s.setUser({ ...res.data.user });
+      s.setOrg(res.data.org);
+      s.setTokens(res.data.accessToken, '');
+      s.setImpersonation({ by: res.data.impersonatedBy, tenant: res.data.tenantName, readOnly: res.data.readOnly });
+      window.location.href = '/dashboard';
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Could not start support session');
+    }
+  };
+
   const doReactivate = async () => {
     if (!(await confirmDialog({
       title: 'Reactivate tenant?',
@@ -149,6 +170,7 @@ export default function PlatformTenantDetail() {
           <p className="text-muted">{tenant.email || 'No contact email'} · joined {formatDate(tenant.createdAt)} · {tenant.createdVia === 'OWNER' ? 'owner-created' : 'self-signup'}</p>
         </div>
         <div className="row-actions">
+          <button className="btn btn-secondary" onClick={loginAs}>Log in as</button>
           {suspended
             ? <button className="btn btn-primary" onClick={doReactivate}>Reactivate</button>
             : <button className="btn btn-danger" onClick={() => setSuspendOpen(true)}>Suspend</button>}

@@ -20,7 +20,13 @@ export default function AppLayout() {
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
   const setOrg = useAuthStore(state => state.setOrg);
+  const impersonation = useAuthStore(state => state.impersonation);
   const modules = useEnabledModules();
+
+  const exitSupport = () => {
+    logout();
+    window.location.href = '/platform';
+  };
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [navState, setNavState] = useState<Record<string, boolean>>(readNavState);
@@ -174,6 +180,15 @@ export default function AppLayout() {
       </aside>
 
       <div className="app-main">
+        {impersonation && (
+          <div className="impersonation-bar no-print">
+            <span>
+              <span aria-hidden>👁</span> Support session — viewing <strong>{impersonation.tenant}</strong>
+              {impersonation.readOnly ? ' (read-only)' : ''} as {user?.email}
+            </span>
+            <button className="btn btn-sm" onClick={exitSupport}>Exit support</button>
+          </div>
+        )}
         <main className="app-content" id="main">
           {user?.role === 'PAYROLL_VIEWER' && location.pathname.startsWith('/payroll') && (
             <div className="alert alert-info no-print" role="note">

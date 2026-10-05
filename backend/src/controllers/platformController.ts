@@ -4,9 +4,10 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import {
   generatePlatformAccessToken, generatePlatformRefreshToken, verifyPlatformRefreshToken,
+  generateImpersonationToken,
 } from '../middleware/auth';
 import { logPlatform, tenantsOverview, tenantDetail, genTempPassword } from '../services/platform';
-import { GATED_MODULES } from '../services/planLimits';
+import { GATED_MODULES, effectiveLimits } from '../services/planLimits';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -246,6 +247,37 @@ export const platformController = {
     await prisma.organization.update({ where: { id: org.id }, data });
     await logPlatform(req.platformAdmin.email, 'TENANT_PLAN_SET', org.id, planName);
     res.json({ tenant: await tenantDetail(org.id) });
+  },
+
+  // Support "log in as": issue a short-lived, read-only tenant token for the
+  // org's admin so the owner can see exactly what the tenant sees. Fully
+  // audited; works even for a suspended or trial-ended tenant.
+  async impersonate(req: any, res: Response) {
+    const org = await prisma.organization.findUnique({ where: { id: req.params.id }, include: { plan: true } });
+    if (!org) throw new AppError(404, 'Tenant not found');
+    const target =
+      await prisma.user.findFirst({ where: { organizationId: org.id, isActive: true, role: 'SUPER_ADMIN' }, orderBy: { createdAt: 'asc' } })
+      || await prisma.user.findFirst({ where: { organizationId: org.id, isActive: true }, orderBy: { createdAt: 'asc' } });
+    if (!target) throw new AppError(400, 'This tenant has no active user to view as');
+
+    const accessToken = generateImpersonationToken(target.id, target.email, org.id, req.platformAdmin.email);
+    await logPlatform(req.platformAdmin.email, 'TENANT_IMPERSONATED', org.id, `viewed as ${target.email}`);
+
+    const limits = effectiveLimits(org);
+    res.json({
+      accessToken,
+      readOnly: true,
+      impersonatedBy: req.platformAdmin.email,
+      tenantName: org.name,
+      user: {
+        userId: target.id, email: target.email, firstName: target.firstName, lastName: target.lastName,
+        organizationId: org.id, role: target.role, personId: target.personId || null,
+      },
+      org: {
+        status: org.status, planName: org.plan?.name ?? null, trialEndsOn: org.trialEndsOn,
+        modules: limits.modules, limits: { maxEmployees: limits.maxEmployees, maxUsers: limits.maxUsers },
+      },
+    });
   },
 
   async getAudit(_req: any, res: Response) {

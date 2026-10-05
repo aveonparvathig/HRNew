@@ -1565,6 +1565,16 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
 .approval-step.rejected { border-color: var(--danger); }
 .approval-step.rejected .step-mark { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 
+/* Platform-owner support ("log in as") banner, pinned to the top of the app */
+.impersonation-bar {
+  position: sticky; top: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 20px; background: #7c2d12; color: #fff; font-size: 13px; font-weight: 500;
+}
+.impersonation-bar strong { font-weight: 700; }
+.impersonation-bar .btn { background: rgba(255,255,255,0.16); color: #fff; border: none; }
+.impersonation-bar .btn:hover { background: rgba(255,255,255,0.28); }
+
 /* Platform-owner console — a deliberately distinct, dark-topped shell */
 .platform-shell { min-height: 100vh; background: var(--bg); }
 .platform-bar {

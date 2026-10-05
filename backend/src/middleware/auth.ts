@@ -7,6 +7,10 @@ export interface AuthRequest extends Request {
     userId: string;
     email: string;
     organizationId: string;
+    // Set on a platform-owner support session ("log in as"): read-only, and
+    // `impersonatedBy` is the owner's email, for auditing.
+    support?: boolean;
+    impersonatedBy?: string;
   };
 }
 
@@ -23,6 +27,10 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     // for tokens issued before scopes existed).
     if (decoded?.scope === 'PLATFORM') {
       return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    // A platform-owner support session can look but not touch.
+    if (decoded?.support && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      return res.status(403).json({ error: 'This is a read-only support session — changes are not allowed.' });
     }
     req.user = decoded;
     next();
@@ -50,6 +58,17 @@ export function generateAccessToken(userId: string, email: string, organizationI
     { userId, email, organizationId, scope: 'TENANT' },
     getEnv().JWT_SECRET,
     { expiresIn: '1h' }
+  );
+}
+
+// A short-lived, read-only tenant token for a platform-owner support session.
+// No refresh token is issued — when it lapses the owner re-enters from the
+// console.
+export function generateImpersonationToken(userId: string, email: string, organizationId: string, impersonatedBy: string): string {
+  return jwt.sign(
+    { userId, email, organizationId, scope: 'TENANT', support: true, impersonatedBy },
+    getEnv().JWT_SECRET,
+    { expiresIn: '30m' }
   );
 }
 
