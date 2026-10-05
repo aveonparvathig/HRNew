@@ -1,7 +1,7 @@
 // Pure plan/limit rules — no DB, no Prisma. The gated add-on modules a plan can
 // switch on or off; the core HR directory (people, org settings, self-service)
 // is always available and is never listed here.
-export const GATED_MODULES = ['project', 'recruitment', 'proposals', 'expenses', 'payroll'] as const;
+export const GATED_MODULES = ['project', 'recruitment', 'proposals', 'expenses', 'payroll', 'leave'] as const;
 export type ModuleKey = typeof GATED_MODULES[number];
 
 export const MODULE_LABELS: Record<string, string> = {
@@ -10,6 +10,7 @@ export const MODULE_LABELS: Record<string, string> = {
   proposals: 'Proposals',
   expenses: 'Expenses',
   payroll: 'Payroll',
+  leave: 'Leave & Attendance',
 };
 
 export interface PlanLike {

@@ -51,7 +51,7 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  plan          Plan?          @relation(fields: [planId], references: [id], onDelete: SetNull)
+  plan          Plan?            @relation(fields: [planId], references: [id], onDelete: SetNull)
   users         User[]
   academicYears AcademicYear[]
   incomeClients IncomeClient[]
@@ -565,6 +565,9 @@ model Person {
   // When the employee last confirmed their details are up to date (data drive)
   detailsConfirmedAt  DateTime?
   expenseReports      ExpenseReport[]
+  leaveRequests       LeaveRequest[]
+  leaveBalances       LeaveBalance[]
+  leaveTransactions   LeaveTransaction[]
   user                User?
 
   @@unique([organizationId, kind, name])
@@ -836,6 +839,172 @@ model ExpenseLine {
 
   @@index([reportId])
   @@map("expense_lines")
+}
+
+// ---------------------------------------------------------------------------
+// Leave management (Workforce Management). Leave year is the calendar year by
+// default (LeaveSettings.leaveYearStartMonth). Approved unpaid (LOP) leave
+// feeds PayslipEntry.leaveLopDays. Mirrors the Expenses request/approval shape.
+// ---------------------------------------------------------------------------
+
+// A leave type with its policy. Seeded lazily per org (CL/PL/SL/LOP/COF/FL/WLH).
+model LeaveType {
+  id                     String   @id @default(cuid())
+  organizationId         String
+  code                   String // CL | PL | SL | LOP | COF | FL | WLH | ...
+  name                   String
+  sortOrder              Int      @default(0)
+  paid                   Boolean  @default(true) // LOP = false: approved days become payroll LOP
+  unit                   String   @default("DAY") // DAY (HOUR reserved for later)
+  annualQuota            Float    @default(0) // informational / validation ceiling in the manual-grant era
+  genderGate             String   @default("") // "" | M | F (maternity/paternity)
+  halfDayAllowed         Boolean  @default(true)
+  requiresAttachment     Boolean  @default(false)
+  eligibleAfterProbation Boolean  @default(false)
+  encashable             Boolean  @default(false)
+  carryForward           Boolean  @default(false) // consumed in later phases
+  carryForwardCap        Float    @default(0)
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  requests     LeaveRequest[]
+  balances     LeaveBalance[]
+  transactions LeaveTransaction[]
+
+  @@unique([organizationId, code])
+  @@map("leave_types")
+}
+
+// One person's balance for one leave type in one leave year. `balance` is
+// computed (opening + granted - taken - lapsed - encashed), never stored.
+model LeaveBalance {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  leaveTypeId    String
+  year           Int
+  opening        Float    @default(0)
+  granted        Float    @default(0)
+  taken          Float    @default(0)
+  applied        Float    @default(0) // approved-but-future / in-flight
+  lapsed         Float    @default(0)
+  encashed       Float    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Restrict)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, personId, leaveTypeId, year])
+  @@index([organizationId, personId])
+  @@map("leave_balances")
+}
+
+// Immutable ledger of every credit/debit (the "Post Leave Transaction" trail).
+model LeaveTransaction {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  leaveTypeId    String
+  year           Int
+  kind           String // GRANT | AVAIL | LAPSE | ENCASH | ADJUST | REVERSAL
+  days           Float // signed (grant +, avail -)
+  effectiveDate  String // "YYYY-MM-DD"
+  requestId      String? // the LeaveRequest that produced an AVAIL/REVERSAL
+  note           String   @default("")
+  createdBy      String   @default("")
+  createdAt      DateTime @default(now())
+
+  person    Person    @relation(fields: [personId], references: [id], onDelete: Restrict)
+  leaveType LeaveType @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, personId])
+  @@index([requestId])
+  @@map("leave_transactions")
+}
+
+// A leave application. Mirrors ExpenseReport's status + chain-approval fields.
+model LeaveRequest {
+  id                String   @id @default(cuid())
+  organizationId    String
+  personId          String
+  requestNumber     String // LR-2026-0001
+  leaveTypeId       String
+  startDate         String // "YYYY-MM-DD"
+  endDate           String // "YYYY-MM-DD"
+  halfDayStart      Boolean  @default(false)
+  halfDayEnd        Boolean  @default(false)
+  days              Float    @default(0) // computed server-side (excludes weekends/holidays)
+  reason            String   @default("")
+  attachmentData    String   @default("") // data URI when the type requires proof
+  status            String   @default("DRAFT") // DRAFT | SUBMITTED | APPROVED | REJECTED | CANCELLED
+  // Approval routing up the reporting line. Null approver + level 0 = no
+  // chain (top-level employee) -> HR approves.
+  currentApproverId String?
+  approvalLevel     Int      @default(0)
+  appliedOnBehalf   Boolean  @default(false) // raised by HR for the employee
+  submittedOn       String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  person    Person          @relation(fields: [personId], references: [id], onDelete: Restrict)
+  leaveType LeaveType       @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  approvals LeaveApproval[]
+
+  @@unique([organizationId, requestNumber])
+  @@index([organizationId, status])
+  @@index([personId])
+  @@index([currentApproverId])
+  @@map("leave_requests")
+}
+
+// One step of a leave request's approval chain (clone of ExpenseApproval).
+model LeaveApproval {
+  id             String    @id @default(cuid())
+  organizationId String
+  requestId      String
+  level          Int
+  approverId     String
+  approverName   String    @default("") // snapshot, survives if they leave
+  decision       String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  note           String    @default("")
+  decidedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  request LeaveRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([requestId, level])
+  @@index([organizationId, approverId])
+  @@map("leave_approvals")
+}
+
+// Company holiday. workLocationId null = applies to every location.
+model Holiday {
+  id             String   @id @default(cuid())
+  organizationId String
+  date           String // "YYYY-MM-DD"
+  name           String
+  type           String   @default("PUBLIC") // PUBLIC | RESTRICTED (optional/RH)
+  workLocationId String?
+  createdAt      DateTime @default(now())
+
+  workLocation WorkLocation? @relation(fields: [workLocationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, date, workLocationId])
+  @@index([organizationId])
+  @@map("holidays")
+}
+
+// Per-org leave configuration (singleton, upsert-on-read).
+model LeaveSettings {
+  organizationId      String   @id
+  leaveYearStartMonth Int      @default(1) // 1 = calendar year (Jan)
+  weekOffDays         Int[] // 0=Sun .. 6=Sat (default set in code)
+  hrApplyOnBehalf     Boolean  @default(true)
+  lopLeaveTypeCode    String   @default("LOP")
+  updatedAt           DateTime @updatedAt
+
+  @@map("leave_settings")
 }
 
 // ---------------------------------------------------------------------------
@@ -1116,6 +1285,10 @@ model PayslipEntry {
   lopDays          Float @default(0)
   presentDays      Float @default(0)
   payDays          Float @default(0)
+  // LOP contributed by approved leave (Leave module). Kept apart from the
+  // hand-typed LOP so a re-sync never double counts: effective lopDays =
+  // manual LOP + leaveLopDays.
+  leaveLopDays     Float @default(0)
 
   // Rare manual one-offs.
   internetAllowance     Float   @default(0)
@@ -1806,6 +1979,7 @@ model WorkLocation {
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   people          Person[]
   positionChanges PositionChange[]
+  holidays        Holiday[]
 
   @@unique([organizationId, name])
   @@map("work_locations")
