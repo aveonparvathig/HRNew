@@ -19,6 +19,7 @@ export default function LeaveList() {
   const [data, setData] = useState<any>(null);
   const [meta, setMeta] = useState<any>({ types: [], statuses: [], employees: [] });
   const [myBalances, setMyBalances] = useState<any[] | null>(null);
+  const [overview, setOverview] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
@@ -42,13 +43,16 @@ export default function LeaveList() {
       if (personId) {
         leaveAPI.getBalances({ personId }).then(r => setMyBalances(r.data.rows)).catch(() => setMyBalances(null));
       }
+      if (canManagePeople) {
+        leaveAPI.getOverview().then(r => setOverview(r.data)).catch(() => setOverview(null));
+      }
       setError('');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to load leave');
     } finally {
       setLoading(false);
     }
-  }, [q, status, awaiting, personId]);
+  }, [q, status, awaiting, personId, canManagePeople]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -76,6 +80,45 @@ export default function LeaveList() {
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
+
+      {overview && (
+        <>
+          <div className="stat-grid">
+            <StatCard label="On leave today" value={overview.onLeaveToday} icon="◷" tone="primary" />
+            <StatCard label="Pending approvals" value={overview.pending} icon="◴" tone="warning" />
+            <StatCard label="Approved this year" value={overview.byType.reduce((s: number, t: any) => s + t.days, 0)}
+              sub="days" icon="✓" tone="success" />
+            <StatCard label="Leave types used" value={overview.byType.length} icon="◆" tone="info" />
+          </div>
+          {(overview.byType.length > 0 || overview.thisWeek.length > 0) && (
+            <div className="platform-cards-2" style={{ marginBottom: 16 }}>
+              <div className="card">
+                <h3 style={{ fontSize: 14, marginBottom: 10 }}>Leave taken this year, by type</h3>
+                {overview.byType.length === 0 ? <p className="text-muted">None yet.</p> : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {overview.byType.map((t: any) => (
+                      <span key={t.code} className="badge badge-neutral" style={{ fontSize: 12.5 }}>{t.code}: <strong>{t.days}</strong> d</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="card">
+                <h3 style={{ fontSize: 14, marginBottom: 10 }}>On leave this week</h3>
+                {overview.thisWeek.length === 0 ? <p className="text-muted">Nobody on leave this week.</p> : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {overview.thisWeek.slice(0, 6).map((r: any, i: number) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                        <span>{r.name} <span className="badge badge-neutral">{r.code}</span></span>
+                        <span className="text-muted" style={{ fontSize: 12 }}>{formatDate(r.startDate)}{r.endDate !== r.startDate ? `–${formatDate(r.endDate)}` : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       {myBalances && myBalances.length > 0 && (
         <div className="stat-grid">

@@ -145,6 +145,65 @@ export const leaveController = {
     });
   },
 
+  // Month view of approved leave + holidays (everyone can see the team calendar).
+  async getCalendar(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const month = /^\d{4}-\d{2}$/.test(str(req.query.month)) ? str(req.query.month) : new Date().toISOString().slice(0, 7);
+    const [y, m] = month.split('-').map(Number);
+    const first = `${month}-01`;
+    const last = `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`;
+    const [reqs, holidays] = await Promise.all([
+      prisma.leaveRequest.findMany({
+        where: { organizationId: orgId, status: 'APPROVED', startDate: { lte: last }, endDate: { gte: first } },
+        include: { person: { select: { id: true, name: true } }, leaveType: { select: { code: true, paid: true } } },
+        orderBy: { startDate: 'asc' },
+      }),
+      prisma.holiday.findMany({ where: { organizationId: orgId, date: { gte: first, lte: last } }, orderBy: { date: 'asc' }, include: { workLocation: { select: { name: true } } } }),
+    ]);
+    res.json({
+      month,
+      leaves: reqs.map(r => ({ id: r.id, personId: r.personId, name: r.person.name, code: r.leaveType.code, paid: r.leaveType.paid, startDate: r.startDate, endDate: r.endDate, halfDayStart: r.halfDayStart, halfDayEnd: r.halfDayEnd })),
+      holidays: holidays.map(h => ({ date: h.date, name: h.name, type: h.type, location: h.workLocation?.name || null })),
+    });
+  },
+
+  // HR overview: who's on leave today / this week, pending, and the year's
+  // leave by type.
+  async getOverview(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const dow = (now.getUTCDay() + 6) % 7; // 0 = Monday
+    const monday = new Date(now.getTime() - dow * 86400000).toISOString().slice(0, 10);
+    const sunday = new Date(now.getTime() + (6 - dow) * 86400000).toISOString().slice(0, 10);
+    const year = leaveYearOf(today, (await settingsFor(orgId)).leaveYearStartMonth);
+    const [onLeaveToday, pending, weekReqs, yearReqs] = await Promise.all([
+      prisma.leaveRequest.count({ where: { organizationId: orgId, status: 'APPROVED', startDate: { lte: today }, endDate: { gte: today } } }),
+      prisma.leaveRequest.count({ where: { organizationId: orgId, status: 'SUBMITTED' } }),
+      prisma.leaveRequest.findMany({ where: { organizationId: orgId, status: 'APPROVED', startDate: { lte: sunday }, endDate: { gte: monday } }, include: { person: { select: { name: true } }, leaveType: { select: { code: true } } }, orderBy: { startDate: 'asc' } }),
+      prisma.leaveRequest.findMany({ where: { organizationId: orgId, status: 'APPROVED', startDate: { gte: `${year}-01-01`, lte: `${year}-12-31` } }, include: { leaveType: { select: { code: true } } } }),
+    ]);
+    const byType = new Map<string, number>();
+    for (const r of yearReqs) byType.set(r.leaveType.code, round2((byType.get(r.leaveType.code) || 0) + r.days));
+    res.json({
+      onLeaveToday, pending,
+      byType: [...byType.entries()].map(([code, days]) => ({ code, days })).sort((a, b) => b.days - a.days),
+      thisWeek: weekReqs.map(r => ({ name: r.person.name, code: r.leaveType.code, startDate: r.startDate, endDate: r.endDate })),
+    });
+  },
+
+  async updateLeaveType(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const type = await prisma.leaveType.findFirst({ where: { id: req.params.typeId, organizationId: orgId } });
+    if (!type) throw new AppError(404, 'Leave type not found');
+    const b = req.body;
+    const data: any = {};
+    if (b.reviewerId !== undefined) data.reviewerId = b.reviewerId || null;
+    if (b.active !== undefined) data.active = Boolean(b.active);
+    const updated = await prisma.leaveType.update({ where: { id: type.id }, data });
+    res.json(updated);
+  },
+
   async createRequest(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const b = req.body;

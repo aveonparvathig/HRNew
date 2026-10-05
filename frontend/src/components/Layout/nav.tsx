@@ -69,7 +69,8 @@ const PEOPLE_ITEMS: NavItem[] = [
 ];
 
 const LEAVE_ITEMS: NavItem[] = [
-  { to: '/leave', icon: 'calendar', label: 'Leave', also: ['/leave/requests'] },
+  { to: '/leave', icon: 'receipt', label: 'Requests' },
+  { to: '/leave/calendar', icon: 'calendar', label: 'Calendar' },
   { to: '/leave/balances', icon: 'layers', label: 'Balances' },
   { to: '/leave/holidays', icon: 'pin', label: 'Holidays' },
   { to: '/leave/settings', icon: 'sliders', label: 'Settings' },
@@ -147,10 +148,10 @@ export function navSectionsFor(
         : isMarketing ? i.to === '/expenses' // marketing: own expenses only
         : ['/people', '/people/org-chart', '/expenses'].includes(i.to)),
   });
-  // Leave: everyone can apply for their own; HR also gets balances/holidays/settings
+  // Leave: everyone applies + sees the calendar; HR also gets balances/holidays/settings
   sections.push({
     key: 'leave', label: 'Leave',
-    items: LEAVE_ITEMS.filter(i => (isSA || isHR) ? true : i.to === '/leave'),
+    items: LEAVE_ITEMS.filter(i => (isSA || isHR) ? true : ['/leave', '/leave/calendar'].includes(i.to)),
   });
   if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
   if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });
