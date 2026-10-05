@@ -17,6 +17,13 @@ export interface LoginResponse {
     mustChangePassword?: boolean;
     passwordExpired?: boolean;
   };
+  org?: {
+    status: string;
+    planName: string | null;
+    trialEndsOn: string | null;
+    modules: string[];
+    limits: { maxEmployees: number; maxUsers: number };
+  };
   accessToken: string;
   refreshToken: string;
   // Days left when the password is close to expiring

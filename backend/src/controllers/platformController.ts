@@ -6,6 +6,9 @@ import {
   generatePlatformAccessToken, generatePlatformRefreshToken, verifyPlatformRefreshToken,
 } from '../middleware/auth';
 import { logPlatform, tenantsOverview, tenantDetail, genTempPassword } from '../services/platform';
+import { GATED_MODULES } from '../services/planLimits';
+
+const DAY = 24 * 60 * 60 * 1000;
 
 const adminJSON = (a: any) => ({ id: a.id, email: a.email, name: a.name });
 const ownerJSON = (o: any) => ({
@@ -177,6 +180,72 @@ export const platformController = {
     const owner = await prisma.platformAdmin.update({ where: { id: target.id }, data: { isActive: makeActive } });
     await logPlatform(req.platformAdmin.email, makeActive ? 'OWNER_ENABLED' : 'OWNER_DISABLED', null, target.email);
     res.json({ owner: ownerJSON(owner) });
+  },
+
+  // Plans (subscription tiers) — platform-global, edited here.
+  async getPlans(_req: any, res: Response) {
+    const plans = await prisma.plan.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });
+    res.json({ plans, modules: GATED_MODULES });
+  },
+
+  async updatePlan(req: any, res: Response) {
+    const plan = await prisma.plan.findUnique({ where: { id: req.params.id } });
+    if (!plan) throw new AppError(404, 'Plan not found');
+    const b = req.body;
+    const data: any = {};
+    if (b.name !== undefined) {
+      const name = str(b.name);
+      if (!name) throw new AppError(400, 'Plan name is required');
+      data.name = name;
+    }
+    if (b.maxEmployees !== undefined) data.maxEmployees = Math.max(0, Math.trunc(Number(b.maxEmployees) || 0));
+    if (b.maxUsers !== undefined) data.maxUsers = Math.max(0, Math.trunc(Number(b.maxUsers) || 0));
+    if (b.trialDays !== undefined) data.trialDays = Math.max(0, Math.trunc(Number(b.trialDays) || 0));
+    if (b.price !== undefined) data.price = Math.max(0, Math.trunc(Number(b.price) || 0));
+    if (b.isActive !== undefined) data.isActive = Boolean(b.isActive);
+    if (b.enabledModules !== undefined) {
+      if (!Array.isArray(b.enabledModules)) throw new AppError(400, 'enabledModules must be a list');
+      const mods = [...new Set(b.enabledModules.map(String))];
+      const bad = mods.find(m => !GATED_MODULES.includes(m as any));
+      if (bad) throw new AppError(400, `Unknown module: ${bad}`);
+      data.enabledModules = mods;
+    }
+    const updated = await prisma.plan.update({ where: { id: plan.id }, data });
+    await logPlatform(req.platformAdmin.email, 'PLAN_UPDATED', null, plan.code);
+    res.json({ plan: updated });
+  },
+
+  // Assign (or clear) a tenant's plan and per-tenant overrides. Assigning a
+  // trial plan with no explicit end date starts the clock from today.
+  async setTenantPlan(req: any, res: Response) {
+    const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
+    if (!org) throw new AppError(404, 'Tenant not found');
+    const b = req.body;
+
+    const data: any = {};
+    let planName = 'no plan';
+    if (b.planId !== undefined) {
+      if (b.planId) {
+        const plan = await prisma.plan.findUnique({ where: { id: str(b.planId) } });
+        if (!plan) throw new AppError(400, 'Unknown plan');
+        data.planId = plan.id;
+        planName = plan.name;
+        // Start the trial clock when switching to a trial plan and none is set
+        if (plan.trialDays > 0 && b.trialEndsOn === undefined && !org.trialEndsOn) {
+          data.trialEndsOn = new Date(Date.now() + plan.trialDays * DAY);
+        }
+      } else {
+        data.planId = null;
+      }
+    }
+    const numOrNull = (v: any) => (v === null || v === '' ? null : Math.max(0, Math.trunc(Number(v) || 0)));
+    if (b.maxEmployeesOverride !== undefined) data.maxEmployeesOverride = numOrNull(b.maxEmployeesOverride);
+    if (b.maxUsersOverride !== undefined) data.maxUsersOverride = numOrNull(b.maxUsersOverride);
+    if (b.trialEndsOn !== undefined) data.trialEndsOn = b.trialEndsOn ? new Date(b.trialEndsOn) : null;
+
+    await prisma.organization.update({ where: { id: org.id }, data });
+    await logPlatform(req.platformAdmin.email, 'TENANT_PLAN_SET', org.id, planName);
+    res.json({ tenant: await tenantDetail(org.id) });
   },
 
   async getAudit(_req: any, res: Response) {

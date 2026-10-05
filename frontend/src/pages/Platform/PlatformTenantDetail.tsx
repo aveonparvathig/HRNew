@@ -1,9 +1,14 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { platformAPI, type Tenant, type PlatformAuditEntry } from '../../api/platform';
+import { platformAPI, type Tenant, type PlatformAuditEntry, type Plan } from '../../api/platform';
 import { StatCard, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
 import { toast, confirmDialog } from '../../components/feedback';
 import { formatDate } from '../../utils/format';
+
+const cap = (n: number) => (n > 0 ? n : '∞');
+const MODULE_LABELS: Record<string, string> = {
+  project: 'Project', recruitment: 'Recruitment', proposals: 'Proposals', expenses: 'Expenses', payroll: 'Payroll',
+};
 
 const dateTime = (d: string) =>
   new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -25,6 +30,9 @@ export default function PlatformTenantDetail() {
   const [busy, setBusy] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [confirmName, setConfirmName] = useState('');
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [planOpen, setPlanOpen] = useState(false);
+  const [planForm, setPlanForm] = useState({ planId: '', maxEmployeesOverride: '', maxUsersOverride: '', trialEndsOn: '' });
 
   const load = useCallback(async () => {
     try {
@@ -40,6 +48,37 @@ export default function PlatformTenantDetail() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { platformAPI.getPlans().then(res => setPlans(res.data.plans)).catch(() => {}); }, []);
+
+  const openPlan = () => {
+    setPlanForm({
+      planId: tenant?.planId || '',
+      maxEmployeesOverride: tenant?.maxEmployeesOverride != null ? String(tenant.maxEmployeesOverride) : '',
+      maxUsersOverride: tenant?.maxUsersOverride != null ? String(tenant.maxUsersOverride) : '',
+      trialEndsOn: tenant?.trialEndsOn ? tenant.trialEndsOn.slice(0, 10) : '',
+    });
+    setPlanOpen(true);
+  };
+
+  const savePlan = async () => {
+    setBusy(true);
+    try {
+      const res = await platformAPI.setTenantPlan(id, {
+        planId: planForm.planId || null,
+        maxEmployeesOverride: planForm.maxEmployeesOverride === '' ? null : Number(planForm.maxEmployeesOverride),
+        maxUsersOverride: planForm.maxUsersOverride === '' ? null : Number(planForm.maxUsersOverride),
+        trialEndsOn: planForm.trialEndsOn || null,
+      });
+      setTenant(res.data.tenant);
+      setPlanOpen(false);
+      toast.success('Plan updated.');
+      load();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Could not update plan');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const doSuspend = async () => {
     setBusy(true);
@@ -134,6 +173,41 @@ export default function PlatformTenantDetail() {
       </div>
 
       <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <h3 style={{ fontSize: 15, margin: 0 }}>Plan &amp; limits</h3>
+          <button className="btn btn-secondary btn-sm" onClick={openPlan}>Change plan</button>
+        </div>
+        <div className="form-grid">
+          <div>
+            <div className="text-muted" style={{ fontSize: 12 }}>Plan</div>
+            <div style={{ fontWeight: 600 }}>{tenant.planName || 'No plan (all modules, no caps)'}</div>
+          </div>
+          <div>
+            <div className="text-muted" style={{ fontSize: 12 }}>Employees</div>
+            <div style={{ fontWeight: 600 }}>{tenant.employees} / {cap(tenant.limits.maxEmployees)}
+              {tenant.maxEmployeesOverride != null && <span className="badge badge-info" style={{ marginLeft: 6 }}>override</span>}</div>
+          </div>
+          <div>
+            <div className="text-muted" style={{ fontSize: 12 }}>Logins</div>
+            <div style={{ fontWeight: 600 }}>{tenant.users} / {cap(tenant.limits.maxUsers)}
+              {tenant.maxUsersOverride != null && <span className="badge badge-info" style={{ marginLeft: 6 }}>override</span>}</div>
+          </div>
+          <div>
+            <div className="text-muted" style={{ fontSize: 12 }}>Trial ends</div>
+            <div style={{ fontWeight: 600 }}>{tenant.trialEndsOn ? formatDate(tenant.trialEndsOn) : '—'}</div>
+          </div>
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Modules</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {tenant.limits.modules.map(m => (
+              <span key={m} className="badge badge-success">{MODULE_LABELS[m] || m}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
         <h3 style={{ fontSize: 15, marginBottom: 12 }}>Platform activity</h3>
         {audit.length === 0 ? (
           <p className="text-muted">No platform actions recorded for this tenant yet.</p>
@@ -170,6 +244,49 @@ export default function PlatformTenantDetail() {
           <button type="button" className="btn btn-ghost" onClick={() => setSuspendOpen(false)}>Cancel</button>
           <button type="button" className="btn btn-danger" disabled={busy} onClick={doSuspend}>
             {busy ? 'Suspending…' : 'Suspend tenant'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal title={`Plan for ${tenant.name}`} open={planOpen} onClose={() => setPlanOpen(false)}>
+        <div className="field" style={{ marginBottom: 14 }}>
+          <label>Plan</label>
+          <select className="select" value={planForm.planId}
+            onChange={e => setPlanForm({ ...planForm, planId: e.target.value })}>
+            <option value="">No plan (all modules, no caps)</option>
+            {plans.filter(p => p.isActive || p.id === planForm.planId).map(p => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {p.maxEmployees > 0 ? `${p.maxEmployees} emp` : 'unlimited'}, {p.maxUsers > 0 ? `${p.maxUsers} logins` : 'unlimited'}{p.trialDays > 0 ? `, ${p.trialDays}-day trial` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="field">
+            <label>Max employees override</label>
+            <input className="input" type="number" min={0} value={planForm.maxEmployeesOverride}
+              onChange={e => setPlanForm({ ...planForm, maxEmployeesOverride: e.target.value })}
+              placeholder="use plan" />
+          </div>
+          <div className="field">
+            <label>Max logins override</label>
+            <input className="input" type="number" min={0} value={planForm.maxUsersOverride}
+              onChange={e => setPlanForm({ ...planForm, maxUsersOverride: e.target.value })}
+              placeholder="use plan" />
+          </div>
+          <div className="field">
+            <label>Trial ends on</label>
+            <input className="input" type="date" value={planForm.trialEndsOn}
+              onChange={e => setPlanForm({ ...planForm, trialEndsOn: e.target.value })} />
+          </div>
+        </div>
+        <p className="text-muted" style={{ fontSize: 12, marginBottom: 14 }}>
+          Leave an override blank to use the plan's value. 0 means unlimited. Picking a trial plan with no date set starts the clock today.
+        </p>
+        <div className="form-actions">
+          <button type="button" className="btn btn-ghost" onClick={() => setPlanOpen(false)}>Cancel</button>
+          <button type="button" className="btn btn-primary" disabled={busy} onClick={savePlan}>
+            {busy ? 'Saving…' : 'Save plan'}
           </button>
         </div>
       </Modal>

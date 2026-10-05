@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { requireRole } from '../middleware/roles';
+import { requireRole, requireModule } from '../middleware/roles';
 import { recruitmentController } from '../controllers/recruitmentController';
 
 const router = Router();
@@ -11,6 +11,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
   };
 
 router.use(authMiddleware);
+router.use(requireModule('recruitment'));
 router.use(requireRole('SUPER_ADMIN', 'HR'));
 
 router.get('/meta', asyncHandler((req, res) => recruitmentController.getMeta(req, res)));

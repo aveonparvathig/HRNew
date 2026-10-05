@@ -15,6 +15,7 @@ import { seal } from '../services/secretBox';
 import { pdfEngine } from '../services/pdf';
 import { isEmail } from '../services/payroll/payslipFiles';
 import { sendWelcomeMail } from '../services/notifications';
+import { assertUserCapacity } from '../services/limitGuards';
 
 const str = (v: any) => String(v ?? '');
 
@@ -181,6 +182,9 @@ export const orgController = {
       if (!email) { skipped.push({ name: p.name, reason: 'no email on record' }); continue; }
       const emailTaken = await prisma.user.findUnique({ where: { email } });
       if (emailTaken) { skipped.push({ name: p.name, reason: `email ${email} already has a login` }); continue; }
+      // Stop generating once the plan's login cap is reached; skip the rest
+      try { await assertUserCapacity(orgId); }
+      catch { skipped.push({ name: p.name, reason: 'plan login limit reached' }); continue; }
       const password = tempPassword();
       const [firstName, ...rest] = p.name.split(' ');
       await prisma.user.create({
@@ -229,6 +233,7 @@ export const orgController = {
     if (problem) throw new AppError(400, problem);
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) throw new AppError(409, 'A user with this email already exists');
+    await assertUserCapacity(req.user?.organizationId);
     const user = await prisma.user.create({
       data: {
         email,

@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { requireRole } from '../middleware/roles';
+import { requireRole, requireModule } from '../middleware/roles';
 import { proposalsController } from '../controllers/proposalsController';
 
 const router = Router();
@@ -11,6 +11,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
   };
 
 router.use(authMiddleware);
+router.use(requireModule('proposals'));
 // MARKETING can build and view their own proposals; deletes stay admin-only
 router.use(requireRole('SUPER_ADMIN', 'MARKETING'));
 const adminOnly = requireRole('SUPER_ADMIN');

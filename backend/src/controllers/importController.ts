@@ -17,6 +17,7 @@ import { MAX_SHEET_ROWS, TemplateColumn, readSheet, sendWorkbook, templateWorkbo
 import { EMPLOYMENT_STATUSES } from './peopleController';
 import { reviseSalary } from './payrollStructureController';
 import { addEmployeeFile } from './employeeFilesController';
+import { assertEmployeeCapacity } from '../services/limitGuards';
 
 const str = (v: any) => String(v ?? '').trim();
 const LIST_COLUMNS = EMPLOYEE_COLUMNS.filter(c => c.type === 'list');
@@ -169,6 +170,11 @@ export const importController = {
     // without it the whole save is refused, so rows are never taken in part
     if (check.newValues.length && !b.addNewValues) {
       throw new AppError(400, `Not in your lists yet: ${check.newValues.map(v => v.label).join(', ')}. Tick "Add these values to the lists", or correct the sheet.`);
+    }
+    // Adding employees in bulk counts against the plan's cap, as one batch
+    if (mode === 'ADD') {
+      const toAdd = check.results.filter(r => r.result !== 'ERROR' && r.result !== 'UNCHANGED').length;
+      if (toAdd > 0) await assertEmployeeCapacity(organizationId, toAdd);
     }
     const before = new Map(ctx.people.map(p => [p.id, p]));
     const idOfCode = new Map(ctx.people.filter(p => p.employeeNo).map(p => [p.employeeNo.toLowerCase(), p.id]));
