@@ -15,7 +15,7 @@ import mastersRoutes from './routes/masters';
 import expenseRoutes from './routes/expenses';
 import selfServiceRoutes from './routes/selfService';
 import platformRoutes from './routes/platform';
-import { seedPlatformOwner } from './services/platform';
+import { seedPlatformOwner, seedPlans } from './services/platform';
 
 // Initialize Express app
 const app: Express = express();
@@ -91,6 +91,8 @@ async function startServer() {
       await connectDatabase();
       // Seed the first platform owner from env, once (no-op without env/when one exists)
       await seedPlatformOwner().catch(err => console.warn('⚠ Platform owner seed skipped:', err?.message));
+      // Seed the default subscription tiers, once (never clobbers edited plans)
+      await seedPlans().catch(err => console.warn('⚠ Plan seed skipped:', err?.message));
     } catch (dbError) {
       console.warn('⚠ Database connection delayed, will retry on first request');
     }

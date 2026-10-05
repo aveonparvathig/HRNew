@@ -1,28 +1,58 @@
 import { Response, NextFunction } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from './errorHandler';
+import { effectiveLimits, trialExpired } from '../services/planLimits';
 
 export type Role = 'SUPER_ADMIN' | 'HR' | 'PAYROLL_VIEWER' | 'EMPLOYEE' | 'MARKETING';
 
 // Fetch the caller's live role + person link once per request, so role
-// changes and deactivation take effect immediately without re-login.
+// changes and deactivation take effect immediately without re-login. Also
+// resolves the tenant's plan limits and enforces suspension / trial expiry.
 export async function loadActor(req: any) {
   if (req.actor) return req.actor;
   const user = await prisma.user.findUnique({
     where: { id: req.user?.userId },
     select: {
       id: true, role: true, isActive: true, personId: true, organizationId: true,
-      organization: { select: { status: true } },
+      organization: {
+        select: {
+          status: true, trialEndsOn: true, maxEmployeesOverride: true, maxUsersOverride: true,
+          plan: { select: { maxEmployees: true, maxUsers: true, enabledModules: true } },
+        },
+      },
     },
   });
   if (!user || !user.isActive) throw new AppError(401, 'Account is inactive');
+  const org = user.organization;
+  // A trial that has run out suspends the tenant on first touch after expiry.
+  if (org?.status === 'ACTIVE' && trialExpired(org)) {
+    await prisma.organization.update({
+      where: { id: user.organizationId },
+      data: { status: 'SUSPENDED', suspendedAt: new Date(), suspendedReason: 'Trial ended' },
+    });
+    throw new AppError(403, 'Your trial has ended. Contact support to continue.');
+  }
   // A suspended tenant is frozen even for already-issued sessions.
-  if (user.organization?.status === 'SUSPENDED') {
+  if (org?.status === 'SUSPENDED') {
     throw new AppError(403, 'This organization has been suspended. Contact support.');
   }
+  (user as any).orgLimits = effectiveLimits(org || {});
   req.actor = user;
   return user;
 }
+
+// Refuse a request when the tenant's plan does not include this module.
+export const requireModule = (key: string) =>
+  (req: any, _res: Response, next: NextFunction) => {
+    loadActor(req)
+      .then(actor => {
+        if (!actor.orgLimits.modules.includes(key)) {
+          throw new AppError(403, 'This module is not included in your plan');
+        }
+        next();
+      })
+      .catch(next);
+  };
 
 export const requireRole = (...roles: Role[]) =>
   (req: any, _res: Response, next: NextFunction) => {

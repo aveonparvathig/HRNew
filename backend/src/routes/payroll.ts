@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
-import { requireRole, readOnlyFor } from '../middleware/roles';
+import { requireRole, readOnlyFor, requireModule } from '../middleware/roles';
 import { payrollController } from '../controllers/payrollController';
 import { payrollSetupController } from '../controllers/payrollSetupController';
 import { payrollStructureController } from '../controllers/payrollStructureController';
@@ -28,6 +28,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
   };
 
 router.use(authMiddleware);
+router.use(requireModule('payroll'));
 router.use(requireRole('SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'));
 // The viewer role reads every payroll page and report and changes nothing
 router.use(readOnlyFor('PAYROLL_VIEWER'));

@@ -1,6 +1,26 @@
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { prisma } from '../config/database';
+import { GATED_MODULES, effectiveLimits } from './planLimits';
+
+// Default subscription tiers, seeded once on boot. The owner edits these in
+// the console afterwards; re-seeding never overwrites an edited plan.
+const DEFAULT_PLANS = [
+  { code: 'TRIAL', name: 'Trial', maxEmployees: 10, maxUsers: 3, enabledModules: [...GATED_MODULES], trialDays: 14, price: 0, sortOrder: 0 },
+  { code: 'STARTER', name: 'Starter', maxEmployees: 25, maxUsers: 5, enabledModules: ['payroll', 'expenses'], trialDays: 0, price: 999, sortOrder: 1 },
+  { code: 'GROWTH', name: 'Growth', maxEmployees: 100, maxUsers: 20, enabledModules: [...GATED_MODULES], trialDays: 0, price: 2999, sortOrder: 2 },
+  { code: 'ENTERPRISE', name: 'Enterprise', maxEmployees: 0, maxUsers: 0, enabledModules: [...GATED_MODULES], trialDays: 0, price: 0, sortOrder: 3 },
+];
+
+// Seed the default plans once. Only inserts plans whose code does not exist yet,
+// so an owner's edits (and removed tiers) are never clobbered.
+export async function seedPlans(): Promise<void> {
+  const existing = new Set((await prisma.plan.findMany({ select: { code: true } })).map(p => p.code));
+  const missing = DEFAULT_PLANS.filter(p => !existing.has(p.code));
+  if (missing.length === 0) return;
+  await prisma.plan.createMany({ data: missing });
+  console.log(`✓ Seeded ${missing.length} default plan(s)`);
+}
 
 // A temporary password for an owner-created tenant admin: random, with a fixed
 // tail so it always clears the default policy (length + mixed classes). The
@@ -23,6 +43,27 @@ export interface TenantUsage {
   employees: number;
   people: number;
   lastLoginAt: Date | null;
+  // Plan & limits
+  planId: string | null;
+  planName: string | null;
+  planCode: string | null;
+  trialEndsOn: Date | null;
+  maxEmployeesOverride: number | null;
+  maxUsersOverride: number | null;
+  limits: { maxEmployees: number; maxUsers: number; modules: string[] };
+}
+
+// Shape the plan-and-limit part of a tenant row from an org (with its plan).
+function limitFields(o: any) {
+  return {
+    planId: o.planId ?? null,
+    planName: o.plan?.name ?? null,
+    planCode: o.plan?.code ?? null,
+    trialEndsOn: o.trialEndsOn ?? null,
+    maxEmployeesOverride: o.maxEmployeesOverride ?? null,
+    maxUsersOverride: o.maxUsersOverride ?? null,
+    limits: effectiveLimits(o),
+  };
 }
 
 // Seed the very first platform owner from env, once, on boot. Never creates a
@@ -62,7 +103,7 @@ export async function logPlatform(
 // grouped queries so the number of round-trips does not grow with tenant count.
 export async function tenantsOverview(): Promise<TenantUsage[]> {
   const [orgs, userGroups, empGroups, peopleGroups] = await Promise.all([
-    prisma.organization.findMany({ orderBy: { createdAt: 'desc' } }),
+    prisma.organization.findMany({ orderBy: { createdAt: 'desc' }, include: { plan: true } }),
     prisma.user.groupBy({ by: ['organizationId'], _count: { _all: true }, _max: { lastLoginAt: true } }),
     prisma.person.groupBy({ by: ['organizationId'], where: { isEmployee: true }, _count: { _all: true } }),
     prisma.person.groupBy({ by: ['organizationId'], _count: { _all: true } }),
@@ -85,12 +126,13 @@ export async function tenantsOverview(): Promise<TenantUsage[]> {
     employees: empBy.get(o.id) ?? 0,
     people: peopleBy.get(o.id) ?? 0,
     lastLoginAt: userBy.get(o.id)?._max.lastLoginAt ?? null,
+    ...limitFields(o),
   }));
 }
 
 // One tenant's usage, or null when it does not exist.
 export async function tenantDetail(orgId: string): Promise<TenantUsage | null> {
-  const o = await prisma.organization.findUnique({ where: { id: orgId } });
+  const o = await prisma.organization.findUnique({ where: { id: orgId }, include: { plan: true } });
   if (!o) return null;
   const [users, employees, people, lastUser] = await Promise.all([
     prisma.user.count({ where: { organizationId: orgId } }),
@@ -105,5 +147,6 @@ export async function tenantDetail(orgId: string): Promise<TenantUsage | null> {
     id: o.id, name: o.name, email: o.email, status: o.status, createdVia: o.createdVia,
     suspendedAt: o.suspendedAt, suspendedReason: o.suspendedReason, createdAt: o.createdAt,
     users, employees, people, lastLoginAt: lastUser?.lastLoginAt ?? null,
+    ...limitFields(o),
   };
 }

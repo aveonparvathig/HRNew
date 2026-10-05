@@ -13,6 +13,26 @@ export interface Tenant {
   employees: number;
   people: number;
   lastLoginAt: string | null;
+  planId: string | null;
+  planName: string | null;
+  planCode: string | null;
+  trialEndsOn: string | null;
+  maxEmployeesOverride: number | null;
+  maxUsersOverride: number | null;
+  limits: { maxEmployees: number; maxUsers: number; modules: string[] };
+}
+
+export interface Plan {
+  id: string;
+  code: string;
+  name: string;
+  maxEmployees: number;
+  maxUsers: number;
+  enabledModules: string[];
+  trialDays: number;
+  price: number;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export interface PlatformAuditEntry {
@@ -60,6 +80,14 @@ export const platformAPI = {
     client.post<{ tenant: Tenant }>(`/platform/tenants/${id}/reactivate`, {}),
   deleteTenant: (id: string, confirmName: string) =>
     client.delete<{ ok: boolean }>(`/platform/tenants/${id}`, { data: { confirmName } }),
+
+  getPlans: () => client.get<{ plans: Plan[]; modules: string[] }>('/platform/plans'),
+  updatePlan: (id: string, data: Partial<Plan>) =>
+    client.put<{ plan: Plan }>(`/platform/plans/${id}`, data),
+  setTenantPlan: (id: string, data: {
+    planId?: string | null; maxEmployeesOverride?: number | null;
+    maxUsersOverride?: number | null; trialEndsOn?: string | null;
+  }) => client.post<{ tenant: Tenant }>(`/platform/tenants/${id}/plan`, data),
 
   getOwners: () => client.get<{ owners: PlatformOwner[] }>('/platform/owners'),
   addOwner: (data: { email: string; name: string; password: string }) =>

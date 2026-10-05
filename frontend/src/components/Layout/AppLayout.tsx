@@ -1,6 +1,7 @@
 import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
 import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, useEnabledModules } from '../../store/authStore';
+import { authAPI } from '../../api/auth';
 import { LoadingBlock } from '../ui';
 import CommandPalette from '../CommandPalette';
 import { HOME_ITEM, ICON_PATHS, Icon, activeNav, navSectionsFor } from './nav';
@@ -18,12 +19,22 @@ export default function AppLayout() {
   const location = useLocation();
   const user = useAuthStore(state => state.user);
   const logout = useAuthStore(state => state.logout);
+  const setOrg = useAuthStore(state => state.setOrg);
+  const modules = useEnabledModules();
   const [navOpen, setNavOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [navState, setNavState] = useState<Record<string, boolean>>(readNavState);
   const navRef = useRef<HTMLElement>(null);
 
-  const sections = useMemo(() => navSectionsFor(user), [user]);
+  const sections = useMemo(() => navSectionsFor(user, modules), [user, modules]);
+
+  // Refresh the plan context once on mount, so a plan change by the platform
+  // owner takes effect on the next visit without needing to sign in again.
+  useEffect(() => {
+    authAPI.getCurrentUser()
+      .then(res => { if (res.data?.org) setOrg(res.data.org); })
+      .catch(() => { /* leave the stored context in place */ });
+  }, [setOrg]);
   const active = activeNav(sections, location.pathname);
   const activeKey = active?.key ?? null;
   // A short menu is shown whole; a long one opens only the section in use

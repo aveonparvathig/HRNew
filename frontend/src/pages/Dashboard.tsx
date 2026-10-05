@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
+import { useAuthStore, useEnabledModules } from '../store/authStore';
 import { payrollAPI } from '../api/payroll';
 import { PageHeader } from '../components/ui';
 import { Icon } from '../components/Layout/nav';
@@ -17,6 +17,12 @@ const MODULES = [
   { to: '/my/payslips', icon: 'banknote', tone: 'tone-success', name: 'My Pay', desc: 'Your payslips, tax declaration and loans' },
   { to: '/organization', icon: 'home', tone: 'tone-info', name: 'Organization', desc: 'Company settings, bank accounts and lists' },
 ];
+
+// A tile's gated module, if any (core tiles are always shown)
+const TILE_MODULE: Record<string, string> = {
+  '/income': 'project', '/recruitment': 'recruitment', '/expenses': 'expenses',
+  '/proposals': 'proposals', '/payroll': 'payroll',
+};
 
 // Which module cards each role sees (mirrors the API policy)
 const ALL = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER', 'EMPLOYEE', 'MARKETING'];
@@ -106,8 +112,11 @@ export default function Dashboard() {
   const role = user?.role || 'SUPER_ADMIN';
   const staff = ['SUPER_ADMIN', 'HR', 'PAYROLL_VIEWER'].includes(role);
   const managesPeople = role === 'SUPER_ADMIN' || role === 'HR';
+  const enabledModules = useEnabledModules();
   const modules = MODULES.filter(m =>
-    (MODULE_ROLES[m.to] || []).includes(role) && (m.to !== '/my/payslips' || Boolean(user?.personId)));
+    (MODULE_ROLES[m.to] || []).includes(role)
+    && (m.to !== '/my/payslips' || Boolean(user?.personId))
+    && (!TILE_MODULE[m.to] || enabledModules.includes(TILE_MODULE[m.to])));
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return (

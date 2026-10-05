@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
 import { incomeController } from '../controllers/incomeController';
-import { requireRole } from '../middleware/roles';
+import { requireRole, requireModule } from '../middleware/roles';
 
 const router = Router();
 
@@ -11,6 +11,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
   };
 
 router.use(authMiddleware);
+router.use(requireModule('project'));
 // HR has no income access; employees see only their own clients (scoped in controller)
 router.use(requireRole('SUPER_ADMIN', 'EMPLOYEE'));
 const adminOnly = requireRole('SUPER_ADMIN');

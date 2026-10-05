@@ -17,6 +17,7 @@ import { ensureStartingPosition, followProfileEdit } from '../services/positions
 import { letterTypesFor } from '../services/letters';
 import { removeStored } from '../services/fileStore';
 import { canSeeFullAadhaar, maskAadhaar, personalInput, profileData } from '../services/profileCalc';
+import { assertEmployeeCapacity } from '../services/limitGuards';
 
 // EMPLOYEE role sees the people directory without money, bank, statutory
 // or government-ID fields — stripped server-side, never sent at all.
@@ -478,6 +479,8 @@ export const peopleController = {
     // Added without a pipeline stage = direct employee; with an active
     // stage = candidate in hiring (auto-promotes on Selected/Joined).
     const stage = str(b.stage);
+    const willBeEmployee = b.kind === 'CANDIDATE' ? employeeFromStage(stage, true) : false;
+    if (willBeEmployee) await assertEmployeeCapacity(orgId);
     const person = await prisma.person.create({
       data: {
         ...personData(b),
@@ -486,7 +489,7 @@ export const peopleController = {
         kind: b.kind,
         name,
         stageUpdatedAt: stage ? new Date() : null,
-        isEmployee: b.kind === 'CANDIDATE' ? employeeFromStage(stage, true) : false,
+        isEmployee: willBeEmployee,
       },
     });
     await ensureListValues(orgId, personListValues(person));
@@ -579,6 +582,8 @@ export const peopleController = {
     if (b.stage !== undefined && b.stage !== person.stage) {
       data.stageUpdatedAt = new Date();
       data.isEmployee = employeeFromStage(str(b.stage), person.isEmployee);
+      // Promoting a candidate to employee counts against the plan's cap
+      if (data.isEmployee && !person.isEmployee) await assertEmployeeCapacity(orgId);
     }
     const updated = await prisma.person.update({ where: { id: person.id }, data });
     await ensureListValues(orgId, personListValues(updated));
@@ -615,6 +620,7 @@ export const peopleController = {
     const stage = str(req.body.stage).trim();
     if (!STAGE_VALUES.includes(stage)) throw new AppError(400, 'Invalid stage');
     const becameEmployee = !person.isEmployee && EMPLOYEE_STAGES.includes(stage);
+    if (becameEmployee) await assertEmployeeCapacity(orgId);
     const updated = await prisma.person.update({
       where: { id: person.id },
       data: {

@@ -13,8 +13,18 @@ interface User {
   passwordExpired?: boolean; // the forced change is for an expired password, not a temporary one
 }
 
+// The tenant's plan context, used to hide modules the plan does not include.
+export interface OrgContext {
+  status: string;
+  planName: string | null;
+  trialEndsOn: string | null;
+  modules: string[]; // enabled gated-module keys
+  limits: { maxEmployees: number; maxUsers: number };
+}
+
 interface AuthStore {
   user: User | null;
+  org: OrgContext | null;
   accessToken: string | null;
   refreshToken: string | null;
   isLoading: boolean;
@@ -22,6 +32,7 @@ interface AuthStore {
 
   // Actions
   setUser: (user: User) => void;
+  setOrg: (org: OrgContext | null) => void;
   setTokens: (accessToken: string, refreshToken: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -32,12 +43,14 @@ export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       user: null,
+      org: null,
       accessToken: null,
       refreshToken: null,
       isLoading: false,
       error: null,
 
       setUser: (user) => set({ user }),
+      setOrg: (org) => set({ org }),
       setTokens: (accessToken, refreshToken) =>
         set({ accessToken, refreshToken }),
       setLoading: (loading) => set({ isLoading: loading }),
@@ -45,6 +58,7 @@ export const useAuthStore = create<AuthStore>()(
       logout: () =>
         set({
           user: null,
+          org: null,
           accessToken: null,
           refreshToken: null,
           error: null,
@@ -54,12 +68,22 @@ export const useAuthStore = create<AuthStore>()(
       name: 'auth-storage', // Name of the item in localStorage
       partialize: (state) => ({
         user: state.user,
+        org: state.org,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
       }),
     }
   )
 );
+
+// All gated modules — the fallback when the plan context is unknown, so a
+// tenant with no plan (or before /auth/me resolves) sees everything.
+export const ALL_MODULES = ['project', 'recruitment', 'proposals', 'expenses', 'payroll'];
+
+export function useEnabledModules(): string[] {
+  const org = useAuthStore(s => s.org);
+  return org?.modules ?? ALL_MODULES;
+}
 
 // Convenience role selectors — the API enforces the same policy server-side
 export function useRole() {

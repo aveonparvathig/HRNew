@@ -8,6 +8,19 @@ import {
   DEFAULT_POLICY, afterWrongPassword, expiryState, lockState, passwordProblem, tempPasswordExpired,
 } from '../services/passwordPolicy';
 import { policyFor, recordLogin, setPassword } from '../services/accountSecurity';
+import { effectiveLimits, trialExpired } from '../services/planLimits';
+
+// What the tenant frontend needs to gate modules and show its plan.
+const orgPayload = (org: any) => {
+  const limits = effectiveLimits(org || {});
+  return {
+    status: org?.status ?? 'ACTIVE',
+    planName: org?.plan?.name ?? null,
+    trialEndsOn: org?.trialEndsOn ?? null,
+    modules: limits.modules,
+    limits: { maxEmployees: limits.maxEmployees, maxUsers: limits.maxUsers },
+  };
+};
 
 // Refresh tokens live in the database (hashed) - they survive restarts and
 // can be revoked per-session.
@@ -125,10 +138,22 @@ export const authController = {
       await recordLogin(found, 'DISABLED', req);
       throw new AppError(403, 'This account has been disabled. Contact your organization owner.');
     }
-    // A suspended tenant cannot sign in at all, whatever the credentials.
-    const org = await prisma.organization.findUnique({
-      where: { id: found.organizationId }, select: { status: true },
+    // A suspended tenant — or one whose trial has run out — cannot sign in.
+    let org = await prisma.organization.findUnique({
+      where: { id: found.organizationId },
+      select: {
+        status: true, trialEndsOn: true, maxEmployeesOverride: true, maxUsersOverride: true,
+        plan: { select: { name: true, maxEmployees: true, maxUsers: true, enabledModules: true } },
+      },
     });
+    if (org?.status === 'ACTIVE' && trialExpired(org)) {
+      await prisma.organization.update({
+        where: { id: found.organizationId },
+        data: { status: 'SUSPENDED', suspendedAt: new Date(), suspendedReason: 'Trial ended' },
+      });
+      await recordLogin(found, 'DISABLED', req);
+      throw new AppError(403, 'Your trial has ended. Contact support to continue.');
+    }
     if (org?.status === 'SUSPENDED') {
       await recordLogin(found, 'DISABLED', req);
       throw new AppError(403, 'This organization has been suspended. Contact support.');
@@ -155,6 +180,7 @@ export const authController = {
 
     res.json({
       user: { ...userJSON(user), passwordExpired: expiry.expired && !found.mustChangePassword },
+      org: orgPayload(org),
       accessToken, refreshToken,
       // Set when the password is close to its expiry, for a reminder
       passwordExpiresInDays: expiry.remind ? expiry.daysLeft : null,
@@ -201,13 +227,21 @@ export const authController = {
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: decoded.userId }, include: { organization: { select: { status: true } } },
+      where: { id: decoded.userId },
+      include: { organization: { select: { status: true, trialEndsOn: true } } },
     });
     if (!user) {
       throw new AppError(404, 'User not found');
     }
     if (!user.isActive) {
       throw new AppError(403, 'This account has been disabled. Contact your organization owner.');
+    }
+    if (user.organization?.status === 'ACTIVE' && trialExpired(user.organization)) {
+      await prisma.organization.update({
+        where: { id: user.organizationId },
+        data: { status: 'SUSPENDED', suspendedAt: new Date(), suspendedReason: 'Trial ended' },
+      });
+      throw new AppError(403, 'Your trial has ended. Contact support to continue.');
     }
     if (user.organization?.status === 'SUSPENDED') {
       throw new AppError(403, 'This organization has been suspended. Contact support.');
@@ -230,13 +264,14 @@ export const authController = {
   async getCurrentUser(req: any, res: Response) {
     const user = await prisma.user.findUnique({
       where: { id: req.user?.userId },
-      include: { organization: true },
+      include: { organization: { include: { plan: true } } },
     });
     if (!user) {
       throw new AppError(404, 'User not found');
     }
     res.json({
       user: { ...userJSON(user), organizationName: user.organization.name },
+      org: orgPayload(user.organization),
     });
   },
 };

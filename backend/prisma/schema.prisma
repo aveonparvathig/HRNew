@@ -40,9 +40,18 @@ model Organization {
   suspendedReason String    @default("")
   createdVia      String    @default("SIGNUP") // SIGNUP | OWNER
 
+  // Plan & limits (platform-managed). No plan = no limits, all modules —
+  // so existing tenants are unchanged until an owner assigns one. Overrides
+  // beat the plan; null/empty = fall back to the plan. 0 = unlimited.
+  planId               String?
+  maxEmployeesOverride Int?
+  maxUsersOverride     Int?
+  trialEndsOn          DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  plan          Plan?          @relation(fields: [planId], references: [id], onDelete: SetNull)
   users         User[]
   academicYears AcademicYear[]
   incomeClients IncomeClient[]
@@ -85,6 +94,29 @@ model PlatformAuditLog {
 
   @@index([createdAt])
   @@map("platform_audit_logs")
+}
+
+// A subscription tier. Platform-global (not per tenant); the owner edits these
+// in the console. `enabledModules` lists the gated add-on modules a tenant on
+// this plan may use (empty = all); the core HR directory is always available.
+// 0 for a cap means unlimited; trialDays > 0 marks a plan as a trial.
+model Plan {
+  id             String   @id @default(cuid())
+  code           String   @unique // TRIAL | STARTER | GROWTH | ENTERPRISE | ...
+  name           String
+  maxEmployees   Int      @default(0)
+  maxUsers       Int      @default(0)
+  enabledModules String[] // keys: project | recruitment | proposals | expenses | payroll
+  trialDays      Int      @default(0)
+  price          Int      @default(0) // monthly, in rupees — display only
+  isActive       Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organizations Organization[]
+
+  @@map("plans")
 }
 
 model User {

@@ -22,6 +22,7 @@ export default function PlatformLayout() {
           </Link>
           <nav className="platform-nav">
             <NavLink to="/platform" end className={({ isActive }) => isActive ? 'active' : ''}>Tenants</NavLink>
+            <NavLink to="/platform/plans" className={({ isActive }) => isActive ? 'active' : ''}>Plans</NavLink>
             <NavLink to="/platform/owners" className={({ isActive }) => isActive ? 'active' : ''}>Owners</NavLink>
             <NavLink to="/platform/audit" className={({ isActive }) => isActive ? 'active' : ''}>Audit</NavLink>
           </nav>

@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authMiddleware } from '../middleware/auth';
+import { requireModule } from '../middleware/roles';
 import { expensesController } from '../controllers/expensesController';
 
 const router = Router();
@@ -10,6 +11,7 @@ const asyncHandler = (fn: (req: Request, res: Response) => Promise<void> | Promi
   };
 
 router.use(authMiddleware);
+router.use(requireModule('expenses'));
 
 router.get('/meta', asyncHandler((req, res) => expensesController.getMeta(req, res)));
 

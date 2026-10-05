@@ -102,11 +102,28 @@ const ORG_ITEMS: NavItem[] = [
 ];
 
 // Role-based navigation: the API enforces these same rules server-side
-export function navSectionsFor(user: { role?: string; personId?: string | null } | null): NavSection[] {
+// A nav link's gated module, if any (core links return null and are always on).
+const ITEM_MODULES: { prefix: string; module: string }[] = [
+  { prefix: '/income', module: 'project' },
+  { prefix: '/recruitment', module: 'recruitment' },
+  { prefix: '/proposals', module: 'proposals' },
+  { prefix: '/expenses', module: 'expenses' },
+  { prefix: '/payroll', module: 'payroll' },
+];
+function itemModule(to: string): string | null {
+  const m = ITEM_MODULES.find(x => to === x.prefix || to.startsWith(x.prefix + '/'));
+  return m ? m.module : null;
+}
+
+export function navSectionsFor(
+  user: { role?: string; personId?: string | null } | null,
+  modules?: string[],
+): NavSection[] {
   const role = user?.role || 'SUPER_ADMIN';
   const isSA = role === 'SUPER_ADMIN';
   const isHR = role === 'HR';
   const isMarketing = role === 'MARKETING';
+  const allowed = (to: string) => { const m = itemModule(to); return !m || !modules || modules.includes(m); };
   const sections: NavSection[] = [];
 
   if (isSA || role === 'EMPLOYEE') {
@@ -130,7 +147,10 @@ export function navSectionsFor(user: { role?: string; personId?: string | null }
   if (isSA || isHR) {
     sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS.filter(i => isSA || i.to === '/organization') });
   }
-  return sections;
+  // Drop links for modules the plan does not include, and any section left empty
+  return sections
+    .map(s => ({ ...s, items: s.items.filter(i => allowed(i.to)) }))
+    .filter(s => s.items.length > 0);
 }
 
 // The link a path belongs to: the longest one it sits under, so a payroll

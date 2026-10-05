@@ -13,6 +13,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const setTokens = useAuthStore(state => state.setTokens);
   const setUser = useAuthStore(state => state.setUser);
+  const setOrg = useAuthStore(state => state.setOrg);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,8 +21,9 @@ export default function Login() {
     setLoading(true);
     try {
       const response = await authAPI.login({ email, password });
-      const { user, accessToken, refreshToken } = response.data;
+      const { user, org, accessToken, refreshToken } = response.data;
       setUser(user);
+      setOrg(org ?? null);
       setTokens(accessToken, refreshToken);
       const daysLeft = response.data.passwordExpiresInDays;
       if (daysLeft) {
