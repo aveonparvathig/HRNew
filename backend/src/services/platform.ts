@@ -43,6 +43,8 @@ export interface TenantUsage {
   employees: number;
   people: number;
   lastLoginAt: Date | null;
+  payrollRuns: number;
+  storageBytes: number;
   // Plan & limits
   planId: string | null;
   planName: string | null;
@@ -102,16 +104,20 @@ export async function logPlatform(
 // Every tenant with its headline usage, newest first. Counts are gathered with
 // grouped queries so the number of round-trips does not grow with tenant count.
 export async function tenantsOverview(): Promise<TenantUsage[]> {
-  const [orgs, userGroups, empGroups, peopleGroups] = await Promise.all([
+  const [orgs, userGroups, empGroups, peopleGroups, runGroups, storageGroups] = await Promise.all([
     prisma.organization.findMany({ orderBy: { createdAt: 'desc' }, include: { plan: true } }),
     prisma.user.groupBy({ by: ['organizationId'], _count: { _all: true }, _max: { lastLoginAt: true } }),
     prisma.person.groupBy({ by: ['organizationId'], where: { isEmployee: true }, _count: { _all: true } }),
     prisma.person.groupBy({ by: ['organizationId'], _count: { _all: true } }),
+    prisma.payrollRun.groupBy({ by: ['organizationId'], _count: { _all: true } }),
+    prisma.employeeDocument.groupBy({ by: ['organizationId'], _sum: { sizeBytes: true } }),
   ]);
 
   const userBy = new Map(userGroups.map(g => [g.organizationId, g]));
   const empBy = new Map(empGroups.map(g => [g.organizationId, g._count._all]));
   const peopleBy = new Map(peopleGroups.map(g => [g.organizationId, g._count._all]));
+  const runBy = new Map(runGroups.map(g => [g.organizationId, g._count._all]));
+  const storageBy = new Map(storageGroups.map(g => [g.organizationId, g._sum.sizeBytes ?? 0]));
 
   return orgs.map(o => ({
     id: o.id,
@@ -126,15 +132,75 @@ export async function tenantsOverview(): Promise<TenantUsage[]> {
     employees: empBy.get(o.id) ?? 0,
     people: peopleBy.get(o.id) ?? 0,
     lastLoginAt: userBy.get(o.id)?._max.lastLoginAt ?? null,
+    payrollRuns: runBy.get(o.id) ?? 0,
+    storageBytes: storageBy.get(o.id) ?? 0,
     ...limitFields(o),
   }));
+}
+
+// 'YYYY-MM' for the last `months` calendar months, oldest first.
+function recentMonths(months: number): string[] {
+  const out: string[] = [];
+  const d = new Date();
+  d.setDate(1);
+  for (let i = months - 1; i >= 0; i--) {
+    const m = new Date(d.getFullYear(), d.getMonth() - i, 1);
+    out.push(`${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`);
+  }
+  return out;
+}
+
+export interface PlatformOverview {
+  totals: {
+    tenants: number; active: number; suspended: number;
+    users: number; employees: number; people: number; payrollRuns: number; storageBytes: number;
+  };
+  byPlan: { name: string; count: number }[];
+  signups: { month: string; count: number }[];
+  tenants: TenantUsage[];
+}
+
+// Platform-wide usage: totals, tenants-per-plan, a 12-month signup trend, and
+// the full per-tenant table (for the on-screen list and CSV export).
+export async function platformOverview(): Promise<PlatformOverview> {
+  const tenants = await tenantsOverview();
+  const sum = (f: (t: TenantUsage) => number) => tenants.reduce((s, t) => s + f(t), 0);
+
+  const planCounts = new Map<string, number>();
+  for (const t of tenants) {
+    const key = t.planName || 'No plan';
+    planCounts.set(key, (planCounts.get(key) ?? 0) + 1);
+  }
+
+  const months = recentMonths(12);
+  const signupCounts = new Map(months.map(m => [m, 0]));
+  for (const t of tenants) {
+    const key = `${t.createdAt.getFullYear()}-${String(t.createdAt.getMonth() + 1).padStart(2, '0')}`;
+    if (signupCounts.has(key)) signupCounts.set(key, (signupCounts.get(key) ?? 0) + 1);
+  }
+
+  return {
+    totals: {
+      tenants: tenants.length,
+      active: tenants.filter(t => t.status === 'ACTIVE').length,
+      suspended: tenants.filter(t => t.status === 'SUSPENDED').length,
+      users: sum(t => t.users),
+      employees: sum(t => t.employees),
+      people: sum(t => t.people),
+      payrollRuns: sum(t => t.payrollRuns),
+      storageBytes: sum(t => t.storageBytes),
+    },
+    byPlan: [...planCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+    signups: months.map(m => ({ month: m, count: signupCounts.get(m) ?? 0 })),
+    tenants,
+  };
 }
 
 // One tenant's usage, or null when it does not exist.
 export async function tenantDetail(orgId: string): Promise<TenantUsage | null> {
   const o = await prisma.organization.findUnique({ where: { id: orgId }, include: { plan: true } });
   if (!o) return null;
-  const [users, employees, people, lastUser] = await Promise.all([
+  const [users, employees, people, lastUser, payrollRuns, storage] = await Promise.all([
     prisma.user.count({ where: { organizationId: orgId } }),
     prisma.person.count({ where: { organizationId: orgId, isEmployee: true } }),
     prisma.person.count({ where: { organizationId: orgId } }),
@@ -142,11 +208,14 @@ export async function tenantDetail(orgId: string): Promise<TenantUsage | null> {
       where: { organizationId: orgId, lastLoginAt: { not: null } },
       orderBy: { lastLoginAt: 'desc' }, select: { lastLoginAt: true },
     }),
+    prisma.payrollRun.count({ where: { organizationId: orgId } }),
+    prisma.employeeDocument.aggregate({ where: { organizationId: orgId }, _sum: { sizeBytes: true } }),
   ]);
   return {
     id: o.id, name: o.name, email: o.email, status: o.status, createdVia: o.createdVia,
     suspendedAt: o.suspendedAt, suspendedReason: o.suspendedReason, createdAt: o.createdAt,
     users, employees, people, lastLoginAt: lastUser?.lastLoginAt ?? null,
+    payrollRuns, storageBytes: storage._sum.sizeBytes ?? 0,
     ...limitFields(o),
   };
 }

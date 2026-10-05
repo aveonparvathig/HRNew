@@ -150,7 +150,7 @@ export default function PlatformTenantDetail() {
   if (!tenant) return (
     <>
       <ErrorAlert message={error || 'Tenant not found'} />
-      <Link to="/platform" className="btn btn-secondary btn-sm">← Back to tenants</Link>
+      <Link to="/platform/tenants" className="btn btn-secondary btn-sm">← Back to tenants</Link>
     </>
   );
 
@@ -160,7 +160,7 @@ export default function PlatformTenantDetail() {
     <>
       <div className="platform-head">
         <div>
-          <Link to="/platform" className="text-muted" style={{ fontSize: 13 }}>← Tenants</Link>
+          <Link to="/platform/tenants" className="text-muted" style={{ fontSize: 13 }}>← Tenants</Link>
           <h1 style={{ marginTop: 4 }}>
             {tenant.name}{' '}
             <span className={`badge ${suspended ? 'badge-danger' : 'badge-success'}`} style={{ verticalAlign: 'middle' }}>

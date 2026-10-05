@@ -1596,6 +1596,19 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
 .platform-main { max-width: 1120px; margin: 0 auto; padding: 28px 24px 48px; }
 .platform-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
 .platform-head h1 { font-size: 22px; margin: 0; }
+.platform-cards-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.signup-bars { display: flex; align-items: flex-end; gap: 8px; height: 150px; }
+.signup-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; }
+.signup-bar-track { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.signup-bar-fill { width: 100%; min-height: 2px; background: var(--primary); border-radius: 4px 4px 0 0; }
+.signup-bar-count { font-size: 11px; font-weight: 700; color: var(--text-muted); height: 14px; }
+.signup-bar-label { font-size: 10.5px; color: var(--text-muted); }
+.plan-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+.plan-row-name { font-size: 13px; width: 110px; flex: 0 0 110px; }
+.plan-row-track { flex: 1; height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+.plan-row-fill { height: 100%; background: var(--primary); border-radius: 4px; }
+.plan-row-count { font-size: 13px; font-weight: 700; width: 28px; text-align: right; }
+@media (max-width: 720px) { .platform-cards-2 { grid-template-columns: 1fr; } }
 @media (max-width: 640px) {
   .platform-main { padding: 18px 16px 40px; }
   .platform-head { flex-direction: column; }
