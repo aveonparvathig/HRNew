@@ -570,6 +570,7 @@ model Person {
   leaveTransactions   LeaveTransaction[]
   attendanceProfile   AttendanceProfile?
   shiftAssignments    ShiftAssignment[]
+  swipes              Swipe[]
   user                User?
 
   @@unique([organizationId, kind, name])
@@ -1072,6 +1073,27 @@ model ShiftAssignment {
   @@unique([organizationId, personId, date])
   @@index([organizationId, date])
   @@map("shift_assignments")
+}
+
+// A single clock-in/out punch (phase 6). Pairs of IN/OUT on a date give the
+// day's worked time; an odd/unpaired count is an attendance exception.
+model Swipe {
+  id             String   @id @default(cuid())
+  organizationId String
+  personId       String
+  date           String // "YYYY-MM-DD" (the date the punch is counted on)
+  time           String // "HH:MM"
+  direction      String // IN | OUT
+  source         String   @default("MANUAL") // MANUAL | IMPORT | DEVICE
+  deviceId       String   @default("")
+  note           String   @default("")
+  createdAt      DateTime @default(now())
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, personId, date])
+  @@index([organizationId, date])
+  @@map("swipes")
 }
 
 // ---------------------------------------------------------------------------

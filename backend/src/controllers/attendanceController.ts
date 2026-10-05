@@ -3,6 +3,7 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import {
   ensureDefaultShifts, getRoster, assignShifts, clearAssignment, setProfile,
+  getSwipeDays, addSwipe, deleteSwipe, importSwipes, swipeExceptions,
 } from '../services/attendance/attendanceService';
 
 const str = (v: any) => String(v ?? '');
@@ -88,6 +89,49 @@ export const attendanceController = {
     if (!DATE.test(str(date))) throw new AppError(400, 'Pick a valid date');
     await clearAssignment(orgId, str(personId), str(date));
     res.json({ message: 'Cleared' });
+  },
+
+  // --- Swipes ---
+  async getSwipes(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const personId = str(req.query.personId);
+    if (!personId) throw new AppError(400, 'Pick an employee');
+    const month = MONTH.test(str(req.query.month)) ? str(req.query.month) : new Date().toISOString().slice(0, 7);
+    res.json(await getSwipeDays(orgId, personId, month));
+  },
+
+  async addSwipe(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const b = req.body;
+    const person = await prisma.person.findFirst({ where: { id: str(b.personId), organizationId: orgId, isEmployee: true } });
+    if (!person) throw new AppError(400, 'Pick a valid employee');
+    if (!DATE.test(str(b.date))) throw new AppError(400, 'Pick a valid date');
+    if (!TIME.test(str(b.time))) throw new AppError(400, 'Enter a valid time (HH:MM)');
+    const direction = str(b.direction).toUpperCase();
+    if (!['IN', 'OUT'].includes(direction)) throw new AppError(400, 'Direction must be IN or OUT');
+    const swipe = await addSwipe(orgId, person.id, str(b.date), str(b.time), direction, 'MANUAL', str(b.note));
+    res.status(201).json(swipe);
+  },
+
+  async deleteSwipe(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const ok = await deleteSwipe(orgId, req.params.swipeId);
+    if (!ok) throw new AppError(404, 'Swipe not found');
+    res.json({ message: 'Swipe removed' });
+  },
+
+  async importSwipes(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const text = str(req.body.text);
+    if (!text.trim()) throw new AppError(400, 'Paste the swipe data (CSV)');
+    const result = await importSwipes(orgId, text);
+    res.json(result);
+  },
+
+  async exceptions(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const month = MONTH.test(str(req.query.month)) ? str(req.query.month) : new Date().toISOString().slice(0, 7);
+    res.json(await swipeExceptions(orgId, month));
   },
 
   async setProfile(req: any, res: Response) {
