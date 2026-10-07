@@ -5,6 +5,7 @@ import { loadActor } from '../middleware/roles';
 import { afterDecision, canApprove } from '../services/expenseApproval';
 import { actorName } from '../services/payroll/audit';
 import { workingDaysBetween, leaveYearOf, balanceOf, validateRequest, type LeaveTypePolicy } from '../services/leaveCalc';
+import { sanitizeWeekOffRules } from '../services/weekOff';
 import {
   ensureDefaultLeaveTypes, settingsFor, holidaySetFor, grantLeave,
   nextRequestNumber, startApprovalChain, onApproved, onCancelled, runAccrual as runAccrualJob,
@@ -69,7 +70,7 @@ const policyOf = (t: any): LeaveTypePolicy => ({
 async function computeDays(orgId: string, person: any, startDate: string, endDate: string, halfStart: boolean, halfEnd: boolean) {
   const settings = await settingsFor(orgId);
   const holidays = await holidaySetFor(orgId, person?.workLocationId);
-  return round2(workingDaysBetween(startDate, endDate, settings.weekOffDays, holidays, halfStart, halfEnd));
+  return round2(workingDaysBetween(startDate, endDate, settings.weekOffDays, holidays, halfStart, halfEnd, sanitizeWeekOffRules(settings.weekOffRules)));
 }
 
 async function balanceFor(orgId: string, personId: string, leaveTypeId: string, year: number) {
@@ -114,7 +115,7 @@ export const leaveController = {
     const employees = selfScoped(actor)
       ? await prisma.person.findMany({ where: { id: actor.personId || 'none', organizationId: orgId }, select: { id: true, name: true, employeeNo: true } })
       : await prisma.person.findMany({ where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } }, orderBy: { name: 'asc' }, select: { id: true, name: true, employeeNo: true } });
-    res.json({ types, statuses: LEAVE_STATUSES, employees, weekOffDays: settings.weekOffDays, canApplyOnBehalf: !selfScoped(actor) && settings.hrApplyOnBehalf });
+    res.json({ types, statuses: LEAVE_STATUSES, employees, weekOffDays: settings.weekOffDays, weekOffRules: sanitizeWeekOffRules(settings.weekOffRules), canApplyOnBehalf: !selfScoped(actor) && settings.hrApplyOnBehalf });
   },
 
   async getRequests(req: any, res: Response) {
@@ -513,6 +514,11 @@ export const leaveController = {
     if (b.weekOffDays !== undefined) {
       if (!Array.isArray(b.weekOffDays)) throw new AppError(400, 'weekOffDays must be a list');
       data.weekOffDays = [...new Set(b.weekOffDays.map((d: any) => parseInt(d)).filter((d: number) => d >= 0 && d <= 6))];
+    }
+    if (b.weekOffRules !== undefined) {
+      // A day that is off every week supersedes any occurrence-rule for that day.
+      const everyWeek = new Set<number>(data.weekOffDays ?? []);
+      data.weekOffRules = sanitizeWeekOffRules(b.weekOffRules).filter(r => !everyWeek.has(r.day));
     }
     if (b.leaveYearStartMonth !== undefined) {
       const m = parseInt(b.leaveYearStartMonth);

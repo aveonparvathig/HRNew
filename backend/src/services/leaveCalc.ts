@@ -1,5 +1,8 @@
 // Pure leave calculations — no DB, no Prisma. Dates are "YYYY-MM-DD" strings;
-// periods are "YYYY-MM". weekOffDays are JS day numbers (0=Sun .. 6=Sat).
+// periods are "YYYY-MM". weekOffDays are JS day numbers (0=Sun .. 6=Sat);
+// weekOffRules add occurrence-based offs (e.g. 2nd & 4th Saturday).
+
+import { buildWeekOffPredicate, type WeekOffRule } from './weekOff';
 
 export interface LeaveTypePolicy {
   code: string;
@@ -11,7 +14,6 @@ export interface LeaveTypePolicy {
 }
 
 const dayUTC = (d: string) => new Date(d + 'T00:00:00Z');
-const dowOf = (d: string) => dayUTC(d).getUTCDay();
 
 function eachDay(start: string, end: string): string[] {
   const out: string[] = [];
@@ -28,11 +30,11 @@ const asSet = (h: Set<string> | string[]) => (h instanceof Set ? h : new Set(h))
 // and/or end date (when that date is itself a working day).
 export function splitByPeriod(
   start: string, end: string, weekOffDays: number[], holidays: Set<string> | string[],
-  halfDayStart = false, halfDayEnd = false,
+  halfDayStart = false, halfDayEnd = false, weekOffRules: WeekOffRule[] = [],
 ): Record<string, number> {
-  const off = new Set(weekOffDays);
+  const isOff = buildWeekOffPredicate(weekOffDays, weekOffRules);
   const hol = asSet(holidays);
-  const isWorking = (d: string) => !off.has(dowOf(d)) && !hol.has(d);
+  const isWorking = (d: string) => !isOff(d) && !hol.has(d);
   const out: Record<string, number> = {};
   for (const d of eachDay(start, end)) {
     if (!isWorking(d)) continue;
@@ -49,9 +51,9 @@ export function splitByPeriod(
 // Total working days of a leave span (sum across periods).
 export function workingDaysBetween(
   start: string, end: string, weekOffDays: number[], holidays: Set<string> | string[],
-  halfDayStart = false, halfDayEnd = false,
+  halfDayStart = false, halfDayEnd = false, weekOffRules: WeekOffRule[] = [],
 ): number {
-  const by = splitByPeriod(start, end, weekOffDays, holidays, halfDayStart, halfDayEnd);
+  const by = splitByPeriod(start, end, weekOffDays, holidays, halfDayStart, halfDayEnd, weekOffRules);
   return Object.values(by).reduce((s, n) => s + n, 0);
 }
 

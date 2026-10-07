@@ -3,6 +3,7 @@ import { AppError } from '../../middleware/errorHandler';
 import { approvalChainOf } from '../orgChart';
 import { approvalSteps } from '../expenseApproval';
 import { splitByPeriod, leaveYearOf, accrualForMonth, balanceOf } from '../leaveCalc';
+import { sanitizeWeekOffRules } from '../weekOff';
 import { recomputeEntry, addRetroLop, reverseLop } from '../payroll/arrears';
 import { actorName } from '../payroll/audit';
 
@@ -273,9 +274,10 @@ export async function leaveLopForPeriod(organizationId: string, personId: string
   const settings = await settingsFor(organizationId);
   const person = await prisma.person.findUnique({ where: { id: personId }, select: { workLocationId: true } });
   const holidays = await holidaySetFor(organizationId, person?.workLocationId);
+  const rules = sanitizeWeekOffRules(settings.weekOffRules);
   let total = 0;
   for (const r of reqs) {
-    const by = splitByPeriod(r.startDate, r.endDate, settings.weekOffDays, holidays, r.halfDayStart, r.halfDayEnd);
+    const by = splitByPeriod(r.startDate, r.endDate, settings.weekOffDays, holidays, r.halfDayStart, r.halfDayEnd, rules);
     total += by[period] || 0;
   }
   return r2(total);
@@ -324,7 +326,7 @@ async function unpaidByPeriod(organizationId: string, request: any): Promise<Rec
   const settings = await settingsFor(organizationId);
   const person = await prisma.person.findUnique({ where: { id: request.personId }, select: { workLocationId: true } });
   const holidays = await holidaySetFor(organizationId, person?.workLocationId);
-  return splitByPeriod(request.startDate, request.endDate, settings.weekOffDays, holidays, request.halfDayStart, request.halfDayEnd);
+  return splitByPeriod(request.startDate, request.endDate, settings.weekOffDays, holidays, request.halfDayStart, request.halfDayEnd, sanitizeWeekOffRules(settings.weekOffRules));
 }
 
 // On final approval: record the AVAIL in the ledger (paid types reduce balance),

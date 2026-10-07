@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { leaveAPI } from '../../api/leave';
 import { PageHeader, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
 import { toast } from '../../components/feedback';
+import { type WeekOffRule, ORDINAL, WEEK_NUMBERS, WEEK_PRESETS } from '../../utils/weekOff';
 
 const EMPTY_TYPE = {
   id: '', code: '', name: '', paid: true, accrualFrequency: 'NONE', accrualRate: 0, annualQuota: 0,
@@ -59,17 +60,39 @@ export default function LeaveSettings() {
     }
   };
 
-  const toggleDay = (d: number) => {
-    const set = new Set(settings.weekOffDays);
-    set.has(d) ? set.delete(d) : set.add(d);
-    setSettings({ ...settings, weekOffDays: [...set].sort((a: any, b: any) => a - b) });
+  // Weekly-off editing. A day is off "every" week (in weekOffDays), on
+  // "specific" week occurrences (a weekOffRules entry), or not off ("none").
+  const rules = (): WeekOffRule[] => settings.weekOffRules || [];
+  const dayMode = (i: number): 'none' | 'every' | 'weeks' =>
+    settings.weekOffDays.includes(i) ? 'every' : rules().some(r => r.day === i) ? 'weeks' : 'none';
+  const setOff = (days: number[], newRules: WeekOffRule[]) =>
+    setSettings({ ...settings, weekOffDays: [...new Set(days)].sort((a, b) => a - b), weekOffRules: [...newRules].sort((a, b) => a.day - b.day) });
+
+  const enableDay = (i: number, on: boolean) => {
+    if (on) setOff([...settings.weekOffDays, i], rules().filter(r => r.day !== i)); // default: every week
+    else setOff(settings.weekOffDays.filter((d: number) => d !== i), rules().filter(r => r.day !== i));
   };
+  const setMode = (i: number, mode: 'every' | 'weeks') => {
+    if (mode === 'every') setOff([...settings.weekOffDays, i], rules().filter(r => r.day !== i));
+    else {
+      const weeks = rules().find(r => r.day === i)?.weeks.length ? rules().find(r => r.day === i)!.weeks : [2, 4];
+      setOff(settings.weekOffDays.filter((d: number) => d !== i), [...rules().filter(r => r.day !== i), { day: i, weeks }]);
+    }
+  };
+  const toggleWeek = (i: number, w: number) => {
+    const cur = rules().find(r => r.day === i)?.weeks || [];
+    const weeks = cur.includes(w) ? cur.filter(x => x !== w) : [...cur, w].sort((a, b) => a - b);
+    setOff(settings.weekOffDays, [...rules().filter(r => r.day !== i), { day: i, weeks }]);
+  };
+  const applyPreset = (i: number, weeks: number[]) =>
+    setOff(settings.weekOffDays.filter((d: number) => d !== i), [...rules().filter(r => r.day !== i), { day: i, weeks }]);
 
   const save = async () => {
     setSaving(true);
     try {
       const res = await leaveAPI.saveSettings({
         weekOffDays: settings.weekOffDays,
+        weekOffRules: settings.weekOffRules || [],
         leaveYearStartMonth: settings.leaveYearStartMonth,
         hrApplyOnBehalf: settings.hrApplyOnBehalf,
       });
@@ -93,14 +116,41 @@ export default function LeaveSettings() {
         <div className="card card-pad" style={{ maxWidth: 620 }}>
           <div className="field" style={{ marginBottom: 20 }}>
             <label>Weekly off days</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-              {DAYS.map((d, i) => (
-                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
-                  <input type="checkbox" checked={settings.weekOffDays.includes(i)} onChange={() => toggleDay(i)} /> {d}
-                </label>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+              {DAYS.map((d, i) => {
+                const mode = dayMode(i);
+                const rule = rules().find(r => r.day === i);
+                return (
+                  <div key={i} style={{ paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, minWidth: 108 }}>
+                        <input type="checkbox" checked={mode !== 'none'} onChange={e => enableDay(i, e.target.checked)} /> {d}
+                      </label>
+                      {mode !== 'none' && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button type="button" className={`btn btn-sm ${mode === 'every' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setMode(i, 'every')}>Every week</button>
+                          <button type="button" className={`btn btn-sm ${mode === 'weeks' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setMode(i, 'weeks')}>Specific weeks</button>
+                        </div>
+                      )}
+                    </div>
+                    {mode === 'weeks' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, marginLeft: 24 }}>
+                        {WEEK_NUMBERS.map(w => (
+                          <button type="button" key={w} style={{ minWidth: 40, padding: '2px 6px' }}
+                            className={`btn btn-sm ${rule?.weeks.includes(w) ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => toggleWeek(i, w)}>{ORDINAL[w - 1]}</button>
+                        ))}
+                        <span className="text-muted" style={{ margin: '0 2px' }}>·</span>
+                        {WEEK_PRESETS.map(p => (
+                          <button type="button" key={p.label} className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => applyPreset(i, p.weeks)}>{p.label}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <small className="text-muted">Excluded from leave-day counts. Holidays are excluded too.</small>
+            <small className="text-muted">Excluded from leave-day counts. Holidays are excluded too. “Specific weeks” means the nth occurrence of that day in the month — e.g. 2nd &amp; 4th Saturday.</small>
           </div>
 
           <div className="field" style={{ marginBottom: 20 }}>

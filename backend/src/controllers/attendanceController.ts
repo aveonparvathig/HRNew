@@ -7,6 +7,7 @@ import {
   processMonth, getMuster, overrideDay, finalisePeriod, reopenPeriod, periodStatus,
 } from '../services/attendance/attendanceService';
 import { ATTENDANCE_STATUSES } from '../services/attendanceCalc';
+import { sanitizeWeekOffRules, type WeekOffRule } from '../services/weekOff';
 
 const str = (v: any) => String(v ?? '');
 const num = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
@@ -191,7 +192,9 @@ export const attendanceController = {
       const parsed = (b.weekOffDays as any[]).map((d: any) => parseInt(d)).filter((d: number) => d >= 0 && d <= 6);
       weekOffDays = [...new Set<number>(parsed)];
     }
-    const profile = await setProfile(orgId, person.id, defaultShiftId as any, weekOffDays);
+    let weekOffRules: WeekOffRule[] | undefined;
+    if (b.weekOffRules !== undefined) weekOffRules = sanitizeWeekOffRules(b.weekOffRules);
+    const profile = await setProfile(orgId, person.id, defaultShiftId as any, weekOffDays, weekOffRules);
     res.json(profile);
   },
 };
