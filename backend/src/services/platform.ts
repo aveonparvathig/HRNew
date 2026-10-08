@@ -1,15 +1,17 @@
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { prisma } from '../config/database';
-import { GATED_MODULES, effectiveLimits } from './planLimits';
+import { STANDARD_MODULES, effectiveLimits } from './planLimits';
 
 // Default subscription tiers, seeded once on boot. The owner edits these in
-// the console afterwards; re-seeding never overwrites an edited plan.
+// the console afterwards; re-seeding never overwrites an edited plan. Plans
+// carry only STANDARD modules — custom modules (project/proposals) are granted
+// per-tenant, never by a plan.
 const DEFAULT_PLANS = [
-  { code: 'TRIAL', name: 'Trial', maxEmployees: 10, maxUsers: 3, enabledModules: [...GATED_MODULES], trialDays: 14, price: 0, sortOrder: 0 },
+  { code: 'TRIAL', name: 'Trial', maxEmployees: 10, maxUsers: 3, enabledModules: [...STANDARD_MODULES], trialDays: 14, price: 0, sortOrder: 0 },
   { code: 'STARTER', name: 'Starter', maxEmployees: 25, maxUsers: 5, enabledModules: ['payroll', 'expenses'], trialDays: 0, price: 999, sortOrder: 1 },
-  { code: 'GROWTH', name: 'Growth', maxEmployees: 100, maxUsers: 20, enabledModules: [...GATED_MODULES], trialDays: 0, price: 2999, sortOrder: 2 },
-  { code: 'ENTERPRISE', name: 'Enterprise', maxEmployees: 0, maxUsers: 0, enabledModules: [...GATED_MODULES], trialDays: 0, price: 0, sortOrder: 3 },
+  { code: 'GROWTH', name: 'Growth', maxEmployees: 100, maxUsers: 20, enabledModules: [...STANDARD_MODULES], trialDays: 0, price: 2999, sortOrder: 2 },
+  { code: 'ENTERPRISE', name: 'Enterprise', maxEmployees: 0, maxUsers: 0, enabledModules: [...STANDARD_MODULES], trialDays: 0, price: 0, sortOrder: 3 },
 ];
 
 // Seed the default plans once. Only inserts plans whose code does not exist yet,
@@ -52,6 +54,7 @@ export interface TenantUsage {
   trialEndsOn: Date | null;
   maxEmployeesOverride: number | null;
   maxUsersOverride: number | null;
+  customModules: string[]; // raw per-tenant custom-module grant (subset of CUSTOM_MODULES)
   limits: { maxEmployees: number; maxUsers: number; modules: string[] };
 }
 
@@ -64,6 +67,7 @@ function limitFields(o: any) {
     trialEndsOn: o.trialEndsOn ?? null,
     maxEmployeesOverride: o.maxEmployeesOverride ?? null,
     maxUsersOverride: o.maxUsersOverride ?? null,
+    customModules: o.customModules ?? [],
     limits: effectiveLimits(o),
   };
 }

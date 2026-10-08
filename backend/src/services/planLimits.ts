@@ -4,10 +4,22 @@
 export const GATED_MODULES = ['project', 'recruitment', 'proposals', 'expenses', 'payroll', 'leave'] as const;
 export type ModuleKey = typeof GATED_MODULES[number];
 
+// Custom / internal modules: never part of a standard plan and never on by
+// default. They are granted per-tenant (Organization.customModules) from the
+// platform console — e.g. Aveon Infotech's own Project (billing) & Sales
+// (proposals) modules, which other tenants must never see.
+export const CUSTOM_MODULES = ['project', 'proposals'] as const;
+export type CustomModuleKey = typeof CUSTOM_MODULES[number];
+
+// The modules a plan may switch on (everything gateable except the custom ones).
+export const STANDARD_MODULES = GATED_MODULES.filter(
+  m => !(CUSTOM_MODULES as readonly string[]).includes(m),
+) as Exclude<ModuleKey, CustomModuleKey>[];
+
 export const MODULE_LABELS: Record<string, string> = {
   project: 'Project (income & clients)',
   recruitment: 'Recruitment',
-  proposals: 'Proposals',
+  proposals: 'Proposals (Sales)',
   expenses: 'Expenses',
   payroll: 'Payroll',
   leave: 'Leave & Attendance',
@@ -24,6 +36,7 @@ export interface OrgLike {
   maxEmployeesOverride?: number | null;
   maxUsersOverride?: number | null;
   trialEndsOn?: Date | string | null;
+  customModules?: string[] | null; // platform-granted custom modules (subset of CUSTOM_MODULES)
 }
 
 export interface EffectiveLimits {
@@ -33,14 +46,19 @@ export interface EffectiveLimits {
 }
 
 // The limits actually in force: a per-tenant override beats the plan, and with
-// no plan at all there are no caps and every module is on — so a tenant without
-// a plan behaves exactly as before plans existed.
+// no plan at all there are no caps and every STANDARD module is on. Custom
+// modules (project/proposals) are NEVER granted by a plan or the no-plan
+// default — only by an explicit per-tenant grant (org.customModules), so other
+// tenants never see them.
 export function effectiveLimits(org: OrgLike): EffectiveLimits {
   const plan = org.plan || null;
   const maxEmployees = org.maxEmployeesOverride ?? plan?.maxEmployees ?? 0;
   const maxUsers = org.maxUsersOverride ?? plan?.maxUsers ?? 0;
-  const modules = plan && plan.enabledModules.length ? [...plan.enabledModules] : [...GATED_MODULES];
-  return { maxEmployees, maxUsers, modules };
+  const planModules = plan && plan.enabledModules.length ? plan.enabledModules : STANDARD_MODULES;
+  // Strip any custom module that leaked into a plan; they come only from the grant.
+  const standard = planModules.filter(m => (STANDARD_MODULES as readonly string[]).includes(m));
+  const custom = (org.customModules || []).filter(m => (CUSTOM_MODULES as readonly string[]).includes(m));
+  return { maxEmployees, maxUsers, modules: [...standard, ...custom] };
 }
 
 export function moduleEnabled(org: OrgLike, key: string): boolean {

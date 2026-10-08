@@ -8,7 +8,8 @@ import { useAuthStore } from '../../store/authStore';
 
 const cap = (n: number) => (n > 0 ? n : '∞');
 const MODULE_LABELS: Record<string, string> = {
-  project: 'Project', recruitment: 'Recruitment', proposals: 'Proposals', expenses: 'Expenses', payroll: 'Payroll',
+  project: 'Project', recruitment: 'Recruitment', proposals: 'Sales (Proposals)',
+  expenses: 'Expenses', payroll: 'Payroll', leave: 'Leave & Attendance',
 };
 
 const dateTime = (d: string) =>
@@ -35,6 +36,8 @@ export default function PlatformTenantDetail() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [planOpen, setPlanOpen] = useState(false);
   const [planForm, setPlanForm] = useState({ planId: '', maxEmployeesOverride: '', maxUsersOverride: '', trialEndsOn: '' });
+  const [customCatalog, setCustomCatalog] = useState<string[]>([]);
+  const [modBusy, setModBusy] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -50,7 +53,28 @@ export default function PlatformTenantDetail() {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { platformAPI.getPlans().then(res => setPlans(res.data.plans)).catch(() => {}); }, []);
+  useEffect(() => {
+    platformAPI.getPlans()
+      .then(res => { setPlans(res.data.plans); setCustomCatalog(res.data.customModules || []); })
+      .catch(() => {});
+  }, []);
+
+  // Grant/revoke a single custom module for this tenant.
+  const toggleCustomModule = async (key: string) => {
+    if (!tenant) return;
+    const has = tenant.customModules.includes(key);
+    const next = has ? tenant.customModules.filter(m => m !== key) : [...tenant.customModules, key];
+    setModBusy(key);
+    try {
+      const res = await platformAPI.setTenantModules(id, { customModules: next });
+      setTenant(res.data.tenant);
+      toast.success(`${MODULE_LABELS[key] || key} ${has ? 'removed from' : 'enabled for'} ${tenant.name}.`);
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Could not update modules');
+    } finally {
+      setModBusy('');
+    }
+  };
 
   const openPlan = () => {
     setPlanForm({
@@ -228,6 +252,29 @@ export default function PlatformTenantDetail() {
           </div>
         </div>
       </div>
+
+      {customCatalog.length > 0 && (
+        <div className="card">
+          <h3 style={{ fontSize: 15, marginBottom: 6 }}>Custom modules</h3>
+          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
+            Internal add-on modules that are off for every tenant by default and never part of a plan.
+            Enable them only for the tenants that should have them.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {customCatalog.map(m => {
+              const on = tenant.customModules.includes(m);
+              return (
+                <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+                  <input type="checkbox" checked={on} disabled={modBusy === m} onChange={() => toggleCustomModule(m)} />
+                  <span>{MODULE_LABELS[m] || m}</span>
+                  {on && <span className="badge badge-success">enabled</span>}
+                  {modBusy === m && <span className="text-muted" style={{ fontSize: 12 }}>saving…</span>}
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <h3 style={{ fontSize: 15, marginBottom: 12 }}>Platform activity</h3>

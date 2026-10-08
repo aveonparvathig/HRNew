@@ -4,7 +4,7 @@ import { LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
 import { toast } from '../../components/feedback';
 
 const MODULE_LABELS: Record<string, string> = {
-  project: 'Project', recruitment: 'Recruitment', proposals: 'Proposals', expenses: 'Expenses', payroll: 'Payroll',
+  recruitment: 'Recruitment', expenses: 'Expenses', payroll: 'Payroll', leave: 'Leave & Attendance',
 };
 const cap = (n: number) => (n > 0 ? n : 'Unlimited');
 
@@ -30,7 +30,8 @@ export default function PlatformPlans() {
       await platformAPI.updatePlan(editing.id, {
         name: editing.name, maxEmployees: editing.maxEmployees, maxUsers: editing.maxUsers,
         trialDays: editing.trialDays, price: editing.price, isActive: editing.isActive,
-        enabledModules: editing.enabledModules,
+        // Only standard modules belong on a plan; drop any stale custom modules.
+        enabledModules: editing.enabledModules.filter(m => modules.includes(m)),
       });
       setEditing(null);
       toast.success('Plan saved.');

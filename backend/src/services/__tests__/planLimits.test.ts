@@ -1,16 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import {
-  effectiveLimits, moduleEnabled, atCapacity, trialExpired, GATED_MODULES,
+  effectiveLimits, moduleEnabled, atCapacity, trialExpired, STANDARD_MODULES,
 } from '../planLimits';
 
 const plan = { maxEmployees: 25, maxUsers: 5, enabledModules: ['payroll', 'expenses'] };
 
 describe('planLimits.effectiveLimits', () => {
-  it('no plan → unlimited and all modules (unchanged from before plans)', () => {
+  it('no plan → unlimited and all STANDARD modules (custom modules stay off)', () => {
     const l = effectiveLimits({});
     expect(l.maxEmployees).toBe(0);
     expect(l.maxUsers).toBe(0);
-    expect(l.modules).toEqual([...GATED_MODULES]);
+    expect(l.modules).toEqual([...STANDARD_MODULES]);
+    expect(l.modules).not.toContain('project');
+    expect(l.modules).not.toContain('proposals');
   });
 
   it('uses the plan caps and module list', () => {
@@ -20,8 +22,8 @@ describe('planLimits.effectiveLimits', () => {
     expect(l.modules).toEqual(['payroll', 'expenses']);
   });
 
-  it('a plan with no module list means all modules', () => {
-    expect(effectiveLimits({ plan: { ...plan, enabledModules: [] } }).modules).toEqual([...GATED_MODULES]);
+  it('a plan with no module list means all STANDARD modules', () => {
+    expect(effectiveLimits({ plan: { ...plan, enabledModules: [] } }).modules).toEqual([...STANDARD_MODULES]);
   });
 
   it('overrides beat the plan, and an explicit 0 override is unlimited', () => {
@@ -36,7 +38,29 @@ describe('planLimits.moduleEnabled', () => {
   it('reflects the effective module list', () => {
     expect(moduleEnabled({ plan }, 'payroll')).toBe(true);
     expect(moduleEnabled({ plan }, 'recruitment')).toBe(false);
-    expect(moduleEnabled({}, 'recruitment')).toBe(true); // no plan = all on
+    expect(moduleEnabled({}, 'recruitment')).toBe(true); // no plan = all standard on
+  });
+});
+
+describe('planLimits custom modules (project / proposals)', () => {
+  it('are never granted by a plan or the no-plan default', () => {
+    expect(moduleEnabled({}, 'project')).toBe(false);
+    expect(moduleEnabled({}, 'proposals')).toBe(false);
+    // even if a (mis)configured plan lists them, they do not leak through
+    expect(moduleEnabled({ plan: { ...plan, enabledModules: ['project', 'proposals', 'payroll'] } }, 'project')).toBe(false);
+    expect(moduleEnabled({ plan: { ...plan, enabledModules: ['project', 'proposals', 'payroll'] } }, 'payroll')).toBe(true);
+  });
+
+  it('appear only when granted per-tenant via customModules', () => {
+    expect(moduleEnabled({ customModules: ['project'] }, 'project')).toBe(true);
+    expect(moduleEnabled({ customModules: ['project'] }, 'proposals')).toBe(false);
+    // grant stacks on top of the standard modules
+    const l = effectiveLimits({ customModules: ['project', 'proposals'] });
+    expect(l.modules).toEqual([...STANDARD_MODULES, 'project', 'proposals']);
+  });
+
+  it('ignores unknown / non-custom keys in the grant', () => {
+    expect(effectiveLimits({ customModules: ['payroll', 'bogus'] }).modules).toEqual([...STANDARD_MODULES]);
   });
 });
 
