@@ -32,6 +32,7 @@ const Letters = lazy(() => import('./pages/People/Letters'));
 const Communication = lazy(() => import('./pages/People/Communication'));
 const MyUpdates = lazy(() => import('./pages/My/MyUpdates'));
 const IdentityDocuments = lazy(() => import('./pages/People/IdentityDocuments'));
+const PeopleImport = lazy(() => import('./pages/People/Import'));
 const MyDocuments = lazy(() => import('./pages/My/MyDocuments'));
 const MyLetter = lazy(() => import('./pages/My/MyLetter'));
 const ProposalBuilder = lazy(() => import('./pages/Proposals/ProposalBuilder'));
@@ -158,6 +159,7 @@ function App() {
             <Route path="/people/letters" element={<RequireRole roles={SA_HR}><Letters /></RequireRole>} />
             <Route path="/people/communication" element={<RequireRole roles={SA_HR}><Communication /></RequireRole>} />
             <Route path="/people/identity-documents" element={<RequireRole roles={SA_HR}><IdentityDocuments /></RequireRole>} />
+            <Route path="/people/import" element={<RequireRole roles={SA_HR}><PeopleImport /></RequireRole>} />
             <Route path="/people/:personId" element={<PersonDetail />} />
             <Route path="/proposals" element={<RequireRole roles={SA_MKT}><ProposalBuilder /></RequireRole>} />
             <Route path="/proposals/history" element={<RequireRole roles={SA_MKT}><ProposalHistory /></RequireRole>} />

@@ -64,6 +64,7 @@ const PEOPLE_ITEMS: NavItem[] = [
   { to: '/people/identity-documents', icon: 'key', label: 'Identity Docs' },
   { to: '/people/pipeline', icon: 'kanban', label: 'Pipeline' },
   { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
+  { to: '/people/import', icon: 'transfer', label: 'Import Employees' },
   { to: '/recruitment', icon: 'megaphone', label: 'Recruitment' },
   { to: '/expenses', icon: 'receipt', label: 'Expenses' },
 ];
