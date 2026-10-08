@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { attendanceAPI } from '../../api/attendance';
 import { PageHeader, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
 import { toast, confirmDialog } from '../../components/feedback';
+import { type WeekOffRule, isWeekOff, offSummary, ORDINAL, WEEK_NUMBERS, WEEK_PRESETS } from '../../utils/weekOff';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -58,11 +59,35 @@ export default function Roster() {
 
   const saveProfile = async () => {
     try {
-      await attendanceAPI.setProfile({ personId: profile.personId, defaultShiftId: profile.defaultShiftId || null, weekOffDays: profile.weekOffDays });
+      await attendanceAPI.setProfile({ personId: profile.personId, defaultShiftId: profile.defaultShiftId || null, weekOffDays: profile.weekOffDays, weekOffRules: profile.weekOffRules || [] });
       setProfile(null); load();
       toast.success('Profile saved.');
     } catch (err: any) { toast.error(err.response?.data?.error || 'Could not save'); }
   };
+
+  // Week-off editing for the per-employee profile modal (mirrors Leave Settings).
+  const pRules = (): WeekOffRule[] => profile?.weekOffRules || [];
+  const pMode = (i: number): 'none' | 'every' | 'weeks' =>
+    profile.weekOffDays.includes(i) ? 'every' : pRules().some(r => r.day === i) ? 'weeks' : 'none';
+  const setPOff = (days: number[], newRules: WeekOffRule[]) =>
+    setProfile((p: any) => ({ ...p, weekOffDays: [...new Set(days)].sort((a: number, b: number) => a - b), weekOffRules: [...newRules].sort((a, b) => a.day - b.day) }));
+  const enablePDay = (i: number, on: boolean) =>
+    on ? setPOff([...profile.weekOffDays, i], pRules().filter(r => r.day !== i))
+       : setPOff(profile.weekOffDays.filter((d: number) => d !== i), pRules().filter(r => r.day !== i));
+  const setPMode = (i: number, mode: 'every' | 'weeks') => {
+    if (mode === 'every') setPOff([...profile.weekOffDays, i], pRules().filter(r => r.day !== i));
+    else {
+      const weeks = pRules().find(r => r.day === i)?.weeks.length ? pRules().find(r => r.day === i)!.weeks : [2, 4];
+      setPOff(profile.weekOffDays.filter((d: number) => d !== i), [...pRules().filter(r => r.day !== i), { day: i, weeks }]);
+    }
+  };
+  const togglePWeek = (i: number, w: number) => {
+    const cur = pRules().find(r => r.day === i)?.weeks || [];
+    const weeks = cur.includes(w) ? cur.filter(x => x !== w) : [...cur, w].sort((a, b) => a - b);
+    setPOff(profile.weekOffDays, [...pRules().filter(r => r.day !== i), { day: i, weeks }]);
+  };
+  const applyPPreset = (i: number, weeks: number[]) =>
+    setPOff(profile.weekOffDays.filter((d: number) => d !== i), [...pRules().filter(r => r.day !== i), { day: i, weeks }]);
 
   if (!data && !error) return <LoadingBlock label="Loading roster…" />;
 
@@ -112,15 +137,15 @@ export default function Roster() {
                   <tr key={r.personId}>
                     <td className="roster-emp">
                       <input type="checkbox" checked={sel.has(r.personId)} onChange={() => toggle(r.personId)} />
-                      <button className="roster-empname" onClick={() => setProfile({ personId: r.personId, name: r.name, defaultShiftId: r.defaultShiftId || '', weekOffDays: [...r.weekOffDays] })} title="Edit default shift & week-off">
+                      <button className="roster-empname" onClick={() => setProfile({ personId: r.personId, name: r.name, defaultShiftId: r.defaultShiftId || '', weekOffDays: [...r.weekOffDays], weekOffRules: [...(r.weekOffRules || [])] })} title="Edit default shift & week-off">
                         {r.name}
-                        <span className="roster-empsub">{r.defaultShiftCode || 'no default'} · off {r.weekOffDays.map((w: number) => DOW[w]).join(',') || '—'}</span>
+                        <span className="roster-empsub">{r.defaultShiftCode || 'no default'} · off {offSummary(r.weekOffDays, r.weekOffRules, DOW)}</span>
                       </button>
                     </td>
                     {days.map(d => {
                       const date = `${month}-${pad(d)}`;
                       const ov = r.overrides[date];
-                      const wo = r.weekOffDays.includes(dowOf(date));
+                      const wo = isWeekOff(date, r.weekOffDays, r.weekOffRules);
                       return (
                         <td key={d} className={`roster-cell${ov ? ' ov' : wo ? ' wo' : ''}`}
                           onClick={ov ? () => clearCell(r.personId, date) : undefined}
@@ -149,13 +174,39 @@ export default function Roster() {
           </div>
           <div className="field" style={{ marginBottom: 18 }}>
             <label>Week-off days (overrides the org default)</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6 }}>
-              {DOW.map((d, i) => (
-                <label key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13 }}>
-                  <input type="checkbox" checked={profile.weekOffDays.includes(i)}
-                    onChange={() => setProfile((p: any) => ({ ...p, weekOffDays: p.weekOffDays.includes(i) ? p.weekOffDays.filter((x: number) => x !== i) : [...p.weekOffDays, i].sort() }))} /> {d}
-                </label>
-              ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+              {DOW.map((d, i) => {
+                const mode = pMode(i);
+                const rule = pRules().find(r => r.day === i);
+                return (
+                  <div key={i} style={{ paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, minWidth: 64 }}>
+                        <input type="checkbox" checked={mode !== 'none'} onChange={e => enablePDay(i, e.target.checked)} /> {d}
+                      </label>
+                      {mode !== 'none' && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button type="button" className={`btn btn-sm ${mode === 'every' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPMode(i, 'every')}>Every week</button>
+                          <button type="button" className={`btn btn-sm ${mode === 'weeks' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPMode(i, 'weeks')}>Specific weeks</button>
+                        </div>
+                      )}
+                    </div>
+                    {mode === 'weeks' && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, marginLeft: 22 }}>
+                        {WEEK_NUMBERS.map(w => (
+                          <button type="button" key={w} style={{ minWidth: 40, padding: '2px 6px' }}
+                            className={`btn btn-sm ${rule?.weeks.includes(w) ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => togglePWeek(i, w)}>{ORDINAL[w - 1]}</button>
+                        ))}
+                        <span className="text-muted" style={{ margin: '0 2px' }}>·</span>
+                        {WEEK_PRESETS.map(p => (
+                          <button type="button" key={p.label} className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => applyPPreset(i, p.weeks)}>{p.label}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div className="form-actions">

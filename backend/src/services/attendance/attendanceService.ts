@@ -3,6 +3,19 @@ import { AppError } from '../../middleware/errorHandler';
 import { settingsFor } from '../leave/leaveService';
 import { daySummary, dayStatus, monthTotals, type Punch } from '../attendanceCalc';
 import { recomputeEntry } from '../payroll/arrears';
+import { buildWeekOffPredicate, sanitizeWeekOffRules, type WeekOffRule } from '../weekOff';
+
+// A person's effective week-offs: their profile override (days and/or
+// occurrence rules) if it sets anything, else the org's LeaveSettings default.
+function effectiveOff(
+  profile: { weekOffDays?: number[]; weekOffRules?: unknown } | null | undefined,
+  settings: { weekOffDays: number[]; weekOffRules?: unknown },
+): { weekOffDays: number[]; weekOffRules: WeekOffRule[] } {
+  const pDays = profile?.weekOffDays ?? [];
+  const pRules = sanitizeWeekOffRules(profile?.weekOffRules);
+  if (pDays.length || pRules.length) return { weekOffDays: pDays, weekOffRules: pRules };
+  return { weekOffDays: settings.weekOffDays, weekOffRules: sanitizeWeekOffRules(settings.weekOffRules) };
+}
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -17,8 +30,6 @@ function monthRange(month: string) {
   for (let d = 1; d <= dim; d++) dates.push(`${month}-${String(d).padStart(2, '0')}`);
   return { first, last, dates };
 }
-const dowOf = (date: string) => new Date(date + 'T00:00:00Z').getUTCDay();
-
 const DEFAULT_SHIFTS = [
   { code: 'GEN', name: 'General', startTime: '09:00', endTime: '18:00', workHours: 8, sortOrder: 0 },
 ];
@@ -30,10 +41,9 @@ export async function ensureDefaultShifts(organizationId: string) {
 
 // The week-off days in force for a person: their profile override, else the org
 // default from LeaveSettings.
-export async function effectiveWeekOff(organizationId: string, personId: string): Promise<number[]> {
+export async function effectiveWeekOff(organizationId: string, personId: string): Promise<{ weekOffDays: number[]; weekOffRules: WeekOffRule[] }> {
   const p = await prisma.attendanceProfile.findUnique({ where: { personId } });
-  if (p && p.weekOffDays.length) return p.weekOffDays;
-  return (await settingsFor(organizationId)).weekOffDays;
+  return effectiveOff(p, await settingsFor(organizationId));
 }
 
 function datesBetween(start: string, end: string): string[] {
@@ -54,7 +64,7 @@ export async function getRoster(organizationId: string, month: string) {
     prisma.person.findMany({
       where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, employeeNo: true, attendanceProfile: { select: { defaultShiftId: true, weekOffDays: true } } },
+      select: { id: true, name: true, employeeNo: true, attendanceProfile: { select: { defaultShiftId: true, weekOffDays: true, weekOffRules: true } } },
     }),
     prisma.shiftAssignment.findMany({ where: { organizationId, date: { gte: first, lte: last } }, include: { shift: { select: { code: true } } } }),
     prisma.shift.findMany({ where: { organizationId, active: true }, orderBy: { sortOrder: 'asc' } }),
@@ -66,13 +76,17 @@ export async function getRoster(organizationId: string, month: string) {
 
   return {
     month, shifts,
-    rows: employees.map(e => ({
-      personId: e.id, name: e.name, employeeNo: e.employeeNo,
-      defaultShiftId: e.attendanceProfile?.defaultShiftId || null,
-      defaultShiftCode: e.attendanceProfile?.defaultShiftId ? (codeById.get(e.attendanceProfile.defaultShiftId) || null) : null,
-      weekOffDays: e.attendanceProfile?.weekOffDays?.length ? e.attendanceProfile.weekOffDays : settings.weekOffDays,
-      overrides: byPerson[e.id] || {},
-    })),
+    rows: employees.map(e => {
+      const off = effectiveOff(e.attendanceProfile, settings);
+      return {
+        personId: e.id, name: e.name, employeeNo: e.employeeNo,
+        defaultShiftId: e.attendanceProfile?.defaultShiftId || null,
+        defaultShiftCode: e.attendanceProfile?.defaultShiftId ? (codeById.get(e.attendanceProfile.defaultShiftId) || null) : null,
+        weekOffDays: off.weekOffDays,
+        weekOffRules: off.weekOffRules,
+        overrides: byPerson[e.id] || {},
+      };
+    }),
   };
 }
 
@@ -194,7 +208,7 @@ export async function processMonth(organizationId: string, month: string) {
   const [employees, shifts, settings, holidays, assigns, swipes, leaves, overrides] = await Promise.all([
     prisma.person.findMany({
       where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
-      select: { id: true, workLocationId: true, attendanceProfile: { select: { defaultShiftId: true, weekOffDays: true } } },
+      select: { id: true, workLocationId: true, attendanceProfile: { select: { defaultShiftId: true, weekOffDays: true, weekOffRules: true } } },
     }),
     prisma.shift.findMany({ where: { organizationId } }),
     settingsFor(organizationId),
@@ -221,7 +235,8 @@ export async function processMonth(organizationId: string, month: string) {
 
   const rows: any[] = [];
   for (const e of employees) {
-    const weekOff = new Set(e.attendanceProfile?.weekOffDays?.length ? e.attendanceProfile.weekOffDays : settings.weekOffDays);
+    const off = effectiveOff(e.attendanceProfile, settings);
+    const isWeekOff = buildWeekOffPredicate(off.weekOffDays, off.weekOffRules);
     for (const date of dates) {
       if (overridden.has(`${e.id}|${date}`)) continue;
       const shiftId = assignBy.get(`${e.id}|${date}`) || e.attendanceProfile?.defaultShiftId || null;
@@ -229,7 +244,7 @@ export async function processMonth(organizationId: string, month: string) {
       const punches = punchesBy[`${e.id}|${date}`] || [];
       const worked = daySummary(punches).workedMinutes;
       const status = dayStatus({
-        isWeekOff: weekOff.has(dowOf(date)),
+        isWeekOff: isWeekOff(date),
         isHoliday: allHol.has(date) || (e.workLocationId ? locHol.get(e.workLocationId)?.has(date) ?? false : false),
         onLeave: leaveBy[`${e.id}|${date}`] || null,
         workedMinutes: worked,
@@ -317,13 +332,17 @@ export async function reopenPeriod(organizationId: string, month: string) {
   return { month, status: 'OPEN' };
 }
 
-export async function setProfile(organizationId: string, personId: string, defaultShiftId: string | null, weekOffDays: number[] | undefined) {
+export async function setProfile(organizationId: string, personId: string, defaultShiftId: string | null, weekOffDays: number[] | undefined, weekOffRules?: WeekOffRule[]) {
   const data: any = {};
   if (defaultShiftId !== undefined) data.defaultShiftId = defaultShiftId || null;
   if (weekOffDays !== undefined) data.weekOffDays = weekOffDays;
+  if (weekOffRules !== undefined) {
+    const everyWeek = new Set<number>(weekOffDays ?? []);
+    data.weekOffRules = weekOffRules.filter(r => !everyWeek.has(r.day));
+  }
   return prisma.attendanceProfile.upsert({
     where: { personId },
-    create: { organizationId, personId, defaultShiftId: data.defaultShiftId ?? null, weekOffDays: data.weekOffDays ?? [] },
+    create: { organizationId, personId, defaultShiftId: data.defaultShiftId ?? null, weekOffDays: data.weekOffDays ?? [], weekOffRules: data.weekOffRules ?? [] },
     update: data,
   });
 }

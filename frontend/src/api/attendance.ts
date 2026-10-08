@@ -8,7 +8,7 @@ export const attendanceAPI = {
   assign: (data: { personIds: string[]; startDate: string; endDate: string; shiftId: string }) =>
     apiClient.post('/attendance/roster/assign', data),
   clear: (personId: string, date: string) => apiClient.post('/attendance/roster/clear', { personId, date }),
-  setProfile: (data: { personId: string; defaultShiftId?: string | null; weekOffDays?: number[] }) =>
+  setProfile: (data: { personId: string; defaultShiftId?: string | null; weekOffDays?: number[]; weekOffRules?: { day: number; weeks: number[] }[] }) =>
     apiClient.post('/attendance/profile', data),
 
   getSwipes: (personId: string, month?: string) => apiClient.get('/attendance/swipes', { params: { personId, ...(month ? { month } : {}) } }),

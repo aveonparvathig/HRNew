@@ -24,6 +24,16 @@ describe('leaveCalc.workingDaysBetween', () => {
   it('a span entirely on weekends is zero', () => {
     expect(workingDaysBetween('2026-01-03', '2026-01-04', MON_FRI, [])).toBe(0);
   });
+  it('honours 2nd & 4th Saturday occurrence rules', () => {
+    // Sunday every week + 2nd/4th Saturday off. Jan 2026 Saturdays: 3,10,17,24,31.
+    const rules = [{ day: 6, weeks: [2, 4] }];
+    // Mon 5 .. Sun 11: Mon-Fri (5) working; Sat 10 is the 2nd Sat → off; Sun → off.
+    expect(workingDaysBetween('2026-01-05', '2026-01-11', [0], [], false, false, rules)).toBe(5);
+    // Thu 1 .. Sat 3: the 1st Saturday is NOT off → 3 working days.
+    expect(workingDaysBetween('2026-01-01', '2026-01-03', [0], [], false, false, rules)).toBe(3);
+    // Without rules, Sat 10 counts as working → 6.
+    expect(workingDaysBetween('2026-01-05', '2026-01-11', [0], [])).toBe(6);
+  });
 });
 
 describe('leaveCalc.splitByPeriod', () => {

@@ -1009,7 +1009,8 @@ model Holiday {
 model LeaveSettings {
   organizationId      String   @id
   leaveYearStartMonth Int      @default(1) // 1 = calendar year (Jan)
-  weekOffDays         Int[] // 0=Sun .. 6=Sat (default set in code)
+  weekOffDays         Int[] // 0=Sun .. 6=Sat, off EVERY week (default set in code)
+  weekOffRules        Json     @default("[]") // occurrence-based offs: [{ day, weeks:[1..5] }] e.g. 2nd & 4th Sat
   hrApplyOnBehalf     Boolean  @default(true)
   lopLeaveTypeCode    String   @default("LOP")
   updatedAt           DateTime @updatedAt
@@ -1051,6 +1052,7 @@ model AttendanceProfile {
   personId       String   @unique
   defaultShiftId String?
   weekOffDays    Int[] // empty = fall back to the org's LeaveSettings week-offs
+  weekOffRules   Json     @default("[]") // occurrence-based offs override; empty+empty weekOffDays = fall back to org
   updatedAt      DateTime @updatedAt
 
   person       Person @relation(fields: [personId], references: [id], onDelete: Cascade)
