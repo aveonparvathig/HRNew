@@ -7,7 +7,7 @@ import {
   generateImpersonationToken,
 } from '../middleware/auth';
 import { logPlatform, tenantsOverview, tenantDetail, genTempPassword, platformOverview } from '../services/platform';
-import { GATED_MODULES, effectiveLimits } from '../services/planLimits';
+import { STANDARD_MODULES, CUSTOM_MODULES, effectiveLimits } from '../services/planLimits';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -191,7 +191,9 @@ export const platformController = {
   // Plans (subscription tiers) — platform-global, edited here.
   async getPlans(_req: any, res: Response) {
     const plans = await prisma.plan.findMany({ orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });
-    res.json({ plans, modules: GATED_MODULES });
+    // Plans may only switch on STANDARD modules; custom modules are granted
+    // per-tenant from the tenant page, so they are returned separately.
+    res.json({ plans, modules: STANDARD_MODULES, customModules: CUSTOM_MODULES });
   },
 
   async updatePlan(req: any, res: Response) {
@@ -211,9 +213,10 @@ export const platformController = {
     if (b.isActive !== undefined) data.isActive = Boolean(b.isActive);
     if (b.enabledModules !== undefined) {
       if (!Array.isArray(b.enabledModules)) throw new AppError(400, 'enabledModules must be a list');
-      const mods = [...new Set(b.enabledModules.map(String))];
-      const bad = mods.find(m => !GATED_MODULES.includes(m as any));
-      if (bad) throw new AppError(400, `Unknown module: ${bad}`);
+      const mods: string[] = [...new Set((b.enabledModules as any[]).map(String))];
+      // Plans may only carry STANDARD modules; custom modules are per-tenant grants.
+      const bad = mods.find(m => !(STANDARD_MODULES as readonly string[]).includes(m));
+      if (bad) throw new AppError(400, (CUSTOM_MODULES as readonly string[]).includes(bad) ? `${bad} is a custom module — grant it per tenant, not on a plan` : `Unknown module: ${bad}`);
       data.enabledModules = mods;
     }
     const updated = await prisma.plan.update({ where: { id: plan.id }, data });
@@ -251,6 +254,21 @@ export const platformController = {
 
     await prisma.organization.update({ where: { id: org.id }, data });
     await logPlatform(req.platformAdmin.email, 'TENANT_PLAN_SET', org.id, planName);
+    res.json({ tenant: await tenantDetail(org.id) });
+  },
+
+  // Grant/revoke this tenant's custom modules (project/proposals). These are
+  // never part of a plan — they are enabled only here, per tenant.
+  async setTenantModules(req: any, res: Response) {
+    const org = await prisma.organization.findUnique({ where: { id: req.params.id } });
+    if (!org) throw new AppError(404, 'Tenant not found');
+    const b = req.body;
+    if (!Array.isArray(b.customModules)) throw new AppError(400, 'customModules must be a list');
+    const mods: string[] = [...new Set((b.customModules as any[]).map(String))];
+    const bad = mods.find(m => !(CUSTOM_MODULES as readonly string[]).includes(m));
+    if (bad) throw new AppError(400, `${bad} is not a custom module`);
+    await prisma.organization.update({ where: { id: org.id }, data: { customModules: mods } });
+    await logPlatform(req.platformAdmin.email, 'TENANT_MODULES_SET', org.id, mods.join(', ') || 'none');
     res.json({ tenant: await tenantDetail(org.id) });
   },
 

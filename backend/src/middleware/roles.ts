@@ -16,7 +16,7 @@ export async function loadActor(req: any) {
       id: true, role: true, isActive: true, personId: true, organizationId: true,
       organization: {
         select: {
-          status: true, trialEndsOn: true, maxEmployeesOverride: true, maxUsersOverride: true,
+          status: true, trialEndsOn: true, maxEmployeesOverride: true, maxUsersOverride: true, customModules: true,
           plan: { select: { maxEmployees: true, maxUsers: true, enabledModules: true } },
         },
       },

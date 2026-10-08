@@ -47,6 +47,9 @@ model Organization {
   maxEmployeesOverride Int?
   maxUsersOverride     Int?
   trialEndsOn          DateTime?
+  // Platform-granted custom modules (subset of CUSTOM_MODULES: project | proposals).
+  // Off for every tenant by default; granted per-tenant from the owner console.
+  customModules        String[]  @default([])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
