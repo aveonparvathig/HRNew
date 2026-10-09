@@ -8,10 +8,10 @@ import { STANDARD_MODULES, effectiveLimits } from './planLimits';
 // carry only STANDARD modules — custom modules (project/proposals) are granted
 // per-tenant, never by a plan.
 const DEFAULT_PLANS = [
-  { code: 'TRIAL', name: 'Trial', maxEmployees: 10, maxUsers: 3, enabledModules: [...STANDARD_MODULES], trialDays: 14, price: 0, sortOrder: 0 },
-  { code: 'STARTER', name: 'Starter', maxEmployees: 25, maxUsers: 5, enabledModules: ['payroll', 'expenses'], trialDays: 0, price: 999, sortOrder: 1 },
-  { code: 'GROWTH', name: 'Growth', maxEmployees: 100, maxUsers: 20, enabledModules: [...STANDARD_MODULES], trialDays: 0, price: 2999, sortOrder: 2 },
-  { code: 'ENTERPRISE', name: 'Enterprise', maxEmployees: 0, maxUsers: 0, enabledModules: [...STANDARD_MODULES], trialDays: 0, price: 0, sortOrder: 3 },
+  { code: 'TRIAL', name: 'Trial', maxEmployees: 10, maxUsers: 3, enabledModules: [...GATED_MODULES], trialDays: 14, price: 0, sortOrder: 0 },
+  { code: 'STARTER', name: 'Starter', maxEmployees: 25, maxUsers: 5, enabledModules: ['payroll', 'expenses', 'leave'], trialDays: 0, price: 999, sortOrder: 1 },
+  { code: 'GROWTH', name: 'Growth', maxEmployees: 100, maxUsers: 20, enabledModules: [...GATED_MODULES], trialDays: 0, price: 2999, sortOrder: 2 },
+  { code: 'ENTERPRISE', name: 'Enterprise', maxEmployees: 0, maxUsers: 0, enabledModules: [...GATED_MODULES], trialDays: 0, price: 0, sortOrder: 3 },
 ];
 
 // Seed the default plans once. Only inserts plans whose code does not exist yet,
