@@ -21,6 +21,7 @@ export interface Tenant {
   trialEndsOn: string | null;
   maxEmployeesOverride: number | null;
   maxUsersOverride: number | null;
+  customModules: string[]; // per-tenant custom-module grant (subset of the custom catalog)
   limits: { maxEmployees: number; maxUsers: number; modules: string[] };
 }
 
@@ -100,13 +101,15 @@ export const platformAPI = {
       user: any; org: any;
     }>(`/platform/tenants/${id}/impersonate`, {}),
 
-  getPlans: () => client.get<{ plans: Plan[]; modules: string[] }>('/platform/plans'),
+  getPlans: () => client.get<{ plans: Plan[]; modules: string[]; customModules: string[] }>('/platform/plans'),
   updatePlan: (id: string, data: Partial<Plan>) =>
     client.put<{ plan: Plan }>(`/platform/plans/${id}`, data),
   setTenantPlan: (id: string, data: {
     planId?: string | null; maxEmployeesOverride?: number | null;
     maxUsersOverride?: number | null; trialEndsOn?: string | null;
   }) => client.post<{ tenant: Tenant }>(`/platform/tenants/${id}/plan`, data),
+  setTenantModules: (id: string, data: { customModules: string[] }) =>
+    client.post<{ tenant: Tenant }>(`/platform/tenants/${id}/modules`, data),
 
   getOwners: () => client.get<{ owners: PlatformOwner[] }>('/platform/owners'),
   addOwner: (data: { email: string; name: string; password: string }) =>

@@ -142,7 +142,7 @@ export const authController = {
     let org = await prisma.organization.findUnique({
       where: { id: found.organizationId },
       select: {
-        status: true, trialEndsOn: true, maxEmployeesOverride: true, maxUsersOverride: true,
+        status: true, trialEndsOn: true, maxEmployeesOverride: true, maxUsersOverride: true, customModules: true,
         plan: { select: { name: true, maxEmployees: true, maxUsers: true, enabledModules: true } },
       },
     });
