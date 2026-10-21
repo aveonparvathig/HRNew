@@ -8,10 +8,10 @@
   --surface-2: #FAFBFD;
   --surface-raise: #ffffff;
   --border: #E8ECF3;
-  --border-strong: var(--border-strong);
-  --primary-border: var(--primary-border);
+  --border-strong: #D5DBE7;
+  --primary-border: #C9CCF7;
   --hover: #F3F5F9;          /* row / nav hover fill */
-  --track: var(--track);          /* bar + progress + segmented tracks */
+  --track: #EEF0F5;          /* bar + progress + segmented tracks */
   --overlay: rgba(15, 23, 42, 0.45);
   --text: #1B2437;
   --text-2: #5D6B85;
@@ -1011,7 +1011,7 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
 }
 .auth-hero-copy { position: relative; z-index: 1; }
 .auth-hero-copy h2 { font-size: 30px; line-height: 1.25; letter-spacing: -0.02em; margin-bottom: 14px; }
-.auth-hero-copy p { color: var(--primary-border); font-size: 14.5px; max-width: 400px; line-height: 1.6; }
+.auth-hero-copy p { color: #C9CCF7; font-size: 14.5px; max-width: 400px; line-height: 1.6; }
 .auth-hero-features { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
 .auth-hero-features .feat { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #e0e7ff; }
 .auth-hero-features .feat .check {
