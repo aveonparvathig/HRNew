@@ -8,6 +8,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <title>Aveon HR — Business Suite</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a light/dark flash.
+      try {
+        var t = JSON.parse(localStorage.getItem('aveon-theme') || '{}');
+        var m = t && t.state && t.state.mode;
+        if (m === 'light' || m === 'dark') document.documentElement.setAttribute('data-theme', m);
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
