@@ -2060,3 +2060,65 @@ textarea.input { min-height: 88px; resize: vertical; line-height: 1.55; }
 .switch input:checked + .track { background: var(--primary); }
 .switch input:checked + .track + .thumb { transform: translateX(16px); }
 .switch input:focus-visible + .track { box-shadow: var(--ring); }
+
+/* ============ Phase 5 — component refresh ============ */
+
+/* Thin, themed scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+*::-webkit-scrollbar { width: 11px; height: 11px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong); border-radius: 99px;
+  border: 3px solid transparent; background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--neutral-dot); background-clip: padding-box; }
+
+/* Text selection */
+::selection { background: color-mix(in srgb, var(--primary) 24%, transparent); }
+
+/* Button depth + press feedback */
+.btn-primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 92%, #fff), var(--primary));
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(180deg, var(--primary), var(--primary-hover));
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn-primary, .btn-secondary, .btn-danger, .btn-danger-solid { transition: background var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.06s var(--ease); }
+
+/* Interactive card lifts on hover */
+.card.interactive { cursor: pointer; transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease); }
+.card.interactive:hover { transform: var(--lift); box-shadow: var(--shadow-md); border-color: var(--primary-border); }
+
+/* Section title with a small accent rule */
+.section-title { display: flex; align-items: center; gap: 10px; }
+
+/* Empty state: circular tinted icon */
+.empty-state .empty-icon {
+  width: 56px; height: 56px; margin: 0 auto 14px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: var(--primary-soft); color: var(--primary);
+  font-size: 24px; opacity: 1;
+}
+
+/* Tabs: subtle hover pill behind the label */
+.tab { border-radius: 8px 8px 0 0; }
+.tab:hover { background: var(--hover); }
+.tab.active:hover { background: transparent; }
+
+/* Card header weight */
+.card-header h3 { font-weight: 700; }
+
+/* Kanban columns feel lighter and modern */
+.kanban-col { background: var(--surface-2); border: 1px solid var(--border); }
+
+/* Status/figure cards on the dashboard get a hover lift */
+.status-card { transition: box-shadow var(--t) var(--ease); }
+.status-card:hover { box-shadow: var(--shadow-md); }
+
+/* Report tiles + module cards: consistent focus ring */
+.report-tile:focus-visible, .module-card:focus-visible, .stat-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Smooth anchored scrolling, but respect reduced-motion (handled globally) */
+html { scroll-behavior: smooth; }
