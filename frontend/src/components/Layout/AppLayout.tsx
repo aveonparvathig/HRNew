@@ -5,6 +5,7 @@ import { useTheme, resolveTheme, type ThemeMode } from '../../store/theme';
 import { authAPI } from '../../api/auth';
 import { LoadingBlock } from '../ui';
 import CommandPalette from '../CommandPalette';
+import ThemeCustomizer from '../ThemeCustomizer';
 import { HOME_ITEM, ICON_PATHS, Icon, activeNav, navSectionsFor } from './nav';
 
 // Which sidebar sections the user opened or closed by hand
@@ -347,6 +348,7 @@ export default function AppLayout() {
       </div>
 
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
+      <ThemeCustomizer />
     </div>
   );
 }
