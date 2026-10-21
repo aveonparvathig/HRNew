@@ -56,16 +56,21 @@ const INCOME_ITEMS: NavItem[] = [
   { to: '/income/import-export', icon: 'transfer', label: 'Import / Export' },
 ];
 
+// Hiring flow, grouped as its own module: advertise a role, define the
+// openings, then move candidates through the pipeline.
+const RECRUITMENT_ITEMS: NavItem[] = [
+  { to: '/recruitment', icon: 'megaphone', label: 'Postings' },
+  { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
+  { to: '/people/pipeline', icon: 'kanban', label: 'Candidate Pipeline' },
+];
+
 const PEOPLE_ITEMS: NavItem[] = [
   { to: '/people', icon: 'users', label: 'People' },
   { to: '/people/org-chart', icon: 'layers', label: 'Organization Chart' },
   { to: '/people/letters', icon: 'pen', label: 'Letters', also: ['/people/documents'] },
   { to: '/people/communication', icon: 'megaphone', label: 'Communication' },
   { to: '/people/identity-documents', icon: 'key', label: 'Identity Docs' },
-  { to: '/people/pipeline', icon: 'kanban', label: 'Pipeline' },
-  { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
   { to: '/people/import', icon: 'transfer', label: 'Import Employees' },
-  { to: '/recruitment', icon: 'megaphone', label: 'Recruitment' },
   { to: '/expenses', icon: 'receipt', label: 'Expenses' },
 ];
 
@@ -119,6 +124,8 @@ const ORG_ITEMS: NavItem[] = [
 const ITEM_MODULES: { prefix: string; module: string }[] = [
   { prefix: '/income', module: 'project' },
   { prefix: '/recruitment', module: 'recruitment' },
+  { prefix: '/people/pipeline', module: 'recruitment' },
+  { prefix: '/people/openings', module: 'recruitment' },
   { prefix: '/proposals', module: 'proposals' },
   { prefix: '/expenses', module: 'expenses' },
   { prefix: '/payroll', module: 'payroll' },
@@ -140,12 +147,10 @@ export function navSectionsFor(
   const allowed = (to: string) => { const m = itemModule(to); return !m || !modules || modules.includes(m); };
   const sections: NavSection[] = [];
 
-  if (isSA || role === 'EMPLOYEE') {
-    sections.push({
-      key: 'income', label: 'Project',
-      items: INCOME_ITEMS.filter(i => isSA || !['/income/academic-years', '/income/import-export'].includes(i.to)),
-    });
-  }
+  // Sections follow the employee lifecycle: hire → manage → time → pay →
+  // self-service, then the revenue/business modules, then settings.
+  // Recruitment opens the stack (module-gated below via allowed()).
+  if (isSA || isHR) sections.push({ key: 'recruitment', label: 'Recruitment', items: RECRUITMENT_ITEMS });
   sections.push({
     key: 'people', label: isMarketing ? 'Expenses' : 'People',
     items: PEOPLE_ITEMS.filter(i =>
@@ -158,10 +163,16 @@ export function navSectionsFor(
     key: 'leave', label: 'Leave',
     items: LEAVE_ITEMS.filter(i => (isSA || isHR) ? true : ['/leave', '/leave/calendar'].includes(i.to)),
   });
-  if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
-  if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });
   // The payroll viewer reads the same pages; the API refuses any change
   if (isSA || isHR || role === 'PAYROLL_VIEWER') sections.push({ key: 'payroll', label: 'Payroll', items: PAYROLL_ITEMS });
+  if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
+  if (isSA || role === 'EMPLOYEE') {
+    sections.push({
+      key: 'income', label: 'Project',
+      items: INCOME_ITEMS.filter(i => isSA || !['/income/academic-years', '/income/import-export'].includes(i.to)),
+    });
+  }
+  if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });
   // HR keeps the company's registrations, bank accounts and lists; logins are the Super Admin's
   if (isSA || isHR) {
     sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS.filter(i => isSA || i.to === '/organization') });
