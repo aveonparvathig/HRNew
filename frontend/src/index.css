@@ -1941,3 +1941,48 @@ body { transition: background-color var(--t) var(--ease), color var(--t) var(--e
   .app-shell.rail .sidebar-user-link { justify-content: center; }
 }
 @media (max-width: 768px) { .topbar { display: none; } }
+
+/* ============ Phase 3 — dashboard ============ */
+.hero-banner {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  padding: 22px 26px; margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  box-shadow: var(--shadow-md);
+  background:
+    radial-gradient(900px 260px at 100% -60%, rgba(255,255,255,0.22), transparent 60%),
+    linear-gradient(118deg, #4B4FD6 0%, #6A3DEF 52%, #8B5CF6 100%);
+}
+.hero-avatar {
+  width: 54px; height: 54px; flex: none; border-radius: 16px;
+  display: grid; place-items: center;
+  font-size: 20px; font-weight: 800; color: #fff;
+  background: rgba(255,255,255,0.16);
+  border: 1px solid rgba(255,255,255,0.22);
+}
+.hero-copy { min-width: 0; }
+.hero-copy h1 { font-size: 22px; letter-spacing: -0.02em; color: #fff; }
+.hero-copy p { margin-top: 3px; font-size: 13.5px; color: rgba(255,255,255,0.82); }
+.hero-actions { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
+.btn-hero-ghost {
+  background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.26);
+  backdrop-filter: blur(4px);
+}
+.btn-hero-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.24); text-decoration: none; }
+
+/* Chart wrapper so Recharts sits cleanly in a card */
+.chart-box { margin-top: 14px; width: 100%; }
+.recharts-wrapper { font-family: var(--font); }
+.recharts-surface { overflow: visible; }
+
+/* Stat-card polish for the new palette */
+.stat-card { transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease); }
+.stat-icon { width: 38px; height: 38px; border-radius: 11px; }
+.stat-icon .nav-icon { width: 18px; height: 18px; }
+.stat-value { font-size: 26px; }
+
+@media (max-width: 640px) {
+  .hero-banner { padding: 18px; }
+  .hero-actions { width: 100%; }
+  .hero-actions .btn { flex: 1; }
+}
