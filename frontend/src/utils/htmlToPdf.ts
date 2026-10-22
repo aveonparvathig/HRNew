@@ -8,6 +8,9 @@ export async function downloadHtmlAsPdf(html: string, filename: string, opts: {
   fullDocument?: boolean;
   /** Extra CSS injected before the content (screen-chrome overrides). */
   extraCss?: string;
+  /** Page-break control passed to html2pdf. html2canvas ignores @media print,
+   *  so selectors to break before / avoid splitting must be given here. */
+  pagebreak?: { mode?: string[]; before?: string | string[]; after?: string | string[]; avoid?: string | string[] };
 } = {}) {
   const html2pdf = (await import('html2pdf.js')).default;
   const container = document.createElement('div');
@@ -34,6 +37,6 @@ export async function downloadHtmlAsPdf(html: string, filename: string, opts: {
       windowWidth: Math.round(contentMm * 96 / 25.4),
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['css', 'legacy'] },
+    pagebreak: opts.pagebreak || { mode: ['css', 'legacy'] },
   } as any).from(container).save();
 }
