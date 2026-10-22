@@ -188,7 +188,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   /* A4 paper emulation on screen; true A4 pages in print */
   .paper { width: 210mm; margin: 0 auto; background: #fff; box-shadow: 0 2px 24px rgba(16,24,40,.14); }
   .page { padding: 0 13mm 12mm; }
-  @page { size: A4; margin: 12mm 13mm; }
+  @page { size: A4; margin: 16mm 14mm; }
   @page :first { margin: 0; }
   h2.sec { font-size: 21px; color: ${c}; margin: 28px 0 6px; break-after: avoid; }
   .sec-sub { color: #6b7280; margin-bottom: 20px; font-size: 14px; }
@@ -218,7 +218,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   .pill .ic { font-size: 26px; }
   .pill h4 { font-size: 14.5px; }
   .pill p { font-size: 13px; color: #4b5563; }
-  .pill .num { flex: 0 0 30px; height: 30px; border-radius: 50%; background: ${c}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; }
+  .pill .num { flex: 0 0 28px; height: 28px; border-radius: 50%; background: ${c}; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; line-height: 1; }
   .grid2 { columns: 2; column-gap: 14px; }
   table.price { width: 100%; border-collapse: collapse; margin-top: 8px; }
   table.price td, table.price th { border: 1px solid #d9dee6; padding: 12px 16px; font-size: 13.5px; }
@@ -378,8 +378,8 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ${S.pillars ? `
   <h2 class="sec">Five Pillars of the Platform</h2>
   <div class="grid2">
-    ${(CATALOG.fivePillars || []).map((p: any, i: number) => `
-      <div class="pill"><div class="num">${i + 1}</div>
+    ${(CATALOG.fivePillars || []).map((p: any) => `
+      <div class="pill"><div class="num">✓</div>
         <div><h4>${esc(p.title)}</h4><p>${esc(p.desc || p.description || '')}</p></div>
       </div>`).join('')}
   </div>` : ''}
@@ -387,8 +387,8 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ${S.benefits ? `
   <h2 class="sec">Key Benefits</h2>
   <div class="grid2">
-    ${(CATALOG.benefits || []).map((b: any, i: number) => `
-      <div class="pill"><div class="num">${i + 1}</div>
+    ${(CATALOG.benefits || []).map((b: any) => `
+      <div class="pill"><div class="num">✓</div>
         <div><h4>${esc(b.title)}</h4>
           <ul style="padding-left:16px;font-size:12.5px;color:#4b5563;margin-top:4px;">
             ${(b.items || []).map((i: string) => `<li style="margin-bottom:3px;">${esc(i)}</li>`).join('')}
@@ -408,13 +408,13 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
       <tr><td>${esc(pricing.amc.label)}${pricing.amc.percent ? `<div class="note">${pricing.amc.percent}% of license fee</div>` : ''}</td>
         <td class="amt">${fmtINR(pricing.amc.amount)} <div class="note">+ GST = ${fmtINR(pricing.amc.totalWithGst)}</div></td></tr>` : ''}
   </table>
-  ${bundle ? `<p class="note" style="margin-top:8px;">Bundle value: standalone total ${fmtINR(bundle.standalone_total)} per student — offered at ${fmtINR(bundle.bundle_price_per_student)} per student.</p>` : ''}
+  ${bundle ? `<p class="note" style="margin-top:8px;">₹${Number(bundle.bundle_price_per_student || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per student per year + GST ${pricing.gstPercent}%.</p>` : ''}
 
   ${S.implementation ? `
   <h2 class="sec">Implementation & Support</h2>
   <div class="grid2">
-    ${(CATALOG.implementationComponents || []).map((x: any, i: number) => `
-      <div class="pill"><div class="num">${i + 1}</div>
+    ${(CATALOG.implementationComponents || []).map((x: any) => `
+      <div class="pill"><div class="num">✓</div>
         <div><h4>${esc(x.title)}</h4><p>${esc(x.desc || x.description || '')}</p></div>
       </div>`).join('')}
   </div>` : ''}
@@ -430,14 +430,14 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ${S.whyUs ? `
   <h2 class="sec">Why ${esc(orgName)}</h2>
   <div class="grid2">
-    ${(CATALOG.whyAveon || []).map((x: any, i: number) => `
-      <div class="pill"><div class="num">${i + 1}</div>
+    ${(CATALOG.whyAveon || []).map((x: any) => `
+      <div class="pill"><div class="num">✓</div>
         <div><h4>${esc(x.title)}</h4><p>${esc(x.desc || x.description || '')}</p></div>
       </div>`).join('')}
   </div>
   <div class="grid2" style="margin-top:14px;">
-    ${cp.advantages.map((a, i) => `
-      <div class="pill"><div class="num">${(CATALOG.whyAveon || []).length + i + 1}</div>
+    ${cp.advantages.map((a) => `
+      <div class="pill"><div class="num">✓</div>
         <div><h4>${esc(a.title)}</h4><p>${esc(a.desc)}</p></div>
       </div>`).join('')}
   </div>` : ''}
