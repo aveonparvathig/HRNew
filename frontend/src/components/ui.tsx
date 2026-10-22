@@ -39,14 +39,39 @@ export function PageHeader({ title, subtitle, actions }: {
   );
 }
 
+// A compact area sparkline drawn from a number series. Stroke/fill take a CSS
+// colour (e.g. var(--m-green)); non-scaling stroke keeps it crisp when the
+// viewBox stretches to the card width.
+export function Sparkline({ data, color = 'var(--primary)', height = 34 }: {
+  data: number[]; color?: string; height?: number;
+}) {
+  if (!data || data.length < 2) return null;
+  const w = 100, h = 32;
+  const min = Math.min(...data), max = Math.max(...data);
+  const range = max - min || 1;
+  const pts = data.map((v, i) => `${(i / (data.length - 1)) * w},${(h - 2) - ((v - min) / range) * (h - 6)}`);
+  const line = pts.join(' ');
+  const area = `0,${h} ${line} ${w},${h}`;
+  return (
+    <svg className="stat-spark" viewBox={`0 0 ${w} ${h}`} width="100%" height={height}
+      preserveAspectRatio="none" aria-hidden="true">
+      <polygon points={area} fill={color} opacity="0.12" />
+      <polyline points={line} fill="none" stroke={color} strokeWidth="1.7"
+        strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 // `icon` may be an icon-set name (rendered as a stroke SVG) or any string/glyph.
-export function StatCard({ label, value, sub, icon, tone = 'indigo', trend }: {
+export function StatCard({ label, value, sub, icon, tone = 'indigo', trend, spark, sparkColor }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   icon: string;
   tone?: string;
   trend?: ReactNode;
+  spark?: number[];
+  sparkColor?: string;
 }) {
   const isSvg = Object.prototype.hasOwnProperty.call(ICON_PATHS, icon);
   return (
@@ -57,9 +82,12 @@ export function StatCard({ label, value, sub, icon, tone = 'indigo', trend }: {
           {isSvg ? <Icon name={icon} size={18} className="" /> : icon}
         </span>
       </div>
-      <div className="stat-value">{value}</div>
-      {trend && <div className="stat-trend">{trend}</div>}
+      <div className="stat-value-row">
+        <span className="stat-value">{value}</span>
+        {trend && <span className="stat-trend">{trend}</span>}
+      </div>
       {sub && <div className="stat-sub">{sub}</div>}
+      {spark && spark.length > 1 && <Sparkline data={spark} color={sparkColor || `var(--m-${tone})`} />}
     </div>
   );
 }

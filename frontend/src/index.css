@@ -2174,3 +2174,11 @@ html { scroll-behavior: smooth; }
 :root[data-density="compact"] .stat-grid { gap: 12px; }
 
 @media (max-width: 768px) { .customizer-fab { top: auto; bottom: 86px; } }
+
+/* ============ Phase 3+ — dashboard KPI sparklines ============ */
+.stat-value-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.stat-value-row .stat-value { line-height: 1.1; }
+.stat-value-row .stat-trend { margin: 0; }
+.stat-spark { display: block; width: 100%; margin-top: 12px; }
+.card-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
+.card-head-row .segmented { flex: none; }

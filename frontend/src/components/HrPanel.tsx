@@ -46,6 +46,7 @@ function Block({ title, count, empty, children }: { title: string; count: number
 // birthdays and anniversaries this week, confirmations due, records to complete.
 export default function HrPanel() {
   const [data, setData] = useState<any>(null);
+  const [months, setMonths] = useState(12);
 
   useEffect(() => {
     peopleAPI.getHrDashboard().then(res => setData(res.data)).catch(() => setData(null));
@@ -53,7 +54,8 @@ export default function HrPanel() {
 
   if (!data) return null;
   const trend: any[] = data.headcount.trend;
-  const top = Math.max(1, ...trend.map(t => t.headcount));
+  const shown = trend.slice(-months);
+  const top = Math.max(1, ...shown.map((t: any) => t.headcount));
   const thisMonth = trend[trend.length - 1];
   const yearAgo = trend[0];
   const change = thisMonth.headcount - yearAgo.headcount;
@@ -65,25 +67,41 @@ export default function HrPanel() {
       <h2 className="section-title" style={{ marginTop: 0 }}>People</h2>
       <div className="stat-grid">
         <StatCard label="Employees" value={data.headcount.current} icon="users" tone="indigo"
-          sub={`${change === 0 ? 'Same as' : `${change > 0 ? '+' : '−'}${Math.abs(change)} since`} ${monthLong(yearAgo.period)}`} />
+          trend={change !== 0 && (
+            <span className={`trend-chip ${change > 0 ? 'trend-good' : 'trend-bad'}`}>
+              {change > 0 ? '▲' : '▼'} {Math.abs(change)}
+            </span>
+          )}
+          sub={`vs ${monthLong(yearAgo.period)}`}
+          spark={trend.map((t: any) => t.headcount)} sparkColor="var(--m-indigo)" />
         <StatCard label={`Joined in ${data.days.joiners} days`} value={data.joiners.length} icon="trendingUp" tone="green"
-          sub={`${thisMonth.joined} this month`} />
+          sub={`${thisMonth.joined} this month`}
+          spark={trend.map((t: any) => t.joined)} sparkColor="var(--m-green)" />
         <StatCard label={`Left in ${data.days.joiners} days`} value={data.leavers.length} icon="trendingDown" tone="amber"
-          sub={data.leavingSoon.length ? `${data.leavingSoon.length} serving notice` : `${thisMonth.left} this month`} />
+          sub={data.leavingSoon.length ? `${data.leavingSoon.length} serving notice` : `${thisMonth.left} this month`}
+          spark={trend.map((t: any) => t.left)} sparkColor="var(--m-amber)" />
         <StatCard label="Confirmations due" value={data.confirmations.due.length} icon="clock"
           tone={data.confirmations.overdue ? 'rose' : 'cyan'}
           sub={data.confirmations.overdue ? `${data.confirmations.overdue} overdue` : `Next ${data.days.confirmations} days`} />
       </div>
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 2 }}>Headcount, last 12 months</h3>
-        <span className="text-muted" style={{ fontSize: 12.5 }}>
-          Employees on the rolls at each month end, from joining and relieving dates.
-        </span>
+        <div className="card-head-row">
+          <div>
+            <h3 style={{ fontSize: 15, marginBottom: 2 }}>Headcount</h3>
+            <span className="text-muted" style={{ fontSize: 12.5 }}>
+              Employees on the rolls at each month end.
+            </span>
+          </div>
+          <div className="segmented">
+            <button className={months === 6 ? 'active' : ''} onClick={() => setMonths(6)}>6M</button>
+            <button className={months === 12 ? 'active' : ''} onClick={() => setMonths(12)}>12M</button>
+          </div>
+        </div>
         <div className="chart-box" role="img"
-          aria-label={`Headcount by month: ${trend.map(t => `${monthLong(t.period)} ${t.headcount}`).join(', ')}`}>
+          aria-label={`Headcount by month: ${shown.map((t: any) => `${monthLong(t.period)} ${t.headcount}`).join(', ')}`}>
           <ResponsiveContainer width="100%" height={240}>
-            <AreaChart data={trend} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
+            <AreaChart data={shown} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
               <defs>
                 <linearGradient id="hcFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--m-indigo)" stopOpacity={0.35} />
