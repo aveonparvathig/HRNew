@@ -2,21 +2,20 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore, useEnabledModules } from '../store/authStore';
 import { payrollAPI } from '../api/payroll';
-import { PageHeader } from '../components/ui';
 import { Icon } from '../components/Layout/nav';
 import { formatINR } from '../utils/format';
 import HrPanel from '../components/HrPanel';
 
 const MODULES = [
-  { to: '/income', icon: 'chart', tone: 'tone-primary', name: 'Project', desc: 'Client billing, payments & analytics' },
-  { to: '/recruitment', icon: 'megaphone', tone: 'tone-warning', name: 'Recruitment', desc: 'Job postings & hiring pipeline' },
-  { to: '/people', icon: 'users', tone: 'tone-info', name: 'People', desc: 'Employees, candidates, interns & interviews' },
-  { to: '/expenses', icon: 'receipt', tone: 'tone-warning', name: 'Expenses', desc: 'Expense reports and claims' },
-  { to: '/leave', icon: 'calendar', tone: 'tone-info', name: 'Leave', desc: 'Apply for leave, balances & holidays' },
-  { to: '/proposals', icon: 'pen', tone: 'tone-success', name: 'Proposals', desc: 'Branded quotations from the module catalog' },
-  { to: '/payroll', icon: 'banknote', tone: 'tone-primary', name: 'Payroll', desc: 'Monthly runs, statutory returns & payslips' },
-  { to: '/my/payslips', icon: 'banknote', tone: 'tone-success', name: 'My Pay', desc: 'Your payslips, tax declaration and loans' },
-  { to: '/organization', icon: 'home', tone: 'tone-info', name: 'Organization', desc: 'Company settings, bank accounts and lists' },
+  { to: '/income', icon: 'chart', tone: 'tone-blue', name: 'Project', desc: 'Client billing, payments & analytics' },
+  { to: '/recruitment', icon: 'megaphone', tone: 'tone-violet', name: 'Recruitment', desc: 'Job postings & hiring pipeline' },
+  { to: '/people', icon: 'users', tone: 'tone-indigo', name: 'People', desc: 'Employees, candidates, interns & interviews' },
+  { to: '/expenses', icon: 'receipt', tone: 'tone-amber', name: 'Expenses', desc: 'Expense reports and claims' },
+  { to: '/leave', icon: 'calendar', tone: 'tone-teal', name: 'Leave', desc: 'Apply for leave, balances & holidays' },
+  { to: '/proposals', icon: 'pen', tone: 'tone-rose', name: 'Proposals', desc: 'Branded quotations from the module catalog' },
+  { to: '/payroll', icon: 'banknote', tone: 'tone-green', name: 'Payroll', desc: 'Monthly runs, statutory returns & payslips' },
+  { to: '/my/payslips', icon: 'banknote', tone: 'tone-cyan', name: 'My Pay', desc: 'Your payslips, tax declaration and loans' },
+  { to: '/organization', icon: 'home', tone: 'tone-blue', name: 'Organization', desc: 'Company settings, bank accounts and lists' },
 ];
 
 // A tile's gated module, if any (core tiles are always shown)
@@ -120,10 +119,24 @@ export default function Dashboard() {
     && (m.to !== '/my/payslips' || Boolean(user?.personId))
     && (!TILE_MODULE[m.to] || enabledModules.includes(TILE_MODULE[m.to])));
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const initials = (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
+
+  useEffect(() => { document.title = 'Dashboard · Aveon HR'; return () => { document.title = 'Aveon HR'; }; }, []);
 
   return (
     <>
-      <PageHeader title={`${greeting()}, ${firstName}`} subtitle={today} />
+      <section className="hero-banner no-print">
+        <div className="hero-avatar">{initials}</div>
+        <div className="hero-copy">
+          <h1>{greeting()}, {firstName}</h1>
+          <p>{today}</p>
+        </div>
+        <div className="hero-actions">
+          {staff && <Link to="/payroll" className="btn btn-primary"><Icon name="banknote" size={16} className="" />Payroll</Link>}
+          {managesPeople && <Link to="/people" className="btn btn-hero-ghost"><Icon name="users" size={16} className="" />People</Link>}
+          {user?.personId && <Link to="/my/payslips" className="btn btn-hero-ghost"><Icon name="banknote" size={16} className="" />My payslips</Link>}
+        </div>
+      </section>
 
       {staff && <PayrollStatus />}
 

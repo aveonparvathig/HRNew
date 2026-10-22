@@ -43,7 +43,7 @@ export default function Register() {
     <div className="auth-page">
       <div className="auth-hero">
         <div className="brand">
-          <span className="brand-mark">₹</span>
+          <span className="brand-mark brand-logo"><img src="/brand-mark.png" alt="" width={36} height={36} /></span>
           Aveon HR
         </div>
         <div className="auth-hero-copy">

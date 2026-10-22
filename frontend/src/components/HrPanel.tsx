@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { peopleAPI } from '../api/people';
 import { StatCard } from './ui';
 
@@ -63,14 +64,14 @@ export default function HrPanel() {
     <>
       <h2 className="section-title" style={{ marginTop: 0 }}>People</h2>
       <div className="stat-grid">
-        <StatCard label="Employees" value={data.headcount.current} icon="☰" tone="primary"
+        <StatCard label="Employees" value={data.headcount.current} icon="users" tone="indigo"
           sub={`${change === 0 ? 'Same as' : `${change > 0 ? '+' : '−'}${Math.abs(change)} since`} ${monthLong(yearAgo.period)}`} />
-        <StatCard label={`Joined in ${data.days.joiners} days`} value={data.joiners.length} icon="↗" tone="success"
+        <StatCard label={`Joined in ${data.days.joiners} days`} value={data.joiners.length} icon="trendingUp" tone="green"
           sub={`${thisMonth.joined} this month`} />
-        <StatCard label={`Left in ${data.days.joiners} days`} value={data.leavers.length} icon="↘" tone="warning"
+        <StatCard label={`Left in ${data.days.joiners} days`} value={data.leavers.length} icon="trendingDown" tone="amber"
           sub={data.leavingSoon.length ? `${data.leavingSoon.length} serving notice` : `${thisMonth.left} this month`} />
-        <StatCard label="Confirmations due" value={data.confirmations.due.length} icon="◷"
-          tone={data.confirmations.overdue ? 'danger' : 'info'}
+        <StatCard label="Confirmations due" value={data.confirmations.due.length} icon="clock"
+          tone={data.confirmations.overdue ? 'rose' : 'cyan'}
           sub={data.confirmations.overdue ? `${data.confirmations.overdue} overdue` : `Next ${data.days.confirmations} days`} />
       </div>
 
@@ -79,22 +80,26 @@ export default function HrPanel() {
         <span className="text-muted" style={{ fontSize: 12.5 }}>
           Employees on the rolls at each month end, from joining and relieving dates.
         </span>
-        <div className="trend-bars" role="img"
+        <div className="chart-box" role="img"
           aria-label={`Headcount by month: ${trend.map(t => `${monthLong(t.period)} ${t.headcount}`).join(', ')}`}>
-          {trend.map(t => (
-            <div key={t.period} className="trend-col"
-              title={`${monthLong(t.period)}: ${plural(t.headcount, 'employee')}, ${t.joined} joined, ${t.left} left`}>
-              <span className="trend-value">{t.headcount}</span>
-              <div className="trend-bar" style={{ height: `${Math.max(3, Math.round((t.headcount / top) * 100))}%` }} />
-              <span className="trend-label">{monthShort(t.period)}</span>
-              <span className="trend-moves">
-                {t.joined > 0 && <span className="text-success">+{t.joined}</span>}
-                {t.joined > 0 && t.left > 0 && ' '}
-                {t.left > 0 && <span className="text-warning">−{t.left}</span>}
-                {t.joined === 0 && t.left === 0 && ' '}
-              </span>
-            </div>
-          ))}
+          <ResponsiveContainer width="100%" height={240}>
+            <AreaChart data={trend} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
+              <defs>
+                <linearGradient id="hcFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--m-indigo)" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="var(--m-indigo)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} strokeDasharray="3 3" />
+              <XAxis dataKey="period" tickFormatter={monthShort} tickLine={false} axisLine={false} dy={6} />
+              <YAxis width={44} tickLine={false} axisLine={false} allowDecimals={false} domain={[0, Math.ceil(top * 1.15)]} />
+              <Tooltip
+                labelFormatter={(p) => monthLong(String(p))}
+                formatter={(v: number) => [plural(Number(v), 'employee'), 'Headcount']} />
+              <Area type="monotone" dataKey="headcount" stroke="var(--m-indigo)" strokeWidth={2.4}
+                fill="url(#hcFill)" dot={false} activeDot={{ r: 4 }} />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

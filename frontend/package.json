@@ -18,6 +18,7 @@
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.88.0",
     "react-router-dom": "^7.18.3",
+    "recharts": "^2.15.4",
     "tesseract.js": "^7.0.0",
     "zod": "^4.6.2",
     "zustand": "^5.0.15"

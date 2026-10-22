@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from './feedback';
+import { Icon, ICON_PATHS } from './Layout/nav';
 
 export function BackButton({ fallback = '/dashboard' }: { fallback?: string }) {
   const navigate = useNavigate();
@@ -38,19 +39,23 @@ export function PageHeader({ title, subtitle, actions }: {
   );
 }
 
-export function StatCard({ label, value, sub, icon, tone = 'primary', trend }: {
+// `icon` may be an icon-set name (rendered as a stroke SVG) or any string/glyph.
+export function StatCard({ label, value, sub, icon, tone = 'indigo', trend }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   icon: string;
-  tone?: 'primary' | 'success' | 'warning' | 'danger' | 'info';
+  tone?: string;
   trend?: ReactNode;
 }) {
+  const isSvg = Object.prototype.hasOwnProperty.call(ICON_PATHS, icon);
   return (
-    <div className="stat-card">
+    <div className="stat-card hover-lift">
       <div className="stat-top">
         <span className="stat-label">{label}</span>
-        <span className={`stat-icon tone-${tone}`}>{icon}</span>
+        <span className={`stat-icon tone-${tone}`}>
+          {isSvg ? <Icon name={icon} size={18} className="" /> : icon}
+        </span>
       </div>
       <div className="stat-value">{value}</div>
       {trend && <div className="stat-trend">{trend}</div>}
