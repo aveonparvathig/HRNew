@@ -22,7 +22,14 @@ import { withRecurring, withEmployerNps } from '../services/payroll/salaryStruct
 import { stampRun } from '../services/positions';
 
 const days = (n: number) => { const v = Number(n || 0); return v % 1 === 0 ? String(v) : v.toFixed(1); };
-const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
+// Order employees by date of joining (oldest first), then name. Missing
+// joinDate sorts last. Keeps the salary register in sync with the pick-lists.
+const byName = (a: any, b: any) => {
+  const ja = a.person.joinDate || '';
+  const jb = b.person.joinDate || '';
+  if (ja !== jb) return ja && jb ? ja.localeCompare(jb) : ja ? -1 : 1;
+  return a.person.name.localeCompare(b.person.name);
+};
 const pct = (from: number, to: number) =>
   (from > 0 ? `${(((to - from) / from) * 100).toFixed(1)}%`.replace('-', '−') : '—');
 
@@ -34,7 +41,7 @@ async function fetchRun(runId: string, organizationId: string) {
   const run = await prisma.payrollRun.findFirst({
     where: { id: runId, organizationId },
     include: { entries: { include: {
-      person: { select: { id: true, name: true, employeeNo: true, designation: true, department: true, workLocation: { select: { name: true } } } },
+      person: { select: { id: true, name: true, employeeNo: true, joinDate: true, designation: true, department: true, workLocation: { select: { name: true } } } },
       lines: true,
     } } },
   });
