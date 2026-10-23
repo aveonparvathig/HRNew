@@ -184,6 +184,8 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
 
   const S = { ...SECTION_DEFAULTS, ...(d.sections || {}) };
   const cp = COMPANY_PROFILE;
+  // Client logos the user chose to keep (default: all of them).
+  const shownClients = FEATURED_CLIENTS.filter(cl => !(d.hiddenClients || []).includes(cl.name));
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -368,11 +370,11 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ${cp.awards.map(a => `<div class="award"><span class="awd-dot"></span><span>${esc(a)}</span></div>`).join('')}
   ` : ''}
 
-  ${S.clients && FEATURED_CLIENTS.length ? `
+  ${S.clients && shownClients.length ? `
   <h2 class="sec">Institutions That Trust Us</h2>
-  <div class="sec-sub">${FEATURED_CLIENTS.length} leading institutions run on our platforms.</div>
+  <div class="sec-sub">${shownClients.length} leading institutions run on our platforms.</div>
   <div class="logowall">
-    ${FEATURED_CLIENTS.map(cl => `
+    ${shownClients.map(cl => `
       <div class="lg"><img src="${cl.logoUri}" alt=""/><div class="nm">${esc(cl.name)}</div></div>`).join('')}
   </div>
   ` : ''}
