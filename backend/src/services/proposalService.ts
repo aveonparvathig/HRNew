@@ -12,8 +12,10 @@ export const SECTION_DEFAULTS: Record<string, boolean> = {
 const esc = (v: any) =>
   String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-const fmtINR = (n: number) =>
-  '₹' + Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+// Plain 2-decimal rupee amount (no symbol) for the commercial table, whose
+// header already says "(Rs.)". Matches "500.00" / "5,00,000.00".
+const money2 = (n: number) =>
+  Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const fmtDate = (v: any) => {
   if (!v) return '';
@@ -130,10 +132,11 @@ export function buildPresentation(bundleCode: string | null, modules: any[], cli
 // ---------------------------------------------------------------------------
 // HTML renderer - standalone branded document
 // ---------------------------------------------------------------------------
-const priceRow = (label: string, amount: string, opts: { bonus?: string; strike?: string; note?: string } = {}) => `
+const priceRow = (sno: number | string, label: string, amount: string, opts: { bonus?: string; note?: string } = {}) => `
   <tr>
+    <td style="text-align:center;">${sno}</td>
     <td>${label}${opts.bonus ? `<div class="bonus">🎁 ${esc(opts.bonus)}</div>` : ''}${opts.note ? `<div class="note">${opts.note}</div>` : ''}</td>
-    <td class="amt">${opts.strike ? `<span class="strike">${opts.strike}</span> ` : ''}${amount}</td>
+    <td class="amt">${amount}</td>
   </tr>`;
 
 export function renderProposalHtml(brand: any, d: any): { html: string; pricing: any; selectionLabel: string } {
@@ -154,22 +157,20 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   const c = hero.color;
   const g = hero.gradientEnd;
 
+  // The one-time setup fee: the full amount is shown either way; when waived
+  // it carries the "Currently Waived Off" note (and is not added to the total).
+  const implAmount = pricing.implementation.waived
+    ? `${money2(pricing.implementation.originalAmount)} <span class="note">(One-time) – Currently Waived Off</span>`
+    : `${money2(pricing.implementation.amount)} <span class="note">(One-time)</span>`;
   const pricingRows =
     pricing.model === 'ONE_TIME'
       ? [
-          priceRow(esc(pricing.oneTime.label), fmtINR(pricing.oneTime.amount), { bonus: pricing.oneTime.bonus }),
-          priceRow(esc(pricing.implementation.label),
-            pricing.implementation.waived ? '<span class="waived">WAIVED</span>' : fmtINR(pricing.implementation.amount),
-            pricing.implementation.waived ? { strike: fmtINR(pricing.implementation.originalAmount) } : {}),
+          priceRow(1, esc(pricing.oneTime.label), money2(pricing.oneTime.amount), { bonus: pricing.oneTime.bonus }),
+          priceRow(2, esc(pricing.implementation.label), implAmount),
         ].join('')
       : [
-          priceRow(
-            `${esc(pricing.annual.label)}`,
-            fmtINR(pricing.annual.amount),
-            { note: `${fmtINR(pricing.annual.perUnit)} × ${pricing.annual.students.toLocaleString('en-IN')} (minimum commitment)` }),
-          priceRow(esc(pricing.implementation.label),
-            pricing.implementation.waived ? '<span class="waived">WAIVED</span>' : fmtINR(pricing.implementation.amount),
-            pricing.implementation.waived ? { strike: fmtINR(pricing.implementation.originalAmount) } : {}),
+          priceRow(1, 'Complete CMS Package Per Student / Per Year', money2(pricing.annual.perUnit)),
+          priceRow(2, esc(pricing.implementation.label), implAmount),
         ].join('');
 
   const S = { ...SECTION_DEFAULTS, ...(d.sections || {}) };
@@ -399,16 +400,17 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
 
   <h2 class="sec">Commercial Proposal</h2>
   <table class="price">
-    <tr><th>Description</th><th style="text-align:right;">Amount</th></tr>
+    <tr><th style="width:58px;text-align:center;">S. No.</th><th>Description</th><th style="text-align:right;">Total Price Per Student (Rs.)</th></tr>
     ${pricingRows}
-    <tr><td>Subtotal</td><td class="amt">${fmtINR(pricing.subtotal)}</td></tr>
-    <tr><td>GST @ ${pricing.gstPercent}%</td><td class="amt">${fmtINR(pricing.gstAmount)}</td></tr>
-    <tr class="total"><td>${d.includeYear1Cost === false ? 'Total Payable' : 'Total Year-1 Cost'}</td><td class="amt">${fmtINR(pricing.grandTotal)}</td></tr>
     ${pricing.model === 'ONE_TIME' ? `
-      <tr><td>${esc(pricing.amc.label)}${pricing.amc.percent ? `<div class="note">${pricing.amc.percent}% of license fee</div>` : ''}</td>
-        <td class="amt">${fmtINR(pricing.amc.amount)} <div class="note">+ GST = ${fmtINR(pricing.amc.totalWithGst)}</div></td></tr>` : ''}
+      <tr><td></td><td>Subtotal</td><td class="amt">${money2(pricing.subtotal)}</td></tr>
+      <tr><td></td><td>GST @ ${pricing.gstPercent}%</td><td class="amt">${money2(pricing.gstAmount)}</td></tr>
+      <tr class="total"><td></td><td>${d.includeYear1Cost === false ? 'Total Payable' : 'Total Year-1 Cost'}</td><td class="amt">${money2(pricing.grandTotal)}</td></tr>
+      <tr><td></td><td>${esc(pricing.amc.label)}${pricing.amc.percent ? `<div class="note">${pricing.amc.percent}% of license fee</div>` : ''}</td>
+        <td class="amt">${money2(pricing.amc.amount)} <div class="note">+ GST = ${money2(pricing.amc.totalWithGst)}</div></td></tr>` : ''}
   </table>
-  ${bundle ? `<p class="note" style="margin-top:8px;">₹${Number(bundle.bundle_price_per_student || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} per student per year + GST ${pricing.gstPercent}%.</p>` : ''}
+  ${pricing.model === 'PER_STUDENT' ? `<p class="note" style="margin-top:8px;">Minimum commitment ${pricing.annual.students.toLocaleString('en-IN')} students · Annual subscription ₹${money2(pricing.annual.amount)} + GST ${pricing.gstPercent}% = ₹${money2(pricing.annual.amount * (1 + pricing.gstPercent / 100))} · Total Year-1 ₹${money2(pricing.grandTotal)}.</p>` : ''}
+  ${bundle ? `<p class="note" style="margin-top:4px;">₹${money2(bundle.bundle_price_per_student || 0)} per student per year + GST ${pricing.gstPercent}%.</p>` : ''}
 
   ${S.implementation ? `
   <h2 class="sec">Implementation & Support</h2>
