@@ -25,6 +25,7 @@ const EMPTY = {
   authorizedSignatoryName: '', authorizedSignatoryDesignation: '',
   jurisdiction: 'Coimbatore',
   sections: { ...ALL_SECTIONS } as Record<string, boolean>,
+  hiddenClients: [] as string[],
 };
 
 export default function ProposalBuilder() {
@@ -98,6 +99,16 @@ export default function ProposalBuilder() {
       selectedModules: f.selectedModules.includes(code)
         ? f.selectedModules.filter((c: string) => c !== code)
         : [...f.selectedModules, code],
+    }));
+  };
+
+  // Show / hide an individual client logo on the "Institutions That Trust Us" wall.
+  const toggleClient = (name: string) => {
+    setForm((f: any) => ({
+      ...f,
+      hiddenClients: (f.hiddenClients || []).includes(name)
+        ? (f.hiddenClients || []).filter((n: string) => n !== name)
+        : [...(f.hiddenClients || []), name],
     }));
   };
 
@@ -392,6 +403,22 @@ export default function ProposalBuilder() {
               </label>
             ))}
           </div>
+          {form.sections?.clients !== false && (catalog.clients?.length || 0) > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div className="section-title" style={{ fontSize: 12.5, margin: '0 0 8px' }}>
+                Client logos — {catalog.clients.length - (form.hiddenClients?.length || 0)} of {catalog.clients.length} shown
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '4px 16px', maxHeight: 230, overflowY: 'auto', paddingRight: 4 }}>
+                {catalog.clients.map((name: string) => (
+                  <label key={name} className="checkbox-field" style={{ fontSize: 12.5 }}>
+                    <input type="checkbox" checked={!(form.hiddenClients || []).includes(name)}
+                      onChange={() => toggleClient(name)} />
+                    {name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Signatory */}

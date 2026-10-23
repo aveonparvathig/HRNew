@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { CATALOG } from '../data/proposalCatalog';
+import { FEATURED_CLIENTS } from '../data/cmsClients';
 import { renderProposalHtml } from '../services/proposalService';
 import { renderCmsFeatureDoc } from '../services/cmsFeatureDoc';
 import { orgBrand } from '../services/orgBrand';
@@ -43,7 +44,7 @@ export const proposalsController = {
         heroColor: b.hero_color,
       };
     }
-    res.json({ modules, bundles, categories: CATALOG.categories });
+    res.json({ modules, bundles, categories: CATALOG.categories, clients: FEATURED_CLIENTS.map(c => c.name) });
   },
 
   // Render the document for the builder's live preview — nothing is saved.
