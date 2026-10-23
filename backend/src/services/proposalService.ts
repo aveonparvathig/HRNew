@@ -209,8 +209,12 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   .addr .to strong { display: block; font-size: 16px; }
   /* CSS multi-column (not grid) pages cleanly without orphaning a card into
      an empty column across a page break. */
-  .modgrid { columns: 2; column-gap: 14px; }
-  .mod { break-inside: avoid; display: inline-block; width: 100%; margin-bottom: 14px; border: 1px solid #e5e7eb; border-left: 4px solid var(--mc); border-radius: 10px; padding: 14px 16px; }
+  /* Inline-block two-up grid: each card is atomic, so it paginates without the
+     column-overlap / orphaning that CSS multi-column causes in print.
+     font-size:0 kills inline-block whitespace; children set their own sizes. */
+  .modgrid { font-size: 0; }
+  .mod { break-inside: avoid; display: inline-block; vertical-align: top; width: 49%; margin: 0 2% 14px 0; box-sizing: border-box; border: 1px solid #e5e7eb; border-left: 4px solid var(--mc); border-radius: 10px; padding: 14px 16px; }
+  .mod:nth-child(2n) { margin-right: 0; }
   .mod h4 { font-size: 14.5px; margin-bottom: 4px; }
   .mod .d { font-size: 12.5px; color: #6b7280; margin-bottom: 8px; }
   .mod ul { padding-left: 16px; font-size: 12px; color: #4b5563; columns: 1; }
@@ -281,7 +285,8 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
     .paper { width: 100%; }
     .hero { min-height: 0; }
     .logowall { grid-template-columns: repeat(3, 1fr); }
-    .modgrid, .grid2 { columns: 1; }
+    .grid2 { columns: 1; }
+    .mod { width: 100%; margin-right: 0; }
     .vm { grid-template-columns: 1fr; }
   }
 </style>
