@@ -1,13 +1,20 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
-  PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Menu, Modal, StatusBadge, BackButton, SuccessAlert,
+  PageHeader, EmptyState, LoadingBlock, ErrorAlert, Menu, Modal, StatusBadge, BackButton, SuccessAlert,
 } from '../../components/ui';
-import { formatINR } from '../../utils/format';
+import {
+  KpiGrid, KpiTile, TableCard, GroupRow, ChangePills, FactStrip, Notice, SortChip, KitIcon,
+} from '../../components/report';
+import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog, toast } from '../../components/feedback';
 import ListSelect from '../../components/ListSelect';
 import { downloadFile as fetchFile } from '../../api/files';
+import {
+  REGISTER_ORDERS, type RegisterOrder, orderEntries, filterByDepartment, departmentsOf, groupEntries,
+  changesOf, hasChange, compareWithPrevious, describeChanges, indexPrev, registerTotals,
+} from '../../utils/registerOrder';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -64,6 +71,12 @@ export default function RunDetail() {
   const [claims, setClaims] = useState<any>(null);
   const [holdModal, setHoldModal] = useState<any>(null); // entry whose salary is being held
   const [holdReason, setHoldReason] = useState('');
+  // How the register reads: one department or all, the order, grouped by
+  // designation, and only the rows that changed since last month
+  const [dept, setDept] = useState('');
+  const [order, setOrder] = useState<RegisterOrder>('desig');
+  const [grouped, setGrouped] = useState(true);
+  const [changedOnly, setChangedOnly] = useState(false);
 
   useEffect(() => {
     payrollAPI.getComponents().then(res => setComponents(res.data.components)).catch(() => {});
@@ -241,6 +254,22 @@ export default function RunDetail() {
     }
   };
 
+  // ---- The register as shown: department, order, grouping, changed rows ----
+  const entries: any[] = useMemo(() => run?.entries || [], [run]);
+  const prevByPerson = useMemo(() => indexPrev(run?.prev?.entries || []), [run]);
+  const hasPrevRun = Boolean(run?.prev);
+  const pillsOf = useCallback((e: any) => changesOf(e, prevByPerson.get(e.personId || e.person?.id), hasPrevRun), [prevByPerson, hasPrevRun]);
+  const comparison = useMemo(() => (run?.prev
+    ? compareWithPrevious(entries, { entries: run.prev.entries || [], net: run.prev.totals?.net || 0 })
+    : null), [entries, run]);
+  const departments = useMemo(() => departmentsOf(entries), [entries]);
+  const visibleEntries = useMemo(() => {
+    const filtered = filterByDepartment(entries, dept).filter(e => !changedOnly || hasChange(pillsOf(e)));
+    return orderEntries(filtered, order, grouped);
+  }, [entries, dept, changedOnly, order, grouped, pillsOf]);
+  const registerRows = useMemo(() => groupEntries(visibleEntries, grouped), [visibleEntries, grouped]);
+  const visibleTotals = useMemo(() => registerTotals(visibleEntries), [visibleEntries]);
+
   if (loading) return <LoadingBlock label="Loading run…" />;
   if (!run) {
     return <EmptyState icon="▦" title="Run not found"
@@ -248,6 +277,9 @@ export default function RunDetail() {
   }
 
   const t = run.totals;
+  const employerCost = t.ctc > 0 ? t.ctc : t.gross + (t.employerContributions || 0);
+  const orderLabel = REGISTER_ORDERS.find(o => o.value === order)?.label.toLowerCase() || '';
+  const registerCols = 13;
   const blocking = (run.checks || []).filter((c: any) => c.blocking);
   const warnings = (run.checks || []).filter((c: any) => !c.blocking);
   const stageIndex = STAGES.findIndex(([key]) => key === run.stage?.key);
@@ -290,18 +322,13 @@ export default function RunDetail() {
 
   return (
     <>
-      <div className="breadcrumb"><BackButton />
-        <Link to="/payroll">Payroll</Link>
-        <span>/</span>
-        <span>{monthLabel(run.period)}</span>
-      </div>
-
       <PageHeader
-        title={`Payroll — ${monthLabel(run.period)}`}
-        subtitle={`FY ${run.financialYear} · ${t.employees} employees · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
+        title={monthLabel(run.period)}
+        crumbs={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><BackButton /><Link to="/payroll">Payroll runs</Link><span className="sep">/</span>{monthLabel(run.period)}</span>}
+        badge={<StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />}
+        subtitle={`${t.employees} employee${t.employees === 1 ? '' : 's'} · ${run.totalWorkingDays} working days · FY ${run.financialYear} · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
         actions={
           <>
-            <StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />
             {!isDraft && (
               <span className={`badge ${run.releasedAt ? 'badge-success' : 'badge-neutral'}`}
                 title={run.releasedAt ? 'Employees can see this month\'s payslip in My Pay' : 'Employees cannot see this month\'s payslip yet'}>
@@ -461,21 +488,37 @@ export default function RunDetail() {
         </details>
       )}
 
-      <div className="stat-grid">
-        <StatCard label="Gross Salary" value={formatINR(t.gross)} icon="▤" tone="primary"
-          trend={trendChip(t.gross, run.prev?.totals?.gross)}
-          sub={`${t.employees} employees on the roster`} />
-        <StatCard label="Deductions" value={formatINR(t.deductions)}
-          trend={trendChip(t.deductions, run.prev?.totals?.deductions, true)}
-          sub="ESI, PF, taxes, advances and other deductions" icon="−" tone="warning" />
-        <StatCard label="Net Payable" value={formatINR(t.net)} icon="₹" tone="success"
-          trend={trendChip(t.net, run.prev?.totals?.net)}
-          sub={t.gross > 0 ? `${netShare.toFixed(1)}% of gross reaches employees` : undefined} />
-        <StatCard label="CTC" value={t.ctc > 0 ? formatINR(t.ctc) : '—'}
-          trend={trendChip(t.ctc, run.prev?.totals?.ctc)}
-          sub={t.ctc > 0 ? `+ ${formatINR(t.employerContributions)} employer share` : 'Not tracked for this run'}
-          icon="◔" tone="info" />
-      </div>
+      <KpiGrid columns={5}>
+        <KpiTile label="Gross" value={<>{formatINR(t.gross)}{trendChip(t.gross, run.prev?.totals?.gross)}</>}
+          sub={`Before deductions · ${t.employees} employee${t.employees === 1 ? '' : 's'}`} />
+        <KpiTile label="Deductions" value={<>{formatINR(t.deductions)}{trendChip(t.deductions, run.prev?.totals?.deductions, true)}</>}
+          sub="ESI · PF · TDS · advances · other" />
+        <KpiTile label="Net payable" tone="primary" value={<>{formatINR(t.net)}{trendChip(t.net, run.prev?.totals?.net)}</>}
+          sub={t.gross > 0 ? `${netShare.toFixed(1)}% of gross reaches employees` : 'Nothing computed yet'} />
+        <KpiTile label="Employer cost" value={<>{formatINR(employerCost)}{trendChip(employerCost, run.prev?.totals ? (run.prev.totals.ctc > 0 ? run.prev.totals.ctc : run.prev.totals.gross + (run.prev.totals.employerContributions || 0)) : undefined)}</>}
+          sub={t.employerContributions > 0 ? `incl. ${formatINR(t.employerContributions)} employer PF, ESI and the like` : 'Gross plus employer contributions'} />
+        <KpiTile label="Payslips"
+          value={run.releasedAt ? `${t.employees} / ${t.employees}` : `0 / ${t.employees}`}
+          sub={run.releasedAt ? `Released to employees on ${formatDate(run.releasedAt)}` : isDraft ? 'Release after finalizing' : 'Finalized, not yet released'} />
+      </KpiGrid>
+
+      {comparison && (
+        <FactStrip title={`Compared with ${monthLabel(run.prev.period)}`}
+          action={comparison.changed > 0 && (
+            <button type="button" className="link-btn" onClick={() => setChangedOnly(v => !v)}>
+              {changedOnly ? 'Show all rows' : 'Show changed rows only'}
+            </button>
+          )}>
+          <span>
+            Net <strong className={comparison.netDelta >= 0 ? 'text-success' : 'text-danger'}>
+              {comparison.netDelta >= 0 ? '+' : '−'}{formatINR(Math.abs(comparison.netDelta))}
+            </strong> · {comparison.employeesBefore} → {comparison.employeesNow} employees
+          </span>
+          <span>
+            <strong>{comparison.changed} changed</strong>{comparison.changed > 0 ? `: ${describeChanges(comparison.counts)}` : ''}
+          </span>
+        </FactStrip>
+      )}
 
       {t.gross > 0 && segments.length > 1 && (
         <div className="card payout-card">
@@ -549,89 +592,164 @@ export default function RunDetail() {
         </div>
       )}
 
-      <div className="card">
-        <div className="card-header">
-          <h3>Salary register</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
-            {canEdit ? 'Click Edit to adjust attendance & one-offs — the row recomputes instantly.'
-              : isDraft ? 'Inputs are locked — unlock to edit.' : 'Finalized — reopen to edit.'}
-          </span>
-        </div>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
+      <TableCard
+        title="Salary register"
+        toolbar={
+          <>
+            <span className="spacer" />
+            {departments.length > 1 && (
+              <>
+                <label className="tool-label" htmlFor="reg-dept">Department</label>
+                <select id="reg-dept" className="select" value={dept} onChange={e => setDept(e.target.value)}>
+                  <option value="">All departments</option>
+                  {departments.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </>
+            )}
+            <label className="tool-label" htmlFor="reg-order">Order</label>
+            <select id="reg-order" className="select" value={order} onChange={e => setOrder(e.target.value as RegisterOrder)}>
+              {REGISTER_ORDERS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+            <SortChip active={grouped} icon={KitIcon.group} onClick={() => setGrouped(g => !g)}>Group by designation</SortChip>
+            {hasPrevRun && (
+              <SortChip active={changedOnly} onClick={() => setChangedOnly(v => !v)}>Changed only</SortChip>
+            )}
+          </>
+        }
+        footer={
+          <>
+            <span>
+              {visibleEntries.length === entries.length ? `${entries.length} employee${entries.length === 1 ? '' : 's'}` : `${visibleEntries.length} of ${entries.length} employees`}
+              {' · '}{grouped ? `grouped by designation, ${order === 'desig' ? 'longest serving first within each group' : `${orderLabel} within each group`}` : orderLabel}
+              {dept ? ` · ${dept}` : ''}{changedOnly ? ' · changed rows only' : ''}
+            </span>
+            <span>
+              {canEdit ? 'Click Edit to adjust attendance and one-offs; the row recomputes instantly.'
+                : isDraft ? 'Inputs are locked. Unlock to edit.' : 'Finalized. Reopen to edit.'}
+            </span>
+          </>
+        }>
+        <table className="table">
+          <thead>
+            <tr>
+              <th style={{ width: '22%' }}>Employee</th>
+              <th>Joined</th>
+              <th className="num">Pay days</th>
+              <th className="num">Package</th>
+              <th className="num">Gross</th>
+              <th className="num">PF</th>
+              <th className="num">ESI</th>
+              <th className="num">TDS</th>
+              <th className="num">Advance</th>
+              <th className="num">Deductions</th>
+              <th className="num">Net payable</th>
+              <th>Change</th>
+              <th><span className="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {registerRows.map(r => (r.kind === 'group'
+              ? <GroupRow key={r.key} label={r.label} count={r.count} colSpan={registerCols} />
+              : (() => {
+                const e = r.entry;
+                return (
+                  <tr key={r.key}>
+                    <td>
+                      <span style={{ fontWeight: 600 }}>{e.person.name}</span>
+                      {e.payStatus === 'HOLD' && (
+                        <span className="badge badge-warning" style={{ marginLeft: 8 }} title={e.holdReason}>On hold</span>
+                      )}
+                      {e.paidOn && <span className="badge badge-success" style={{ marginLeft: 8 }}>Paid</span>}
+                      <div className="text-muted" style={{ fontSize: 12 }}>
+                        {[e.person.employeeNo, grouped ? null : e.person.designation].filter(Boolean).join(' · ') || '—'}
+                      </div>
+                    </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{e.person.joinDate ? formatDate(e.person.joinDate) : '—'}</td>
+                    <td className={`num${e.lopDays > 0 ? ' pay-days-short' : ''}`}>
+                      {e.payDays} / {e.totalWorkingDays}
+                    </td>
+                    <td className="num text-muted">{formatINR(e.monthlyPackage)}</td>
+                    <td className="num">{formatINR(e.grossSalary)}</td>
+                    <td className="num text-muted">{e.pfEmployee ? formatINR(e.pfEmployee) : '—'}</td>
+                    <td className="num text-muted">{e.esiEmployee ? formatINR(e.esiEmployee) : '—'}</td>
+                    <td className="num text-muted">{e.tds ? formatINR(e.tds) : '—'}</td>
+                    <td className={`num${e.salaryAdvance ? ' text-danger' : ' text-muted'}`}>{e.salaryAdvance ? formatINR(e.salaryAdvance) : '—'}</td>
+                    <td className="num text-warning">{formatINR(e.totalDeductions)}</td>
+                    <td className={`num ${e.netPayable < 0 ? 'text-danger' : ''}`} style={{ fontWeight: 700 }}>
+                      {formatINR(e.netPayable)}
+                      {e.reimbursement > 0 && (
+                        <div className="text-muted" style={{ fontSize: 11, fontWeight: 400 }}>+ {formatINR(e.reimbursement)} claims</div>
+                      )}
+                    </td>
+                    <td><ChangePills pills={pillsOf(e)} /></td>
+                    <td>
+                      <div className="row-actions">
+                        <Link to={`/payroll/payslips/${e.id}`} className="btn btn-secondary btn-sm">Payslip</Link>
+                        {canEdit && (
+                          <button className="btn btn-secondary btn-sm" onClick={() => openEntry(e)}>Edit</button>
+                        )}
+                        {e.payStatus === 'HOLD' ? (
+                          <button className="btn btn-secondary btn-sm"
+                            onClick={() => act(() => payrollAPI.releaseSalary(e.id), `${e.person.name}'s salary is released for payment.`)}>
+                            Release
+                          </button>
+                        ) : !e.paidOn && !e.payoutBatchId && (
+                          <button className="btn btn-ghost btn-sm" title="Compute the salary but do not pay it yet"
+                            onClick={() => { setHoldReason(''); setHoldModal(e); }}>
+                            Hold
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })()))}
+            {registerRows.length === 0 && (
               <tr>
-                <th>Employee</th><th className="num">Package</th>
-                <th className="num">Pay Days</th><th className="num">Basic</th>
-                <th className="num">Gross</th><th className="num">ESI</th>
-                <th className="num">PF</th><th className="num">Deductions</th>
-                <th className="num">Net</th><th />
+                <td colSpan={registerCols}>
+                  <EmptyState icon="▦" title={changedOnly ? 'No changed rows' : dept ? `Nobody in ${dept}` : 'No entries in this run'}
+                    message={changedOnly ? 'Every row matches last month.' : dept ? 'Pick another department.' : 'Recalculate to add the active employees.'} />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {run.entries.map((e: any) => (
-                <tr key={e.id}>
-                  <td>
-                    <span style={{ fontWeight: 600 }}>{e.person.name}</span>
-                    {e.payStatus === 'HOLD' && (
-                      <span className="badge badge-warning" style={{ marginLeft: 8 }} title={e.holdReason}>On hold</span>
-                    )}
-                    {e.paidOn && <span className="badge badge-success" style={{ marginLeft: 8 }}>Paid</span>}
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>
-                      {[e.person.employeeNo, e.person.designation].filter(Boolean).join(' · ')}
-                    </div>
-                  </td>
-                  <td className="num">{formatINR(e.monthlyPackage)}</td>
-                  <td className="num">
-                    {e.payDays}/{e.totalWorkingDays}
-                    {e.lopDays > 0 && <div style={{ fontSize: 11, color: 'var(--warning)' }}>{e.lopDays} LOP</div>}
-                  </td>
-                  <td className="num">{formatINR(e.basic)}</td>
-                  <td className="num">{formatINR(e.grossSalary)}</td>
-                  <td className="num text-muted">{e.esiEmployee ? formatINR(e.esiEmployee) : '—'}</td>
-                  <td className="num text-muted">{e.pfEmployee ? formatINR(e.pfEmployee) : '—'}</td>
-                  <td className="num text-warning">{formatINR(e.totalDeductions)}</td>
-                  <td className={`num ${e.netPayable < 0 ? 'text-danger' : 'text-success'}`} style={{ fontWeight: 700 }}>
-                    {formatINR(e.netPayable)}
-                    {e.reimbursement > 0 && (
-                      <div className="text-muted" style={{ fontSize: 11, fontWeight: 400 }}>+ {formatINR(e.reimbursement)} claims</div>
-                    )}
-                  </td>
-                  <td>
-                    <div className="row-actions">
-                      <Link to={`/payroll/payslips/${e.id}`} className="btn btn-secondary btn-sm">Payslip</Link>
-                      {canEdit && (
-                        <button className="btn btn-secondary btn-sm" onClick={() => openEntry(e)}>Edit</button>
-                      )}
-                      {e.payStatus === 'HOLD' ? (
-                        <button className="btn btn-secondary btn-sm"
-                          onClick={() => act(() => payrollAPI.releaseSalary(e.id), `${e.person.name}'s salary is released for payment.`)}>
-                          Release
-                        </button>
-                      ) : !e.paidOn && !e.payoutBatchId && (
-                        <button className="btn btn-ghost btn-sm" title="Compute the salary but do not pay it yet"
-                          onClick={() => { setHoldReason(''); setHoldModal(e); }}>
-                          Hold
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              <tr className="totals-row">
-                <td>Totals ({t.employees})</td>
-                <td /><td />
-                <td className="num">{formatINR(run.entries.reduce((s: number, e: any) => s + e.basic, 0))}</td>
-                <td className="num">{formatINR(t.gross)}</td>
-                <td /><td />
-                <td className="num">{formatINR(t.deductions)}</td>
-                <td className="num">{formatINR(t.net)}</td>
-                <td />
+            )}
+            {visibleEntries.length > 0 && (
+              <tr className="total-row">
+                <td colSpan={3}>Total · {visibleTotals.employees} employee{visibleTotals.employees === 1 ? '' : 's'}</td>
+                <td className="num">{formatINR(visibleTotals.monthlyPackage)}</td>
+                <td className="num">{formatINR(visibleTotals.gross)}</td>
+                <td className="num">{visibleTotals.pf ? formatINR(visibleTotals.pf) : '—'}</td>
+                <td className="num">{visibleTotals.esi ? formatINR(visibleTotals.esi) : '—'}</td>
+                <td className="num">{visibleTotals.tds ? formatINR(visibleTotals.tds) : '—'}</td>
+                <td className="num">{visibleTotals.advance ? formatINR(visibleTotals.advance) : '—'}</td>
+                <td className="num">{formatINR(visibleTotals.deductions)}</td>
+                <td className="num">{formatINR(visibleTotals.net)}</td>
+                <td colSpan={2} />
               </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
+            )}
+          </tbody>
+        </table>
+      </TableCard>
+
+      {isDraft ? (
+        <Notice tone="warning"
+          action={comparison && comparison.changed > 0 && (
+            <button type="button" className="link-btn" onClick={() => { setChangedOnly(true); document.getElementById('reg-order')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>
+              Review changed rows
+            </button>
+          )}>
+          Finalizing locks every figure and snapshots each monthly package.
+          {comparison && (comparison.counts.advance > 0 || comparison.counts.lop > 0) && (
+            <> {[comparison.counts.advance > 0 ? `${comparison.counts.advance} row${comparison.counts.advance === 1 ? ' has' : 's have'} an advance recovery` : '',
+              comparison.counts.lop > 0 ? `${comparison.counts.lop} ${comparison.counts.lop === 1 ? 'has' : 'have'} loss of pay` : ''].filter(Boolean).join(' and ')}; confirm they are intended before locking.</>
+          )}
+          {blocking.length > 0 && <> {blocking.length} item{blocking.length === 1 ? '' : 's'} marked above must be fixed first.</>}
+        </Notice>
+      ) : (
+        <Notice tone="success">
+          Finalized{run.finalizedAt ? ` on ${formatDate(run.finalizedAt)}` : ''}. Every figure and monthly package is locked; reopen the run to change anything.
+          {run.releasedAt ? ` Payslips have been visible to employees since ${formatDate(run.releasedAt)}.` : ' Payslips are not released to employees yet.'}
+        </Notice>
+      )}
 
       {/* Entry edit modal */}
       <Modal size="lg" title={entryModal ? `${entryModal.person.name} — ${monthLabel(run.period)}` : ''}

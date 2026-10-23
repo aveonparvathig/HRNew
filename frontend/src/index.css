@@ -359,7 +359,10 @@ a:hover { text-decoration: underline; }
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
-.page-title { font-size: 22px; }
+.page-title { font-size: 22px; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.page-crumbs { font-size: 12.5px; color: var(--text-3); font-weight: 500; margin-bottom: 4px; }
+.page-crumbs a { color: var(--text-2); }
+.page-crumbs .sep { margin: 0 6px; }
 .page-subtitle { color: var(--text-2); margin-top: 4px; font-size: 13.5px; }
 .page-actions { display: flex; gap: 10px; align-items: center; }
 
@@ -1643,7 +1646,7 @@ button.org-toggle:hover { background: var(--border); color: var(--text); }
   .modal-overlay { padding: 0; place-items: stretch; }
   .modal {
     max-width: none;
-    max-height: none;
+    max-height: 100dvh; /* taller content scrolls inside the dialog */
     width: 100%;
     min-height: 100dvh;
     border-radius: 0;
@@ -2182,3 +2185,288 @@ html { scroll-behavior: smooth; }
 .stat-spark { display: block; width: 100%; margin-top: 12px; }
 .card-head-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 4px; flex-wrap: wrap; }
 .card-head-row .segmented { flex: none; }
+
+/* ============ Forms & reports kit ============ */
+/* Flat KPI tiles, sort chips, a segmented control, report table cards with
+   group rows, sectioned forms with anchors and card checkboxes. Everything
+   takes the theme tokens, so dark mode and the accent colour carry over. */
+
+/* KPI tiles */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--kpi-cols, 4), minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 0;
+}
+.kpi-label { font-size: 12px; font-weight: 600; color: var(--text-2); }
+.kpi-value {
+  font-size: 24px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15;
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 8px;
+}
+.kpi-sub { font-size: 12px; color: var(--text-3); }
+.kpi-primary { border-color: var(--primary-border); background: var(--primary-soft); }
+.kpi-primary .kpi-label, .kpi-primary .kpi-value { color: var(--primary); }
+@media (max-width: 1100px) { .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } }
+
+/* Sort chips */
+.chip-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.chip-group-label { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.sort-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 36px; padding: 0 14px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast), color var(--t-fast);
+}
+.sort-chip:hover { border-color: var(--border-strong); }
+.sort-chip.active { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+
+/* Segmented control (bordered, the active segment filled) */
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button {
+  min-height: 34px; padding: 0 14px;
+  border: 0; border-right: 1px solid var(--border);
+  background: transparent; color: var(--text);
+  font: inherit; font-size: 13px; font-weight: 600;
+  cursor: pointer;
+}
+.seg button:last-child { border-right: 0; }
+.seg button:hover { background: var(--hover); }
+.seg button.active { background: var(--text); color: var(--bg); }
+
+/* Report table card */
+.report-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  margin-bottom: 18px;
+}
+.report-toolbar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.report-toolbar .spacer, .fact-strip .spacer { flex: 1 1 auto; }
+.report-title { font-size: 15px; font-weight: 700; margin: 0; }
+.report-card .table-wrap { border-radius: 0; }
+.report-card .table { min-width: 880px; }
+.report-card .table th { padding: 10px 12px; }
+.report-card .table td { padding: 11px 12px; }
+.report-foot {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px; color: var(--text-3);
+  border-top: 1px solid var(--border);
+}
+.report-search { position: relative; flex: 1 1 220px; max-width: 320px; }
+.report-search svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+.report-search .input { padding-left: 34px; min-height: 36px; }
+.report-toolbar .select { width: auto; min-height: 36px; padding-top: 0; padding-bottom: 0; }
+.report-toolbar .tool-label { font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+
+/* Sortable header buttons */
+.th-sort {
+  all: unset; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  color: inherit; min-height: 24px;
+  font: inherit; text-transform: inherit; letter-spacing: inherit;
+}
+.th-sort:hover, .th-sort.active { color: var(--text); }
+.th-sort .th-arrow { opacity: 0; transition: opacity var(--t-fast); }
+.th-sort.active .th-arrow { opacity: 1; }
+.th-sort:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+
+/* Group header rows and totals */
+.table tr.group-row td {
+  background: var(--surface-2);
+  padding: 8px 16px;
+  font-size: 12px; font-weight: 700; color: var(--text);
+  letter-spacing: 0.02em;
+}
+.table tr.group-row:hover td { background: var(--surface-2); }
+.group-count { font-weight: 500; color: var(--text-3); }
+.table tr.total-row td {
+  background: var(--surface-2);
+  font-weight: 700;
+  border-top: 2px solid var(--border-strong);
+  border-bottom: 0;
+}
+
+/* Cells */
+.cell-person { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.cell-person .avatar-sm {
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700;
+  background: var(--primary-soft); color: var(--primary);
+  overflow: hidden;
+}
+.cell-person .avatar-sm img { width: 100%; height: 100%; object-fit: cover; }
+.cell-person .cell-main { display: flex; flex-direction: column; min-width: 0; }
+.cell-person .cell-name { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell-person .cell-sub { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yn-pill {
+  display: inline-block; min-width: 34px; padding: 3px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; text-align: center;
+  background: var(--neutral-soft); color: var(--neutral);
+}
+.yn-pill.yes { background: var(--success-soft); color: var(--success); }
+.masked { color: var(--text-3); letter-spacing: 0.12em; }
+.mask-btn {
+  all: unset; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  font-variant-numeric: tabular-nums; border-radius: 6px; padding: 2px 4px;
+}
+.mask-btn:hover { background: var(--hover); }
+.mask-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.pill-row { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+.count-pill {
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+  background: var(--neutral-soft); border-radius: 999px; padding: 3px 10px;
+  vertical-align: middle; margin-left: 8px;
+}
+.pay-days-short { color: var(--warning); font-weight: 600; }
+
+/* Fact strip and notice */
+.fact-strip {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px;
+  font-size: 13px; color: var(--text-2);
+  margin-bottom: 18px;
+}
+.fact-title { font-weight: 700; color: var(--text); }
+.fact-strip strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.fact-strip .link-btn { all: unset; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); }
+.fact-strip .link-btn:hover { text-decoration: underline; }
+.notice {
+  border: 1px solid; border-radius: 12px;
+  padding: 14px 18px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.notice-text { flex: 1 1 320px; }
+.notice .link-btn, .notice a { all: unset; cursor: pointer; font-size: 13px; font-weight: 600; color: inherit; text-decoration: underline; }
+.notice-warning { background: var(--warning-soft); border-color: color-mix(in srgb, var(--warning) 32%, transparent); color: var(--warning); }
+.notice-info { background: var(--info-soft); border-color: color-mix(in srgb, var(--info) 32%, transparent); color: var(--info); }
+.notice-success { background: var(--success-soft); border-color: color-mix(in srgb, var(--success) 32%, transparent); color: var(--success); }
+.notice-neutral { background: var(--surface); border-color: var(--border); color: var(--text-2); }
+
+/* Sectioned form: anchors + section cards */
+.form-layout { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.form-anchors {
+  flex: 0 1 200px; min-width: 160px;
+  display: flex; flex-direction: column; gap: 2px;
+  position: sticky; top: 8px;
+}
+.anchor {
+  all: unset; cursor: pointer; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; min-height: 36px; border-radius: 8px;
+  font-size: 13px; font-weight: 500; color: var(--text-2);
+}
+.anchor:hover { background: var(--hover); color: var(--text); }
+.anchor.on { color: var(--primary); font-weight: 600; background: var(--primary-soft); }
+.anchor:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.anchor-no {
+  width: 22px; height: 22px; flex: 0 0 22px; border-radius: 50%;
+  border: 1.5px solid var(--border-strong);
+  font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.anchor.on .anchor-no { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+.anchor-note { margin: 14px 10px 0; font-size: 12px; color: var(--text-3); line-height: 1.5; }
+.form-sections { flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.sec-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex; flex-direction: column; gap: 16px;
+  scroll-margin-top: 16px;
+}
+.sec-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sec-head h2 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.sec-head p { margin: 4px 0 0; font-size: 13px; color: var(--text-2); }
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+.field-grid .full, .f.full { grid-column: 1 / -1; }
+.f { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.lbl-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.lbl { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.req { color: var(--danger); margin-left: 2px; }
+.help { font-size: 12px; color: var(--text-3); line-height: 1.45; }
+.err { font-size: 12px; color: var(--danger); font-weight: 500; }
+.f .input, .f .select { min-height: 40px; }
+.f textarea.input { min-height: 72px; resize: vertical; }
+.sw {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.sw:hover { border-color: var(--border-strong); }
+.sw.on { border-color: var(--primary-border); background: var(--primary-soft); }
+.sw.disabled { opacity: 0.55; cursor: not-allowed; }
+.sw input { width: 18px; height: 18px; margin: 2px 0 0; flex: 0 0 18px; accent-color: var(--primary); }
+.sw-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sw-title { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.inline-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+.form-foot {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: var(--shadow-md);
+}
+.form-foot-text { font-size: 13px; color: var(--text-2); }
+.form-foot-text.is-blocking { color: var(--danger); font-weight: 500; }
+.form-foot-actions { display: flex; gap: 10px; }
+.modal-xl { max-width: 1040px; }
+.modal-xl .modal-body { padding: 20px 24px 24px; background: var(--bg); }
+.modal-xl .modal-header { position: sticky; top: 0; background: var(--surface); z-index: 3; }
+/* The sticky header covers the top of the scrolling modal: anchors and
+   section jumps sit below it */
+.modal-xl .form-anchors { top: 76px; }
+.modal-xl .sec-card { scroll-margin-top: 80px; }
+.pipeline-toggle summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); list-style: none; }
+.pipeline-toggle summary::-webkit-details-marker { display: none; }
+.pipeline-toggle[open] summary { margin-bottom: 14px; }
+
+@media (max-width: 768px) {
+  .form-anchors { position: static; flex: 1 1 100%; flex-direction: row; flex-wrap: wrap; gap: 6px; }
+  .anchor { min-height: 40px; }
+  .anchor-note { display: none; }
+  .field-grid { grid-template-columns: 1fr; }
+  .sec-card { padding: 18px 16px; }
+  .form-foot { border-radius: 10px; }
+  .form-foot-actions { width: 100%; }
+  .modal-xl { max-width: none; }
+  .modal-xl .modal-body { padding: 14px 12px 16px; }
+  .modal-xl .form-anchors { top: 60px; }
+  .form-foot-actions .btn { flex: 1; }
+  .report-card .table { min-width: 760px; }
+  .report-toolbar .select { flex: 1 1 140px; }
+  .report-search { max-width: none; }
+  .seg { width: 100%; }
+  .seg button { flex: 1; }
+}
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

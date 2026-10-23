@@ -63,7 +63,7 @@ async function fetchOrgRun(runId: string, organizationId: string, includeEntries
     include: includeEntries
       ? { entries: { include: {
         person: { select: {
-          id: true, name: true, employeeNo: true, designation: true, department: true,
+          id: true, name: true, employeeNo: true, designation: true, department: true, joinDate: true,
           workLocation: { select: LOCATION_FOR_PAYROLL },
         } },
         lines: true,
@@ -319,7 +319,15 @@ export const payrollController = {
         ...(run.status === 'DRAFT' ? await overdueLoanChecks(orgId, sorted, run.period) : []),
       ],
       totals: entryTotals(run.entries),
-      prev: prev ? { id: prev.id, period: prev.period, totals: entryTotals(prev.entries) } : null,
+      // The previous month's figures per person, so the register can show
+      // what changed for each row (increments, new joiners, net movement)
+      prev: prev ? {
+        id: prev.id, period: prev.period, totals: entryTotals(prev.entries),
+        entries: prev.entries.map((e: any) => ({
+          personId: e.personId, netPayable: e.netPayable, grossSalary: e.grossSalary,
+          monthlyPackage: e.monthlyPackage, lopDays: e.lopDays,
+        })),
+      } : null,
     });
   },
 

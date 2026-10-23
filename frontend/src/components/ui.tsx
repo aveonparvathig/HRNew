@@ -17,10 +17,14 @@ export function BackButton({ fallback = '/dashboard' }: { fallback?: string }) {
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: {
+// `badge` sits beside the title (a count, a Draft / Finalized pill);
+// `crumbs` is a breadcrumb line above it
+export function PageHeader({ title, subtitle, actions, badge, crumbs }: {
   title: string;
   subtitle?: ReactNode;
   actions?: ReactNode;
+  badge?: ReactNode;
+  crumbs?: ReactNode;
 }) {
   // The browser tab and history entries carry the page's name
   useEffect(() => {
@@ -31,7 +35,8 @@ export function PageHeader({ title, subtitle, actions }: {
   return (
     <div className="page-header">
       <div>
-        <h1 className="page-title">{title}</h1>
+        {crumbs && <div className="page-crumbs">{crumbs}</div>}
+        <h1 className="page-title">{title}{badge}</h1>
         {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
       {actions && <div className="page-actions">{actions}</div>}
@@ -198,7 +203,7 @@ export function Modal({ title, open, onClose, children, size }: {
   open: boolean;
   onClose: () => void;
   children: ReactNode;
-  size?: 'lg';
+  size?: 'lg' | 'xl';
 }) {
   // Close on backdrop click only when the press STARTED on the backdrop too —
   // otherwise selecting text in an input and releasing outside the dialog
@@ -247,7 +252,7 @@ export function Modal({ title, open, onClose, children, size }: {
         if (pressedBackdrop.current && e.target === e.currentTarget) onClose();
         pressedBackdrop.current = false;
       }}>
-      <div className={`modal ${size === 'lg' ? 'modal-lg' : ''}`} onClick={e => e.stopPropagation()}
+      <div className={`modal${size ? ` modal-${size}` : ''}`} onClick={e => e.stopPropagation()}
         ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title}>
         <div className="modal-header">
           <h3>{title}</h3>

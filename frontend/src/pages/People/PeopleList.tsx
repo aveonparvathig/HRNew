@@ -1,14 +1,21 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
 import {
-  PageHeader, EmptyState, LoadingBlock, ErrorAlert, StatCard,
+  PageHeader, EmptyState, LoadingBlock, ErrorAlert,
 } from '../../components/ui';
+import {
+  KpiGrid, KpiTile, SortChip, ChipRow, Segmented, TableCard, SortableTh, GroupRow, YesNoPill, KitIcon,
+} from '../../components/report';
 import PersonFormModal from '../../components/PersonFormModal';
 import apiClient from '../../api/client';
 import { formatDate, formatINR } from '../../utils/format';
 import { useRole } from '../../store/authStore';
 import { confirmDialog } from '../../components/feedback';
+import {
+  EMPLOYEE_SORTS, type EmployeeSort, type EmployeeStatusFilter,
+  filterByStatus, orderEmployees, groupByDesignation, tenureLabel, employeeKpis, initialsOf, isActiveEmployee,
+} from '../../utils/employeeOrder';
 
 // Ambient person state: dot + text, no pill (design system "status language")
 const EMP_STATUS_INLINE: Record<string, string> = {
@@ -33,13 +40,9 @@ const MISSING: Record<string, { label: string; test: (p: any) => boolean }> = {
 export const stageLabel = (stages: any[], value: string) =>
   stages.find(s => s.value === value)?.label || value;
 
-function EyeIcon({ open }: { open: boolean }) {
-  return open ? (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></svg>
-  ) : (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.6 5.1A10.9 10.9 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.2 3.1M6.6 6.6A16.7 16.7 0 0 0 2 12s3.5 7 10 7c1.5 0 2.9-.4 4.1-1" /><path d="m3 3 18 18" /></svg>
-  );
-}
+const SORT_VALUES = new Set(EMPLOYEE_SORTS.map(s => s.value));
+const STATUS_VALUES = new Set(['active', 'inactive', 'all']);
+const REVEAL_MS = 10_000;
 
 export default function PeopleList() {
   const navigate = useNavigate();
@@ -51,20 +54,42 @@ export default function PeopleList() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
-  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
-  const [showCost, setShowCost] = useState(false);
   const [modal, setModal] = useState<{ open: boolean; kind: string }>({ open: false, kind: 'CANDIDATE' });
 
-  const toggleReveal = (id: string) => setRevealedIds(prev => {
-    const next = new Set(prev);
-    if (next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+  // The order, grouping and status filter live in the address, so a view
+  // can be shared and survives a refresh
+  const sortParam = params.get('sort') || '';
+  const sort: EmployeeSort = SORT_VALUES.has(sortParam as EmployeeSort) ? (sortParam as EmployeeSort) : 'doj_desc';
+  const grouped = params.get('group') === 'designation';
+  const statusParam = params.get('status') || '';
+  const status: EmployeeStatusFilter = missing ? 'active' : STATUS_VALUES.has(statusParam) ? (statusParam as EmployeeStatusFilter) : 'active';
+  const setView = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(params);
+    Object.entries(patch).forEach(([k, v]) => { if (v) next.set(k, v); else next.delete(k); });
+    setParams(next, { replace: true });
+  };
+
+  // A package is shown for ten seconds after it is clicked, then masked again
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const timers = useRef<Record<string, number>>({});
+  const toggleReveal = (id: string) => {
+    window.clearTimeout(timers.current[id]);
+    setRevealedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else {
+        next.add(id);
+        timers.current[id] = window.setTimeout(() => setRevealedIds(p => { const n = new Set(p); n.delete(id); return n; }), REVEAL_MS);
+      }
+      return next;
+    });
+  };
+  useEffect(() => () => { Object.values(timers.current).forEach(t => window.clearTimeout(t)); }, []);
 
   const fetchData = useCallback(async () => {
     try {
       const [peopleRes, metaRes] = await Promise.all([
-        peopleAPI.getPeople({ q }),
+        peopleAPI.getPeople(),
         peopleAPI.getMeta(),
       ]);
       setData(peopleRes.data);
@@ -75,7 +100,7 @@ export default function PeopleList() {
     } finally {
       setLoading(false);
     }
-  }, [q]);
+  }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -96,69 +121,43 @@ export default function PeopleList() {
     }
   };
 
-  if (loading && !data) return <LoadingBlock label="Loading people…" />;
+  // ---- What is shown: search, status, order, grouping (all on the client) ----
+  const needle = q.trim().toLowerCase();
+  const allEmployees: any[] = useMemo(() => data?.employees || [], [data]);
+  const matches = (p: any, fields: string[]) =>
+    !needle || fields.some(f => String(p[f] || '').toLowerCase().includes(needle));
 
   // Filtered to incomplete records, only current employees are listed
-  const employees = (data?.employees || []).filter((p: any) =>
-    !missing || (missing.test(p) && !['RESIGNED', 'TERMINATED'].includes(p.employmentStatus)));
-  const candidates = missing ? [] : data?.candidates || [];
-  const interns = missing ? [] : data?.interns || [];
+  const employees = useMemo(() => {
+    const base = allEmployees.filter(p => !missing || (missing.test(p) && isActiveEmployee(p)));
+    return filterByStatus(base, status).filter(p => matches(p, ['name', 'employeeNo', 'designation', 'department', 'email']));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEmployees, missing, status, needle]);
+  const ordered = useMemo(() => orderEmployees(employees, sort), [employees, sort]);
+  const rows = useMemo(() => (grouped
+    ? groupByDesignation(ordered, p => p.id)
+    : ordered.map(p => ({ kind: 'row' as const, key: p.id, row: p }))), [ordered, grouped]);
+
+  const candidates: any[] = missing ? [] : (data?.candidates || []).filter((p: any) => matches(p, ['name', 'email', 'designation']));
+  const interns: any[] = missing ? [] : (data?.interns || []).filter((p: any) => matches(p, ['name', 'collegeName', 'course', 'internshipRole']));
+  const kpis = useMemo(() => employeeKpis(allEmployees), [allEmployees]);
+  const activeCount = allEmployees.filter(isActiveEmployee).length;
+  const today = useMemo(() => new Date(), []);
+
+  if (loading && !data) return <LoadingBlock label="Loading people…" />;
+
   const totalCount = employees.length + candidates.length + interns.length;
+  const sortMeta = EMPLOYEE_SORTS.find(s => s.value === sort)!;
+  const colCount = 8 + (canManagePeople ? 2 : 0);
 
-  const INACTIVE = new Set(['RESIGNED', 'TERMINATED']);
-  const activeEmployees = employees.filter((p: any) => !INACTIVE.has(p.employmentStatus));
-  const inactiveEmployees = missing ? [] : employees.filter((p: any) => INACTIVE.has(p.employmentStatus));
-
-  const payHeader = canManagePeople ? <th className="num">Package</th> : null;
-
-  const employeeRow = (p: any) => (
-    <tr key={p.id}>
-      <td>
-        <Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link>
-        {(p.department || p.email) && (
-          <div className="text-muted" style={{ fontSize: 11.5 }}>
-            {[p.department, p.email].filter(Boolean).join(' · ')}
-          </div>
-        )}
-      </td>
-      <td className="text-muted">{p.designation || '—'}</td>
-      <td className="text-muted">{p.employeeNo || '—'}</td>
-      <td className="text-muted">{p.joinDate ? formatDate(p.joinDate) : '—'}</td>
-      {canManagePeople && (
-        <td className="num">
-          {p.currentMonthlyPackage ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              {revealedIds.has(p.id) ? formatINR(p.currentMonthlyPackage) : '••••••'}
-              <button className="eye-btn" title={revealedIds.has(p.id) ? 'Hide package' : 'Show package'}
-                onClick={() => toggleReveal(p.id)}>
-                <EyeIcon open={revealedIds.has(p.id)} />
-              </button>
-            </span>
-          ) : '—'}
-        </td>
-      )}
-      <td>
-        <span className={`status-inline ${EMP_STATUS_INLINE[p.employmentStatus] || 'is-active'}`}>
-          <span className="dot" />
-          {(p.employmentStatus || 'ACTIVE').replace('_', ' ').toLowerCase()}
-        </span>
-      </td>
-      <td>
-        <div className="row-actions">
-          <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
-          {canManagePeople && (
-            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+  const openAdd = (kind: string) => setModal({ open: true, kind });
 
   return (
     <>
       <PageHeader
         title="People"
-        subtitle="Employees, hiring candidates and internship students."
+        badge={<span className="count-pill">{employees.length} shown</span>}
+        subtitle="The payroll master. Every active employee is picked up by the next run; candidates and interns are listed below."
         actions={canManagePeople && (
           <>
             <button className="btn btn-secondary" onClick={async () => {
@@ -171,13 +170,13 @@ export default function PeopleList() {
               a.click();
               URL.revokeObjectURL(url);
             }}>
-              ⤓ Export
+              {KitIcon.download} Export Excel
             </button>
-            <button className="btn btn-secondary" onClick={() => setModal({ open: true, kind: 'INTERN' })}>
-              + Add Intern
+            <button className="btn btn-secondary" onClick={() => openAdd('INTERN')}>
+              {KitIcon.plus} Add Intern
             </button>
-            <button className="btn btn-primary" onClick={() => setModal({ open: true, kind: 'CANDIDATE' })}>
-              + Add Employee
+            <button className="btn btn-primary" onClick={() => openAdd('CANDIDATE')}>
+              {KitIcon.plus} Add Employee
             </button>
           </>
         )}
@@ -207,177 +206,219 @@ export default function PeopleList() {
         <div className="alert alert-warning">
           <span>⚑</span>
           <span>
-            <strong>{activeEmployees.length} employee{activeEmployees.length === 1 ? '' : 's'} with {missing.label}.</strong>{' '}
+            <strong>{employees.length} employee{employees.length === 1 ? '' : 's'} with {missing.label}.</strong>{' '}
             Open each one to complete the record.{' '}
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setParams({})}>Show everyone</button>
           </span>
         </div>
       )}
 
-      {data?.employeeStats && employees.length > 0 && !missing && (
-        <div className="stat-grid">
-          <StatCard label="Active Employees" value={data.employeeStats.active} icon="☰" tone="primary" />
-          {canManagePeople && <StatCard label="Monthly Payroll Cost"
-            value={
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                {showCost ? formatINR(data.employeeStats.monthlyCost) : '••••••'}
-                <button className="eye-btn" title={showCost ? 'Hide amount' : 'Show amount'}
-                  onClick={() => setShowCost(v => !v)}>
-                  <EyeIcon open={showCost} />
-                </button>
-              </span>
-            }
-            sub="Sum of current packages" icon="₹" tone="warning" />}
-          <StatCard label="PF Enrolled" value={data.employeeStats.pfCount} icon="▤" tone="info" />
-          <StatCard label="ESI Covered" value={data.employeeStats.esiCount} icon="✚" tone="success" />
-        </div>
+      {allEmployees.length > 0 && !missing && (
+        <KpiGrid columns={canManagePeople && data?.employeeStats?.monthlyCost != null ? 5 : 4}>
+          <KpiTile label="Active employees" value={kpis.active} sub={`${kpis.inactive} inactive on file`} />
+          <KpiTile label="Joined this financial year" value={kpis.joinedThisFY}
+            sub={`Since 1 Apr ${today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1}`} />
+          <KpiTile label="Designations" value={kpis.designations}
+            sub={`Across ${kpis.departments} department${kpis.departments === 1 ? '' : 's'}`} />
+          <KpiTile label="ESI · PF enrolled" value={`${kpis.esi} · ${kpis.pf}`} sub={`of ${kpis.active} active`} />
+          {canManagePeople && data?.employeeStats?.monthlyCost != null && (
+            <KpiTile label="Monthly payroll cost"
+              value={<MaskedAmount amount={data.employeeStats.monthlyCost} revealed={revealedIds.has('__cost__')} onToggle={() => toggleReveal('__cost__')} />}
+              sub="Sum of current packages" />
+          )}
+        </KpiGrid>
       )}
 
-      <div className="toolbar">
-        <div className="search-input">
-          <input className="input" placeholder="Search by name…" value={q}
-            onChange={e => setQ(e.target.value)} />
-        </div>
-        <span className="toolbar-count">
-          {(missing ? activeEmployees : employees).length} employee{(missing ? activeEmployees : employees).length !== 1 ? 's' : ''} · {candidates.length} candidate{candidates.length !== 1 ? 's' : ''} · {interns.length} intern{interns.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-
-      {totalCount === 0 ? (
+      {totalCount === 0 && !needle && !missing && allEmployees.length === 0 ? (
         <div className="card">
           <EmptyState icon="☰"
-            title={missing ? `No employee with ${missing.label}` : q ? 'No matching people' : 'No people yet'}
-            message={missing ? 'Every record has it.' : q ? 'Try a different search.' : 'Add your first employee or intern.'}
-            action={!q && !missing && (
-              <button className="btn btn-primary" onClick={() => setModal({ open: true, kind: 'CANDIDATE' })}>
-                + Add Employee
+            title="No people yet"
+            message="Add your first employee or intern."
+            action={canManagePeople && (
+              <button className="btn btn-primary" onClick={() => openAdd('CANDIDATE')}>
+                {KitIcon.plus} Add Employee
               </button>
             )} />
         </div>
       ) : (
         <>
-          {activeEmployees.length > 0 && (
-            <>
-              <div className="section-title">Employees ({activeEmployees.length} active)</div>
-              <div className="card mb-24">
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Name</th><th>Designation</th><th>Code</th>
-                        <th>Joined</th>{payHeader}<th>Status</th><th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeEmployees.map(employeeRow)}
-                    </tbody>
-                  </table>
+          <TableCard
+            toolbar={
+              <>
+                <div className="report-search">
+                  {KitIcon.search}
+                  <input className="input" type="search" placeholder="Search name, code or designation" value={q}
+                    onChange={e => setQ(e.target.value)} aria-label="Search people" />
                 </div>
-              </div>
-            </>
-          )}
-
-          {inactiveEmployees.length > 0 && (
-            <>
-              <div className="section-title">Inactive employees ({inactiveEmployees.length})</div>
-              <div className="card mb-24" style={{ opacity: 0.85 }}>
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Name</th><th>Designation</th><th>Code</th>
-                        <th>Joined</th>{payHeader}<th>Status</th><th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {inactiveEmployees.map(employeeRow)}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          )}
+                {!missing && (
+                  <Segmented label="Status" value={status}
+                    options={[{ value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }, { value: 'all', label: 'All' }]}
+                    onChange={v => setView({ status: v === 'active' ? null : v })} />
+                )}
+                <span className="spacer" />
+                <ChipRow label="Sort">
+                  {EMPLOYEE_SORTS.filter(s => s.value !== 'name').map(s => (
+                    <SortChip key={s.value} active={sort === s.value} onClick={() => setView({ sort: s.value === 'doj_desc' ? null : s.value })}>
+                      {s.label}
+                    </SortChip>
+                  ))}
+                  <SortChip active={grouped} icon={KitIcon.group} onClick={() => setView({ group: grouped ? null : 'designation' })}>
+                    Group by designation
+                  </SortChip>
+                </ChipRow>
+              </>
+            }
+            footer={
+              <>
+                <span>
+                  Showing {employees.length} of {allEmployees.length} employee{allEmployees.length === 1 ? '' : 's'} · sorted by {sortMeta.description}
+                  {grouped ? ', grouped by designation' : ''}
+                </span>
+                {canManagePeople && <span>Monthly package is masked. Click a value to reveal it for 10 seconds.</span>}
+              </>
+            }>
+            <table className="table">
+              <thead>
+                <tr>
+                  <SortableTh active={sort === 'name'} direction="asc" width="26%" onClick={() => setView({ sort: 'name' })}>Employee</SortableTh>
+                  <SortableTh active={sort === 'desig'} direction="asc" onClick={() => setView({ sort: 'desig' })}>Designation</SortableTh>
+                  <th>Department</th>
+                  <SortableTh active={sort === 'doj_desc' || sort === 'doj_asc'} direction={sort === 'doj_asc' ? 'asc' : 'desc'}
+                    onClick={() => setView({ sort: sort === 'doj_desc' ? 'doj_asc' : null })}>Date of joining</SortableTh>
+                  <th>Tenure</th>
+                  {canManagePeople && <th className="num">Monthly package</th>}
+                  <th style={{ textAlign: 'center' }}>ESI</th>
+                  <th style={{ textAlign: 'center' }}>PF</th>
+                  <th>Status</th>
+                  {canManagePeople && <th><span className="sr-only">Actions</span></th>}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(r => (r.kind === 'group'
+                  ? <GroupRow key={r.key} label={r.label} count={r.count} colSpan={colCount} />
+                  : (
+                    <tr key={r.key}>
+                      <td>
+                        <div className="cell-person">
+                          <span className="avatar-sm" aria-hidden="true">{initialsOf(r.row.name)}</span>
+                          <span className="cell-main">
+                            <Link to={`/people/${r.row.id}`} className="cell-name">{r.row.name}</Link>
+                            <span className="cell-sub">{r.row.employeeNo || r.row.email || '—'}</span>
+                          </span>
+                        </div>
+                      </td>
+                      <td style={{ fontWeight: 500 }}>{r.row.designation || <span className="text-muted">—</span>}</td>
+                      <td className="text-muted">{r.row.department || '—'}</td>
+                      <td style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{r.row.joinDate ? formatDate(r.row.joinDate) : '—'}</td>
+                      <td className="text-muted" style={{ whiteSpace: 'nowrap' }}>{tenureLabel(r.row.joinDate, today)}</td>
+                      {canManagePeople && (
+                        <td className="num">
+                          {r.row.currentMonthlyPackage
+                            ? <MaskedAmount amount={r.row.currentMonthlyPackage} revealed={revealedIds.has(r.row.id)} onToggle={() => toggleReveal(r.row.id)} />
+                            : '—'}
+                        </td>
+                      )}
+                      <td style={{ textAlign: 'center' }}><YesNoPill yes={Boolean(r.row.isEsiEligible)} /></td>
+                      <td style={{ textAlign: 'center' }}><YesNoPill yes={Boolean(r.row.isPfApplicable)} /></td>
+                      <td>
+                        <span className={`status-inline ${EMP_STATUS_INLINE[r.row.employmentStatus] || 'is-active'}`}>
+                          <span className="dot" />
+                          {(r.row.employmentStatus || 'ACTIVE').replace('_', ' ').toLowerCase()}
+                        </span>
+                      </td>
+                      {canManagePeople && (
+                        <td>
+                          <div className="row-actions">
+                            <Link to={`/people/${r.row.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r.row)}>Delete</button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  )))}
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={colCount}>
+                      <EmptyState icon="☰"
+                        title={missing ? `No employee with ${missing.label}` : needle ? 'No matching employees' : status === 'inactive' ? 'No inactive employees' : 'No employees yet'}
+                        message={missing ? 'Every record has it.' : needle ? 'Try a different search.' : status === 'inactive' ? 'Nobody has left.' : activeCount === 0 && allEmployees.length > 0 ? 'Everyone on file has left. Switch to All to see them.' : 'Add your first employee.'} />
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </TableCard>
 
           {candidates.length > 0 && (
-            <>
-              <div className="section-title">Candidates in hiring ({candidates.length})</div>
-              <div className="card mb-24">
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Name</th><th>Designation</th><th>Stage</th>
-                        <th>Applied for</th><th className="num">Interviews</th><th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {candidates.map((p: any) => (
-                        <tr key={p.id}>
-                          <td>
-                            <Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link>
-                            {p.email && <div className="text-muted" style={{ fontSize: 11.5 }}>{p.email}</div>}
-                          </td>
-                          <td className="text-muted">{p.designation || '—'}</td>
-                          <td>
-                            {p.stage
-                              ? <span className={`badge ${PEOPLE_STAGE_TONES[p.stage]}`}>
-                                  {stageLabel(meta?.stages || [], p.stage)}
-                                </span>
-                              : <span className="text-muted">—</span>}
-                          </td>
-                          <td className="text-muted">{p.appliedForTitle || '—'}</td>
-                          <td className="num">{p.interviewCount || '—'}</td>
-                          <td>
-                            <div className="row-actions">
-                              <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
+            <TableCard title={<>Candidates in hiring <span className="count-pill">{candidates.length}</span></>}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th><th>Designation</th><th>Stage</th>
+                    <th>Applied for</th><th className="num">Interviews</th><th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {candidates.map((p: any) => (
+                    <tr key={p.id}>
+                      <td>
+                        <Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link>
+                        {p.email && <div className="text-muted" style={{ fontSize: 11.5 }}>{p.email}</div>}
+                      </td>
+                      <td className="text-muted">{p.designation || '—'}</td>
+                      <td>
+                        {p.stage
+                          ? <span className={`badge ${PEOPLE_STAGE_TONES[p.stage]}`}>
+                              {stageLabel(meta?.stages || [], p.stage)}
+                            </span>
+                          : <span className="text-muted">—</span>}
+                      </td>
+                      <td className="text-muted">{p.appliedForTitle || '—'}</td>
+                      <td className="num">{p.interviewCount || '—'}</td>
+                      <td>
+                        <div className="row-actions">
+                          <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                          {canManagePeople && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
           )}
 
           {interns.length > 0 && (
-            <>
-              <div className="section-title">Internship students ({interns.length})</div>
-              <div className="card">
-                <div className="table-wrap">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Name</th><th>College</th><th>Course</th>
-                        <th>Role</th><th>Period</th><th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {interns.map((p: any) => (
-                        <tr key={p.id}>
-                          <td><Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link></td>
-                          <td className="text-muted">{p.collegeName || '—'}</td>
-                          <td className="text-muted">{p.course || '—'}</td>
-                          <td className="text-muted">{p.internshipRole || '—'}</td>
-                          <td className="text-muted" style={{ fontSize: 12.5 }}>
-                            {p.startDate ? formatDate(p.startDate) : '—'}
-                            {p.endDate && <> → {formatDate(p.endDate)}</>}
-                          </td>
-                          <td>
-                            <div className="row-actions">
-                              <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                              <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
+            <TableCard title={<>Internship students <span className="count-pill">{interns.length}</span></>}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Name</th><th>College</th><th>Course</th>
+                    <th>Role</th><th>Period</th><th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {interns.map((p: any) => (
+                    <tr key={p.id}>
+                      <td><Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link></td>
+                      <td className="text-muted">{p.collegeName || '—'}</td>
+                      <td className="text-muted">{p.course || '—'}</td>
+                      <td className="text-muted">{p.internshipRole || '—'}</td>
+                      <td className="text-muted" style={{ fontSize: 12.5 }}>
+                        {p.startDate ? formatDate(p.startDate) : '—'}
+                        {p.endDate && <> → {formatDate(p.endDate)}</>}
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                          {canManagePeople && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
           )}
         </>
       )}
@@ -389,9 +430,21 @@ export default function PeopleList() {
           person={null}
           defaultKind={modal.kind}
           meta={meta}
+          existingDesignations={Array.from(new Set(allEmployees.map((p: any) => p.designation).filter(Boolean)))}
           onSaved={p => navigate(`/people/${p.id}`)}
         />
       )}
     </>
+  );
+}
+
+// A rupee figure shown as dots until clicked
+function MaskedAmount({ amount, revealed, onToggle }: { amount: number; revealed: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className="mask-btn" onClick={onToggle}
+      title={revealed ? 'Hide amount' : 'Show amount for 10 seconds'} aria-label={revealed ? 'Hide amount' : 'Show amount'}>
+      {revealed ? formatINR(amount) : <span className="masked">••••••</span>}
+      {revealed ? KitIcon.eyeOff : KitIcon.eye}
+    </button>
   );
 }

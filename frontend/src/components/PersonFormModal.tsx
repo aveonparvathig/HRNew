@@ -1,8 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { peopleAPI } from '../api/people';
 import { Modal, ErrorAlert } from './ui';
 import ListSelect from './ListSelect';
 import PackageField from './PackageField';
+import { SectionedForm, SectionCard, FieldGrid, Field, CheckCard, FormFootBar } from './form';
+import { Segmented } from './report';
 
 interface Props {
   open: boolean;
@@ -11,6 +13,8 @@ interface Props {
   defaultKind?: string;
   meta: any;
   onSaved: (person: any) => void;
+  // Designations already in use, offered as suggestions while typing
+  existingDesignations?: string[];
 }
 
 const RESIDENTIAL_STATUSES = [
@@ -24,6 +28,8 @@ const LWF_COVERAGE = [
   { value: 'YES', label: 'Covered' },
   { value: 'NO', label: 'Not covered' },
 ];
+const EXIT_STATUSES = ['RESIGNED', 'TERMINATED', 'NOTICE_PERIOD'];
+const INACTIVE_STATUSES = ['RESIGNED', 'TERMINATED'];
 
 const EMPTY = {
   kind: 'CANDIDATE', name: '', title: '', gender: '', email: '', phone: '',
@@ -75,15 +81,40 @@ function resizePhoto(file: File): Promise<string> {
   });
 }
 
-// Hoisted so the component type is stable across renders (inputs keep focus)
-function F({ form, set, label, k, type = 'text', placeholder = '', options = null, unit = '', span2 = false, list = '' }: any) {
+const EMPLOYEE_SECTIONS = [
+  { id: 'sec-basics', label: 'Basics' },
+  { id: 'sec-employment', label: 'Employment & pay' },
+  { id: 'sec-personal', label: 'Personal' },
+  { id: 'sec-contact', label: 'Contact' },
+  { id: 'sec-statutory', label: 'Bank & statutory' },
+  { id: 'sec-exit', label: 'Exit' },
+];
+const INTERN_SECTIONS = [
+  { id: 'sec-basics', label: 'Basics' },
+  { id: 'sec-internship', label: 'Internship' },
+  { id: 'sec-contact', label: 'Contact' },
+  { id: 'sec-notes', label: 'Notes' },
+];
+
+// The month an employee joining on this date is first paid for
+const firstRunLabel = (joinDate: string) => {
+  if (!joinDate) return '';
+  const d = new Date(`${joinDate}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
+
+// Hoisted so the component type is stable across renders (inputs keep focus).
+// One field of the form: label above, the control, helper text under.
+function F({ form, set, label, k, type = 'text', placeholder = '', options = null, unit = '', full = false, list = '', help = '', required = false, inputMode, autoFocus }: any) {
+  const id = `pf-${k}`;
+  const value = form[k] ?? '';
   return (
-    <div className="field" style={span2 ? { gridColumn: '1 / -1' } : undefined}>
-      <label>{label}</label>
+    <Field label={label} htmlFor={id} help={help} full={full} required={required}>
       {list ? (
-        <ListSelect listType={list} value={form[k] || ''} onChange={v => set(k, v)} />
+        <ListSelect listType={list} value={value || ''} onChange={v => set(k, v)} />
       ) : options ? (
-        <select className="select" value={form[k] || ''} onChange={e => set(k, e.target.value)}>
+        <select id={id} className="select" value={value || ''} onChange={e => set(k, e.target.value)}>
           <option value="">—</option>
           {options.map((o: any) => typeof o === 'string'
             ? <option key={o} value={o}>{o}</option>
@@ -91,18 +122,21 @@ function F({ form, set, label, k, type = 'text', placeholder = '', options = nul
         </select>
       ) : unit ? (
         <div className="input-unit"><span className="unit">{unit}</span>
-          <input className="input" type="number" min={0} step="0.01" placeholder={placeholder || '0'}
-            value={form[k] || ''} onChange={e => set(k, e.target.value)} />
+          <input id={id} className="input" type="number" min={0} step="0.01" placeholder={placeholder || '0'}
+            value={value} onChange={e => set(k, e.target.value)} />
         </div>
+      ) : type === 'textarea' ? (
+        <textarea id={id} className="input" rows={2} placeholder={placeholder} value={value}
+          onChange={e => set(k, e.target.value)} />
       ) : (
-        <input className="input" type={type} placeholder={placeholder}
-          value={form[k] || ''} onChange={e => set(k, e.target.value)} />
+        <input id={id} className="input" type={type} placeholder={placeholder} inputMode={inputMode} autoFocus={autoFocus}
+          required={required} value={value} onChange={e => set(k, e.target.value)} />
       )}
-    </div>
+    </Field>
   );
 }
 
-export default function PersonFormModal({ open, onClose, person, defaultKind, meta, onSaved }: Props) {
+export default function PersonFormModal({ open, onClose, person, defaultKind, meta, onSaved, existingDesignations = [] }: Props) {
   const [form, setForm] = useState<any>(EMPTY);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -128,7 +162,16 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
   const set = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
   const isIntern = form.kind === 'INTERN';
   const consultant = form.taxTreatment === 'CONSULTANT';
-  const isExit = ['RESIGNED', 'TERMINATED', 'NOTICE_PERIOD'].includes(form.employmentStatus);
+  const isExit = EXIT_STATUSES.includes(form.employmentStatus);
+  const isActive = !INACTIVE_STATUSES.includes(form.employmentStatus);
+
+  // Designations to suggest: the company's list plus whatever is already in use
+  const designationOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    [...(meta?.lists?.DESIGNATION || []), ...existingDesignations, ...(meta?.managers || []).map((m: any) => m.designation)]
+      .filter(Boolean).forEach((d: string) => { const key = d.trim().toLowerCase(); if (key && !seen.has(key)) seen.set(key, d.trim()); });
+    return Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+  }, [meta, existingDesignations]);
 
   const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -159,343 +202,349 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
 
   const fp = { form, set };
 
+  // The foot bar: the name is required to save; the rest is what payroll needs
+  const blocking = !String(form.name || '').trim() ? ['Full name'] : [];
+  const missing = isIntern
+    ? [['internshipRole', 'Internship role'], ['collegeName', 'College name'], ['startDate', 'Start date']]
+      .filter(([k]) => !String(form[k] ?? '').trim()).map(([, label]) => label)
+    : [['employeeNo', 'Employee code'], ['designation', 'Designation'], ['joinDate', 'Date of joining'], ['currentMonthlyPackage', 'Monthly package']]
+      .filter(([k]) => !String(form[k] ?? '').trim() || form[k] === 0).map(([, label]) => label);
+
+  const sections = isIntern ? INTERN_SECTIONS : EMPLOYEE_SECTIONS;
+  const saveLabel = saving ? 'Saving…' : isEdit ? 'Save changes' : isIntern ? 'Add intern' : 'Add employee';
+
   return (
-    <Modal size="lg" title={isEdit ? `Edit — ${person?.name}` : isIntern ? 'Add Intern' : 'Add Employee'}
+    <Modal size="xl" title={isEdit ? `Edit — ${person?.name}` : isIntern ? 'Add intern' : 'Add employee'}
       open={open} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <ErrorAlert message={error} />
 
-        <div className="segmented" style={{ marginBottom: 20 }}>
-          {meta.kinds.map((k: any) => (
-            <button key={k.value} type="button"
-              className={form.kind === k.value ? 'active' : ''}
-              onClick={() => set('kind', k.value)}>
-              {k.value === 'INTERN' ? 'Intern' : 'Employee'}
-            </button>
-          ))}
-        </div>
-
-        {/* 1 — Identity */}
-        <div className="form-section">
-          <div className="form-section-title"><span className="step-dot">1</span> Identity</div>
-          {!isIntern && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 14 }}>
-              <div style={{
-                width: 64, height: 64, borderRadius: '50%', overflow: 'hidden',
-                background: 'var(--primary-soft)', display: 'grid', placeItems: 'center',
-                fontSize: 24, color: 'var(--primary)', flexShrink: 0,
-              }}>
-                {form.photoData
-                  ? <img src={form.photoData} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : (form.name?.[0]?.toUpperCase() || '☺')}
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>
-                  {form.photoData ? 'Change photo' : 'Upload photo'}
-                </button>
-                {form.photoData && (
-                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('photoData', '')}>
-                    Remove
-                  </button>
-                )}
-                <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
-              </div>
-            </div>
-          )}
-          <div className="form-grid" style={{ marginBottom: 14 }}>
-            <div className="field" style={{ maxWidth: 110 }}>
-              <label>Title</label>
-              <select className="select" value={form.title} onChange={e => set('title', e.target.value)}>
-                <option value="">—</option>
-                <option>Mr.</option><option>Ms.</option><option>Mrs.</option><option>Dr.</option>
-              </select>
-            </div>
-            <div className="field" style={{ gridColumn: 'span 2' }}>
-              <label>Full name *</label>
-              <input className="input" required autoFocus={!isEdit}
-                value={form.name} onChange={e => set('name', e.target.value)} />
-            </div>
-          </div>
-          <div className="form-grid">
-            <F {...fp} label="Gender" k="gender" options={['Male', 'Female', 'Other']} />
-            {!isIntern && <F {...fp} label="Date of birth" k="dateOfBirth" type="date" />}
-            {!isIntern && <F {...fp} label="Blood group" k="bloodGroup" list="BLOOD_GROUP" />}
-            {!isIntern && <F {...fp} label="Marital status" k="maritalStatus" list="MARITAL_STATUS" />}
-            {!isIntern && <F {...fp} label="Father's name" k="fatherName" />}
-            {!isIntern && <F {...fp} label="Spouse's name" k="spouseName" />}
-            {!isIntern && form.maritalStatus === 'Married' && <F {...fp} label="Marriage date" k="marriageDate" type="date" />}
-            {!isIntern && <F {...fp} label="Aadhaar no." k="aadharNo" placeholder="XXXX XXXX XXXX" />}
-            {!isIntern && <F {...fp} label="Nationality" k="nationality" placeholder="Indian" />}
-            {!isIntern && <F {...fp} label="Place of birth" k="placeOfBirth" />}
-            {!isIntern && <F {...fp} label="Residential status" k="residentialStatus" options={RESIDENTIAL_STATUSES} />}
-            {!isIntern && <F {...fp} label="Religion" k="religion" />}
-          </div>
-          {!isIntern && (
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center', marginTop: 12 }}>
-              <label className="checkbox-field">
-                <input type="checkbox" checked={form.isDirector} onChange={e => set('isDirector', e.target.checked)} />
-                Director of the company
-              </label>
-              <label className="checkbox-field">
-                <input type="checkbox" checked={form.physicallyChallenged} onChange={e => set('physicallyChallenged', e.target.checked)} />
-                Physically challenged
-              </label>
-              {form.physicallyChallenged && (
-                <div className="field" style={{ minWidth: 200 }}>
-                  <input className="input" placeholder="Nature of disability" value={form.disabilityType}
-                    onChange={e => set('disabilityType', e.target.value)} />
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* 2 — Contact */}
-        <div className="form-section">
-          <div className="form-section-title"><span className="step-dot">2</span> Contact</div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
-            <F {...fp} label="Personal email" k="email" type="email" placeholder="name@email.com" />
-            {!isIntern && <F {...fp} label="Official email" k="officialEmail" type="email" placeholder="name@company.com" />}
-            <F {...fp} label="Contact no." k="phone" placeholder="+91…" />
-            {!isIntern && <F {...fp} label="Official no." k="officialNo" />}
-            {!isIntern && <F {...fp} label="Emergency contact" k="emergencyName" placeholder="Name" />}
-            {!isIntern && <F {...fp} label="Emergency relationship" k="emergencyRelation" placeholder="e.g. Spouse" />}
-            {!isIntern && <F {...fp} label="Emergency no." k="emergencyNo" />}
-          </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>{isIntern ? 'Address' : 'Present address'}</label>
-            <textarea className="input" rows={2} value={form.address}
-              onChange={e => set('address', e.target.value)} />
-          </div>
-          {!isIntern && (
-            <div className="field">
-              <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>Permanent address</span>
-                <label style={{ fontWeight: 400, fontSize: 12.5, display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                  <input type="checkbox" checked={Boolean(form.permanentAddress) && form.permanentAddress === form.address}
-                    onChange={e => set('permanentAddress', e.target.checked ? form.address : '')} />
-                  Same as present
-                </label>
-              </label>
-              <textarea className="input" rows={2} value={form.permanentAddress}
-                onChange={e => set('permanentAddress', e.target.value)} />
-            </div>
-          )}
-        </div>
-
-        {!isIntern ? (
-          <>
-            {/* 3 — Employment */}
-            <div className="form-section">
-              <div className="form-section-title"><span className="step-dot">3</span> Employment</div>
-              <div className="form-grid" style={{ marginBottom: 14 }}>
-                <F {...fp} label="Employee code" k="employeeNo" placeholder="EMP-0001" />
-                <F {...fp} label="Designation" k="designation" list="DESIGNATION" />
-                <F {...fp} label="Department" k="department" list="DEPARTMENT" />
-                <F {...fp} label="Grade" k="grade" list="GRADE" />
-                <F {...fp} label="Date of joining" k="joinDate" type="date" />
-                <div className="field">
-                  <label>Employment status</label>
-                  <select className="select" value={form.employmentStatus || ''} onChange={e => {
-                    const status = e.target.value;
-                    // Someone put on probation gets the usual period unless one is typed
-                    setForm((f: any) => ({
-                      ...f, employmentStatus: status,
-                      ...(status === 'PROBATION' && !Number(f.probationMonths) ? { probationMonths: meta.usualProbationMonths || 6 } : {}),
-                    }));
-                  }}>
-                    <option value="">—</option>
-                    {(meta.employmentStatuses || []).map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                </div>
-                <F {...fp} label="Employment type" k="employmentType" list="EMPLOYMENT_TYPE" />
-                <F {...fp} label="Reports to" k="managerId"
-                  options={(meta.managers || []).filter((m: any) => m.id !== person?.id)
-                    .map((m: any) => ({ value: m.id, label: `${m.name}${m.designation ? ` — ${m.designation}` : ''}` }))} />
-                <div className="field">
-                  <label>Probation</label>
-                  <div className="input-unit"><span className="unit">months</span>
-                    <input className="input" type="number" min={0} max={36} step={1} placeholder="None"
-                      value={form.probationMonths || ''} onChange={e => set('probationMonths', e.target.value)} />
-                  </div>
-                  <span className="hint">Counted from the date of joining. Confirmation falls due when it ends.</span>
-                </div>
-                <F {...fp} label="Confirmation date" k="confirmationDate" type="date" />
-                <div className="field">
-                  <label>Notice period</label>
-                  <div className="input-unit"><span className="unit">days</span>
-                    <input className="input" type="number" min={0} max={365} step={1}
-                      placeholder={`Company's: ${meta.companyNoticeDays ?? 30}`}
-                      value={form.noticePeriodDays ?? ''} onChange={e => set('noticePeriodDays', e.target.value)} />
-                  </div>
-                  <span className="hint">Leave blank to use the company's usual notice period.</span>
-                </div>
-                <F {...fp} label="First hire date" k="firstHireDate" type="date" />
-                <F {...fp} label="Referred by" k="referredBy" />
-                <PackageField wide label="Package" value={form.currentMonthlyPackage ?? ''} onChange={v => set('currentMonthlyPackage', v)}
-                  context={{ personId: person?.id, isEsiEligible: form.isEsiEligible, isPfApplicable: form.isPfApplicable, designation: form.designation, department: form.department }}
-                  hint={person ? 'Payroll keeps the monthly package. Changing it here is a salary revision from this month.' : 'Payroll keeps the monthly package.'} />
-                <F {...fp} label="Biometric ID" k="biometricId" />
-                <F {...fp} label="Work location" k="workLocationId"
-                  options={(meta.workLocations || []).map((l: any) => ({ value: l.id, label: `${l.name} — ${l.state}` }))} />
-                {isExit && <F {...fp} label="Relieving date" k="leavingDate" type="date" />}
-              </div>
-              {person?.isEmployee && (
-                <p className="text-muted" style={{ fontSize: 12, margin: '-6px 0 14px' }}>
-                  Designation, department, grade or work location changed here corrects the employee's current position record.
-                  For a promotion or transfer from a date, use Change Position on the employee's page — earlier payslips then keep the old position.
-                </p>
-              )}
-              {isExit && (
-                <div className="form-grid" style={{ marginBottom: 14 }}>
-                  <F {...fp} label="Reason for leaving" k="reasonForLeaving" list="LEAVING_REASON" />
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-                <label className="checkbox-field">
-                  <input type="checkbox" checked={form.agreementSigned}
-                    onChange={e => set('agreementSigned', e.target.checked)} />
-                  Agreement signed
-                </label>
-                {form.agreementSigned && (
-                  <div className="field" style={{ minWidth: 170 }}>
-                    <input className="input" type="date" value={form.agreementSignDate || ''}
-                      onChange={e => set('agreementSignDate', e.target.value)} />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* 4 — Bank & statutory */}
-            <div className="form-section">
-              <div className="form-section-title"><span className="step-dot">4</span> Bank &amp; statutory</div>
-              <div className="form-grid" style={{ marginBottom: 14 }}>
-                <F {...fp} label="Bank name" k="bankName" list="BANK" />
-                <F {...fp} label="Name as per bank" k="bankAccountName" />
-                <F {...fp} label="Account number" k="bankAccountNumber" />
-                <F {...fp} label="Account type" k="bankAccountType" options={ACCOUNT_TYPES} />
-                <F {...fp} label="Branch" k="bankBranch" />
-                <F {...fp} label="IFSC code" k="ifscCode" placeholder="HDFC0001234" />
-                <F {...fp} label="PAN number" k="panNumber" />
-                <F {...fp} label="PF number" k="pfNumber" />
-                <F {...fp} label="PF UAN" k="pfUan" />
-                <F {...fp} label="PF join date" k="pfJoinDate" type="date" />
-                <F {...fp} label="ESI number" k="esiNumber" />
-                <F {...fp} label="LWF coverage" k="lwfCovered" options={LWF_COVERAGE} />
-                <F {...fp} label="Paid as" k="taxTreatment" options={meta.taxTreatments || []} />
-                {consultant ? (
-                  <>
-                    <div className="field">
-                      <label>Tax deducted under</label>
-                      <select className="select" value={form.consultantSection || '194J'}
-                        onChange={e => {
-                          const section = (meta.consultantSections || []).find((s: any) => s.value === e.target.value);
-                          setForm((f: any) => ({ ...f, consultantSection: e.target.value, consultantTdsPercent: section?.defaultPercent ?? f.consultantTdsPercent }));
-                        }}>
-                        {(meta.consultantSections || []).map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                      </select>
-                    </div>
-                    <F {...fp} label="Tax rate on the fee" k="consultantTdsPercent" unit="%" />
-                  </>
-                ) : (
-                  <>
-                    <F {...fp} label="Employer NPS, % of Basic + DA" k="npsEmployerPercent" unit="%" />
-                    <F {...fp} label="NPS number (PRAN)" k="npsPran" placeholder="12 digits" />
-                  </>
-                )}
-              </div>
-              {consultant ? (
-                <p className="text-muted" style={{ fontSize: 12.5 }}>
-                  A consultant's package is paid as one fee, with tax at this rate on the whole of it (20% without a PAN) and no
-                  PF, ESI, Professional Tax or Labour Welfare Fund. The fee is reported for the return on payments other than salary, not on Form 16.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-                  <label className="checkbox-field">
-                    <input type="checkbox" checked={form.isPfApplicable}
-                      onChange={e => set('isPfApplicable', e.target.checked)} />
-                    PF applicable
-                  </label>
-                  <label className="checkbox-field">
-                    <input type="checkbox" checked={form.isEsiEligible}
-                      onChange={e => set('isEsiEligible', e.target.checked)} />
-                    ESI eligible
-                  </label>
-                  <label className="checkbox-field">
-                    <input type="checkbox" checked={form.epsMember}
-                      onChange={e => set('epsMember', e.target.checked)} />
-                    Existing EPS member
-                  </label>
-                </div>
-              )}
-            </div>
-
-            {/* 5 — Pipeline */}
-            <div className="form-section">
-              <div className="form-section-title"><span className="step-dot">5</span> Recruitment pipeline <span style={{ textTransform: 'none', fontWeight: 500 }}>(optional)</span></div>
-              <p className="hint" style={{ fontSize: 12, color: 'var(--text-3)', marginBottom: 12 }}>
-                Pick a stage to track this person as a hiring candidate instead — they become an
-                employee automatically once the stage reaches <strong>Selected</strong>.
-              </p>
-              <div className="form-grid">
-                <div className="field">
-                  <label>Stage</label>
-                  <select className="select" value={form.stage} onChange={e => set('stage', e.target.value)}>
-                    <option value="">Not in pipeline</option>
-                    {meta.stages.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
-                </div>
-                <F {...fp} label="Source" k="source" options={meta.sources} />
-                <div className="field">
-                  <label>Applied for</label>
-                  <select className="select" value={form.appliedForId || ''}
-                    onChange={e => set('appliedForId', e.target.value)}>
-                    <option value="">—</option>
-                    {meta.openOpenings.map((o: any) => (
-                      <option key={o.id} value={o.id}>{o.title}</option>
-                    ))}
-                  </select>
-                </div>
-                <F {...fp} label="Expected CTC" k="expectedCtc" unit="₹" />
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="form-section">
-            <div className="form-section-title"><span className="step-dot">3</span> Internship</div>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
-              <F {...fp} label="Roll number" k="rollNumber" />
-              <F {...fp} label="Course" k="course" placeholder="e.g. B.E. CSE" />
-              <F {...fp} label="Internship role" k="internshipRole" placeholder="e.g. Web Development Intern" />
-              <F {...fp} label="College name" k="collegeName" />
-              <F {...fp} label="Start date" k="startDate" type="date" />
-              <F {...fp} label="End date" k="endDate" type="date" />
-            </div>
-            <div className="field">
-              <label>College address</label>
-              <textarea className="input" rows={2} value={form.collegeAddress}
-                onChange={e => set('collegeAddress', e.target.value)} />
-            </div>
+        {!isEdit && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
+            <Segmented label="Kind of person" value={form.kind}
+              options={(meta.kinds || []).map((k: any) => ({ value: k.value, label: k.value === 'INTERN' ? 'Intern' : 'Employee' }))}
+              onChange={v => set('kind', v)} />
+            <span className="help">
+              {isIntern ? 'A student on an internship: college, course and period instead of pay.' : 'Only the first two sections are needed to run payroll. Everything else can be filled later.'}
+            </span>
           </div>
         )}
 
-        <div className="form-section">
-          <div className="form-section-title"><span className="step-dot">{isIntern ? 4 : 6}</span> Notes <span style={{ textTransform: 'none', fontWeight: 500 }}>(optional)</span></div>
-          <div className="field">
-            <textarea className="input" rows={2} value={form.notes}
-              placeholder="Anything worth remembering"
-              onChange={e => set('notes', e.target.value)} />
-          </div>
-        </div>
+        <SectionedForm sections={sections}
+          note={<>Required fields are marked <span className="req">*</span>. Changes are saved only when you press {isEdit ? 'Save changes' : 'Save'}.</>}>
 
-        <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : isIntern ? 'Add Intern' : 'Add Employee'}
-          </button>
-        </div>
+          {/* 1 — Basics */}
+          <SectionCard id="sec-basics" title="Basics" description="Who this person is and how they appear on payslips and letters.">
+            {!isIntern && (
+              <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span aria-hidden="true" style={{
+                  width: 76, height: 76, borderRadius: 14, overflow: 'hidden', flex: '0 0 76px',
+                  background: form.photoData ? 'transparent' : 'var(--surface-2)', border: form.photoData ? 'none' : '1px dashed var(--border-strong)',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 26, fontWeight: 700,
+                }}>
+                  {form.photoData
+                    ? <img src={form.photoData} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : (form.name?.[0]?.toUpperCase() || (
+                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+                    ))}
+                </span>
+                <div className="f" style={{ flex: '1 1 220px' }}>
+                  <span className="lbl">Photo</span>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>
+                      {form.photoData ? 'Change photo' : 'Upload photo'}
+                    </button>
+                    {form.photoData && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('photoData', '')}>Remove</button>
+                    )}
+                    <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
+                  </div>
+                  <span className="help">JPG or PNG. Resized to 512 px and shown on the profile and payslip header.</span>
+                </div>
+              </div>
+            )}
+            <FieldGrid>
+              <div className="f" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'minmax(90px, 110px) minmax(0, 1fr)', gap: '16px 20px' }}>
+                <Field label="Title" htmlFor="pf-title">
+                  <select id="pf-title" className="select" value={form.title} onChange={e => set('title', e.target.value)}>
+                    <option value="">—</option>
+                    <option>Mr.</option><option>Ms.</option><option>Mrs.</option><option>Dr.</option>
+                  </select>
+                </Field>
+                <Field label="Full name" htmlFor="pf-name" required help="As it should print on the payslip.">
+                  <input id="pf-name" className="input" required autoFocus={!isEdit}
+                    value={form.name} onChange={e => set('name', e.target.value)} />
+                </Field>
+              </div>
+              {!isIntern && (
+                <F {...fp} label="Employee code" k="employeeNo" placeholder="EMP-0001"
+                  help={isEdit ? 'Must be unique.' : 'The next free code is suggested. Must be unique.'} />
+              )}
+              {!isIntern && (
+                <Field label="Designation" htmlFor="pf-designation" help="Start typing to pick an existing one. Reusing a designation keeps the Employees report groupable.">
+                  <input id="pf-designation" className="input" list="pf-designation-list" autoComplete="off"
+                    placeholder="e.g. Software Engineer" value={form.designation || ''}
+                    onChange={e => set('designation', e.target.value)} />
+                  <datalist id="pf-designation-list">
+                    {designationOptions.map(d => <option key={d} value={d} />)}
+                  </datalist>
+                </Field>
+              )}
+              {!isIntern && <F {...fp} label="Department" k="department" list="DEPARTMENT" />}
+              <F {...fp} label="Gender" k="gender" options={['Male', 'Female', 'Other']} />
+            </FieldGrid>
+
+            {!isIntern && (
+              <details className="pipeline-toggle" open={Boolean(form.stage)}>
+                <summary>{form.stage ? 'Tracked as a hiring candidate' : 'Track as a hiring candidate instead (optional)'}</summary>
+                <p className="help" style={{ marginBottom: 12 }}>
+                  Pick a stage to track this person through hiring. They become an employee automatically once the stage reaches <strong>Selected</strong>.
+                </p>
+                <FieldGrid>
+                  <Field label="Stage" htmlFor="pf-stage">
+                    <select id="pf-stage" className="select" value={form.stage} onChange={e => set('stage', e.target.value)}>
+                      <option value="">Not in pipeline</option>
+                      {meta.stages.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  </Field>
+                  <F {...fp} label="Source" k="source" options={meta.sources} />
+                  <Field label="Applied for" htmlFor="pf-appliedForId">
+                    <select id="pf-appliedForId" className="select" value={form.appliedForId || ''}
+                      onChange={e => set('appliedForId', e.target.value)}>
+                      <option value="">—</option>
+                      {meta.openOpenings.map((o: any) => (
+                        <option key={o.id} value={o.id}>{o.title}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <F {...fp} label="Expected CTC" k="expectedCtc" unit="₹" />
+                </FieldGrid>
+              </details>
+            )}
+          </SectionCard>
+
+          {!isIntern ? (
+            <>
+              {/* 2 — Employment & pay */}
+              <SectionCard id="sec-employment" title="Employment & pay"
+                description="Drives pay days, tenure and the monthly package snapshot in every run.">
+                <FieldGrid>
+                  <F {...fp} label="Date of joining" k="joinDate" type="date"
+                    help={form.joinDate ? `First payroll run that includes them: ${firstRunLabel(form.joinDate)}.` : 'Tenure and the first payroll run are counted from this date.'} />
+                  <Field label="Employment status" htmlFor="pf-employmentStatus">
+                    <select id="pf-employmentStatus" className="select" value={form.employmentStatus || ''} onChange={e => {
+                      const status = e.target.value;
+                      // Someone put on probation gets the usual period unless one is typed
+                      setForm((f: any) => ({
+                        ...f, employmentStatus: status,
+                        ...(status === 'PROBATION' && !Number(f.probationMonths) ? { probationMonths: meta.usualProbationMonths || 6 } : {}),
+                      }));
+                    }}>
+                      <option value="">—</option>
+                      {(meta.employmentStatuses || []).map((o: any) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </Field>
+                  <F {...fp} label="Employment type" k="employmentType" list="EMPLOYMENT_TYPE" />
+                  <F {...fp} label="Grade" k="grade" list="GRADE" />
+                  <F {...fp} label="Reports to" k="managerId"
+                    options={(meta.managers || []).filter((m: any) => m.id !== person?.id)
+                      .map((m: any) => ({ value: m.id, label: `${m.name}${m.designation ? ` — ${m.designation}` : ''}` }))} />
+                  <F {...fp} label="Work location" k="workLocationId"
+                    help="Sets Professional Tax and Labour Welfare Fund."
+                    options={(meta.workLocations || []).map((l: any) => ({ value: l.id, label: `${l.name} — ${l.state}` }))} />
+                  <Field label="Probation" htmlFor="pf-probationMonths" help="Counted from the date of joining. Confirmation falls due when it ends.">
+                    <div className="input-unit"><span className="unit">months</span>
+                      <input id="pf-probationMonths" className="input" type="number" min={0} max={36} step={1} placeholder="None"
+                        value={form.probationMonths || ''} onChange={e => set('probationMonths', e.target.value)} />
+                    </div>
+                  </Field>
+                  <F {...fp} label="Confirmation date" k="confirmationDate" type="date" />
+                  <Field label="Notice period" htmlFor="pf-noticePeriodDays" help="Leave blank to use the company's usual notice period.">
+                    <div className="input-unit"><span className="unit">days</span>
+                      <input id="pf-noticePeriodDays" className="input" type="number" min={0} max={365} step={1}
+                        placeholder={`Company's: ${meta.companyNoticeDays ?? 30}`}
+                        value={form.noticePeriodDays ?? ''} onChange={e => set('noticePeriodDays', e.target.value)} />
+                    </div>
+                  </Field>
+                  <F {...fp} label="First hire date" k="firstHireDate" type="date" help="For someone rejoining: their first stint, for gratuity and tenure." />
+                  <F {...fp} label="Referred by" k="referredBy" />
+                  <F {...fp} label="Biometric ID" k="biometricId" help="Matches attendance swipes to this person." />
+                  <div className="f full">
+                    <PackageField wide label="Monthly package" value={form.currentMonthlyPackage ?? ''} onChange={v => set('currentMonthlyPackage', v)}
+                      context={{ personId: person?.id, isEsiEligible: form.isEsiEligible, isPfApplicable: form.isPfApplicable, designation: form.designation, department: form.department }}
+                      hint={person ? 'Each run snapshots this value. Changing it here is a salary revision from this month.' : 'Each run snapshots this value. Change it at increment time.'} />
+                  </div>
+                </FieldGrid>
+                {person?.isEmployee && (
+                  <p className="help">
+                    Designation, department, grade or work location changed here corrects the employee's current position record.
+                    For a promotion or transfer from a date, use Change Position on the employee's page — earlier payslips then keep the old position.
+                  </p>
+                )}
+                <FieldGrid>
+                  <CheckCard title="Active" checked={isActive}
+                    help={isActive ? 'Included in new payroll runs.' : 'Left out of new payroll runs. Fill in the Exit section.'}
+                    onChange={on => set('employmentStatus', on ? 'ACTIVE' : 'RESIGNED')} />
+                  <CheckCard title="PF applicable" checked={Boolean(form.isPfApplicable)} disabled={consultant}
+                    help={consultant ? 'Not applied to a consultant\'s fee.' : 'Sticky. Not every employee is PF enrolled.'}
+                    onChange={on => set('isPfApplicable', on)} />
+                  <CheckCard title="ESI eligible" checked={Boolean(form.isEsiEligible)} disabled={consultant}
+                    help={consultant ? 'Not applied to a consultant\'s fee.' : 'Sticky. Set once from the gross threshold.'}
+                    onChange={on => set('isEsiEligible', on)} />
+                  <CheckCard title="Agreement signed" checked={Boolean(form.agreementSigned)}
+                    help="Reveals the date of signing." onChange={on => set('agreementSigned', on)} />
+                  {form.agreementSigned && (
+                    <F {...fp} label="Agreement signed on" k="agreementSignDate" type="date" />
+                  )}
+                  {!consultant && (
+                    <CheckCard title="Existing EPS member" checked={Boolean(form.epsMember)}
+                      help="Was a pension-scheme member before 1 Sep 2014." onChange={on => set('epsMember', on)} />
+                  )}
+                </FieldGrid>
+              </SectionCard>
+
+              {/* 3 — Personal */}
+              <SectionCard id="sec-personal" title="Personal" description="Optional. Used on letters, returns and the employee profile.">
+                <FieldGrid>
+                  <F {...fp} label="Date of birth" k="dateOfBirth" type="date" />
+                  <F {...fp} label="Blood group" k="bloodGroup" list="BLOOD_GROUP" />
+                  <F {...fp} label="Marital status" k="maritalStatus" list="MARITAL_STATUS" />
+                  {form.maritalStatus === 'Married' && <F {...fp} label="Marriage date" k="marriageDate" type="date" />}
+                  <F {...fp} label="Father's name" k="fatherName" />
+                  <F {...fp} label="Spouse's name" k="spouseName" />
+                  <F {...fp} label="Aadhaar number" k="aadharNo" placeholder="XXXX XXXX XXXX" inputMode="numeric"
+                    help="Stored masked. Only the last four digits show in lists." />
+                  <F {...fp} label="Nationality" k="nationality" placeholder="Indian" />
+                  <F {...fp} label="Place of birth" k="placeOfBirth" />
+                  <F {...fp} label="Residential status" k="residentialStatus" options={RESIDENTIAL_STATUSES} help="For income tax." />
+                  <F {...fp} label="Religion" k="religion" />
+                </FieldGrid>
+                <FieldGrid>
+                  <CheckCard title="Director of the company" checked={Boolean(form.isDirector)}
+                    help="Reported separately on tax returns." onChange={on => set('isDirector', on)} />
+                  <CheckCard title="Physically challenged" checked={Boolean(form.physicallyChallenged)}
+                    help="Reveals the nature of disability." onChange={on => set('physicallyChallenged', on)} />
+                  {form.physicallyChallenged && (
+                    <F {...fp} label="Nature of disability" k="disabilityType" full />
+                  )}
+                </FieldGrid>
+              </SectionCard>
+            </>
+          ) : (
+            /* 2 — Internship */
+            <SectionCard id="sec-internship" title="Internship" description="The college, course and the period of the internship.">
+              <FieldGrid>
+                <F {...fp} label="Internship role" k="internshipRole" placeholder="e.g. Web Development Intern" />
+                <F {...fp} label="Roll number" k="rollNumber" />
+                <F {...fp} label="Course" k="course" placeholder="e.g. B.E. CSE" />
+                <F {...fp} label="College name" k="collegeName" />
+                <F {...fp} label="Start date" k="startDate" type="date" />
+                <F {...fp} label="End date" k="endDate" type="date" />
+                <F {...fp} label="College address" k="collegeAddress" type="textarea" full />
+              </FieldGrid>
+            </SectionCard>
+          )}
+
+          {/* Contact */}
+          <SectionCard id="sec-contact" title="Contact" description={isIntern ? undefined : 'Payslips and letters go to the official email where there is one.'}>
+            <FieldGrid>
+              <F {...fp} label="Personal email" k="email" type="email" placeholder="name@email.com" />
+              {!isIntern && <F {...fp} label="Official email" k="officialEmail" type="email" placeholder="name@company.com" />}
+              <F {...fp} label="Contact number" k="phone" type="tel" placeholder="+91…" />
+              {!isIntern && <F {...fp} label="Official number" k="officialNo" type="tel" />}
+              {!isIntern && <F {...fp} label="Emergency contact" k="emergencyName" placeholder="Name" />}
+              {!isIntern && <F {...fp} label="Emergency relationship" k="emergencyRelation" placeholder="e.g. Spouse" />}
+              {!isIntern && <F {...fp} label="Emergency number" k="emergencyNo" type="tel" />}
+              <F {...fp} label={isIntern ? 'Address' : 'Present address'} k="address" type="textarea" full />
+              {!isIntern && (
+                <Field label="Permanent address" htmlFor="pf-permanentAddress" full
+                  right={(
+                    <label className="checkbox-field" style={{ fontSize: 12.5, fontWeight: 400 }}>
+                      <input type="checkbox" checked={Boolean(form.permanentAddress) && form.permanentAddress === form.address}
+                        onChange={e => set('permanentAddress', e.target.checked ? form.address : '')} />
+                      Same as present
+                    </label>
+                  )}>
+                  <textarea id="pf-permanentAddress" className="input" rows={2} value={form.permanentAddress}
+                    onChange={e => set('permanentAddress', e.target.value)} />
+                </Field>
+              )}
+            </FieldGrid>
+          </SectionCard>
+
+          {!isIntern && (
+            <>
+              {/* 5 — Bank & statutory */}
+              <SectionCard id="sec-statutory" title="Bank & statutory" description="Needed for bank transfer files and PF, ESI and tax returns.">
+                <FieldGrid>
+                  <F {...fp} label="Bank name" k="bankName" list="BANK" />
+                  <F {...fp} label="Name as per bank" k="bankAccountName" />
+                  <F {...fp} label="Account number" k="bankAccountNumber" inputMode="numeric" />
+                  <F {...fp} label="Account type" k="bankAccountType" options={ACCOUNT_TYPES} />
+                  <F {...fp} label="Branch" k="bankBranch" />
+                  <F {...fp} label="IFSC code" k="ifscCode" placeholder="HDFC0001234" help="11 characters: 4 letters, 0, then 6 characters." />
+                  <F {...fp} label="PAN" k="panNumber" placeholder="ABCDE1234F" help="Tax is deducted at the higher rate without one." />
+                  <F {...fp} label="PF number" k="pfNumber" />
+                  <F {...fp} label="UAN" k="pfUan" inputMode="numeric" />
+                  <F {...fp} label="PF join date" k="pfJoinDate" type="date" />
+                  <F {...fp} label="ESI number" k="esiNumber" inputMode="numeric" />
+                  <F {...fp} label="LWF coverage" k="lwfCovered" options={LWF_COVERAGE} />
+                  <F {...fp} label="Paid as" k="taxTreatment" options={meta.taxTreatments || []} />
+                  {consultant ? (
+                    <>
+                      <Field label="Tax deducted under" htmlFor="pf-consultantSection">
+                        <select id="pf-consultantSection" className="select" value={form.consultantSection || '194J'}
+                          onChange={e => {
+                            const section = (meta.consultantSections || []).find((s: any) => s.value === e.target.value);
+                            setForm((f: any) => ({ ...f, consultantSection: e.target.value, consultantTdsPercent: section?.defaultPercent ?? f.consultantTdsPercent }));
+                          }}>
+                          {(meta.consultantSections || []).map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </Field>
+                      <F {...fp} label="Tax rate on the fee" k="consultantTdsPercent" unit="%" />
+                    </>
+                  ) : (
+                    <>
+                      <F {...fp} label="Employer NPS, % of Basic + DA" k="npsEmployerPercent" unit="%" />
+                      <F {...fp} label="NPS number (PRAN)" k="npsPran" placeholder="12 digits" inputMode="numeric" />
+                    </>
+                  )}
+                </FieldGrid>
+                {consultant && (
+                  <p className="help">
+                    A consultant's package is paid as one fee, with tax at this rate on the whole of it (20% without a PAN) and no
+                    PF, ESI, Professional Tax or Labour Welfare Fund. The fee is reported for the return on payments other than salary, not on Form 16.
+                  </p>
+                )}
+              </SectionCard>
+
+              {/* 6 — Exit */}
+              <SectionCard id="sec-exit" title="Exit"
+                description={isExit
+                  ? 'The last day and the reason. Payroll stops after the relieving date.'
+                  : 'Leave blank while employed. Set the status to Notice period, Resigned or Terminated (or untick Active) when someone leaves.'}>
+                <FieldGrid>
+                  <F {...fp} label="Relieving date" k="leavingDate" type="date"
+                    help={isExit ? 'Stops future payroll runs from this date.' : 'Only used once the status is Notice period, Resigned or Terminated.'} />
+                  <F {...fp} label="Reason for leaving" k="reasonForLeaving" list="LEAVING_REASON" />
+                  <F {...fp} label="Notes" k="notes" type="textarea" full placeholder="Internal notes. Never printed." />
+                </FieldGrid>
+              </SectionCard>
+            </>
+          )}
+
+          {isIntern && (
+            <SectionCard id="sec-notes" title="Notes" description="Internal notes. Never printed.">
+              <F {...fp} label="Notes" k="notes" type="textarea" full placeholder="Anything worth remembering" />
+            </SectionCard>
+          )}
+
+          <FormFootBar blocking={blocking} missing={missing}>
+            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={saving}>{saveLabel}</button>
+          </FormFootBar>
+        </SectionedForm>
       </form>
     </Modal>
   );
 }
-
