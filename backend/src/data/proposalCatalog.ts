@@ -1263,6 +1263,10 @@ export const CATALOG: any = {
     "kicker": "Custom Stack",
     "title_template": "Custom <em>Modular Stack</em> for {client}",
     "subtitle": "A curated combination of Aveon modules - picked to match your institution's specific workflow needs.",
-    "stats_template": null
+    "stats_template": null,
+    "executive_paragraphs": [
+      "{client} needs technology that fits the way the institution actually works - not a rigid, one-size-fits-all product. This proposal brings together a curated set of Aveon modules, chosen to match your specific workflows across academics, administration and operations.",
+      "Every module is production-ready and runs on a single integrated platform, so your teams work from one source of truth. The result is less manual effort, cleaner data and faster, better-informed decisions - delivered on a predictable, agreed timeline."
+    ]
   }
 };
