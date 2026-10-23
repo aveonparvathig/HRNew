@@ -188,7 +188,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   /* A4 paper emulation on screen; true A4 pages in print */
   .paper { width: 210mm; margin: 0 auto; background: #fff; box-shadow: 0 2px 24px rgba(16,24,40,.14); }
   .page { padding: 0 13mm 12mm; }
-  @page { size: A4; margin: 16mm 14mm; }
+  @page { size: A4; margin: 12mm 13mm; }
   @page :first { margin: 0; }
   h2.sec { font-size: 21px; color: ${c}; margin: 28px 0 6px; break-after: avoid; }
   .sec-sub { color: #6b7280; margin-bottom: 20px; font-size: 14px; }

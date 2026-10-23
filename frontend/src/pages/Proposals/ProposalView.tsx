@@ -4,7 +4,6 @@ import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
-import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
 import { confirmDialog } from '../../components/feedback';
 
@@ -15,7 +14,6 @@ export default function ProposalView() {
   const [record, setRecord] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -30,27 +28,22 @@ export default function ProposalView() {
     window.open(URL.createObjectURL(blob), '_blank');
   };
 
-  // One-click A4 PDF download (html2pdf is lazy-loaded on first use)
-  const downloadPdf = async () => {
-    setPdfBusy(true);
-    setError('');
-    try {
-      // Neutralize screen-only chrome for both the new .paper layout and
-      // the legacy 900px .page layout of older stored proposals.
-      await downloadHtmlAsPdf(
-        record.html,
-        `Proposal_${String(record.clientName).replace(/[^\w]+/g, '_')}_Rev${record.revision}.pdf`,
-        {
-          fullDocument: true,
-          extraCss: '.paper{box-shadow:none!important;width:210mm!important;margin:0!important}' +
-            '.page{max-width:210mm!important}.footer{display:none!important}body{background:#fff!important}',
-        },
-      );
-    } catch {
-      setError('PDF export failed — use Open Full Page and print to PDF instead.');
-    } finally {
-      setPdfBusy(false);
+  // "Download PDF" via the browser's own print engine. It honours the
+  // document's @page margins (the header/footer gap on every page) and its
+  // @media print page-breaks, and renders crisp vector text — unlike
+  // html2canvas, which rasterises the whole page and mis-paginates the
+  // multi-column / break-inside layout (big gaps, orphaned cards). The user
+  // picks "Save as PDF" as the print destination.
+  const printToPdf = () => {
+    const blob = new Blob([record.html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (!win) {
+      setError('Allow pop-ups for this site, then click Download PDF again.');
+      return;
     }
+    win.addEventListener('load', () => setTimeout(() => win.print(), 400));
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const handleDelete = async () => {
@@ -86,10 +79,8 @@ export default function ProposalView() {
           <>
             {isSA && <button className="btn btn-danger" onClick={handleDelete}>Delete</button>}
             <Link to={`/proposals?from=${record.id}`} className="btn btn-secondary">↻ Revise</Link>
-            <button className="btn btn-secondary" onClick={openFullPage}>⧉ Full Page / Print</button>
-            <button className="btn btn-primary" onClick={downloadPdf} disabled={pdfBusy}>
-              {pdfBusy ? 'Exporting…' : '⤓ Download PDF'}
-            </button>
+            <button className="btn btn-secondary" onClick={openFullPage}>⧉ Full Page</button>
+            <button className="btn btn-primary" onClick={printToPdf}>⤓ Download PDF</button>
           </>
         }
       />
