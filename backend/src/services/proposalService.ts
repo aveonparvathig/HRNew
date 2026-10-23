@@ -375,9 +375,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
       <div class="mod" style="--mc:${m.color || c}">
         <h4>${m.icon || ''} ${esc(m.name)}</h4>
         <div class="d">${esc(m.short_desc || '')}</div>
-        <ul>${(m.sub_features || []).slice(0, 8).map((f: string) => `<li>${esc(f)}</li>`).join('')}
-          ${(m.sub_features || []).length > 8 ? `<li style="list-style:none;color:#9ca3af;">+ ${(m.sub_features).length - 8} more</li>` : ''}
-        </ul>
+        <ul>${(m.sub_features || []).map((f: string) => `<li>${esc(f)}</li>`).join('')}</ul>
       </div>`).join('')}
   </div>
 
