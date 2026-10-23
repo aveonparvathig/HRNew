@@ -17,6 +17,8 @@ router.use(requireRole('SUPER_ADMIN', 'MARKETING'));
 const adminOnly = requireRole('SUPER_ADMIN');
 
 router.get('/catalog', asyncHandler((req, res) => proposalsController.getCatalog(req, res)));
+router.post('/client-logos', asyncHandler((req, res) => proposalsController.addClientLogo(req, res)));
+router.delete('/client-logos/:name', asyncHandler((req, res) => proposalsController.deleteClientLogo(req, res)));
 router.get('/cms-features', asyncHandler((req, res) => proposalsController.getCmsFeatures(req, res)));
 router.post('/preview', asyncHandler((req, res) => proposalsController.preview(req, res)));
 router.post('/generate', asyncHandler((req, res) => proposalsController.generate(req, res)));

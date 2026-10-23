@@ -184,8 +184,9 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
 
   const S = { ...SECTION_DEFAULTS, ...(d.sections || {}) };
   const cp = COMPANY_PROFILE;
-  // Client logos the user chose to keep (default: all of them).
-  const shownClients = FEATURED_CLIENTS.filter(cl => !(d.hiddenClients || []).includes(cl.name));
+  // Built-in logos + the org's own uploaded ones, minus any the user hid.
+  const allClients = [...FEATURED_CLIENTS, ...((brand.clientLogos || []) as { name: string; logoUri: string }[])];
+  const shownClients = allClients.filter(cl => !(d.hiddenClients || []).includes(cl.name));
 
   // Number the main sections (1., 2., 3. …) in document order; conditional
   // sections only increment when they actually render.

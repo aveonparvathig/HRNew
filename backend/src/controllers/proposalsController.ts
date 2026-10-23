@@ -45,7 +45,41 @@ export const proposalsController = {
         heroColor: b.hero_color,
       };
     }
-    res.json({ modules, bundles, categories: CATALOG.categories, clients: FEATURED_CLIENTS.map(c => c.name) });
+    const org = await prisma.organization.findUnique({ where: { id: req.user?.organizationId }, select: { clientLogos: true } });
+    const customLogos = (Array.isArray(org?.clientLogos) ? org!.clientLogos : []) as { name: string; logoUri: string }[];
+    res.json({
+      modules, bundles, categories: CATALOG.categories,
+      clients: [...FEATURED_CLIENTS.map(c => c.name), ...customLogos.map(c => c.name)],
+      customLogos,
+    });
+  },
+
+  // Upload a custom client logo (name + data URI) for this organization.
+  async addClientLogo(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const name = String(req.body?.name || '').trim();
+    const logoUri = String(req.body?.logoUri || '');
+    if (!name) throw new AppError(400, 'A logo name is required');
+    if (!/^data:image\//.test(logoUri)) throw new AppError(400, 'A logo image is required');
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { clientLogos: true } });
+    const list = (Array.isArray(org?.clientLogos) ? org!.clientLogos : []) as { name: string; logoUri: string }[];
+    const taken = list.some(c => c.name.toLowerCase() === name.toLowerCase())
+      || FEATURED_CLIENTS.some(c => c.name.toLowerCase() === name.toLowerCase());
+    if (taken) throw new AppError(409, 'A client with that name already exists');
+    const next = [...list, { name, logoUri }];
+    await prisma.organization.update({ where: { id: orgId }, data: { clientLogos: next } });
+    res.status(201).json({ customLogos: next });
+  },
+
+  // Remove one of this organization's custom client logos.
+  async deleteClientLogo(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const name = decodeURIComponent(String(req.params.name || ''));
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { clientLogos: true } });
+    const list = (Array.isArray(org?.clientLogos) ? org!.clientLogos : []) as { name: string; logoUri: string }[];
+    const next = list.filter(c => c.name !== name);
+    await prisma.organization.update({ where: { id: orgId }, data: { clientLogos: next } });
+    res.json({ customLogos: next });
   },
 
   // Render the document for the builder's live preview — nothing is saved.

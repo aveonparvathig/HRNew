@@ -8,4 +8,6 @@ export const proposalsAPI = {
   getHistory: (q?: string) => apiClient.get('/proposals/history', { params: { q } }),
   getRecord: (recordId: string) => apiClient.get(`/proposals/history/${recordId}`),
   deleteRecord: (recordId: string) => apiClient.delete(`/proposals/history/${recordId}`),
+  addClientLogo: (data: { name: string; logoUri: string }) => apiClient.post('/proposals/client-logos', data),
+  deleteClientLogo: (name: string) => apiClient.delete(`/proposals/client-logos/${encodeURIComponent(name)}`),
 };
