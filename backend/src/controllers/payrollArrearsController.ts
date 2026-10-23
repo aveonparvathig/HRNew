@@ -318,7 +318,7 @@ export const payrollArrearsController = {
           OR: [{ employmentStatus: { in: ['NOTICE_PERIOD', 'RESIGNED', 'TERMINATED'] } }, { leavingDate: { not: null } }],
         },
         select: { id: true, name: true, employeeNo: true, employmentStatus: true, leavingDate: true },
-        orderBy: { name: 'asc' },
+        orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
       }),
     ]);
     res.json({ settlements: settlements.map(settlementJSON), leavers });

@@ -390,7 +390,7 @@ export const payrollControlController = {
     const people = await prisma.person.findMany({
       where: { organizationId, kind: 'CANDIDATE', isEmployee: true },
       select: { id: true, name: true, employeeNo: true, bankAccountNumber: true, panNumber: true, employmentStatus: true },
-      orderBy: { name: 'asc' },
+      orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
     });
     const status = new Map(people.map(p => [p.id, p.employmentStatus]));
     const section = (title: string, field: string, label: string) => {

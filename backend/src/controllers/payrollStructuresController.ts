@@ -67,7 +67,7 @@ export const payrollStructuresController = {
       prisma.person.findMany({
         where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
         select: { id: true, name: true, employeeNo: true, designation: true, department: true },
-        orderBy: { name: 'asc' },
+        orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
       }),
       listValuesFor(organizationId, ['DEPARTMENT', 'DESIGNATION']),
       prisma.payrollRun.count({ where: { organizationId, status: 'DRAFT' } }),

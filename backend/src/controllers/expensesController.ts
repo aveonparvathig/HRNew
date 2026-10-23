@@ -147,7 +147,7 @@ export const expensesController = {
         ...(selfScoped(actor) ? { id: actor.personId || '' } : {}),
       },
       select: { id: true, name: true, employeeNo: true, designation: true },
-      orderBy: { name: 'asc' },
+      orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
     });
     res.json({
       categories: EXPENSE_CATEGORIES,

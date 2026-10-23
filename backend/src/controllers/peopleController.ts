@@ -337,7 +337,9 @@ export const peopleController = {
         appliedFor: { select: { title: true } },
         interviews: { select: { id: true } },
       },
-      orderBy: { name: 'asc' },
+      // Order by date of joining (oldest first); people without a join date
+      // (e.g. candidates) fall to the end, name breaks ties.
+      orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
     });
     let rows: any[] = people.map(p => ({
       ...p,

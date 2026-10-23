@@ -342,7 +342,7 @@ export const payrollTaxController = {
     const people = await prisma.person.findMany({
       where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
       select: { name: true, employeeNo: true, designation: true, panNumber: true },
-      orderBy: { name: 'asc' },
+      orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
     });
     const bad = people.filter(p => !hasValidPan(p.panNumber));
     const body = bad.map((p, i) => `<tr>

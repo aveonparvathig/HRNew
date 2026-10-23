@@ -21,7 +21,7 @@ export const attendanceController = {
     await ensureDefaultShifts(orgId);
     const [shifts, employees] = await Promise.all([
       prisma.shift.findMany({ where: { organizationId: orgId }, orderBy: { sortOrder: 'asc' } }),
-      prisma.person.findMany({ where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } }, orderBy: { name: 'asc' }, select: { id: true, name: true, employeeNo: true } }),
+      prisma.person.findMany({ where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } }, orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }], select: { id: true, name: true, employeeNo: true } }),
     ]);
     res.json({ shifts, employees });
   },
