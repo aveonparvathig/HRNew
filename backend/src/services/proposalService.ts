@@ -227,12 +227,13 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   /* CSS multi-column (not grid) pages cleanly without orphaning a card into
      an empty column across a page break. */
   /* Inline-block two-up grid: each card is atomic, so it paginates without the
-     column-overlap / orphaning that CSS multi-column causes in print.
-     font-size:0 kills inline-block whitespace; children set their own sizes. */
-  .modgrid { font-size: 0; }
-  .mod { break-inside: avoid; display: inline-block; vertical-align: top; width: 49%; margin: 0 2% 14px 0; box-sizing: border-box; border: 1px solid #e5e7eb; border-left: 4px solid var(--mc); border-radius: 10px; padding: 14px 16px; }
-  .mod:nth-child(2n) { margin-right: 0; }
-  .mod h4 { font-size: 14.5px; margin-bottom: 4px; }
+     Single-column block cards FLOW and split across pages. With all features
+     now listed, a card can be very tall; grid / columns / inline-block cards
+     can't split, so they jump whole to the next page and leave a page of gap
+     (or overlap). Block cards just continue onto the next page — no gaps. */
+  .modgrid { }
+  .mod { display: block; width: 100%; margin: 0 0 14px; box-sizing: border-box; border: 1px solid #e5e7eb; border-left: 4px solid var(--mc); border-radius: 10px; padding: 14px 16px; }
+  .mod h4 { font-size: 14.5px; margin-bottom: 4px; break-after: avoid; }
   .mod .d { font-size: 12.5px; color: #6b7280; margin-bottom: 8px; }
   .mod ul { padding-left: 16px; font-size: 12px; color: #4b5563; columns: 1; }
   .mod li { margin-bottom: 2px; }
