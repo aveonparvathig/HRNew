@@ -951,7 +951,8 @@ export const CATALOG: any = {
     "The implementation plan will be sent by Aveon after our sign-off. This will be discussed with the client & fixed. Both sides must follow it to complete the implementation as on date.",
     "Online support will be free of cost.",
     "Client has to provide SMS / WhatsApp API credentials for integration.",
-    "The license fee shall remain fixed for the first three years. 5% increase on the license price will be applied every year from the beginning of the fourth year."
+    "The license fee shall remain fixed for the first three years. 5% increase on the license price will be applied every year from the beginning of the fourth year.",
+    "The usability status of any features or modules or product never reflect in payment."
   ],
   "defaultTermsOneTime": [
     "GST (18%) extra.",
@@ -962,7 +963,8 @@ export const CATALOG: any = {
     "The implementation plan will be sent by Aveon after our sign-off. This will be discussed with the client & fixed. Both sides must follow it to complete the implementation as on date.",
     "Online support will be free of cost.",
     "Client has to provide SMS / WhatsApp API credentials for integration.",
-    "The AMC shall remain fixed for the first three years. A 5% increase will be applied every year from the beginning of the fourth year."
+    "The AMC shall remain fixed for the first three years. A 5% increase will be applied every year from the beginning of the fourth year.",
+    "The usability status of any features or modules or product never reflect in payment."
   ],
   "fivePillars": [
     {
