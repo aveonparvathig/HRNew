@@ -114,7 +114,7 @@ export const leaveController = {
     ]);
     const employees = selfScoped(actor)
       ? await prisma.person.findMany({ where: { id: actor.personId || 'none', organizationId: orgId }, select: { id: true, name: true, employeeNo: true } })
-      : await prisma.person.findMany({ where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } }, orderBy: { name: 'asc' }, select: { id: true, name: true, employeeNo: true } });
+      : await prisma.person.findMany({ where: { organizationId: orgId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } }, orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }], select: { id: true, name: true, employeeNo: true } });
     res.json({ types, statuses: LEAVE_STATUSES, employees, weekOffDays: settings.weekOffDays, weekOffRules: sanitizeWeekOffRules(settings.weekOffRules), canApplyOnBehalf: !selfScoped(actor) && settings.hrApplyOnBehalf });
   },
 

@@ -144,7 +144,7 @@ export const payrollDeclarationsController = {
       prisma.person.findMany({
         where: { organizationId, kind: 'CANDIDATE', isEmployee: true, employmentStatus: { notIn: ['RESIGNED', 'TERMINATED'] } },
         select: { id: true, name: true, employeeNo: true },
-        orderBy: { name: 'asc' },
+        orderBy: [{ joinDate: { sort: 'asc', nulls: 'last' } }, { name: 'asc' }],
       }),
       prisma.employeeTaxProfile.findMany({
         where: { organizationId, fyStart },
