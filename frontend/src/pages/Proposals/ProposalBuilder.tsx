@@ -123,6 +123,26 @@ export default function ProposalBuilder() {
     }));
   };
 
+  // Upload / remove custom client logos (saved per organization).
+  const [logoName, setLogoName] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const refreshCatalog = async () => { const cat = await proposalsAPI.getCatalog(); setCatalog(cat.data); };
+  const addLogo = async () => {
+    if (!logoName.trim() || !logoFile) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        await proposalsAPI.addClientLogo({ name: logoName.trim(), logoUri: String(reader.result) });
+        await refreshCatalog(); setLogoName(''); setLogoFile(null);
+      } catch (e: any) { setError(e.response?.data?.error || 'Could not add the logo'); }
+    };
+    reader.readAsDataURL(logoFile);
+  };
+  const removeLogo = async (name: string) => {
+    try { await proposalsAPI.deleteClientLogo(name); await refreshCatalog(); }
+    catch (e: any) { setError(e.response?.data?.error || 'Could not remove the logo'); }
+  };
+
   // Live totals
   const totals = useMemo(() => {
     const gst = Number(form.gstPercent) || 0;
@@ -442,6 +462,25 @@ export default function ProposalBuilder() {
               <div className="section-title" style={{ fontSize: 12.5, margin: '0 0 8px' }}>
                 Client logos — {catalog.clients.length - (form.hiddenClients?.length || 0)} of {catalog.clients.length} shown
               </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+                <input className="input" style={{ maxWidth: 240 }} placeholder="New client name"
+                  value={logoName} onChange={e => setLogoName(e.target.value)} />
+                <input type="file" accept="image/*" style={{ fontSize: 12 }}
+                  onChange={e => setLogoFile(e.target.files?.[0] || null)} />
+                <button type="button" className="btn btn-secondary btn-sm" disabled={!logoName.trim() || !logoFile}
+                  onClick={addLogo}>+ Add logo</button>
+              </div>
+              {(catalog.customLogos?.length || 0) > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                  {catalog.customLogos.map((cl: any) => (
+                    <span key={cl.name} className="chip" style={{ fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      {cl.name}
+                      <button type="button" onClick={() => removeLogo(cl.name)} title="Remove"
+                        style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 0, fontSize: 13 }}>✕</button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '4px 16px', maxHeight: 230, overflowY: 'auto', paddingRight: 4 }}>
                 {catalog.clients.map((name: string) => (
                   <label key={name} className="checkbox-field" style={{ fontSize: 12.5 }}>

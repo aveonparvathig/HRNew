@@ -14,6 +14,7 @@ export interface OrgBrand {
   signatoryDesignation: string;
   signatureData: string;
   logoPosition: string; // LEFT | CENTER | RIGHT
+  clientLogos: { name: string; logoUri: string }[]; // custom proposal client logos
 }
 
 export async function orgBrand(organizationId: string): Promise<OrgBrand> {
@@ -34,6 +35,7 @@ export async function orgBrand(organizationId: string): Promise<OrgBrand> {
     signatoryDesignation: org?.signatoryDesignation || '',
     signatureData: org?.signatureData || '',
     logoPosition: org?.logoPosition || 'LEFT',
+    clientLogos: Array.isArray(org?.clientLogos) ? (org!.clientLogos as any) : [],
   };
 }
 

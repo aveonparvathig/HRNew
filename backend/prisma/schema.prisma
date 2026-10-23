@@ -32,6 +32,8 @@ model Organization {
   // The default signatory's signature (data URI), printed where they sign
   signatureData        String @default("")
   logoPosition         String @default("LEFT") // LEFT | CENTER | RIGHT, in report and letter headers
+  // Custom client logos for proposals: [{ name, logoUri }] (data URIs, resized client-side)
+  clientLogos          Json   @default("[]")
 
   // Tenancy lifecycle, managed from the platform-owner console.
   // A SUSPENDED tenant's logins are refused (login, refresh and loadActor).
