@@ -409,8 +409,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
       <tr><td></td><td>${esc(pricing.amc.label)}${pricing.amc.percent ? `<div class="note">${pricing.amc.percent}% of license fee</div>` : ''}</td>
         <td class="amt">${money2(pricing.amc.amount)} <div class="note">+ GST = ${money2(pricing.amc.totalWithGst)}</div></td></tr>` : ''}
   </table>
-  ${pricing.model === 'PER_STUDENT' ? `<p class="note" style="margin-top:8px;">Minimum commitment ${pricing.annual.students.toLocaleString('en-IN')} students · Annual subscription ₹${money2(pricing.annual.amount)} + GST ${pricing.gstPercent}% = ₹${money2(pricing.annual.amount * (1 + pricing.gstPercent / 100))} · Total Year-1 ₹${money2(pricing.grandTotal)}.</p>` : ''}
-  ${bundle ? `<p class="note" style="margin-top:4px;">₹${money2(bundle.bundle_price_per_student || 0)} per student per year + GST ${pricing.gstPercent}%.</p>` : ''}
+  ${bundle ? `<p class="note" style="margin-top:8px;">₹${money2(bundle.bundle_price_per_student || 0)} per student per year + GST ${pricing.gstPercent}%.</p>` : ''}
 
   ${S.implementation ? `
   <h2 class="sec">Implementation & Support</h2>
