@@ -18,7 +18,14 @@ import { stampRun } from '../services/positions';
 const str = (v: any) => String(v ?? '').trim();
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const dash = '<span class="muted">—</span>';
-const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
+// Order employees by date of joining (oldest first), then name. Missing
+// joinDate sorts last. Named byName for history; it now drives DOJ order.
+const byName = (a: any, b: any) => {
+  const ja = a.person.joinDate || '';
+  const jb = b.person.joinDate || '';
+  if (ja !== jb) return ja && jb ? ja.localeCompare(jb) : ja ? -1 : 1;
+  return a.person.name.localeCompare(b.person.name);
+};
 const dateLabel = (date?: string | Date | null) => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(`${date.slice(0, 10)}T00:00:00`) : date;
@@ -27,7 +34,7 @@ const dateLabel = (date?: string | Date | null) => {
 const signed = (n: number) => (Math.abs(n) < 0.005 ? '—' : `${n > 0 ? '+' : '−'}${Math.abs(n).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`);
 
 const PERSON = {
-  id: true, name: true, employeeNo: true, designation: true, department: true,
+  id: true, name: true, employeeNo: true, joinDate: true, designation: true, department: true,
   paymentMode: true, bankName: true, bankAccountNumber: true, ifscCode: true,
   pfUan: true, esiNumber: true, workLocation: { select: { name: true } },
 };
