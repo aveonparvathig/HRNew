@@ -34,7 +34,7 @@ export function resolveSelection(selectionMode: string, bundleCode: string | nul
   return codes.filter((c: string) => CATALOG.modules[c]).map((c: string) => CATALOG.modules[c]);
 }
 
-export function computePricing(d: any): any {
+export function computePricing(d: any, modules: any[] = []): any {
   const gstPct = Number(d.gstPercent || 0);
   const implFee = Number(d.oneTimeImplementationFee || 0);
   const waive = Boolean(d.waiveOneTimeFee);
@@ -77,17 +77,23 @@ export function computePricing(d: any): any {
   const students = Math.max(parseInt(d.minimumStudentCommitment) || 0, 0);
   const price = Number(d.pricePerUnit || 0);
   const annual = price * students;
-  const subtotal = annual + implLine.amount;
+  // Add-ons switched off "free" are charged at their catalog per-student rate.
+  const chargedAddons = (modules || [])
+    .filter((m: any) => m.category === 'ADDON' && (d.addonsCharged || []).includes(m.code))
+    .map((m: any) => ({ name: m.name, rate: Number(m.addon_price_per_student || 0) }));
+  const addonAnnual = chargedAddons.reduce((s: number, a: any) => s + a.rate * students, 0);
+  const subtotal = annual + implLine.amount + addonAnnual;
   const gst = subtotal * gstPct / 100;
   return {
     model: 'PER_STUDENT',
     annual: {
       label: pres.commercial_line_label || 'Annual Subscription - Per Unit / Per Year',
-      bonus: pres.commercial_bonus_label,
+      bonus: chargedAddons.length ? null : pres.commercial_bonus_label,
       amount: annual,
       perUnit: price,
       students,
     },
+    chargedAddons,
     implementation: implLine,
     subtotal, gstPercent: gstPct, gstAmount: gst, grandTotal: subtotal + gst,
   };
@@ -143,7 +149,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   const orgName = brand.name || 'Organization';
   const bundleCode = d.selectionMode === 'BUNDLE' ? (d.bundle || null) : null;
   const modules = resolveSelection(d.selectionMode, bundleCode, d.selectedModules || []);
-  const pricing = computePricing({ ...d, bundle: bundleCode });
+  const pricing = computePricing({ ...d, bundle: bundleCode }, modules);
   const { hero, stats, pres } = buildPresentation(bundleCode, modules, d.clientName);
   const bundle = bundleCode ? CATALOG.bundles[bundleCode] : null;
 
@@ -168,10 +174,13 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
           priceRow(1, esc(pricing.oneTime.label), money2(pricing.oneTime.amount), { bonus: pricing.oneTime.bonus }),
           priceRow(2, esc(pricing.implementation.label), implAmount),
         ].join('')
-      : [
-          priceRow(1, 'Complete CMS Package Per Student / Per Year', money2(pricing.annual.perUnit)),
-          priceRow(2, esc(pricing.implementation.label), implAmount),
-        ].join('');
+      : (() => {
+          const rows = [priceRow(1, 'Complete CMS Package Per Student / Per Year', money2(pricing.annual.perUnit))];
+          (pricing.chargedAddons || []).forEach((a: any) => rows.push(
+            priceRow(rows.length + 1, `${esc(a.name)} (Add-on) – Per Student / Per Year`, money2(a.rate))));
+          rows.push(priceRow(rows.length + 1, esc(pricing.implementation.label), implAmount));
+          return rows.join('');
+        })();
 
   const S = { ...SECTION_DEFAULTS, ...(d.sections || {}) };
   const cp = COMPANY_PROFILE;

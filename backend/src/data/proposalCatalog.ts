@@ -781,6 +781,7 @@ export const CATALOG: any = {
         "Gap analysis & continuous improvement"
       ],
       "default_price_per_student": 0.0,
+      "addon_price_per_student": 75.0,
       "tag": "FREE"
     },
     "STD_HR_PAYROLL": {
