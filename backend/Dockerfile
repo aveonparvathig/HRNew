@@ -63,4 +63,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Use dumb-init to run the app; apply pending migrations first so the image
 # is self-sufficient on platforms that don't use docker-compose (Railway etc.)
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# If a prior migration is stuck in the failed state (P3009), clear it so the
+# corrected, idempotent migration re-applies; harmless once it's applied.
+CMD ["sh", "-c", "npx prisma migrate resolve --rolled-back 20261025090000_org_client_logos || true; npx prisma migrate deploy && node dist/server.js"]
