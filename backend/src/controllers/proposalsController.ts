@@ -132,7 +132,18 @@ export const proposalsController = {
       select: { id: true, revision: true, totalAmount: true, selectionLabel: true, createdAt: true },
       orderBy: { revision: 'asc' },
     });
-    res.json({ ...record, revisions });
+    // Re-render the HTML from the stored inputs so template and layout fixes
+    // apply to existing proposals too — record.html is only a frozen snapshot
+    // from creation time. Fall back to the snapshot if a legacy record has no
+    // usable formData.
+    let html = record.html;
+    if (record.formData && typeof record.formData === 'object') {
+      try {
+        const brand = await orgBrand(orgId);
+        html = renderProposalHtml(brand, { ...(record.formData as any), clientName: record.clientName }).html;
+      } catch { /* keep the stored snapshot */ }
+    }
+    res.json({ ...record, html, revisions });
   },
 
   // Print-ready CMS ERP product specifications document (16 chapters,
