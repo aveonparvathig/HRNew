@@ -187,6 +187,11 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   // Client logos the user chose to keep (default: all of them).
   const shownClients = FEATURED_CLIENTS.filter(cl => !(d.hiddenClients || []).includes(cl.name));
 
+  // Number the main sections (1., 2., 3. …) in document order; conditional
+  // sections only increment when they actually render.
+  let secN = 0;
+  const sec = (t: string) => `<h2 class="sec">${++secN}. ${t}</h2>`;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -283,6 +288,16 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   .logowall .nm { font-size: 9px; color: #6b7280; line-height: 1.25; margin-top: 5px; }
   .avoid { break-inside: avoid; page-break-inside: avoid; }
   .pagebreak { break-before: page; page-break-before: always; }
+  .cover-letter { padding-top: 26px; font-size: 14px; color: #374151; }
+  .cl-date { color: #6b7280; margin-bottom: 30px; }
+  .cl-to { margin-bottom: 20px; line-height: 1.6; }
+  .cl-to .cl-label { font-size: 12px; color: #6b7280; }
+  .cl-to strong { display: block; font-size: 15px; margin-top: 2px; }
+  .cl-salute { font-weight: 600; margin: 18px 0; }
+  .cl-body { margin-bottom: 14px; line-height: 1.75; }
+  .cl-sign { margin-top: 44px; line-height: 1.7; }
+  .cl-sign strong { display: block; margin-top: 8px; font-size: 15px; }
+  @media print { .cover-letter { page-break-after: always; } }
   @media print {
     html, body { background: #fff; }
     .paper { width: auto; box-shadow: none; margin: 0; }
@@ -322,6 +337,24 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   </div>
 </div>
 
+<div class="page cover-letter">
+  <div class="cl-date">${d.proposalDate ? fmtDate(d.proposalDate) : ''}</div>
+  <div class="cl-to">
+    <div class="cl-label">To,</div>
+    <strong>${esc(d.clientName)}</strong>
+    ${String(d.clientAddress || '').split('\n').filter((l: string) => l.trim()).map((l: string) => `<div>${esc(l)}</div>`).join('')}
+  </div>
+  <p class="cl-salute">Dear Sir / Madam,</p>
+  <p class="cl-body">Based on our discussions, we are pleased to submit this proposal for the ${esc(selectionLabel)} from ${esc(orgName)}. The following pages set out our understanding of your requirement, the solution and its modules, the commercial terms and our implementation approach.</p>
+  <p class="cl-body">We are confident this engagement will deliver measurable value to your institution, and we look forward to the opportunity of partnering with you.</p>
+  <div class="cl-sign">
+    <div>Sincerely,</div>
+    <strong>${esc(d.authorizedSignatoryName || d.preparedBy || orgName)}</strong>
+    ${d.authorizedSignatoryDesignation ? `<div>${esc(d.authorizedSignatoryDesignation)}</div>` : ''}
+    <div>${esc(orgName)}</div>
+  </div>
+</div>
+
 <div class="page">
   <div class="addr">
     <div class="to">
@@ -334,11 +367,11 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
 
   <p style="margin-top:24px;color:#374151;">${esc(CATALOG.salutation)}</p>
 
-  <h2 class="sec">${esc(pres.executive_title || 'Executive Summary')}</h2>
+  ${sec(esc(pres.executive_title || 'Executive Summary'))}
   ${execParagraphs.map((p: string) => `<p style="margin-bottom:12px;color:#374151;">${p}</p>`).join('')}
 
   ${S.about ? `
-  <h2 class="sec">About ${esc(orgName)}</h2>
+  ${sec(`About ${esc(orgName)}`)}
   <div class="sec-sub">${esc(cp.tagline)} — ${esc(cp.established)}.</div>
   ${cp.about.map(p => `<p style="margin-bottom:12px;color:#374151;">${esc(p)}</p>`).join('')}
   <div class="vm">
@@ -356,7 +389,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ` : ''}
 
   ${S.milestones ? `
-  <h2 class="sec">Our Journey</h2>
+  ${sec('Our Journey')}
   <div class="sec-sub">A decade of dependable delivery for institutions and government bodies.</div>
   <div class="tl">
     ${cp.milestones.map(m => `
@@ -366,12 +399,12 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ` : ''}
 
   ${S.awards ? `
-  <h2 class="sec">Awards &amp; Recognition</h2>
+  ${sec('Awards &amp; Recognition')}
   ${cp.awards.map(a => `<div class="award"><span class="awd-dot"></span><span>${esc(a)}</span></div>`).join('')}
   ` : ''}
 
   ${S.clients && shownClients.length ? `
-  <h2 class="sec">Institutions That Trust Us</h2>
+  ${sec('Institutions That Trust Us')}
   <div class="sec-sub">${shownClients.length} leading institutions run on our platforms.</div>
   <div class="logowall">
     ${shownClients.map(cl => `
@@ -379,7 +412,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   </div>
   ` : ''}
 
-  <h2 class="sec">${esc(pres.modules_section_title || `${modules.length} Integrated Modules`)}</h2>
+  ${sec(esc(pres.modules_section_title || `${modules.length} Integrated Modules`))}
   <div class="sec-sub">${esc(pres.modules_section_desc || 'Every capability included in your proposal.')}</div>
   <div class="modgrid">
     ${modules.map((m: any) => `
@@ -391,7 +424,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   </div>
 
   ${S.pillars ? `
-  <h2 class="sec">Five Pillars of the Platform</h2>
+  ${sec('Five Pillars of the Platform')}
   <div class="grid2">
     ${(CATALOG.fivePillars || []).map((p: any) => `
       <div class="pill"><div class="num">✓</div>
@@ -400,7 +433,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   </div>` : ''}
 
   ${S.benefits ? `
-  <h2 class="sec">Key Benefits</h2>
+  ${sec('Key Benefits')}
   <div class="grid2">
     ${(CATALOG.benefits || []).map((b: any) => `
       <div class="pill"><div class="num">✓</div>
@@ -412,7 +445,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
       </div>`).join('')}
   </div>` : ''}
 
-  <h2 class="sec">Commercial Proposal</h2>
+  ${sec('Commercial Proposal')}
   <table class="price">
     <tr><th style="width:58px;text-align:center;">S. No.</th><th>Description</th><th style="text-align:right;">Total Price Per Student (Rs.)</th></tr>
     ${pricingRows}
@@ -426,7 +459,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   ${bundle ? `<p class="note" style="margin-top:8px;">₹${money2(bundle.bundle_price_per_student || 0)} per student per year + GST ${pricing.gstPercent}%.</p>` : ''}
 
   ${S.implementation ? `
-  <h2 class="sec">Implementation & Support</h2>
+  ${sec('Implementation & Support')}
   <div class="grid2">
     ${(CATALOG.implementationComponents || []).map((x: any) => `
       <div class="pill"><div class="num">✓</div>
@@ -435,7 +468,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   </div>` : ''}
 
   ${S.roadmap ? `
-  <h2 class="sec">Implementation Roadmap</h2>
+  ${sec('Implementation Roadmap')}
   ${(CATALOG.defaultPhases || []).map((p: any, i: number) => `
     <div class="phase"><div class="n">${i + 1}</div>
       <div><h4>${esc(p.title || p.name)} ${p.duration ? `<span style="color:#6b7280;font-weight:400;">· ${esc(p.duration)}</span>` : ''}</h4>
@@ -443,7 +476,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
     </div>`).join('')}` : ''}
 
   ${S.whyUs ? `
-  <h2 class="sec">Why ${esc(orgName)}</h2>
+  ${sec(`Why ${esc(orgName)}`)}
   <div class="grid2">
     ${(CATALOG.whyAveon || []).map((x: any) => `
       <div class="pill"><div class="num">✓</div>
@@ -458,7 +491,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   </div>` : ''}
 
   ${S.whyNow && CATALOG.whyNow ? `
-  <h2 class="sec">Why Now</h2>
+  ${sec('Why Now')}
   <div class="grid2">
     <div class="pill"><div class="ic">⚠️</div><div><h4>The Challenge</h4><p>${esc(CATALOG.whyNow.challenge || '')}</p></div></div>
     <div class="pill"><div class="ic">🚀</div><div><h4>The Opportunity</h4><p>${esc(CATALOG.whyNow.opportunity || '')}</p></div></div>
@@ -466,21 +499,21 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
   <p style="color:#374151;margin-top:6px;font-weight:600;">${esc(CATALOG.whyNow.bottom_line || '')}</p>` : ''}
 
   ${S.transformation ? `
-  <h2 class="sec">The Transformation</h2>
+  ${sec('The Transformation')}
   <table class="ba">
     <tr><th>Before</th><th>After ${esc(orgName)}</th></tr>
     ${(CATALOG.beforeAfter || []).map((row: any) => `<tr><td>${esc(row[0])}</td><td>${esc(row[1])}</td></tr>`).join('')}
   </table>` : ''}
 
   ${S.nextSteps ? `
-  <h2 class="sec">Next Steps</h2>
+  ${sec('Next Steps')}
   ${(CATALOG.nextSteps || []).map((s: any, i: number) => `
     <div class="phase"><div class="n">${i + 1}</div>
       <div><h4>${esc(s.title)}</h4><p>${esc(s.desc || s.description || '')}</p></div>
     </div>`).join('')}` : ''}
 
   ${S.terms ? `
-  <h2 class="sec">Terms &amp; Conditions</h2>
+  ${sec('Terms &amp; Conditions')}
   <ol class="terms">
     ${(terms || []).map((t: string) => `<li>${esc(t)}</li>`).join('')}
   </ol>` : ''}
