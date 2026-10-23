@@ -17,6 +17,7 @@ const EMPTY = {
   clientName: '', clientAddress: '', toAddress: 'The Principal / The Management',
   preparedBy: '', proposalDate: new Date().toISOString().split('T')[0],
   selectionMode: 'BUNDLE', bundle: 'CMS_FULL', selectedModules: [] as string[],
+  addonsCharged: [] as string[],
   pricingModel: 'PER_STUDENT',
   pricePerUnit: '', minimumStudentCommitment: '',
   oneTimePrice: '', amcAmount: '', amcPercent: '',
@@ -101,6 +102,16 @@ export default function ProposalBuilder() {
     }));
   };
 
+  // Mark a selected add-on as free (default) or charged at its catalog rate.
+  const setAddonFree = (code: string, free: boolean) => {
+    setForm((f: any) => ({
+      ...f,
+      addonsCharged: free
+        ? (f.addonsCharged || []).filter((c: string) => c !== code)
+        : Array.from(new Set([...(f.addonsCharged || []), code])),
+    }));
+  };
+
   // Live totals
   const totals = useMemo(() => {
     const gst = Number(form.gstPercent) || 0;
@@ -109,12 +120,15 @@ export default function ProposalBuilder() {
     if (form.pricingModel === 'ONE_TIME') {
       base = Number(form.oneTimePrice) || 0;
     } else {
-      base = (Number(form.pricePerUnit) || 0) * (parseInt(form.minimumStudentCommitment) || 0);
+      const students = parseInt(form.minimumStudentCommitment) || 0;
+      const addonPerUnit = (form.addonsCharged || []).reduce(
+        (s: number, c: string) => s + (catalog?.modules[c]?.addonPrice || 0), 0);
+      base = ((Number(form.pricePerUnit) || 0) + addonPerUnit) * students;
     }
     const subtotal = base + impl;
     const gstAmt = subtotal * gst / 100;
     return { subtotal, gstAmt, grand: subtotal + gstAmt };
-  }, [form]);
+  }, [form, catalog]);
 
   const suggestedCustomPrice = useMemo(() => {
     if (!catalog || form.selectionMode !== 'CUSTOM') return 0;
@@ -276,10 +290,30 @@ export default function ProposalBuilder() {
                           title={`${m.shortDesc} · ${formatINR(m.price)}/student`}
                           onClick={() => toggleModule(m.code)}>
                           {m.icon} {m.name}
-                          {m.tag && <strong> · {m.tag}</strong>}
+                          {m.category === 'ADDON'
+                            ? <strong> · {(form.addonsCharged || []).includes(m.code) ? `₹${m.addonPrice}/student` : 'FREE'}</strong>
+                            : (m.tag && <strong> · {m.tag}</strong>)}
                         </button>
                       ))}
                     </div>
+                    {catCode === 'ADDON' && mods.some((m: any) => form.selectedModules.includes(m.code)) && (
+                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {mods.filter((m: any) => form.selectedModules.includes(m.code)).map((m: any) => {
+                          const charged = (form.addonsCharged || []).includes(m.code);
+                          return (
+                            <div key={m.code} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: 12.5, color: 'var(--text-2)', minWidth: 160 }}>{m.name}</span>
+                              <div className="segmented">
+                                <button type="button" className={!charged ? 'active' : ''}
+                                  onClick={() => setAddonFree(m.code, true)}>Free</button>
+                                <button type="button" className={charged ? 'active' : ''}
+                                  onClick={() => setAddonFree(m.code, false)}>Charged · {formatINR(m.addonPrice)}/student</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 );
               })}

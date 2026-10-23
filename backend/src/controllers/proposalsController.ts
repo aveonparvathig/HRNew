@@ -25,6 +25,7 @@ export const proposalsController = {
         color: m.color || '#1565C0',
         shortDesc: m.short_desc || '',
         price: m.default_price_per_student || 0,
+        addonPrice: m.addon_price_per_student || 0,
         featureCount: (m.sub_features || []).length,
         tag: m.tag || '',
       };
