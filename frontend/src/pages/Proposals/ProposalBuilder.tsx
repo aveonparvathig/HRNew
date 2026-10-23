@@ -351,11 +351,16 @@ export default function ProposalBuilder() {
                 value={form.gstPercent} onChange={e => set('gstPercent', e.target.value)} />
             </div>
           </div>
-          <label className="checkbox-field" style={{ marginBottom: 14 }}>
-            <input type="checkbox" checked={form.waiveOneTimeFee}
-              onChange={e => set('waiveOneTimeFee', e.target.checked)} />
-            Waive the implementation fee (shown struck-through in the proposal)
-          </label>
+          <div className="field" style={{ marginBottom: 14 }}>
+            <label>One-time setup / implementation fee</label>
+            <div className="segmented">
+              <button type="button" className={form.waiveOneTimeFee ? 'active' : ''}
+                onClick={() => set('waiveOneTimeFee', true)}>Waived Off</button>
+              <button type="button" className={!form.waiveOneTimeFee ? 'active' : ''}
+                onClick={() => set('waiveOneTimeFee', false)}>Not Waived Off</button>
+            </div>
+            <span className="hint">Waived Off shows “(One-time) – Currently Waived Off” and is not added to the total; Not Waived Off charges the fee.</span>
+          </div>
 
           <div className="calc-card">
             <div className="calc-row"><span>Subtotal</span><span className="amount">{formatINR(totals.subtotal)}</span></div>
