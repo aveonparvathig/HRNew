@@ -129,7 +129,7 @@ export default function Team() {
                 URL.revokeObjectURL(url);
                 setSuccess(`Logins generated (${res.headers['x-created-count'] ?? '?'}) — credential sheet downloaded.`);
                 fetchData();
-              } catch (err: any) {
+              } catch {
                 setError('Failed to generate logins');
               } finally {
                 setSaving(false);

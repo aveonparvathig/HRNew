@@ -593,7 +593,7 @@ export const payrollController = {
     const brand = await orgBrand(orgId);
     const primary = brand.brandPrimary || '#4f46e5';
     const accent = brand.brandAccent || '#312e81';
-    const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = escHtml;
     const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     const r2 = (n: number) => Math.round(n * 100) / 100;
     const monthName = (() => { const [y, m] = run.period.split('-').map(Number); return new Date(y, m - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }); })();
@@ -692,7 +692,7 @@ export const payrollController = {
     const brand = await orgBrand(orgId);
     const primary = brand.brandPrimary || '#4f46e5';
     const accent = brand.brandAccent || '#312e81';
-    const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = escHtml;
     const inr = (n: number) => '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     const r2 = (n: number) => Math.round(n * 100) / 100;
     const label = (p: string) => { const [yy, mm] = p.split('-').map(Number); return new Date(yy, mm - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }); };

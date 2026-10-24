@@ -1,6 +1,7 @@
 // Payslips as files and as email: the file's name, its password, who it
 // goes to and what the mail says. Pure, DB-independent.
 import { PAN_FORMAT } from './taxCalc';
+import { escapeHtml } from '../../utils/html';
 
 // ---------------------------------------------------------------------------
 // Password
@@ -110,8 +111,6 @@ const monthLabel = (period: string) => {
   return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 };
 
-const escapeHtml = (value: string) => value
-  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export function payslipEmail(
   company: { name: string; email?: string }, person: { name: string }, period: string, passwordMode: string,

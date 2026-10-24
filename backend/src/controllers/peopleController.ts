@@ -335,7 +335,7 @@ export const peopleController = {
       omit: { photoData: true },
       include: {
         appliedFor: { select: { title: true } },
-        interviews: { select: { id: true } },
+        _count: { select: { interviews: true } },
       },
       // Order by date of joining (oldest first); people without a join date
       // (e.g. candidates) fall to the end, name breaks ties.
@@ -343,8 +343,8 @@ export const peopleController = {
     });
     let rows: any[] = people.map(p => ({
       ...p,
-      interviews: undefined,
-      interviewCount: p.interviews.length,
+      _count: undefined,
+      interviewCount: p._count.interviews,
       appliedForTitle: p.appliedFor?.title || '',
       appliedFor: undefined,
     }));

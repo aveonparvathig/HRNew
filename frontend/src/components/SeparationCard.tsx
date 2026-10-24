@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { peopleAPI } from '../api/people';
 import { Modal, ErrorAlert } from './ui';
@@ -11,6 +12,7 @@ const CHECKLIST: [string, string][] = [
   ['handoverDone', 'Handover done'], ['exitInterviewDone', 'Exit interview done'],
 ];
 const today = () => new Date().toISOString().slice(0, 10);
+const Info = ({ label, value }: { label: string; value: ReactNode }) => value ? <div style={{ display: 'flex', gap: 8, fontSize: 13, padding: '2px 0' }}><span className="text-muted" style={{ minWidth: 150 }}>{label}</span><span>{value}</span></div> : null;
 
 // Separation (phase 25): how an employee is leaving. Accepting a
 // resignation starts the notice period; relieving sets the leaving date,
@@ -68,7 +70,6 @@ export default function SeparationCard({ person, onChanged, onIssueLetter }: { p
   };
 
   if (!data) return error ? <ErrorAlert message={error} /> : null;
-  const Info = ({ label, value }: any) => value ? <div style={{ display: 'flex', gap: 8, fontSize: 13, padding: '2px 0' }}><span className="text-muted" style={{ minWidth: 150 }}>{label}</span><span>{value}</span></div> : null;
 
   return (
     <div className="card mb-24">

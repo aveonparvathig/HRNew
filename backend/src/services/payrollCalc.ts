@@ -17,6 +17,8 @@
 //
 // Excel ROUND() = round half away from zero; ROUNDUP() = ceiling here.
 
+import { escapeHtml } from '../utils/html';
+
 const r0 = (n: number) => Math.round(n); // half-up for non-negative amounts
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const ceil0 = (n: number) => Math.ceil(n - 1e-9); // guard float dust
@@ -132,8 +134,7 @@ export function amountInWords(amount: number): string {
 // ---------------------------------------------------------------------------
 // Payslip HTML (print-ready, letterhead style)
 // ---------------------------------------------------------------------------
-const esc = (v: any) =>
-  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = escapeHtml;
 
 const inr = (n: number) =>
   (Number(n || 0) < 0 ? '−' : '') + '₹' + Math.abs(Number(n || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

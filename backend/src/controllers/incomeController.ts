@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { loadActor, actorPerson } from '../middleware/roles';
+import { escapeHtml } from '../utils/html';
 
 const GST_RATE = 0.18;
 
@@ -182,9 +183,9 @@ function featureProgressOf(features: any[]) {
 // ---------------------------------------------------------------------------
 // Data access
 // ---------------------------------------------------------------------------
-const fetchOrgBillings = (organizationId: string) =>
+const fetchOrgBillings = (organizationId: string, scope?: Scope) =>
   prisma.clientBilling.findMany({
-    where: { organizationId },
+    where: { organizationId, ...inScope(scope) },
     include: { payments: true, client: true },
   });
 
@@ -232,7 +233,18 @@ async function engineerNames(organizationId: string): Promise<string[]> {
 // assigned to them (latest billing year's engineer == their Person name).
 // Clients with no billing yet are visible too, so they can start one.
 // ---------------------------------------------------------------------------
-async function employeeScope(req: any): Promise<{ name: string; clientIds: Set<string> } | null> {
+// PO and agreement files are stored inline (data URIs up to 8MB each); lists
+// and dashboards never need the bytes, only the download route does.
+const OMIT_DOCUMENTS = { poDocumentData: true, agreementDocumentData: true } as const;
+
+type Scope = { name: string; clientIds: Set<string> } | null;
+
+// Narrows a query to the employee's clients, so the database does the
+// filtering instead of loading the whole organisation first.
+const inScope = (scope: Scope | undefined, field = 'clientId') =>
+  (scope ? { [field]: { in: [...scope.clientIds] } } : {});
+
+async function employeeScope(req: any): Promise<Scope> {
   const actor = await loadActor(req);
   if (actor.role !== 'EMPLOYEE') return null;
   const person = await actorPerson(req);
@@ -463,19 +475,16 @@ export const incomeController = {
   async getDashboard(req: any, res: Response) {
     const orgId = req.user?.organizationId;
     const today = todayStr();
-    let [billings, payments, clients, onboardings] = await Promise.all([
-      fetchOrgBillings(orgId),
-      prisma.paymentReceipt.findMany({ where: { organizationId: orgId } }),
-      prisma.incomeClient.findMany({ where: { organizationId: orgId } }),
-      prisma.clientOnboarding.findMany({ where: { organizationId: orgId } }),
-    ]);
     const scope = await employeeScope(req);
-    if (scope) {
-      billings = billings.filter((b: any) => scope.clientIds.has(b.clientId));
-      payments = payments.filter(p => scope.clientIds.has(p.clientId));
-      clients = clients.filter(c => scope.clientIds.has(c.id));
-      onboardings = onboardings.filter(o => scope.clientIds.has(o.clientId));
-    }
+    const [billings, payments, clients, onboardings] = await Promise.all([
+      fetchOrgBillings(orgId, scope),
+      prisma.paymentReceipt.findMany({ where: { organizationId: orgId, ...inScope(scope) } }),
+      prisma.incomeClient.findMany({
+        where: { organizationId: orgId, ...inScope(scope, 'id') },
+        select: { id: true, name: true, isActive: true },
+      }),
+      prisma.clientOnboarding.findMany({ where: { organizationId: orgId, ...inScope(scope) }, omit: OMIT_DOCUMENTS }),
+    ]);
 
     const analytics = buildAnalyticsFrom(billings, payments);
     const rows = billings.map(b => billingJSON(b));
@@ -529,15 +538,11 @@ export const incomeController = {
   // ---- Analytics + forecast ---------------------------------------------
   async getAnalytics(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    let [billings, payments] = await Promise.all([
-      fetchOrgBillings(orgId),
-      prisma.paymentReceipt.findMany({ where: { organizationId: orgId } }),
-    ]);
     const scope = await employeeScope(req);
-    if (scope) {
-      billings = billings.filter((b: any) => scope.clientIds.has(b.clientId));
-      payments = payments.filter(p => scope.clientIds.has(p.clientId));
-    }
+    const [billings, payments] = await Promise.all([
+      fetchOrgBillings(orgId, scope),
+      prisma.paymentReceipt.findMany({ where: { organizationId: orgId, ...inScope(scope) } }),
+    ]);
     res.json({ ...buildAnalyticsFrom(billings, payments), forecast: buildForecastFrom(billings) });
   },
 
@@ -613,22 +618,25 @@ export const incomeController = {
     const period = String(req.query.period || '').trim(); // '2026-2027' | 'CUSTOM' | ''
     const collection = String(req.query.collection || '').trim(); // full | partial | none | ''
 
-    let clients = await prisma.incomeClient.findMany({
+    const scope = await employeeScope(req);
+    const clients = await prisma.incomeClient.findMany({
       where: {
         organizationId: orgId,
+        ...inScope(scope, 'id'),
         ...(q ? { name: { contains: q, mode: 'insensitive' as const } } : {}),
+        ...(engineer ? {
+          OR: [
+            { billings: { some: { engineer } } },
+            { onboarding: { is: { engineer } } },
+            { onboarding: { is: { supportEngineer: engineer } } },
+          ],
+        } : {}),
       },
       include: {
         billings: { include: { payments: true } },
         onboarding: { select: { engineer: true, supportEngineer: true } },
       },
     });
-    if (engineer) {
-      clients = clients.filter(c =>
-        c.billings.some(b => b.engineer === engineer) ||
-        (c as any).onboarding?.engineer === engineer ||
-        (c as any).onboarding?.supportEngineer === engineer);
-    }
 
     // Period filter scopes both membership and the money columns: with a year
     // selected, Billed/Received/Balance show only that period's figures.
@@ -654,8 +662,6 @@ export const incomeController = {
     };
 
     let rows = clients.map(makeRow);
-    const scope = await employeeScope(req);
-    if (scope) rows = rows.filter(r => scope.clientIds.has(r.id));
     if (period) rows = rows.filter(r => r.billingCount > 0);
     if (show === 'balance') rows = rows.filter(r => r.balance > 0);
     if (collection === 'full') rows = rows.filter(r => r.billed > 0 && r.balance <= 0);
@@ -721,7 +727,7 @@ export const incomeController = {
       where: { id: req.params.clientId, organizationId: orgId },
       include: {
         billings: { include: { payments: true }, orderBy: { yearStart: 'asc' } },
-        onboarding: true,
+        onboarding: { omit: OMIT_DOCUMENTS },
       },
     });
     if (!client) throw new AppError(404, 'Client not found');
@@ -746,8 +752,6 @@ export const incomeController = {
       onboarding: client.onboarding
         ? {
             ...client.onboarding,
-            poDocumentData: undefined,
-            agreementDocumentData: undefined,
             agreement: agreementInfo(client.onboarding),
           }
         : null,
@@ -1284,13 +1288,12 @@ export const incomeController = {
 
   async getImplementationDashboard(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    let clients = await prisma.incomeClient.findMany({
-      where: { organizationId: orgId },
-      include: { onboarding: true, features: true },
-    });
     // Employees see implementation status for their own clients only
     const scope = await employeeScope(req);
-    if (scope) clients = clients.filter(c => scope.clientIds.has(c.id));
+    const clients = await prisma.incomeClient.findMany({
+      where: { organizationId: orgId, ...inScope(scope, 'id') },
+      include: { onboarding: { omit: OMIT_DOCUMENTS }, features: true },
+    });
     const rows = clients.map(c => {
       const ob = c.onboarding;
       const info = agreementInfo(ob);
@@ -1640,7 +1643,7 @@ export const incomeController = {
     const brand = await (await import('../services/orgBrand')).orgBrand(orgId);
     const primary = brand.brandPrimary || '#4f46e5';
     const accent = brand.brandAccent || '#312e81';
-    const esc = (v: any) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const esc = escapeHtml;
     // Paise shown only when present — keeps wide lakh figures compact
     const inr = (n: number) => {
       const v = Number(n || 0);
