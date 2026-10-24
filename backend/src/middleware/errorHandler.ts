@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { randomUUID } from 'crypto';
+import { config } from '../config/env';
 
 export class AppError extends Error {
   constructor(public statusCode: number, message: string) {
@@ -14,8 +16,6 @@ export function errorHandler(
   res: Response,
   next: NextFunction
 ) {
-  console.error('Error:', error);
-
   if (error instanceof AppError) {
     return res.status(error.statusCode).json({
       error: error.message,
@@ -34,9 +34,20 @@ export function errorHandler(
     });
   }
 
-  // Default error
+  // Client errors raised by Express itself (malformed JSON, oversized body)
+  // carry their own status and a message that is safe to show.
+  const http = error as { status?: number; expose?: boolean };
+  if (typeof http.status === 'number' && http.status >= 400 && http.status < 500 && http.expose) {
+    return res.status(http.status).json({ error: error.message, status: http.status });
+  }
+
+  // Anything else is unexpected: its message may carry SQL or internals, so
+  // outside development the client gets a reference to quote, never the text.
+  const errorId = randomUUID().slice(0, 8);
+  console.error(`Error ${errorId} on ${req.method} ${req.originalUrl}:`, error);
   return res.status(500).json({
-    error: error instanceof Error ? error.message : 'Internal server error',
+    error: config.isDevelopment() ? error.message : 'Something went wrong. Please try again.',
+    errorId,
     status: 500,
   });
 }
