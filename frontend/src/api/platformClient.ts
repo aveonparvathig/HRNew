@@ -21,20 +21,36 @@ platformClient.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
+// Concurrent 401s share one in-flight refresh (kept apart from the tenant
+// client's, as the two sessions are).
+let refreshing: Promise<string> | null = null;
+
+function renewAccessToken(): Promise<string> {
+  if (!refreshing) {
+    refreshing = (async () => {
+      const refreshToken = usePlatformStore.getState().refreshToken;
+      if (!refreshToken) throw new Error('No refresh token');
+      const res = await axios.post(`${API_BASE_URL}/platform/auth/refresh`, { refreshToken });
+      usePlatformStore.getState().setAccessToken(res.data.accessToken);
+      return res.data.accessToken as string;
+    })().finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
 platformClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
     const signingIn = /\/platform\/auth\/(login|refresh)$/.test(originalRequest?.url || '');
 
-    if (error.response?.status === 401 && !originalRequest._retry && !signingIn) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !signingIn) {
       originalRequest._retry = true;
       try {
-        const refreshToken = usePlatformStore.getState().refreshToken;
-        if (!refreshToken) throw new Error('No refresh token');
-        const res = await axios.post(`${API_BASE_URL}/platform/auth/refresh`, { refreshToken });
-        usePlatformStore.getState().setAccessToken(res.data.accessToken);
-        originalRequest.headers.Authorization = `Bearer ${res.data.accessToken}`;
+        const accessToken = await renewAccessToken();
+        originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return platformClient(originalRequest);
       } catch (refreshError) {
         usePlatformStore.getState().logout();

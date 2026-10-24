@@ -23,32 +23,44 @@ client.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// One refresh at a time: requests that fail together while the token is
+// expired all wait on the same renewal instead of each starting their own.
+let refreshing: Promise<string> | null = null;
+
+function renewAccessToken(): Promise<string> {
+  if (!refreshing) {
+    refreshing = (async () => {
+      const refreshToken = useAuthStore.getState().refreshToken;
+      if (!refreshToken) {
+        throw new Error('No refresh token available');
+      }
+      const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+      const { accessToken, refreshToken: newRefreshToken } = response.data;
+      useAuthStore.getState().setTokens(accessToken, newRefreshToken ?? refreshToken);
+      return accessToken as string;
+    })().finally(() => {
+      refreshing = null;
+    });
+  }
+  return refreshing;
+}
+
 // Response interceptor: Handle token refresh and errors
 client.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
 
     // A wrong password at sign-in is the page's to show; there is no
     // session to renew.
     const signingIn = /\/auth\/(login|signup)$/.test(originalRequest?.url || '');
 
     // Handle 401 - Try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry && !signingIn) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !signingIn) {
       originalRequest._retry = true;
 
       try {
-        const refreshToken = useAuthStore.getState().refreshToken;
-        if (!refreshToken) {
-          throw new Error('No refresh token available');
-        }
-
-        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-          refreshToken,
-        });
-
-        const { accessToken, refreshToken: newRefreshToken } = response.data;
-        useAuthStore.getState().setTokens(accessToken, newRefreshToken);
+        const accessToken = await renewAccessToken();
 
         // Retry original request with new token
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
