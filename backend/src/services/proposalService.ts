@@ -175,7 +175,7 @@ export function renderProposalHtml(brand: any, d: any): { html: string; pricing:
           priceRow(2, esc(pricing.implementation.label), implAmount),
         ].join('')
       : (() => {
-          const rows = [priceRow(1, 'Complete CMS Package Per Student / Per Year', money2(pricing.annual.perUnit))];
+          const rows = [priceRow(1, 'Annual Subscription – Complete CMS Suite (All Modules)', money2(pricing.annual.perUnit))];
           (pricing.chargedAddons || []).forEach((a: any) => rows.push(
             priceRow(rows.length + 1, `${esc(a.name)} (Add-on) – Per Student / Per Year`, money2(a.rate))));
           rows.push(priceRow(rows.length + 1, esc(pricing.implementation.label), implAmount));
