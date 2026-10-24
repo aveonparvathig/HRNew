@@ -13,25 +13,28 @@ export async function applyInputCutoffs(organizationId: string) {
     select: { id: true, period: true, createdAt: true, inputsLockedAt: true },
   });
   if (runs.length === 0) return;
-  const settings = await prisma.payrollSettings.upsert({ where: { organizationId }, create: { organizationId }, update: {} });
-  if (!(settings.inputCutoffDay > 0)) return;
+  // No settings row means the default cutoff day of 0: nothing to apply.
+  const settings = await prisma.payrollSettings.findUnique({ where: { organizationId }, select: { inputCutoffDay: true } });
+  if (!settings || !(settings.inputCutoffDay > 0)) return;
   const today = todayIST();
   for (const run of runs) {
     const due = cutoffDue(run.period, settings.inputCutoffDay, today, istDate(run.createdAt));
-    if (due === 'MISSED') {
-      await prisma.payrollRun.update({ where: { id: run.id }, data: { cutoffApplied: true } });
-    } else if (due === 'LOCK') {
-      await prisma.payrollRun.update({
-        where: { id: run.id }, data: { cutoffApplied: true, inputsLockedAt: run.inputsLockedAt ?? new Date() },
+    if (due !== 'MISSED' && due !== 'LOCK') continue;
+    // Requests arrive in parallel; each run is claimed by exactly one of them.
+    const claimed = await prisma.payrollRun.updateMany({
+      where: { id: run.id, cutoffApplied: false }, data: { cutoffApplied: true },
+    });
+    if (claimed.count === 0 || due === 'MISSED') continue;
+    const locked = await prisma.payrollRun.updateMany({
+      where: { id: run.id, inputsLockedAt: null }, data: { inputsLockedAt: new Date() },
+    });
+    if (locked.count > 0) {
+      await prisma.payrollAuditLog.create({
+        data: {
+          organizationId, userId: null, userName: 'Automatic cutoff', action: 'INPUTS_LOCKED', runId: run.id, period: run.period,
+          newValue: `Inputs locked after ${cutoffDate(run.period, settings.inputCutoffDay)}`,
+        },
       });
-      if (!run.inputsLockedAt) {
-        await prisma.payrollAuditLog.create({
-          data: {
-            organizationId, userId: null, userName: 'Automatic cutoff', action: 'INPUTS_LOCKED', runId: run.id, period: run.period,
-            newValue: `Inputs locked after ${cutoffDate(run.period, settings.inputCutoffDay)}`,
-          },
-        });
-      }
     }
   }
 }

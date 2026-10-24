@@ -20,11 +20,11 @@ import {
   isPasswordMode, jvFileName, jvRows, payslipAddress, payslipEmail, payslipPassword, toCsv, uniqueNames,
 } from '../services/payroll/payslipFiles';
 import {
-  PAYSLIP_INCLUDE, payslipFile, payslipHtml, sendFile, settingsFor,
+  BULK_CONCURRENCY, PAYSLIP_INCLUDE, mapLimit, payslipFile, payslipHtml, sendFile, settingsFor,
 } from '../services/payroll/payslipDocs';
 import { journalVoucherBy } from '../services/payroll/payoutCalc';
 import { RELEASE_MAILS, isReleaseMail } from '../services/payroll/payslipFiles';
-import { stampRun } from '../services/positions';
+import { stampEntries, stampRun } from '../services/positions';
 
 const str = (v: any) => String(v ?? '').trim();
 const byName = (a: any, b: any) => a.person.name.localeCompare(b.person.name);
@@ -54,13 +54,14 @@ async function fetchEntry(entryId: string, organizationId: string, extra: any = 
 // text file inside, so nothing goes missing silently.
 async function payslipsZip(organizationId: string, entries: any[]): Promise<{ zip: Buffer; included: number; skipped: string[] }> {
   const [settings, brand] = await Promise.all([settingsFor(organizationId), orgBrand(organizationId)]);
-  const files: { filename: string; pdf: Buffer }[] = [];
   const skipped: string[] = [];
-  for (const entry of entries) {
+  const ready = entries.filter(entry => {
     const { missing } = payslipPassword(settings.payslipPdfPassword, entry.person);
-    if (missing) { skipped.push(`${entry.person.name} (${monthLabel(entry.run.period)}): ${missing}`); continue; }
-    files.push(await payslipFile(organizationId, entry, settings, brand));
-  }
+    if (missing) skipped.push(`${entry.person.name} (${monthLabel(entry.run.period)}): ${missing}`);
+    return !missing;
+  });
+  await stampEntries(organizationId, ready);
+  const files = await mapLimit(ready, BULK_CONCURRENCY, entry => payslipFile(organizationId, entry, settings, brand, { stamped: true }));
   const zip = new JSZip();
   const names = uniqueNames(files.map(f => f.filename));
   files.forEach((f, i) => zip.file(names[i], f.pdf));
@@ -183,8 +184,9 @@ export const payrollFilesController = {
     const run = await fetchRun(req.params.runId, organizationId);
     if (run.entries.length === 0) throw new AppError(400, 'This run has no payslips');
     const [settings, brand] = await Promise.all([settingsFor(organizationId), orgBrand(organizationId)]);
-    const pages: string[] = [];
-    for (const e of run.entries) pages.push(await payslipHtml(organizationId, { ...e, run }, brand));
+    const entries = run.entries.map(e => ({ ...e, run }));
+    await stampEntries(organizationId, entries);
+    const pages = await mapLimit(entries, BULK_CONCURRENCY, e => payslipHtml(organizationId, e, brand, { stamped: true }));
     sendFile(res, `${filePart(settings.payslipFilePrefix) || 'Payslip'}s_${run.period}_all.pdf`, PDF, await htmlToPdf(joinHtml(pages)));
   },
 

@@ -95,7 +95,7 @@ describe('a template with markup in it', () => {
     });
     expect(html).not.toMatch(/<script|<a |<i>|<b>|<u>/);
     expect(html).toContain('&lt;script&gt;x&lt;/script&gt;');
-    expect(html).toContain('&lt;a href="javascript:x"&gt;click&lt;/a&gt;');
+    expect(html).toContain('&lt;a href=&quot;javascript:x&quot;&gt;click&lt;/a&gt;');
   });
 
   it('keeps the lines of what was typed on several lines', () => {

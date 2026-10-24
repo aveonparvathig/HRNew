@@ -60,9 +60,12 @@ export async function stampRun(organizationId: string, run: any, opts: { locatio
   await stampPositions(organizationId, run.entries.map((e: any) => ({ personId: e.personId, person: e.person, on })), opts);
 }
 
-// One payslip entry (carrying its run and person) the same way
+// Payslip entries (each carrying its run and person) the same way, in one lookup
+export const stampEntries = (organizationId: string, entries: any[], opts: { location?: boolean } = {}) =>
+  stampPositions(organizationId, entries.map(e => ({ personId: e.personId, person: e.person, on: periodEndDate(e.run.period) })), opts);
+
 export const stampEntry = (organizationId: string, entry: any, opts: { location?: boolean } = {}) =>
-  stampPositions(organizationId, [{ personId: entry.personId, person: entry.person, on: periodEndDate(entry.run.period) }], opts);
+  stampEntries(organizationId, [entry], opts);
 
 // ---- Keeping the history and the employee's record in step -----------------------
 // An employee with no history gets one record: the position on their

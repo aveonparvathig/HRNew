@@ -37,7 +37,7 @@ export default function Roster() {
     return Array.from({ length: n }, (_, i) => i + 1);
   }, [month]);
 
-  const toggle = (id: string) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggle = (id: string) => setSel(s => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const allSelected = data && sel.size === data.rows.length && data.rows.length > 0;
 
   const doAssign = async (e: React.FormEvent) => {

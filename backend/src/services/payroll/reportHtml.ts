@@ -1,8 +1,8 @@
 // Shared letterhead shell for printable payroll reports.
 import { OrgBrand } from '../orgBrand';
+import { escapeHtml } from '../../utils/html';
 
-export const esc = (v: any) =>
-  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export const esc = escapeHtml;
 
 export const inr = (n: number) =>
   (Number(n || 0) < 0 ? '−' : '') + '₹' + Math.abs(Number(n || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

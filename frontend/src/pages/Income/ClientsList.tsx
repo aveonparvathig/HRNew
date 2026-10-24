@@ -157,7 +157,7 @@ export default function ClientsList() {
             studentCount: billingForm.studentCount || null,
             rate: billingForm.rate || null,
           });
-        } catch (err: any) {
+        } catch {
           // Client exists either way — land on its page and surface the billing error there
           navigate(`/income/clients/${clientId}`);
           return;

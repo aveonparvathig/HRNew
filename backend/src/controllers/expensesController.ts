@@ -7,6 +7,7 @@ import { amountInWords } from '../services/payrollCalc';
 import { approvalChainOf } from '../services/orgChart';
 import { afterDecision, approvalSteps, canApprove } from '../services/expenseApproval';
 import { actorName } from '../services/payroll/audit';
+import { escapeHtml } from '../utils/html';
 
 export const EXPENSE_CATEGORIES = [
   { value: 'TRAVEL', label: 'Travel / Fuel', icon: '⛟' },
@@ -38,8 +39,7 @@ const EDITABLE_STATUSES = new Set(['DRAFT', 'REJECTED']);
 
 const str = (v: any) => String(v ?? '');
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const esc = (v: any) =>
-  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = escapeHtml;
 const inr = (n: number) =>
   '₹' + Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtDate = (d: any) => d

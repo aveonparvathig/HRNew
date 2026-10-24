@@ -5,9 +5,9 @@
 import { CMS_SPEC } from '../data/cmsSpec';
 import { FEATURED_CLIENTS } from '../data/cmsClients';
 import type { OrgBrand } from './orgBrand';
+import { escapeHtml } from '../utils/html';
 
-const esc = (v: any) =>
-  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const esc = escapeHtml;
 
 const list = (items: string[], cls: string, tag: 'ul' | 'ol' = 'ul') =>
   `<${tag} class="${cls}">${items.map(i => `<li>${esc(i)}</li>`).join('')}</${tag}>`;

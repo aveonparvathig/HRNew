@@ -13,6 +13,8 @@
 //                              a row of a details table; a row with no value is dropped
 //   a blank line               a new paragraph
 
+import { escapeHtml } from '../utils/html';
+
 export type FieldType = 'text' | 'date' | 'money' | 'number' | 'textarea' | 'select';
 export interface LetterField {
   key: string;
@@ -72,8 +74,7 @@ export const letterField = (key: string) => FIELD.get(key);
 const FORM_TOP = ['refNo', 'letterDate', 'recipientAddress'];
 const FORM_END = ['signatoryName', 'signatoryTitle'];
 
-export const esc = (v: any) =>
-  String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+export const esc = escapeHtml;
 
 const BLANK = '_______________';
 const longDate = (v: any) => {
