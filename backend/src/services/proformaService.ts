@@ -233,11 +233,10 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
   const totalRow = (label: string, v: number, cls = '') =>
     `<tr class="${cls}"><td>${label}</td><td class="r">Rs.${money2(v)}</td></tr>`;
 
+  // Valid Until and Place of Supply are stored but not printed
   const meta = [
     ['Proforma No.', esc(d.number)],
     ['Date', esc(fmtDate(d.invoiceDate))],
-    ...(d.validUntil ? [['Valid Until', esc(fmtDate(d.validUntil))]] : []),
-    ...(d.placeOfSupply ? [['Place of Supply', esc(placeOfSupplyLabel(d.placeOfSupply))]] : []),
   ].map(([k, v]) => `<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`).join('');
 
   return `

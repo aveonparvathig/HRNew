@@ -130,8 +130,8 @@ describe('renderProformaHtml', () => {
     expect(h).toContain('PROFORMA<br/>INVOICE');
     expect(h).toContain('PRO/2026-27/022');
     expect(h).toContain('13/11/2026');
-    expect(h).toContain('20/11/2026');
-    expect(h).toContain('Tamil Nadu (33)');
+    expect(h).not.toContain('20/11/2026');
+    expect(h).not.toContain('Tamil Nadu (33)');
     expect(h).toContain('<strong>GSTIN:</strong> 33AAKCA4063C1Z4');
     expect(h).toContain('>Bill To<'); // shown upper-case via CSS
     expect(h).toContain('>Ship To<');
@@ -200,9 +200,12 @@ describe('renderProformaHtml — advance and balance due (proforma 018)', () => 
     expect(h).not.toContain('Previous Pending');
   });
 
-  it('omits Valid Until when it is not set, prints it when it is', () => {
-    expect(doc018(0)).not.toContain('Valid Until');
-    expect(doc018(0, '2026-11-02')).toContain('02/11/2026');
+  it('prints neither Valid Until nor Place of Supply', () => {
+    const h = doc018(0, '2026-11-02');
+    expect(h).not.toContain('Valid Until');
+    expect(h).not.toContain('02/11/2026');
+    expect(h).not.toContain('Place of Supply');
+    expect(h).toContain('PRO/2026-27/018');
   });
 
   it('prints fractional quantities to 2 decimals', () => {
