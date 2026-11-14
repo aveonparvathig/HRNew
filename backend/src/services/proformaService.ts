@@ -138,6 +138,12 @@ export function proformaAmountInWords(amount: number): string {
 const money2 = (n: number) =>
   Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// Whole quantities as "2,092"; fractional ones to 2 decimals
+const fmtQty = (n: number) =>
+  Number(n || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2,
+  });
+
 // DD/MM/YYYY
 const fmtDate = (v: string) => {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
@@ -157,11 +163,12 @@ export interface ProformaParty {
 export interface ProformaDoc {
   number: string;
   invoiceDate: string;
-  validUntil: string;
+  validUntil: string; // '' = not printed
   placeOfSupply: string; // buyer state name
   taxType: 'CGST_SGST' | 'IGST';
   buyer: ProformaParty;
   lines: ProformaLine[];
+  advanceReceived?: number; // > 0 prints "Advance Received" + "Balance Due"
 }
 
 export const proformaFilename = (number: string) =>
@@ -177,6 +184,7 @@ export function addressLines(p: ProformaParty): string[] {
 export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
   const accent = brand.brandPrimary || '#0e7490';
   const totals = proformaTotals(d.lines, d.taxType);
+  const advance = round2(Math.max(Number(d.advanceReceived) || 0, 0));
   const intra = d.taxType === 'CGST_SGST';
   const seller: ProformaParty = {
     name: brand.name, address: brand.address, city: brand.city, state: brand.state,
@@ -200,7 +208,7 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
       <td class="pf-n">${i + 1}.</td>
       <td><div class="pf-desc">${esc(l.description)}</div>${l.detail ? `<div class="pf-detail">${esc(l.detail)}</div>` : ''}</td>
       <td>${esc(l.hsn)}</td>
-      <td class="r">${l.qty.toFixed(2)}</td>
+      <td class="r">${fmtQty(l.qty)}</td>
       <td class="r">${money2(l.rate)}</td>
       <td class="r">${money2(l.taxable)}</td>
       <td class="r">${l.gstRate ? `${money2(l.gst)}<div class="pf-rate">@ ${l.gstRate}%</div>` : '<span class="pf-muted">—</span>'}</td>
@@ -250,6 +258,9 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
     .pf-tot .pf-strong { color:#111827; font-size:13px; }
     .pf-tot .grand td { border-top:1px solid #e5e7eb; color:#111827; font-size:15px; font-weight:700; padding-top:8px; }
     .pf-tot .r { text-align:right; }
+    .pf-tot .adv td { padding-top:8px; }
+    .pf-due { display:flex; justify-content:space-between; background:${accent}; color:#fff; font-size:14px;
+      font-weight:700; border-radius:6px; padding:7px 12px; margin:4px -12px 2px; }
     .pf-foot { margin-top:auto; padding-top:40px; page-break-inside:avoid; }
     .pf-signs { display:flex; gap:90px; }
     .pf-sign { flex:1; text-align:center; font-size:11px; color:#4b5563; }
@@ -273,7 +284,7 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
       <table class="pf-meta" style="width:auto;margin-left:auto;">
         <tr><td class="k">Proforma No.</td><td class="v">${esc(d.number)}</td></tr>
         <tr><td class="k">Date</td><td class="v">${esc(fmtDate(d.invoiceDate))}</td></tr>
-        <tr><td class="k">Valid Until</td><td class="v">${esc(fmtDate(d.validUntil))}</td></tr>
+        ${d.validUntil ? `<tr><td class="k">Valid Until</td><td class="v">${esc(fmtDate(d.validUntil))}</td></tr>` : ''}
         ${d.placeOfSupply ? `<tr><td class="k">Place of Supply</td><td class="v">${esc(placeOfSupplyLabel(d.placeOfSupply))}</td></tr>` : ''}
       </table>
     </div>
@@ -297,7 +308,9 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
         ${totalRow('Subtotal', totals.subtotal)}
         ${intra ? totalRow('CGST', totals.cgst) + totalRow('SGST', totals.sgst) : totalRow('IGST', totals.igst)}
         <tr class="grand"><td>Grand Total</td><td class="r">Rs.${money2(totals.total)}</td></tr>
+        ${advance > 0 ? `<tr class="adv"><td>Advance Received</td><td class="r pf-strong">Rs.-${money2(advance)}</td></tr>` : ''}
       </table>
+      ${advance > 0 ? `<div class="pf-due"><span>Balance Due</span><span>Rs.${money2(round2(totals.total - advance))}</span></div>` : ''}
     </div>
   </div>
 

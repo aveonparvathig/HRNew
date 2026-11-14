@@ -159,6 +159,49 @@ describe('renderProformaHtml', () => {
   });
 });
 
+describe('renderProformaHtml — advance and balance due (proforma 018)', () => {
+  const doc018 = (advanceReceived: number, validUntil = '') => renderProformaHtml(brand, {
+    number: 'PRO/2026-27/018', invoiceDate: '2026-10-26', validUntil, placeOfSupply: 'Tamil Nadu',
+    taxType: 'CGST_SGST', advanceReceived,
+    buyer: { name: 'GRG Hostels', address: 'Avinashi Road\nPeelamedu', city: 'Coimbatore', state: 'Tamil Nadu', pincode: '641004' },
+    lines: buildProformaLines([{ description: 'Hostel Management Software', qty: 2092, rate: 100 }]),
+  });
+
+  it('prints qty as students and the totals of the sample', () => {
+    const h = doc018(100000);
+    expect(h).toContain('>2,092<');
+    expect(h).toContain('100.00');
+    expect(h).toContain('2,09,200.00');
+    expect(h).toContain('Rs.18,828.00');
+    expect(h).toContain('Rs.2,46,856.00');
+    expect(h).toContain('Advance Received');
+    expect(h).toContain('Rs.-1,00,000.00');
+    expect(h).toContain('Balance Due');
+    expect(h).toContain('Rs.1,46,856.00');
+    // Amount in words is the grand total, as in the sample
+    expect(h).toContain('Rupees Two Lakh Forty Six Thousand Eight Hundred Fifty Six Only');
+  });
+
+  it('omits the advance rows when nothing was received', () => {
+    const h = doc018(0);
+    expect(h).not.toContain('Advance Received');
+    expect(h).not.toContain('Balance Due');
+  });
+
+  it('omits Valid Until when it is not set, prints it when it is', () => {
+    expect(doc018(0)).not.toContain('Valid Until');
+    expect(doc018(0, '2026-11-02')).toContain('02/11/2026');
+  });
+
+  it('prints fractional quantities to 2 decimals', () => {
+    const h = renderProformaHtml(brand, {
+      number: 'X', invoiceDate: '2026-10-26', validUntil: '', placeOfSupply: '', taxType: 'CGST_SGST',
+      buyer: { name: 'B' }, lines: buildProformaLines([{ description: 'd', qty: 1.5, rate: 10 }]),
+    });
+    expect(h).toContain('>1.50<');
+  });
+});
+
 describe('proformaFilename', () => {
   it('matches the sample file name', () => {
     expect(proformaFilename('PRO/2026-27/022')).toBe('proforma-PRO_2026-27_022.pdf');
