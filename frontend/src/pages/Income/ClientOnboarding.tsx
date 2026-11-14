@@ -9,7 +9,7 @@ import { confirmDialog } from '../../components/feedback';
 const EMPTY = {
   stage: 'ONBOARDING',
   contactPerson: '', contactDesignation: '', contactPhone: '', contactEmail: '',
-  institutionType: '', address: '', city: '', studentStrength: '',
+  institutionType: '', address: '', city: '', state: '', pincode: '', gstin: '', studentStrength: '',
   onboardedOn: '', goLiveDate: '', engineer: '', supportEngineer: '',
   poReceived: false, poNumber: '', poDate: '',
   agreementSigned: false, agreementYears: '', agreementStart: '', agreementEnd: '',
@@ -343,7 +343,28 @@ export default function ClientOnboarding() {
           <div className="field" style={{ marginTop: 16 }}>
             <label>Address</label>
             <textarea className="input" rows={2} value={form.address}
+              placeholder="One line per row — printed as-is on proforma invoices"
               onChange={e => set('address', e.target.value)} />
+          </div>
+          <div className="form-grid" style={{ marginTop: 16 }}>
+            <div className="field">
+              <label>State</label>
+              <select className="select" value={form.state} onChange={e => set('state', e.target.value)}>
+                <option value="">—</option>
+                {(meta.states || []).map((s: string) => <option key={s} value={s}>{s}</option>)}
+              </select>
+              <span className="hint">Place of supply on proforma invoices.</span>
+            </div>
+            <div className="field">
+              <label>PIN code</label>
+              <input className="input" inputMode="numeric" maxLength={6} value={form.pincode}
+                onChange={e => set('pincode', e.target.value.replace(/\D/g, ''))} />
+            </div>
+            <div className="field">
+              <label>GSTIN</label>
+              <input className="input" maxLength={15} placeholder="Optional" value={form.gstin}
+                onChange={e => set('gstin', e.target.value.toUpperCase())} />
+            </div>
           </div>
         </div>
 

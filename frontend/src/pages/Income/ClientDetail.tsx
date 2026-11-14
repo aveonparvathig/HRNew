@@ -376,8 +376,8 @@ export default function ClientDetail() {
       {/* Proforma invoice */}
       <ProformaFormModal
         open={Boolean(proformaModal)}
-        billing={proformaModal}
-        clientName={client.name}
+        client={client}
+        preselect={proformaModal ? [proformaModal.id] : []}
         onClose={() => setProformaModal(null)}
         onSaved={fetchAll}
       />

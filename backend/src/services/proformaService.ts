@@ -1,23 +1,56 @@
-// Proforma invoices — pure helpers (numbering, GST math, amount in words) and
-// the branded A4 document. No database access here, so it is unit-testable.
+// Proforma invoices — pure helpers (numbering, GST split, amount in words)
+// and the A4 document. No database access here, so it is unit-testable.
 import { escapeHtml as esc } from '../utils/html';
 import { amountInWords } from './payrollCalc';
-import { signatureImg, brandContactLine, type OrgBrand } from './orgBrand';
+import { signatureImg, type OrgBrand } from './orgBrand';
+import { GST_STATE_CODES } from './masters';
 
-export const PROFORMA_GST_RATE = 0.18;
+export const PROFORMA_GST_RATE = 18;
+export const DEFAULT_SAC = '998311'; // IT consulting & support services
+export const PROFORMA_VALID_DAYS = 7;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // ---------------------------------------------------------------------------
-// Numbering: PI/<academicYear>/NNN, sequential per (organization, period).
+// GST state codes (the first two digits of a GSTIN) decide intra-state
+// (CGST + SGST) vs inter-state (IGST) supply.
 // ---------------------------------------------------------------------------
-export const proformaPrefix = (academicYear: string) => `PI/${academicYear}/`;
+const codeOfState = (state: string) => GST_STATE_CODES[String(state || '').trim()] || '';
 
-// Next number after the highest existing one for this period. Gaps (deleted
-// invoices) are never reused, so a reissued number can't collide with paper.
-export function nextProformaNumber(academicYear: string, existing: string[]): string {
-  const prefix = proformaPrefix(academicYear);
-  let max = 0;
+// Supplier state code: the GSTIN prefix wins over the profile state.
+export const supplierStateCode = (gstin: string, state: string) =>
+  (/^\d{2}/.test(String(gstin || '').trim()) ? String(gstin).trim().slice(0, 2) : codeOfState(state));
+
+// "Tamil Nadu (33)"
+export const placeOfSupplyLabel = (state: string) => {
+  const code = codeOfState(state);
+  return state ? (code ? `${state} (${code})` : state) : '';
+};
+
+// Intra-state unless both sides are known and differ.
+export function taxTypeFor(supplierCode: string, buyerState: string): 'CGST_SGST' | 'IGST' {
+  const buyerCode = codeOfState(buyerState);
+  return supplierCode && buyerCode && supplierCode !== buyerCode ? 'IGST' : 'CGST_SGST';
+}
+
+// ---------------------------------------------------------------------------
+// Numbering: PRO/<FY>/NNN, sequential per (organization, financial year).
+// ---------------------------------------------------------------------------
+// Indian financial year (April-March) of a YYYY-MM-DD date: "2026-27"
+export function fiscalYearOf(date: string): string {
+  const [y, m] = date.split('-').map(Number);
+  const start = m >= 4 ? y : y - 1;
+  return `${start}-${String((start + 1) % 100).padStart(2, '0')}`;
+}
+
+export const proformaPrefix = (fiscalYear: string) => `PRO/${fiscalYear}/`;
+
+// Next number after the highest existing one in the year, never below the
+// configured floor (the last number used before this system took over).
+// Gaps (deleted invoices) are never reused.
+export function nextProformaNumber(fiscalYear: string, existing: string[], floor = 0): string {
+  const prefix = proformaPrefix(fiscalYear);
+  let max = Math.max(0, Math.floor(Number(floor) || 0));
   for (const n of existing) {
     if (!n.startsWith(prefix)) continue;
     const seq = parseInt(n.slice(prefix.length), 10);
@@ -27,34 +60,76 @@ export function nextProformaNumber(academicYear: string, existing: string[]): st
 }
 
 // ---------------------------------------------------------------------------
-// Amounts: GST @18% on the taxable value. The one-time fee carries GST only
-// when the user opts in (`oneTimeGst`) — decided per invoice.
-// `gst` is the total GST; `oneTimeGstAmount` is the one-time line's share.
+// Lines and totals
 // ---------------------------------------------------------------------------
-export function computeProformaAmounts(taxable: number, oneTime = 0, oneTimeGst = false) {
-  const t = round2(Number(taxable) || 0);
-  const o = round2(Number(oneTime) || 0);
-  const subscriptionGst = round2(t * PROFORMA_GST_RATE);
-  const oneTimeGstAmount = oneTimeGst ? round2(o * PROFORMA_GST_RATE) : 0;
-  const gst = round2(subscriptionGst + oneTimeGstAmount);
-  return {
-    taxable: t, gst, oneTime: o, oneTimeGst: Boolean(oneTimeGst) && o > 0, oneTimeGstAmount,
-    total: round2(t + o + gst),
-  };
+export interface ProformaLineInput {
+  billingId?: string | null;
+  description: string;
+  detail?: string;  // second line, e.g. "Academic Year 2025 - 26"
+  hsn?: string;
+  qty?: number;
+  rate?: number;    // per unit; taxable = qty × rate
+  gst?: boolean;    // apply GST @18% (default true)
+}
+
+export interface ProformaLine {
+  billingId: string | null;
+  description: string;
+  detail: string;
+  hsn: string;
+  qty: number;
+  rate: number;
+  taxable: number;
+  gstRate: number;
+  gst: number;
+  total: number;
+}
+
+export function buildProformaLines(inputs: ProformaLineInput[]): ProformaLine[] {
+  return inputs.map(l => {
+    const qty = round2(Number(l.qty ?? 1) || 0);
+    const rate = round2(Number(l.rate) || 0);
+    const taxable = round2(qty * rate);
+    const gstRate = l.gst === false ? 0 : PROFORMA_GST_RATE;
+    const gst = round2(taxable * gstRate / 100);
+    return {
+      billingId: l.billingId || null,
+      description: String(l.description || '').trim(),
+      detail: String(l.detail || '').trim(),
+      hsn: String(l.hsn ?? DEFAULT_SAC).trim(),
+      qty, rate, taxable, gstRate, gst,
+      total: round2(taxable + gst),
+    };
+  });
+}
+
+export function proformaTotals(lines: ProformaLine[], taxType: 'CGST_SGST' | 'IGST') {
+  const subtotal = round2(lines.reduce((s, l) => s + l.taxable, 0));
+  const gst = round2(lines.reduce((s, l) => s + l.gst, 0));
+  const cgst = taxType === 'CGST_SGST' ? round2(gst / 2) : 0;
+  const sgst = taxType === 'CGST_SGST' ? round2(gst - cgst) : 0;
+  const igst = taxType === 'IGST' ? gst : 0;
+  return { subtotal, gst, cgst, sgst, igst, total: round2(subtotal + gst) };
 }
 
 // Taxable value whose amount + 18% GST equals the given balance.
 export const taxableForBalance = (balance: number) =>
-  Math.max(round2((Number(balance) || 0) / (1 + PROFORMA_GST_RATE)), 0);
+  Math.max(round2((Number(balance) || 0) / (1 + PROFORMA_GST_RATE / 100)), 0);
 
-// Rupees and paise in words, Indian numbering ("... Rupees and Fifty Paise Only").
+// "Academic Year 2025 - 26" for an academic billing row; the label otherwise.
+export function periodDetail(b: { periodType?: string; academicYear: string }, periodLabel: string): string {
+  const m = /^(\d{4})-(\d{4})$/.exec(b.academicYear || '');
+  if (b.periodType !== 'CUSTOM' && m) return `Academic Year ${m[1]} - ${m[2].slice(2)}`;
+  return `Period ${periodLabel}`;
+}
+
+// "Rupees Fifty Nine Thousand Only" / "... and Fifty Paise Only"
 export function proformaAmountInWords(amount: number): string {
   const total = round2(Math.abs(Number(amount) || 0));
   const rupees = Math.floor(total);
   const paise = Math.round((total - rupees) * 100);
-  if (!paise) return amountInWords(rupees);
-  const paiseWords = amountInWords(paise).replace(/ Rupees Only$/, '');
-  return `${amountInWords(rupees).replace(/ Only$/, '')} and ${paiseWords} Paise Only`;
+  const words = (n: number) => amountInWords(n).replace(/ Rupees Only$/, '');
+  return `Rupees ${words(rupees)}${paise ? ` and ${words(paise)} Paise` : ''} Only`;
 }
 
 // ---------------------------------------------------------------------------
@@ -63,137 +138,178 @@ export function proformaAmountInWords(amount: number): string {
 const money2 = (n: number) =>
   Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+// DD/MM/YYYY
 const fmtDate = (v: string) => {
-  const d = new Date(`${v}T00:00:00Z`);
-  return isNaN(d.getTime()) ? String(v)
-    : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || '');
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(v || '');
 };
+
+export interface ProformaParty {
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  country?: string;
+  gstin?: string;
+}
 
 export interface ProformaDoc {
   number: string;
-  invoiceDate: string; // YYYY-MM-DD
-  periodLabel: string;
-  clientName: string;
-  onboarding?: {
-    contactPerson?: string; contactDesignation?: string; contactPhone?: string;
-    contactEmail?: string; address?: string; city?: string;
-  } | null;
-  lineDescription: string;
-  taxable: number;
-  gst: number; // total GST (subscription + one-time when taxed)
-  oneTime: number;
-  oneTimeGst?: boolean;
-  oneTimeGstAmount?: number;
-  total: number;
+  invoiceDate: string;
+  validUntil: string;
+  placeOfSupply: string; // buyer state name
+  taxType: 'CGST_SGST' | 'IGST';
+  buyer: ProformaParty;
+  lines: ProformaLine[];
 }
 
-export const proformaFilename = (number: string, clientName: string) =>
-  `Proforma_${number.replace(/[^\w]+/g, '-')}_${String(clientName).replace(/[^\w]+/g, '_').slice(0, 50)}.pdf`;
+export const proformaFilename = (number: string) =>
+  `proforma-${number.replace(/^PRO\//, 'PRO_').replace(/\//g, '_')}.pdf`;
+
+// Address block lines: street (one line per line break), "City, State, PIN", country
+export function addressLines(p: ProformaParty): string[] {
+  const street = String(p.address || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const cityLine = [p.city, [p.state, p.pincode].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  return [...street, cityLine, p.country || 'India'].filter(Boolean);
+}
 
 export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
-  const primary = brand.brandPrimary || '#4f46e5';
-  const accent = brand.brandAccent || '#312e81';
-  const ob = d.onboarding || {};
-  const contact = brandContactLine(brand);
-  const buyerLines = [
-    ob.contactPerson ? `Attn: ${esc(ob.contactPerson)}${ob.contactDesignation ? `, ${esc(ob.contactDesignation)}` : ''}` : '',
-    esc(ob.address || ''),
-    esc(ob.city || ''),
-    [ob.contactPhone, ob.contactEmail].filter(Boolean).map(esc).join(' · '),
-  ].filter(Boolean).map(l => `<div>${l}</div>`).join('');
+  const accent = brand.brandPrimary || '#0e7490';
+  const totals = proformaTotals(d.lines, d.taxType);
+  const intra = d.taxType === 'CGST_SGST';
+  const seller: ProformaParty = {
+    name: brand.name, address: brand.address, city: brand.city, state: brand.state,
+    pincode: brand.pincode, country: brand.country, gstin: brand.gstin,
+  };
+  const sellerMeta = [
+    brand.gstin ? `GSTIN: ${esc(brand.gstin)}` : '',
+    brand.phone ? `Ph: ${esc(brand.phone)}` : '',
+  ].filter(Boolean).join(' &nbsp;•&nbsp; ');
 
-  const otTaxed = Boolean(d.oneTimeGst) && d.oneTime > 0;
-  const otGst = otTaxed ? (d.oneTimeGstAmount ?? round2(d.oneTime * PROFORMA_GST_RATE)) : 0;
-  const lineGst = round2(d.gst - otGst); // subscription line's GST
-  const oneTimeRow = d.oneTime > 0 ? `
-      <tr><td class="c">2</td><td>One-time fee${otTaxed ? '' : ' (not subject to GST)'}</td>
-        <td class="amt">${money2(d.oneTime)}</td><td class="amt">${otTaxed ? money2(otGst) : '—'}</td>
-        <td class="amt">${money2(d.oneTime + otGst)}</td></tr>` : '';
-  // Totals: a taxed one-time fee joins the taxable value; an untaxed one sits apart
-  const taxableTotal = round2(d.taxable + (otTaxed ? d.oneTime : 0));
+  const partyBox = (label: string) => `
+    <div class="pf-party">
+      <div class="pf-label">${label}</div>
+      <div class="pf-pname">${esc(d.buyer.name)}</div>
+      ${addressLines(d.buyer).map(l => `<div>${esc(l)}</div>`).join('')}
+      ${d.buyer.gstin ? `<div class="pf-gstin">GSTIN: ${esc(d.buyer.gstin)}</div>` : ''}
+    </div>`;
+
+  const rows = d.lines.map((l, i) => `
+    <tr>
+      <td class="pf-n">${i + 1}.</td>
+      <td><div class="pf-desc">${esc(l.description)}</div>${l.detail ? `<div class="pf-detail">${esc(l.detail)}</div>` : ''}</td>
+      <td>${esc(l.hsn)}</td>
+      <td class="r">${l.qty.toFixed(2)}</td>
+      <td class="r">${money2(l.rate)}</td>
+      <td class="r">${money2(l.taxable)}</td>
+      <td class="r">${l.gstRate ? `${money2(l.gst)}<div class="pf-rate">@ ${l.gstRate}%</div>` : '<span class="pf-muted">—</span>'}</td>
+      <td class="r pf-strong">${money2(l.total)}</td>
+    </tr>`).join('');
+
+  const totalRow = (label: string, v: number) =>
+    `<tr><td>${label}</td><td class="r pf-strong">Rs.${money2(v)}</td></tr>`;
 
   return `
-<div class="pi-doc" style="font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;font-size:12.5px;line-height:1.55;background:#fff;padding:2px;">
+<div class="pf-doc">
   <style>
-    .pi-doc table { width:100%; border-collapse:collapse; }
-    .pi-items th, .pi-items td { border:1px solid #d6dbe3; padding:6px 8px; }
-    .pi-items th { background:#eef2ff; color:${accent}; text-align:left; font-size:11px; }
-    .pi-items .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-    .pi-items .c { text-align:center; width:34px; }
-    .pi-tot td { padding:4px 8px; }
-    .pi-tot .amt { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
-    .pi-tot .grand td { border-top:2px solid ${primary}; font-weight:700; font-size:14px; padding-top:7px; }
-    .pi-label { font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:#6b7280; font-weight:700; margin-bottom:4px; }
-    .pi-doc tr { page-break-inside:avoid; }
+    .pf-doc { font-family: Arial, 'Helvetica Neue', sans-serif; color:#111827; font-size:11.5px; line-height:1.45;
+      background:#fff; padding:6mm 7mm 4mm; min-height:272mm; box-sizing:border-box; display:flex; flex-direction:column; }
+    .pf-doc table { border-collapse:collapse; width:100%; }
+    .pf-head { display:flex; justify-content:space-between; gap:16px; padding-bottom:14px; border-bottom:1px solid #e5e7eb; }
+    .pf-org { font-size:19px; font-weight:700; margin-bottom:6px; }
+    .pf-small { font-size:10.5px; color:#4b5563; }
+    .pf-orgmeta { font-size:10.5px; font-weight:700; margin-top:2px; }
+    .pf-title { font-size:30px; font-weight:800; line-height:1.05; text-align:right; letter-spacing:.01em; }
+    .pf-bar { height:4px; width:150px; background:${accent}; margin:8px 0 10px auto; }
+    .pf-meta td { padding:2px 0; font-size:11.5px; }
+    .pf-meta .k { color:#9ca3af; font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; text-align:right; padding-right:22px; }
+    .pf-meta .v { font-weight:700; text-align:right; white-space:nowrap; }
+    .pf-parties { display:flex; gap:18px; margin:22px 0 26px; }
+    .pf-party { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:14px 20px 18px; color:#4b5563; }
+    .pf-label { color:${accent}; font-size:10px; font-weight:700; letter-spacing:.08em; margin-bottom:6px; }
+    .pf-pname { color:#111827; font-size:14.5px; font-weight:700; margin-bottom:6px; line-height:1.3; }
+    .pf-gstin { color:#111827; font-weight:700; margin-top:4px; }
+    .pf-items th { background:#f9fafb; color:#9ca3af; font-size:9.5px; font-weight:700; text-transform:uppercase;
+      letter-spacing:.04em; text-align:left; padding:9px 6px; }
+    .pf-items td { padding:10px 6px; vertical-align:top; border-bottom:1px solid #e5e7eb; }
+    .pf-items tr { page-break-inside:avoid; }
+    .pf-items .r { text-align:right; white-space:nowrap; }
+    .pf-n { width:22px; }
+    .pf-desc { font-weight:700; }
+    .pf-detail { color:#4b5563; }
+    .pf-rate { color:${accent}; font-size:9.5px; font-weight:700; }
+    .pf-strong { font-weight:700; }
+    .pf-muted { color:#9ca3af; }
+    .pf-bottom { display:flex; gap:18px; margin-top:22px; align-items:stretch; page-break-inside:avoid; }
+    .pf-words { flex:1.15; background:#fefce8; border:1px solid #fde68a; border-radius:8px; padding:14px 20px; }
+    .pf-words .pf-label { color:#9a3412; }
+    .pf-words .w { font-size:13px; font-weight:700; }
+    .pf-tot { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:10px 20px; }
+    .pf-tot td { padding:6px 0; font-size:12.5px; color:#4b5563; }
+    .pf-tot .pf-strong { color:#111827; font-size:13px; }
+    .pf-tot .grand td { border-top:1px solid #e5e7eb; color:#111827; font-size:15px; font-weight:700; padding-top:8px; }
+    .pf-tot .r { text-align:right; }
+    .pf-foot { margin-top:auto; padding-top:40px; page-break-inside:avoid; }
+    .pf-signs { display:flex; gap:90px; }
+    .pf-sign { flex:1; text-align:center; font-size:11px; color:#4b5563; }
+    .pf-sign .line { border-top:1px solid #111827; padding-top:6px; }
+    .pf-sigimg { height:48px; display:flex; justify-content:center; align-items:flex-end; margin-bottom:4px; }
+    .pf-note { text-align:center; font-style:italic; color:#9ca3af; font-size:10px; margin-top:20px; }
   </style>
 
-  <div style="border-bottom:3px solid ${primary};padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;gap:16px;">
-    <div style="display:flex;align-items:center;gap:12px;min-width:0;">
-      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:44px;max-width:120px;object-fit:contain;"/>` : ''}
+  <div class="pf-head">
+    <div style="display:flex;gap:12px;min-width:0;">
+      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:52px;max-width:120px;object-fit:contain;"/>` : ''}
       <div style="min-width:0;">
-        <div style="font-size:18px;font-weight:bold;color:${accent};">${esc(brand.name)}</div>
-        ${brand.addressLine ? `<div style="font-size:10.5px;color:#666;">${esc(brand.addressLine)}</div>` : ''}
-        ${contact ? `<div style="font-size:10.5px;color:#666;">${esc(contact)}</div>` : ''}
+        <div class="pf-org">${esc(brand.name)}</div>
+        ${addressLines(seller).map(l => `<div class="pf-small">${esc(l)}</div>`).join('')}
+        ${sellerMeta ? `<div class="pf-orgmeta">${sellerMeta}</div>` : ''}
       </div>
     </div>
-    <div style="text-align:right;flex:none;">
-      <div style="font-size:19px;font-weight:800;color:${accent};letter-spacing:.02em;">PROFORMA INVOICE</div>
-      <div style="display:inline-block;margin-top:4px;padding:2px 8px;border:1px solid #b91c1c;color:#b91c1c;border-radius:4px;font-size:10.5px;font-weight:700;">
-        Proforma Invoice — Not a Tax Invoice
-      </div>
+    <div style="flex:none;">
+      <div class="pf-title">PROFORMA<br/>INVOICE</div>
+      <div class="pf-bar"></div>
+      <table class="pf-meta" style="width:auto;margin-left:auto;">
+        <tr><td class="k">Proforma No.</td><td class="v">${esc(d.number)}</td></tr>
+        <tr><td class="k">Date</td><td class="v">${esc(fmtDate(d.invoiceDate))}</td></tr>
+        <tr><td class="k">Valid Until</td><td class="v">${esc(fmtDate(d.validUntil))}</td></tr>
+        ${d.placeOfSupply ? `<tr><td class="k">Place of Supply</td><td class="v">${esc(placeOfSupplyLabel(d.placeOfSupply))}</td></tr>` : ''}
+      </table>
     </div>
   </div>
 
-  <table style="margin-bottom:18px;">
-    <tr>
-      <td style="vertical-align:top;width:58%;padding-right:16px;">
-        <div class="pi-label">Bill To</div>
-        <div style="font-size:14px;font-weight:700;">${esc(d.clientName)}</div>
-        <div style="color:#444;">${buyerLines}</div>
-      </td>
-      <td style="vertical-align:top;">
-        <table>
-          <tr><td style="color:#6b7280;padding:2px 0;">Proforma No.</td><td style="font-weight:700;text-align:right;">${esc(d.number)}</td></tr>
-          <tr><td style="color:#6b7280;padding:2px 0;">Date</td><td style="text-align:right;">${esc(fmtDate(d.invoiceDate))}</td></tr>
-          <tr><td style="color:#6b7280;padding:2px 0;">Billing period</td><td style="text-align:right;">${esc(d.periodLabel)}</td></tr>
-        </table>
-      </td>
-    </tr>
+  <div class="pf-parties">${partyBox('BILL TO')}${partyBox('SHIP TO')}</div>
+
+  <table class="pf-items">
+    <tr><th>#</th><th>Item / Description</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th>
+      <th class="r">Taxable</th><th class="r">${intra ? 'CGST + SGST' : 'IGST'}</th><th class="r">Total</th></tr>
+    ${rows}
   </table>
 
-  <table class="pi-items" style="margin-bottom:10px;">
-    <tr><th class="c">#</th><th>Description</th><th class="amt">Taxable (Rs.)</th>
-      <th class="amt">GST @ 18% (Rs.)</th><th class="amt">Amount (Rs.)</th></tr>
-    <tr><td class="c">1</td><td>${esc(d.lineDescription)}</td>
-      <td class="amt">${money2(d.taxable)}</td><td class="amt">${money2(lineGst)}</td>
-      <td class="amt">${money2(d.taxable + lineGst)}</td></tr>${oneTimeRow}
-  </table>
-
-  <table class="pi-tot" style="width:46%;margin-left:auto;margin-bottom:14px;">
-    <tr><td>Taxable value</td><td class="amt">${money2(taxableTotal)}</td></tr>
-    <tr><td>GST @ 18%</td><td class="amt">${money2(d.gst)}</td></tr>
-    ${d.oneTime > 0 && !otTaxed ? `<tr><td>One-time fee (no GST)</td><td class="amt">${money2(d.oneTime)}</td></tr>` : ''}
-    <tr class="grand"><td>Total Payable</td><td class="amt">₹${money2(d.total)}</td></tr>
-  </table>
-
-  <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:8px 12px;margin-bottom:18px;">
-    <span class="pi-label" style="display:inline;margin-right:6px;">Amount in words:</span>
-    <strong>${esc(proformaAmountInWords(d.total))}</strong>
+  <div class="pf-bottom">
+    <div class="pf-words">
+      <div class="pf-label">AMOUNT IN WORDS</div>
+      <div class="w">${esc(proformaAmountInWords(totals.total))}</div>
+    </div>
+    <div class="pf-tot">
+      <table>
+        ${totalRow('Subtotal', totals.subtotal)}
+        ${intra ? totalRow('CGST', totals.cgst) + totalRow('SGST', totals.sgst) : totalRow('IGST', totals.igst)}
+        <tr class="grand"><td>Grand Total</td><td class="r">Rs.${money2(totals.total)}</td></tr>
+      </table>
+    </div>
   </div>
 
-  <div style="font-size:11px;color:#555;margin-bottom:26px;">
-    This is a proforma invoice issued for payment purposes only. It is not a tax invoice and
-    cannot be used to claim input tax credit. A tax invoice will be issued on receipt of payment.
-  </div>
-
-  <div style="display:flex;justify-content:flex-end;">
-    <div style="text-align:center;min-width:200px;">
-      <div style="font-size:11px;color:#555;margin-bottom:6px;">For ${esc(brand.name)}</div>
-      <div style="height:48px;display:flex;justify-content:center;align-items:flex-end;">${signatureImg(brand.signatureData)}</div>
-      <div style="border-top:1px solid #9ca3af;padding-top:4px;font-size:11.5px;">
-        <strong>${esc(brand.signatoryName || '')}</strong><br/>${esc(brand.signatoryDesignation || 'Authorised Signatory')}
+  <div class="pf-foot">
+    <div class="pf-signs">
+      <div class="pf-sign"><div class="pf-sigimg"></div><div class="line">Receiver's Signature</div></div>
+      <div class="pf-sign">
+        <div class="pf-sigimg">${signatureImg(brand.signatureData)}</div>
+        <div class="line">Authorized Signatory${brand.signatoryName ? `<br/><span style="color:#111827;font-weight:700;">${esc(brand.signatoryName)}</span>` : ''}</div>
       </div>
     </div>
+    <div class="pf-note">This is a computer-generated proforma invoice and does not require a physical signature.</div>
   </div>
 </div>`;
 }

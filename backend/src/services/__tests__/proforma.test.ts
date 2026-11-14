@@ -1,137 +1,166 @@
 import { describe, it, expect } from 'vitest';
 import {
-  nextProformaNumber, computeProformaAmounts, taxableForBalance,
-  proformaAmountInWords, renderProformaHtml, proformaFilename,
+  nextProformaNumber, fiscalYearOf, buildProformaLines, proformaTotals, taxableForBalance,
+  proformaAmountInWords, renderProformaHtml, proformaFilename, taxTypeFor, supplierStateCode,
+  placeOfSupplyLabel, periodDetail, addressLines,
 } from '../proformaService';
 import type { OrgBrand } from '../orgBrand';
 
 const brand: OrgBrand = {
-  name: 'Acme <Systems>', tagline: '', addressLine: 'Chennai, TN', phone: '99999', email: 'a@acme.test',
-  website: '', logoData: '', brandPrimary: '#123456', brandAccent: '#654321',
-  signatoryName: 'R. Kumar', signatoryDesignation: 'Director', signatureData: '',
-  logoPosition: 'LEFT', clientLogos: [],
+  name: 'Aveon <Infotech>', tagline: '', addressLine: '', phone: '8754006483', email: '',
+  website: '', logoData: '', brandPrimary: '#0e7490', brandAccent: '#111827',
+  signatoryName: '', signatoryDesignation: '', signatureData: '', logoPosition: 'LEFT', clientLogos: [],
+  address: 'No.33, Kathir Avenue Andal Street\nHope College, Peelamedu', city: 'Coimbatore',
+  state: 'Tamil Nadu', pincode: '641004', country: 'India', gstin: '33AAKCA4063C1Z4',
 };
 
-describe('nextProformaNumber', () => {
-  it('starts at 001 for a fresh period', () => {
-    expect(nextProformaNumber('2026-2027', [])).toBe('PI/2026-2027/001');
-  });
-
-  it('increments from the highest existing number in the period', () => {
-    expect(nextProformaNumber('2026-2027', ['PI/2026-2027/001'])).toBe('PI/2026-2027/002');
-    expect(nextProformaNumber('2026-2027', ['PI/2026-2027/001', 'PI/2026-2027/007', 'PI/2026-2027/003']))
-      .toBe('PI/2026-2027/008');
-  });
-
-  it('resets per period — other periods do not count', () => {
-    expect(nextProformaNumber('2027-2028', ['PI/2026-2027/005'])).toBe('PI/2027-2028/001');
-  });
-
-  it('does not reuse a gap left by a deleted invoice', () => {
-    expect(nextProformaNumber('2026-2027', ['PI/2026-2027/001', 'PI/2026-2027/003'])).toBe('PI/2026-2027/004');
-  });
-
-  it('grows past three digits', () => {
-    expect(nextProformaNumber('2026-2027', ['PI/2026-2027/999'])).toBe('PI/2026-2027/1000');
+describe('fiscalYearOf', () => {
+  it('uses the April-March financial year', () => {
+    expect(fiscalYearOf('2026-11-13')).toBe('2026-27');
+    expect(fiscalYearOf('2027-03-31')).toBe('2026-27');
+    expect(fiscalYearOf('2027-04-01')).toBe('2027-28');
+    expect(fiscalYearOf('2099-06-01')).toBe('2099-00');
   });
 });
 
-describe('computeProformaAmounts', () => {
-  it('adds 18% GST to the taxable value', () => {
-    expect(computeProformaAmounts(100000)).toMatchObject({ taxable: 100000, gst: 18000, oneTime: 0, total: 118000 });
+describe('nextProformaNumber', () => {
+  it('starts at 001 for a fresh year', () => {
+    expect(nextProformaNumber('2026-27', [])).toBe('PRO/2026-27/001');
   });
 
-  it('rounds to paise and adds the one-time fee without GST by default', () => {
-    expect(computeProformaAmounts(1234.567, 5000)).toEqual({
-      taxable: 1234.57, gst: 222.22, oneTime: 5000, oneTimeGst: false, oneTimeGstAmount: 0, total: 6456.79,
+  it('continues an existing sequence from the configured floor', () => {
+    expect(nextProformaNumber('2026-27', [], 22)).toBe('PRO/2026-27/023');
+  });
+
+  it('increments from the highest issued number, above the floor', () => {
+    expect(nextProformaNumber('2026-27', ['PRO/2026-27/023', 'PRO/2026-27/025'], 22)).toBe('PRO/2026-27/026');
+    expect(nextProformaNumber('2026-27', ['PRO/2026-27/003'], 22)).toBe('PRO/2026-27/023');
+  });
+
+  it('ignores other years', () => {
+    expect(nextProformaNumber('2027-28', ['PRO/2026-27/040'])).toBe('PRO/2027-28/001');
+  });
+});
+
+describe('lines and totals', () => {
+  const lines = buildProformaLines([
+    { billingId: 'b1', description: 'CMS Software Subscription Charges for', detail: 'Academic Year 2025 - 26', rate: 50000 },
+    { billingId: 'b2', description: 'CMS Software Subscription Charges for', detail: 'Academic Year 2026 - 27', rate: 20000 },
+    { description: 'Implementation fee', rate: 10000, gst: false },
+  ]);
+
+  it('computes each line at qty × rate with 18% GST (or none)', () => {
+    expect(lines[0]).toMatchObject({ qty: 1, taxable: 50000, gstRate: 18, gst: 9000, total: 59000, hsn: '998311' });
+    expect(lines[2]).toMatchObject({ taxable: 10000, gstRate: 0, gst: 0, total: 10000, billingId: null });
+  });
+
+  it('splits GST into CGST + SGST for intra-state supply', () => {
+    expect(proformaTotals(lines, 'CGST_SGST')).toEqual({
+      subtotal: 80000, gst: 12600, cgst: 6300, sgst: 6300, igst: 0, total: 92600,
     });
   });
 
-  it('adds 18% GST on the one-time fee when chosen', () => {
-    expect(computeProformaAmounts(100000, 25000, true)).toEqual({
-      taxable: 100000, gst: 22500, oneTime: 25000, oneTimeGst: true, oneTimeGstAmount: 4500, total: 147500,
-    });
+  it('charges IGST for inter-state supply', () => {
+    expect(proformaTotals(lines, 'IGST')).toMatchObject({ cgst: 0, sgst: 0, igst: 12600, total: 92600 });
   });
 
-  it('ignores the GST choice when there is no one-time fee', () => {
-    expect(computeProformaAmounts(100000, 0, true)).toMatchObject({ gst: 18000, oneTimeGst: false, total: 118000 });
+  it('keeps CGST + SGST equal to total GST when the paise are odd', () => {
+    const t = proformaTotals(buildProformaLines([{ description: 'x', rate: 100.05 }]), 'CGST_SGST');
+    expect(t.gst).toBe(18.01);
+    expect(Math.round((t.cgst + t.sgst) * 100) / 100).toBe(18.01);
   });
 
   it('default taxable reconstructs the balance', () => {
-    const t = taxableForBalance(118000);
-    expect(t).toBe(100000);
-    expect(computeProformaAmounts(t).total).toBe(118000);
-    expect(taxableForBalance(-50)).toBe(0);
+    expect(taxableForBalance(59000)).toBe(50000);
+    expect(taxableForBalance(-5)).toBe(0);
+  });
+});
+
+describe('tax type and place of supply', () => {
+  it('reads the supplier state from the GSTIN first', () => {
+    expect(supplierStateCode('33AAKCA4063C1Z4', 'Karnataka')).toBe('33');
+    expect(supplierStateCode('', 'Karnataka')).toBe('29');
+  });
+
+  it('is intra-state for the same state, inter-state otherwise', () => {
+    expect(taxTypeFor('33', 'Tamil Nadu')).toBe('CGST_SGST');
+    expect(taxTypeFor('33', 'Kerala')).toBe('IGST');
+    expect(taxTypeFor('33', '')).toBe('CGST_SGST');
+  });
+
+  it('labels the place of supply with its code', () => {
+    expect(placeOfSupplyLabel('Tamil Nadu')).toBe('Tamil Nadu (33)');
+  });
+});
+
+describe('periodDetail', () => {
+  it('formats academic years like the sample', () => {
+    expect(periodDetail({ academicYear: '2025-2026' }, '2025-2026')).toBe('Academic Year 2025 - 26');
+    expect(periodDetail({ periodType: 'CUSTOM', academicYear: '2026-02-01' }, '01 Feb 2026 → 31 Jan 2027'))
+      .toBe('Period 01 Feb 2026 → 31 Jan 2027');
   });
 });
 
 describe('proformaAmountInWords', () => {
-  it('uses the Indian lakh system', () => {
-    expect(proformaAmountInWords(118000)).toBe('One Lakh Eighteen Thousand Rupees Only');
+  it('reads like the sample', () => {
+    expect(proformaAmountInWords(59000)).toBe('Rupees Fifty Nine Thousand Only');
+    expect(proformaAmountInWords(1250.5)).toBe('Rupees One Thousand Two Hundred Fifty and Fifty Paise Only');
   });
+});
 
-  it('spells paise', () => {
-    expect(proformaAmountInWords(1250.5)).toBe('One Thousand Two Hundred Fifty Rupees and Fifty Paise Only');
+describe('addressLines', () => {
+  it('keeps commas inside a street line and adds city, state, PIN', () => {
+    expect(addressLines({ name: 'x', address: 'No.33, Kathir Avenue\nPeelamedu', city: 'Coimbatore', state: 'Tamil Nadu', pincode: '641004' }))
+      .toEqual(['No.33, Kathir Avenue', 'Peelamedu', 'Coimbatore, Tamil Nadu, 641004', 'India']);
   });
 });
 
 describe('renderProformaHtml', () => {
-  const html = renderProformaHtml(brand, {
-    number: 'PI/2026-2027/001', invoiceDate: '2026-11-14', periodLabel: '2026-2027',
-    clientName: 'St. <Mary> College', onboarding: { address: '12 Main Rd', city: 'Madurai', contactPerson: 'Principal' },
-    lineDescription: 'ERP subscription 2026-2027', taxable: 100000, gst: 18000, oneTime: 0, total: 118000,
+  const doc = (taxType: 'CGST_SGST' | 'IGST') => renderProformaHtml(brand, {
+    number: 'PRO/2026-27/022', invoiceDate: '2026-11-13', validUntil: '2026-11-20',
+    placeOfSupply: 'Tamil Nadu', taxType,
+    buyer: { name: 'Annai Mira <College>', address: 'NH-46, Chennai-Bengaluru Highway\nArappakkam', city: 'Vellore', state: 'Tamil Nadu', pincode: '632517' },
+    lines: buildProformaLines([
+      { billingId: 'b1', description: 'CMS Software Subscription Charges for', detail: 'Academic Year 2025 - 26', rate: 50000 },
+    ]),
   });
 
-  it('marks the document as not a tax invoice', () => {
-    expect(html).toContain('Proforma Invoice — Not a Tax Invoice');
+  it('matches the sample layout', () => {
+    const h = doc('CGST_SGST');
+    expect(h).toContain('PROFORMA<br/>INVOICE');
+    expect(h).toContain('PRO/2026-27/022');
+    expect(h).toContain('13/11/2026');
+    expect(h).toContain('20/11/2026');
+    expect(h).toContain('Tamil Nadu (33)');
+    expect(h).toContain('GSTIN: 33AAKCA4063C1Z4');
+    expect(h).toContain('BILL TO');
+    expect(h).toContain('SHIP TO');
+    expect(h).toContain('Vellore, Tamil Nadu, 632517');
+    expect(h).toContain('998311');
+    expect(h).toContain('CGST + SGST');
+    expect(h).toContain('Rs.4,500.00');
+    expect(h).toContain('Rs.59,000.00');
+    expect(h).toContain('Rupees Fifty Nine Thousand Only');
+    expect(h).toContain("Receiver's Signature");
+    expect(h).toContain('computer-generated proforma invoice');
   });
 
-  it('shows the number, buyer block, totals and amount in words', () => {
-    expect(html).toContain('PI/2026-2027/001');
-    expect(html).toContain('12 Main Rd');
-    expect(html).toContain('Madurai');
-    expect(html).toContain('1,18,000.00');
-    expect(html).toContain('18,000.00');
-    expect(html).toContain('One Lakh Eighteen Thousand Rupees Only');
-    expect(html).toContain('14 Nov 2026');
+  it('shows IGST for inter-state supply', () => {
+    const h = doc('IGST');
+    expect(h).toContain('>IGST<');
+    expect(h).not.toContain('CGST + SGST');
   });
 
   it('escapes user-supplied text', () => {
-    expect(html).toContain('St. &lt;Mary&gt; College');
-    expect(html).toContain('Acme &lt;Systems&gt;');
-    expect(html).not.toContain('<Mary>');
-  });
-
-  it('omits the one-time row when there is none', () => {
-    expect(html).not.toContain('One-time fee');
-  });
-
-  const base = {
-    number: 'PI/2026-2027/002', invoiceDate: '2026-11-14', periodLabel: '2026-2027',
-    clientName: 'X College', lineDescription: 'Subscription',
-  };
-
-  it('marks an untaxed one-time fee as not subject to GST', () => {
-    const h = renderProformaHtml(brand, { ...base, ...computeProformaAmounts(100000, 25000, false) });
-    expect(h).toContain('One-time fee (not subject to GST)');
-    expect(h).toContain('One-time fee (no GST)');
-    expect(h).toContain('1,43,000.00');
-  });
-
-  it('shows GST on the one-time line when taxed', () => {
-    const h = renderProformaHtml(brand, { ...base, ...computeProformaAmounts(100000, 25000, true) });
-    expect(h).not.toContain('not subject to GST');
-    expect(h).toContain('4,500.00');   // one-time GST
-    expect(h).toContain('29,500.00');  // one-time line amount
-    expect(h).toContain('1,25,000.00'); // taxable value incl. one-time
-    expect(h).toContain('22,500.00');  // total GST
-    expect(h).toContain('1,47,500.00');
-    expect(h).toContain('One Lakh Forty Seven Thousand Five Hundred Rupees Only');
+    const h = doc('CGST_SGST');
+    expect(h).toContain('Annai Mira &lt;College&gt;');
+    expect(h).toContain('Aveon &lt;Infotech&gt;');
+    expect(h).not.toContain('<College>');
   });
 });
 
 describe('proformaFilename', () => {
-  it('is filesystem-safe', () => {
-    expect(proformaFilename('PI/2026-2027/001', 'St. Mary College')).toBe('Proforma_PI-2026-2027-001_St_Mary_College.pdf');
+  it('matches the sample file name', () => {
+    expect(proformaFilename('PRO/2026-27/022')).toBe('proforma-PRO_2026-27_022.pdf');
   });
 });

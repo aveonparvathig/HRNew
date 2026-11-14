@@ -3,7 +3,7 @@ import * as bcrypt from 'bcryptjs';
 import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { INDIAN_STATES } from '../services/payroll/constants';
-import { IMAGE_DATA_URI, LOGO_POSITIONS, MAX_SIGNATURE_CHARS } from '../services/masters';
+import { IMAGE_DATA_URI, LOGO_POSITIONS, MAX_SIGNATURE_CHARS, cleanGstin, isValidGstin } from '../services/masters';
 import {
   LOGIN_RESULT_LABELS, POLICY_LABELS, POLICY_LIMITS, PasswordPolicyLike, ROLES,
   expiryState, lockState, passwordProblem, policyInput, tempPasswordExpired,
@@ -87,6 +87,16 @@ export const orgController = {
       const name = str(b.name).trim();
       if (!name) throw new AppError(400, 'Organization name is required');
       data.name = name;
+    }
+    if (b.gstin !== undefined) {
+      const gstin = cleanGstin(b.gstin);
+      if (gstin && !isValidGstin(gstin)) throw new AppError(400, 'That GSTIN is not valid — check all 15 characters');
+      data.gstin = gstin;
+    }
+    if (b.pincode !== undefined) {
+      const pincode = str(b.pincode).trim();
+      if (pincode && !/^\d{6}$/.test(pincode)) throw new AppError(400, 'The PIN code must be 6 digits');
+      data.pincode = pincode;
     }
     for (const f of ['tagline', 'address', 'city', 'country', 'phone',
       'email', 'website', 'jurisdiction', 'logoData',

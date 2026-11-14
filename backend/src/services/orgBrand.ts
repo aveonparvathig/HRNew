@@ -15,11 +15,20 @@ export interface OrgBrand {
   signatureData: string;
   logoPosition: string; // LEFT | CENTER | RIGHT
   clientLogos: { name: string; logoUri: string }[]; // custom proposal client logos
+  // Address parts + GSTIN, for documents that print them separately (proforma)
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  country?: string;
+  gstin?: string;
 }
 
 export async function orgBrand(organizationId: string): Promise<OrgBrand> {
   const org = await prisma.organization.findUnique({ where: { id: organizationId } });
-  const addressLine = [org?.address, org?.city, org?.state, org?.country]
+  // The address may span lines (proforma prints them); one-line uses get commas
+  const street = String(org?.address || '').split(/\r?\n/).map(s => s.trim()).filter(Boolean).join(', ');
+  const addressLine = [street, org?.city, org?.state, org?.country]
     .filter(Boolean).join(', ');
   return {
     name: org?.name || 'Organization',
@@ -36,6 +45,12 @@ export async function orgBrand(organizationId: string): Promise<OrgBrand> {
     signatureData: org?.signatureData || '',
     logoPosition: org?.logoPosition || 'LEFT',
     clientLogos: Array.isArray(org?.clientLogos) ? (org!.clientLogos as any) : [],
+    address: org?.address || '',
+    city: org?.city || '',
+    state: org?.state || '',
+    pincode: org?.pincode || '',
+    country: org?.country || '',
+    gstin: org?.gstin || '',
   };
 }
 

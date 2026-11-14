@@ -6,7 +6,7 @@ import ImageUpload from '../../components/ImageUpload';
 // What each section of the company's profile holds. A section saves only
 // its own fields.
 const SECTION_FIELDS: Record<string, string[]> = {
-  identity: ['name', 'tagline', 'phone', 'email', 'website', 'address', 'city', 'state', 'country', 'jurisdiction'],
+  identity: ['name', 'tagline', 'phone', 'email', 'website', 'address', 'city', 'state', 'pincode', 'country', 'gstin', 'jurisdiction'],
   branding: ['logoData', 'logoPosition', 'brandPrimary', 'brandAccent'],
   signatory: ['signatoryName', 'signatoryDesignation', 'signatureData'],
 };
@@ -96,7 +96,9 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
           <div className="form-grid">
             <div className="field" style={{ gridColumn: 'span 2' }}>
               <label>Address</label>
-              <input className="input" value={form.address} onChange={e => set('address', e.target.value)} />
+              <textarea className="input" rows={2} value={form.address}
+                placeholder="One line per row — e.g. door/street, then area"
+                onChange={e => set('address', e.target.value)} />
             </div>
             <div className="field">
               <label>City</label>
@@ -120,8 +122,19 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
               )}
             </div>
             <div className="field">
+              <label>PIN code</label>
+              <input className="input" inputMode="numeric" maxLength={6} value={form.pincode || ''}
+                onChange={e => set('pincode', e.target.value.replace(/\D/g, ''))} />
+            </div>
+            <div className="field">
               <label>Country</label>
               <input className="input" value={form.country} onChange={e => set('country', e.target.value)} />
+            </div>
+            <div className="field">
+              <label>GSTIN</label>
+              <input className="input" maxLength={15} placeholder="e.g. 33AAKCA4063C1Z4" value={form.gstin || ''}
+                onChange={e => set('gstin', e.target.value.toUpperCase())} />
+              <span className="hint">Printed on proforma invoices; its state decides CGST + SGST or IGST.</span>
             </div>
             <div className="field">
               <label>Jurisdiction</label>
