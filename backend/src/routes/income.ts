@@ -50,7 +50,9 @@ router.put('/billings/:billingId', asyncHandler((req, res) => incomeController.u
 router.delete('/billings/:billingId', adminOnly, asyncHandler((req, res) => incomeController.deleteBilling(req, res)));
 
 // Proforma invoices
-router.post('/billings/:billingId/proforma', asyncHandler((req, res) => incomeController.generateProforma(req, res)));
+router.get('/proforma-settings', asyncHandler((req, res) => incomeController.getProformaSettings(req, res)));
+router.put('/proforma-settings', adminOnly, asyncHandler((req, res) => incomeController.updateProformaSettings(req, res)));
+router.post('/clients/:clientId/proforma', asyncHandler((req, res) => incomeController.generateProforma(req, res)));
 router.get('/proformas', asyncHandler((req, res) => incomeController.listProformas(req, res)));
 router.get('/proformas/:proformaId', asyncHandler((req, res) => incomeController.getProforma(req, res)));
 router.delete('/proformas/:proformaId', adminOnly, asyncHandler((req, res) => incomeController.deleteProforma(req, res)));

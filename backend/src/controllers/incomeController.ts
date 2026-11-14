@@ -4,8 +4,11 @@ import { AppError } from '../middleware/errorHandler';
 import { loadActor, actorPerson } from '../middleware/roles';
 import { escapeHtml } from '../utils/html';
 import { orgBrand } from '../services/orgBrand';
+import { INDIAN_STATES } from '../services/payroll/constants';
+import { cleanGstin, isValidGstin, stateOfGstCode } from '../services/masters';
 import {
-  computeProformaAmounts, nextProformaNumber, proformaPrefix, proformaFilename, renderProformaHtml,
+  DEFAULT_SAC, PROFORMA_VALID_DAYS, buildProformaLines, fiscalYearOf, nextProformaNumber,
+  proformaFilename, proformaTotals, renderProformaHtml, supplierStateCode, taxTypeFor,
 } from '../services/proformaService';
 
 const GST_RATE = 0.18;
@@ -468,6 +471,7 @@ export const incomeController = {
     res.json({
       engineers,
       academicYears,
+      states: INDIAN_STATES,
       invoiceStatuses: INVOICE_STATUSES,
       onboardingStages: ONBOARDING_STAGES,
       institutionTypes: INSTITUTION_TYPES,
@@ -1211,6 +1215,15 @@ export const incomeController = {
     if (b.agreementStart && b.agreementEnd && b.agreementEnd <= b.agreementStart) {
       throw new AppError(400, 'Agreement end date must be after the start date');
     }
+    if (b.state && !INDIAN_STATES.includes(String(b.state).trim())) {
+      throw new AppError(400, 'Pick the state from the list');
+    }
+    if (b.pincode && !/^\d{6}$/.test(String(b.pincode).trim())) {
+      throw new AppError(400, 'The PIN code must be 6 digits');
+    }
+    if (b.gstin && !isValidGstin(b.gstin)) {
+      throw new AppError(400, 'That GSTIN is not valid — check all 15 characters');
+    }
     const numOrKeep = (v: any, fallback: any) =>
       v != null && v !== '' ? Number(v) : fallback ?? null;
     const data: any = {
@@ -1222,6 +1235,9 @@ export const incomeController = {
       institutionType: String(b.institutionType ?? existing?.institutionType ?? ''),
       address: String(b.address ?? existing?.address ?? ''),
       city: String(b.city ?? existing?.city ?? ''),
+      state: String(b.state ?? existing?.state ?? '').trim(),
+      pincode: String(b.pincode ?? existing?.pincode ?? '').trim(),
+      gstin: cleanGstin(b.gstin ?? existing?.gstin ?? ''),
       studentStrength: numOrKeep(b.studentStrength, existing?.studentStrength),
       onboardedOn: b.onboardedOn ?? existing?.onboardedOn ?? null,
       goLiveDate: b.goLiveDate ?? existing?.goLiveDate ?? null,
@@ -1630,67 +1646,159 @@ export const incomeController = {
   },
 
   // -------------------------------------------------------------------------
-  // Proforma invoices — numbered, frozen documents raised against a billing
-  // row. The server renders HTML; the frontend turns it into a PDF.
+  // Proforma invoices — numbered, frozen documents for one client covering
+  // one or more billing periods. The server renders HTML; the frontend turns
+  // it into a PDF.
   // -------------------------------------------------------------------------
+  // Numbering state for a financial year + supplier GST details.
+  async getProformaSettings(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const fiscalYear = String(req.query.fiscalYear || fiscalYearOf(todayStr()));
+    if (!/^\d{4}-\d{2}$/.test(fiscalYear)) throw new AppError(400, 'Financial year must look like 2026-27');
+    const [org, existing] = await Promise.all([
+      prisma.organization.findUnique({
+        where: { id: orgId },
+        select: { proformaSeqFloor: true, gstin: true, state: true, pincode: true },
+      }),
+      prisma.proformaInvoice.findMany({
+        where: { organizationId: orgId, fiscalYear },
+        select: { number: true },
+      }),
+    ]);
+    const floor = Number((org?.proformaSeqFloor as any)?.[fiscalYear] || 0);
+    res.json({
+      fiscalYear,
+      lastNumberFloor: floor,
+      nextNumber: nextProformaNumber(fiscalYear, existing.map(e => e.number), floor),
+      issuedThisYear: existing.length,
+      supplier: {
+        gstin: org?.gstin || '', state: org?.state || '', pincode: org?.pincode || '',
+        // The state GST is decided against: the GSTIN's state code, else the profile state
+        taxState: stateOfGstCode(supplierStateCode(org?.gstin || '', org?.state || '')) || org?.state || '',
+      },
+      states: INDIAN_STATES,
+      defaultSac: DEFAULT_SAC,
+      validDays: PROFORMA_VALID_DAYS,
+    });
+  },
+
+  // Admin: "the last number already used this year was N" — numbering
+  // continues from N + 1 (or after the highest issued number, if higher).
+  async updateProformaSettings(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const fiscalYear = String(req.body?.fiscalYear || '');
+    if (!/^\d{4}-\d{2}$/.test(fiscalYear)) throw new AppError(400, 'Financial year must look like 2026-27');
+    const last = Number(req.body?.lastNumber);
+    if (!Number.isInteger(last) || last < 0 || last > 99999) {
+      throw new AppError(400, 'The last number used must be a whole number (0 or more)');
+    }
+    const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { proformaSeqFloor: true } });
+    const floors = { ...((org?.proformaSeqFloor as any) || {}), [fiscalYear]: last };
+    await prisma.organization.update({ where: { id: orgId }, data: { proformaSeqFloor: floors } });
+    const existing = await prisma.proformaInvoice.findMany({
+      where: { organizationId: orgId, fiscalYear }, select: { number: true },
+    });
+    res.json({
+      fiscalYear, lastNumberFloor: last,
+      nextNumber: nextProformaNumber(fiscalYear, existing.map(e => e.number), last),
+    });
+  },
+
   async generateProforma(req: any, res: Response) {
     const orgId = req.user?.organizationId;
-    const billing = await fetchOrgBilling(req.params.billingId, orgId);
-    await assertClientAccess(req, billing.clientId);
+    const client = await fetchOrgClient(req.params.clientId, orgId);
+    await assertClientAccess(req, client.id);
     const body = req.body || {};
 
     const invoiceDate = String(body.invoiceDate || todayStr());
     if (!DATE_RE.test(invoiceDate)) throw new AppError(400, 'Pick a valid invoice date');
-    const lineDescription = String(body.lineDescription || '').trim();
-    if (!lineDescription) throw new AppError(400, 'A line description is required');
-    if (lineDescription.length > 500) throw new AppError(400, 'Keep the description under 500 characters');
-    const taxableRaw = Number(body.taxableAmount);
-    if (!Number.isFinite(taxableRaw) || taxableRaw <= 0) {
-      throw new AppError(400, 'The taxable amount must be greater than zero');
+    const validUntil = String(body.validUntil || addDaysStr(invoiceDate, PROFORMA_VALID_DAYS));
+    if (!DATE_RE.test(validUntil)) throw new AppError(400, 'Pick a valid "valid until" date');
+    if (validUntil < invoiceDate) throw new AppError(400, '"Valid until" cannot be before the invoice date');
+    const placeOfSupply = String(body.placeOfSupply || '').trim();
+    if (placeOfSupply && !INDIAN_STATES.includes(placeOfSupply)) {
+      throw new AppError(400, 'Pick the place of supply from the list of states');
     }
-    const oneTimeRaw = body.oneTimePayment === undefined || body.oneTimePayment === '' ? 0 : Number(body.oneTimePayment);
-    if (!Number.isFinite(oneTimeRaw) || oneTimeRaw < 0) {
-      throw new AppError(400, 'The one-time fee cannot be negative');
-    }
-    const oneTimeGst = body.oneTimeGst === true || body.oneTimeGst === 'true';
-    const amounts = computeProformaAmounts(taxableRaw, oneTimeRaw, oneTimeGst);
 
-    const [client, onboarding, brand] = await Promise.all([
-      fetchOrgClient(billing.clientId, orgId),
-      prisma.clientOnboarding.findUnique({ where: { clientId: billing.clientId } }),
+    // Lines: validate, then make sure every billing row belongs to this client
+    const rawLines: any[] = Array.isArray(body.lines) ? body.lines : [];
+    if (!rawLines.length) throw new AppError(400, 'Add at least one line');
+    if (rawLines.length > 50) throw new AppError(400, 'A proforma can have at most 50 lines');
+    for (const l of rawLines) {
+      const description = String(l?.description || '').trim();
+      if (!description) throw new AppError(400, 'Every line needs a description');
+      if (description.length > 300 || String(l?.detail || '').length > 300) {
+        throw new AppError(400, 'Keep line descriptions under 300 characters');
+      }
+      const qty = Number(l?.qty ?? 1);
+      const rate = Number(l?.rate);
+      if (!Number.isFinite(qty) || qty <= 0) throw new AppError(400, `"${description}": quantity must be greater than zero`);
+      if (!Number.isFinite(rate) || rate <= 0) throw new AppError(400, `"${description}": rate must be greater than zero`);
+    }
+    const billingIds = [...new Set(rawLines.map(l => l?.billingId).filter(Boolean).map(String))];
+    if (billingIds.length) {
+      const owned = await prisma.clientBilling.count({
+        where: { id: { in: billingIds }, clientId: client.id, organizationId: orgId },
+      });
+      if (owned !== billingIds.length) throw new AppError(404, 'Billing record not found');
+    }
+    const lines = buildProformaLines(rawLines.map(l => ({
+      billingId: l.billingId ? String(l.billingId) : null,
+      description: String(l.description),
+      detail: String(l.detail || ''),
+      hsn: String(l.hsn ?? DEFAULT_SAC).slice(0, 20),
+      qty: Number(l.qty ?? 1),
+      rate: Number(l.rate),
+      gst: l.gst !== false && l.gst !== 'false',
+    })));
+
+    const [onboarding, brand, org] = await Promise.all([
+      prisma.clientOnboarding.findUnique({ where: { clientId: client.id } }),
       orgBrand(orgId),
+      prisma.organization.findUnique({ where: { id: orgId }, select: { proformaSeqFloor: true } }),
     ]);
-    const periodLabel = periodLabelOf(billing);
+    const taxType = taxTypeFor(supplierStateCode(brand.gstin || '', brand.state || ''), placeOfSupply);
+    const totals = proformaTotals(lines, taxType);
+    const fiscalYear = fiscalYearOf(invoiceDate);
+    const floor = Number((org?.proformaSeqFloor as any)?.[fiscalYear] || 0);
+    const buyer = {
+      name: client.name,
+      address: onboarding?.address || '',
+      city: onboarding?.city || '',
+      state: onboarding?.state || placeOfSupply,
+      pincode: onboarding?.pincode || '',
+      country: 'India',
+      gstin: onboarding?.gstin || '',
+    };
 
-    // Sequential per org + period; the @@unique guards concurrent issues,
-    // and a collision re-reads the max and retries once.
+    // Sequential per org + financial year; the @@unique guards concurrent
+    // issues, and a collision re-reads the max and retries once.
     let record: any = null;
     for (let attempt = 0; attempt < 2 && !record; attempt++) {
       const existing = await prisma.proformaInvoice.findMany({
-        where: { organizationId: orgId, number: { startsWith: proformaPrefix(billing.academicYear) } },
+        where: { organizationId: orgId, fiscalYear },
         select: { number: true },
       });
-      const number = nextProformaNumber(billing.academicYear, existing.map(e => e.number));
-      const html = renderProformaHtml(brand, {
-        number, invoiceDate, periodLabel, clientName: client.name, onboarding,
-        lineDescription, ...amounts,
-      });
+      const number = nextProformaNumber(fiscalYear, existing.map(e => e.number), floor);
+      const html = renderProformaHtml(brand, { number, invoiceDate, validUntil, placeOfSupply, taxType, buyer, lines });
       try {
         record = await prisma.proformaInvoice.create({
           data: {
             organizationId: orgId,
             clientId: client.id,
-            billingId: billing.id,
+            billingIds,
             number,
-            academicYear: billing.academicYear,
-            periodLabel,
+            fiscalYear,
             invoiceDate,
-            lineDescription,
-            taxableValue: amounts.taxable,
-            gstAmount: amounts.gst,
-            oneTimePayment: amounts.oneTime,
-            oneTimeGst: amounts.oneTimeGst,
-            totalAmount: amounts.total,
+            validUntil,
+            placeOfSupply,
+            taxType,
+            lines: lines as any,
+            subtotal: totals.subtotal,
+            cgst: totals.cgst,
+            sgst: totals.sgst,
+            igst: totals.igst,
+            totalAmount: totals.total,
             html,
             createdById: req.actor?.id || null,
           },
@@ -1700,17 +1808,19 @@ export const incomeController = {
       }
     }
 
-    await prisma.clientBilling.update({
-      where: { id: billing.id },
-      data: { invoiceStatus: 'PROFORMA' },
-    });
+    if (billingIds.length) {
+      await prisma.clientBilling.updateMany({
+        where: { id: { in: billingIds }, organizationId: orgId },
+        data: { invoiceStatus: 'PROFORMA' },
+      });
+    }
 
     res.status(201).json({
       id: record.id,
       number: record.number,
       totalAmount: record.totalAmount,
       html: record.html,
-      filename: proformaFilename(record.number, client.name),
+      filename: proformaFilename(record.number),
     });
   },
 
@@ -1725,15 +1835,21 @@ export const incomeController = {
         ...(clientId ? { clientId } : {}),
       },
       select: {
-        id: true, number: true, clientId: true, billingId: true, academicYear: true,
-        periodLabel: true, invoiceDate: true, lineDescription: true, taxableValue: true,
-        gstAmount: true, oneTimePayment: true, oneTimeGst: true, totalAmount: true, createdAt: true,
+        id: true, number: true, clientId: true, billingIds: true, fiscalYear: true,
+        invoiceDate: true, validUntil: true, placeOfSupply: true, taxType: true, lines: true,
+        subtotal: true, cgst: true, sgst: true, igst: true, totalAmount: true, createdAt: true,
         client: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
     res.json({
-      records: records.map(r => ({ ...r, client: undefined, clientName: r.client?.name || '' })),
+      records: records.map(r => ({
+        ...r,
+        client: undefined,
+        clientName: r.client?.name || '',
+        periods: ((r.lines as any[]) || []).filter(l => l.billingId).map(l => l.detail || l.description),
+        gstAmount: round2(r.cgst + r.sgst + r.igst),
+      })),
       total: records.length,
     });
   },
@@ -1743,7 +1859,6 @@ export const incomeController = {
     const orgId = req.user?.organizationId;
     const record = await prisma.proformaInvoice.findFirst({
       where: { id: req.params.proformaId, organizationId: orgId },
-      include: { client: { select: { name: true } } },
     });
     if (!record) throw new AppError(404, 'Proforma invoice not found');
     await assertClientAccess(req, record.clientId);
@@ -1751,7 +1866,7 @@ export const incomeController = {
       id: record.id,
       number: record.number,
       html: record.html,
-      filename: proformaFilename(record.number, record.client.name),
+      filename: proformaFilename(record.number),
     });
   },
 

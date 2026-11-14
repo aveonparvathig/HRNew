@@ -17,7 +17,12 @@ model Organization {
   address      String @default("")
   city         String @default("")
   state        String @default("")
+  pincode      String @default("")
   country      String @default("India")
+  gstin        String @default("") // printed on proforma invoices
+  // Last proforma number already used per financial year, so numbering can
+  // continue an existing sequence: { "2026-27": 22 } -> next is PRO/2026-27/023
+  proformaSeqFloor Json @default("{}")
   phone        String @default("")
   email        String @default("")
   website      String @default("")
@@ -294,7 +299,6 @@ model ClientBilling {
 
   client   IncomeClient     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   payments PaymentReceipt[]
-  proformaInvoices ProformaInvoice[]
 
   @@unique([clientId, academicYear])
   @@index([organizationId, yearStart])
@@ -302,35 +306,38 @@ model ClientBilling {
   @@map("client_billings")
 }
 
-// Numbered, reprintable proforma invoice raised against one billing row.
+// Numbered, reprintable proforma invoice for one client, covering one or
+// more billing periods (one line each) plus optional extra lines.
 // `html` is the frozen render: an issued invoice never changes on reprint.
-// Deleting the billing row keeps the issued invoice (billingId -> null).
+// billingIds is a plain list, so deleting a billing row keeps the invoice.
 model ProformaInvoice {
-  id              String   @id @default(cuid())
-  organizationId  String
-  clientId        String
-  billingId       String?
-  number          String // PI/<academicYear>/NNN, sequential per org + period
-  academicYear    String
-  periodLabel     String   @default("")
-  invoiceDate     String // YYYY-MM-DD
-  lineDescription String
-  taxableValue    Float
-  gstAmount       Float
-  oneTimePayment  Float    @default(0)
-  oneTimeGst      Boolean  @default(false) // GST applied to the one-time fee
-  totalAmount     Float
-  html            String
-  createdById     String?
-  createdAt       DateTime @default(now())
+  id             String   @id @default(cuid())
+  organizationId String
+  clientId       String
+  billingIds     String[] @default([])
+  number         String // PRO/<FY>/NNN, sequential per org + financial year
+  fiscalYear     String // "2026-27" (April-March, from invoiceDate)
+  invoiceDate    String // YYYY-MM-DD
+  validUntil     String // YYYY-MM-DD
+  placeOfSupply  String   @default("") // buyer state, e.g. "Tamil Nadu"
+  taxType        String   @default("CGST_SGST") // CGST_SGST | IGST
+  // [{ billingId?, description, detail, hsn, qty, rate, taxable, gstRate, gst, total }]
+  lines          Json     @default("[]")
+  subtotal       Float
+  cgst           Float    @default(0)
+  sgst           Float    @default(0)
+  igst           Float    @default(0)
+  totalAmount    Float
+  html           String
+  createdById    String?
+  createdAt      DateTime @default(now())
 
-  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  client       IncomeClient   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  billing      ClientBilling? @relation(fields: [billingId], references: [id], onDelete: SetNull)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       IncomeClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, number])
   @@index([organizationId, clientId])
-  @@index([organizationId, academicYear])
+  @@index([organizationId, fiscalYear])
   @@map("proforma_invoices")
 }
 
@@ -363,6 +370,9 @@ model ClientOnboarding {
   institutionType       String   @default("")
   address               String   @default("")
   city                  String   @default("")
+  state                 String   @default("") // place of supply on proforma invoices
+  pincode               String   @default("")
+  gstin                 String   @default("")
   studentStrength       Int?
   onboardedOn           String?
   goLiveDate            String?
