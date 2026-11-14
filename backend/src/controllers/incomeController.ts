@@ -1720,11 +1720,18 @@ export const incomeController = {
       if (!DATE_RE.test(validUntil)) throw new AppError(400, 'Pick a valid "valid until" date');
       if (validUntil < invoiceDate) throw new AppError(400, '"Valid until" cannot be before the invoice date');
     }
-    const advanceRaw = body.advanceReceived === undefined || body.advanceReceived === '' ? 0 : Number(body.advanceReceived);
+    const amountOrZero = (v: any) => (v === undefined || v === null || v === '' ? 0 : Number(v));
+    const advanceRaw = amountOrZero(body.advanceReceived);
     if (!Number.isFinite(advanceRaw) || advanceRaw < 0) {
-      throw new AppError(400, 'The advance received cannot be negative');
+      throw new AppError(400, 'The received amount cannot be negative');
     }
     const advanceReceived = round2(advanceRaw);
+    // Carry-forward from earlier periods: already billed with GST there, so none here
+    const pendingRaw = amountOrZero(body.previousPending);
+    if (!Number.isFinite(pendingRaw) || pendingRaw < 0) {
+      throw new AppError(400, 'The previous pending amount cannot be negative');
+    }
+    const previousPending = round2(pendingRaw);
     const placeOfSupply = String(body.placeOfSupply || '').trim();
     if (placeOfSupply && !INDIAN_STATES.includes(placeOfSupply)) {
       throw new AppError(400, 'Pick the place of supply from the list of states');
@@ -1769,8 +1776,8 @@ export const incomeController = {
     ]);
     const taxType = taxTypeFor(supplierStateCode(brand.gstin || '', brand.state || ''), placeOfSupply);
     const totals = proformaTotals(lines, taxType);
-    if (advanceReceived > totals.total) {
-      throw new AppError(400, 'The advance received cannot be more than the grand total');
+    if (advanceReceived > round2(totals.total + previousPending)) {
+      throw new AppError(400, 'The received amount cannot be more than the total due');
     }
     const fiscalYear = fiscalYearOf(invoiceDate);
     const floor = Number((org?.proformaSeqFloor as any)?.[fiscalYear] || 0);
@@ -1794,7 +1801,7 @@ export const incomeController = {
       });
       const number = nextProformaNumber(fiscalYear, existing.map(e => e.number), floor);
       const html = renderProformaHtml(brand, {
-        number, invoiceDate, validUntil, placeOfSupply, taxType, buyer, lines, advanceReceived,
+        number, invoiceDate, validUntil, placeOfSupply, taxType, buyer, lines, advanceReceived, previousPending,
       });
       try {
         record = await prisma.proformaInvoice.create({
@@ -1815,6 +1822,7 @@ export const incomeController = {
             igst: totals.igst,
             totalAmount: totals.total,
             advanceReceived,
+            previousPending,
             html,
             createdById: req.actor?.id || null,
           },
@@ -1853,7 +1861,7 @@ export const incomeController = {
       select: {
         id: true, number: true, clientId: true, billingIds: true, fiscalYear: true,
         invoiceDate: true, validUntil: true, placeOfSupply: true, taxType: true, lines: true,
-        subtotal: true, cgst: true, sgst: true, igst: true, totalAmount: true, advanceReceived: true,
+        subtotal: true, cgst: true, sgst: true, igst: true, totalAmount: true, advanceReceived: true, previousPending: true,
         createdAt: true,
         client: { select: { name: true } },
       },
@@ -1868,7 +1876,7 @@ export const incomeController = {
         periods: [...new Map(((r.lines as any[]) || []).filter(l => l.billingId)
           .map(l => [l.billingId, l.detail || l.description])).values()],
         gstAmount: round2(r.cgst + r.sgst + r.igst),
-        balanceDue: round2(r.totalAmount - r.advanceReceived),
+        balanceDue: round2(r.totalAmount + r.previousPending - r.advanceReceived),
       })),
       total: records.length,
     });

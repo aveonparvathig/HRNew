@@ -197,6 +197,7 @@ describe('renderProformaHtml — advance and balance due (proforma 018)', () => 
     const h = doc018(0);
     expect(h).not.toContain('Received Amount');
     expect(h).not.toContain('Balance Due');
+    expect(h).not.toContain('Previous Pending');
   });
 
   it('omits Valid Until when it is not set, prints it when it is', () => {
@@ -211,6 +212,37 @@ describe('renderProformaHtml — advance and balance due (proforma 018)', () => 
     });
     expect(h).toContain('>1.50<');
   });
+});
+
+describe('renderProformaHtml — previous pending (carry-forward)', () => {
+  // The 2025-2026 billing row: 9263 × 250, previous pending 2,50,000, received 10,00,000
+  const doc = (previousPending: number, advanceReceived: number) => renderProformaHtml(brand, {
+    number: 'PRO/2026-27/030', invoiceDate: '2026-11-16', validUntil: '', placeOfSupply: 'Tamil Nadu',
+    taxType: 'CGST_SGST', previousPending, advanceReceived, buyer: { name: 'AMCET' },
+    lines: buildProformaLines([{ description: 'CMS Software Subscription Charges for', qty: 9263, rate: 250 }]),
+  });
+
+  it('adds it after the grand total, without GST, and nets the balance', () => {
+    const h = doc(250000, 1000000);
+    expect(h).toContain('Rs.23,15,750.00'); // subtotal unchanged: no GST on carry-forward
+    expect(h).toContain('Rs.27,32,585.00'); // grand total
+    expect(h).toContain('Previous Pending');
+    expect(h).toContain('Rs.2,50,000.00');
+    expect(h).toContain('Total Due');
+    expect(h).toContain('Rs.29,82,585.00');
+    expect(h).toContain('Rs.-10,00,000.00');
+    expect(h).toContain('Rs.19,82,585.00'); // balance due = the billing row's balance
+    expect(h.indexOf('Grand Total')).toBeLessThan(h.indexOf('Previous Pending'));
+  });
+
+  it('shows the balance bar without a Total Due row when nothing was received', () => {
+    const h = doc(250000, 0);
+    expect(h).toContain('Previous Pending');
+    expect(h).not.toContain('Total Due');
+    expect(h).toContain('Balance Due');
+    expect(h).toContain('Rs.29,82,585.00');
+  });
+
 });
 
 describe('proformaFilename', () => {

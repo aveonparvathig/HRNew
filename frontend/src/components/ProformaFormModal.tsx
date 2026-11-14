@@ -6,7 +6,7 @@ import { formatINR } from '../utils/format';
 import { downloadHtmlAsPdf } from '../utils/htmlToPdf';
 import { fiscalYearOf } from '../utils/fiscalYear';
 import {
-  type DraftLine, periodLines, lineAmounts, draftTotals, advanceFor,
+  type DraftLine, periodLines, lineAmounts, draftTotals, advanceFor, previousPendingFor,
 } from '../utils/proformaLines';
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -37,6 +37,8 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
   const [ticked, setTicked] = useState<Set<string>>(new Set()); // billing ids on the invoice
   const [advance, setAdvance] = useState('');
   const [advanceEdited, setAdvanceEdited] = useState(false);
+  const [pending, setPending] = useState('');              // previous pending (carry-forward)
+  const [pendingEdited, setPendingEdited] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const preselectKey = preselect.join(',');
@@ -54,6 +56,8 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
     setLines((client.billings || []).flatMap((b: any) => periodLines(b)));
     setAdvance(String(advanceFor(client.billings || [], picked) || ''));
     setAdvanceEdited(false);
+    setPending(String(previousPendingFor(client.billings || [], picked) || ''));
+    setPendingEdited(false);
     incomeAPI.getProformaSettings(fiscalYearOf(date)).then(res => {
       setSettings(res.data);
       setHsn(res.data.defaultSac || '998311');
@@ -75,13 +79,14 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
   const update = (key: string, patch: Partial<DraftLine>) =>
     setLines(ls => ls.map(l => (l.key === key ? { ...l, ...patch } : l)));
 
-  // Ticking a period adds its lines; the advance follows the ticked periods'
-  // payments until it is edited by hand.
+  // Ticking a period adds its lines; the received amount and the previous
+  // pending follow the ticked periods until each is edited by hand.
   const toggle = (billingId: string, on: boolean) => {
     const next = new Set(ticked);
     if (on) next.add(billingId); else next.delete(billingId);
     setTicked(next);
     if (!advanceEdited) setAdvance(String(advanceFor(billings, next) || ''));
+    if (!pendingEdited) setPending(String(previousPendingFor(billings, next) || ''));
   };
 
   const addExtra = () => setLines(ls => [...ls, {
@@ -92,7 +97,7 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
   const chosen = lines.filter(l => (l.billingId ? ticked.has(l.billingId) : true));
   const supplierState = settings?.supplier?.taxState || '';
   const intra = !placeOfSupply || !supplierState || placeOfSupply === supplierState;
-  const t = draftTotals(chosen, intra, Number(advance) || 0);
+  const t = draftTotals(chosen, intra, Number(advance) || 0, Number(pending) || 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,13 +105,13 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
     if (!chosen.length) { setError('Tick at least one period or add a line'); return; }
     const bad = chosen.find(l => !(Number(l.qty) > 0) || !(Number(l.rate) > 0) || !l.description.trim());
     if (bad) { setError(`Enter a description, quantity and rate for "${bad.detail || bad.description || 'each line'}"`); return; }
-    if (t.advance > t.total) { setError('The advance received cannot be more than the grand total'); return; }
+    if (t.advance > t.totalDue) { setError('The received amount cannot be more than the total due'); return; }
     setSaving(true);
     setError('');
     let generated = false;
     try {
       const res = await incomeAPI.generateProforma(client.id, {
-        invoiceDate, validUntil, placeOfSupply, advanceReceived: t.advance,
+        invoiceDate, validUntil, placeOfSupply, advanceReceived: t.advance, previousPending: t.previousPending,
         lines: chosen.map(l => ({
           billingId: l.billingId, description: l.description.trim(), detail: l.detail.trim(),
           hsn, qty: Number(l.qty), rate: round2(Number(l.rate)), gst: l.gst,
@@ -260,6 +265,20 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
                 )}
               </span>
             </div>
+            <div className="field">
+              <label>Previous pending (carry-forward)</label>
+              <div className="input-unit">
+                <span className="unit">₹</span>
+                <input className="input" type="number" min={0} step="0.01" placeholder="0" value={pending}
+                  onChange={e => { setPending(e.target.value); setPendingEdited(true); }} />
+              </div>
+              <span className="hint">
+                On the ticked periods: {formatINR(previousPendingFor(billings, ticked))}. Added after the grand total, no GST.
+                {pendingEdited && (
+                  <> · <a style={{ cursor: 'pointer' }} onClick={() => { setPending(String(previousPendingFor(billings, ticked) || '')); setPendingEdited(false); }}>use that</a></>
+                )}
+              </span>
+            </div>
           </div>
 
           <div className="calc-card">
@@ -273,11 +292,17 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
               <div className="calc-row"><span>IGST</span><span className="amount">{formatINR(t.igst)}</span></div>
             )}
             <div className="calc-row total"><span>Grand total</span><span className="amount">{formatINR(t.total)}</span></div>
+            {t.previousPending > 0 && (
+              <div className="calc-row"><span>Previous pending</span><span className="amount">{formatINR(t.previousPending)}</span></div>
+            )}
+            {t.previousPending > 0 && t.advance > 0 && (
+              <div className="calc-row total"><span>Total due</span><span className="amount">{formatINR(t.totalDue)}</span></div>
+            )}
             {t.advance > 0 && (
-              <>
-                <div className="calc-row"><span>Received amount</span><span className="amount">−{formatINR(t.advance)}</span></div>
-                <div className="calc-row total grand"><span>Balance due</span><span className="amount">{formatINR(t.balanceDue)}</span></div>
-              </>
+              <div className="calc-row"><span>Received amount</span><span className="amount">−{formatINR(t.advance)}</span></div>
+            )}
+            {(t.advance > 0 || t.previousPending > 0) && (
+              <div className="calc-row total grand"><span>Balance due</span><span className="amount">{formatINR(t.balanceDue)}</span></div>
             )}
           </div>
 

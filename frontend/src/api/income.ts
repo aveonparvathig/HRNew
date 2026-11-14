@@ -41,7 +41,7 @@ export const incomeAPI = {
 
   // Proforma invoices
   generateProforma: (clientId: string, data: {
-    invoiceDate: string; validUntil: string; placeOfSupply: string; advanceReceived?: number;
+    invoiceDate: string; validUntil: string; placeOfSupply: string; advanceReceived?: number; previousPending?: number;
     lines: { billingId?: string | null; description: string; detail?: string; hsn?: string; qty?: number; rate: number; gst: boolean }[];
   }) => apiClient.post(`/income/clients/${clientId}/proforma`, data),
   getProformaSettings: (fiscalYear?: string) =>
