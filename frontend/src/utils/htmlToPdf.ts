@@ -11,6 +11,9 @@ export async function downloadHtmlAsPdf(html: string, filename: string, opts: {
   /** Page-break control passed to html2pdf. html2canvas ignores @media print,
    *  so selectors to break before / avoid splitting must be given here. */
   pagebreak?: { mode?: string[]; before?: string | string[]; after?: string | string[]; avoid?: string | string[] };
+  /** Render at 3x into lossless PNG instead of 2x JPEG: logos and fine
+   *  text stay sharp. Larger files — meant for one- or two-page documents. */
+  crisp?: boolean;
 } = {}) {
   const html2pdf = (await import('html2pdf.js')).default;
   const container = document.createElement('div');
@@ -31,9 +34,9 @@ export async function downloadHtmlAsPdf(html: string, filename: string, opts: {
   await html2pdf().set({
     margin,
     filename,
-    image: { type: 'jpeg', quality: 0.96 },
+    image: opts.crisp ? { type: 'png' } : { type: 'jpeg', quality: 0.96 },
     html2canvas: {
-      scale: 2, useCORS: true, scrollX: 0, scrollY: 0,
+      scale: opts.crisp ? 3 : 2, useCORS: true, scrollX: 0, scrollY: 0,
       windowWidth: Math.round(contentMm * 96 / 25.4),
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },

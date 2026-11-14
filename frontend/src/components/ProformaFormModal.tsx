@@ -113,7 +113,7 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
         })),
       });
       generated = true;
-      await downloadHtmlAsPdf(res.data.html, res.data.filename);
+      await downloadHtmlAsPdf(res.data.html, res.data.filename, { crisp: true });
       onClose();
     } catch (err: any) {
       setError(generated
@@ -247,7 +247,7 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
 
           <div className="form-grid" style={{ marginBottom: 16 }}>
             <div className="field">
-              <label>Advance received</label>
+              <label>Received amount</label>
               <div className="input-unit">
                 <span className="unit">₹</span>
                 <input className="input" type="number" min={0} step="0.01" placeholder="0" value={advance}
@@ -275,7 +275,7 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
             <div className="calc-row total"><span>Grand total</span><span className="amount">{formatINR(t.total)}</span></div>
             {t.advance > 0 && (
               <>
-                <div className="calc-row"><span>Advance received</span><span className="amount">−{formatINR(t.advance)}</span></div>
+                <div className="calc-row"><span>Received amount</span><span className="amount">−{formatINR(t.advance)}</span></div>
                 <div className="calc-row total grand"><span>Balance due</span><span className="amount">{formatINR(t.balanceDue)}</span></div>
               </>
             )}
