@@ -132,9 +132,10 @@ describe('renderProformaHtml', () => {
     expect(h).toContain('13/11/2026');
     expect(h).toContain('20/11/2026');
     expect(h).toContain('Tamil Nadu (33)');
-    expect(h).toContain('GSTIN: 33AAKCA4063C1Z4');
-    expect(h).toContain('BILL TO');
-    expect(h).toContain('SHIP TO');
+    expect(h).toContain('<strong>GSTIN:</strong> 33AAKCA4063C1Z4');
+    expect(h).toContain('>Bill To<'); // shown upper-case via CSS
+    expect(h).toContain('>Ship To<');
+    expect(h).toContain('CGST @ 9%');
     expect(h).toContain('Vellore, Tamil Nadu, 632517');
     expect(h).toContain('998311');
     expect(h).toContain('CGST + SGST');
@@ -174,7 +175,8 @@ describe('renderProformaHtml — advance and balance due (proforma 018)', () => 
     expect(h).toContain('2,09,200.00');
     expect(h).toContain('Rs.18,828.00');
     expect(h).toContain('Rs.2,46,856.00');
-    expect(h).toContain('Advance Received');
+    expect(h).toContain('Received Amount');
+    expect(h).not.toContain('Advance Received');
     expect(h).toContain('Rs.-1,00,000.00');
     expect(h).toContain('Balance Due');
     expect(h).toContain('Rs.1,46,856.00');
@@ -184,7 +186,7 @@ describe('renderProformaHtml — advance and balance due (proforma 018)', () => 
 
   it('omits the advance rows when nothing was received', () => {
     const h = doc018(0);
-    expect(h).not.toContain('Advance Received');
+    expect(h).not.toContain('Received Amount');
     expect(h).not.toContain('Balance Due');
   });
 

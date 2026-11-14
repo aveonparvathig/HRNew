@@ -96,7 +96,7 @@ export default function Proforma() {
     setBusy(r.id);
     try {
       const res = await incomeAPI.getProforma(r.id);
-      await downloadHtmlAsPdf(res.data.html, res.data.filename);
+      await downloadHtmlAsPdf(res.data.html, res.data.filename, { crisp: true });
     } catch {
       setError(`Failed to download ${r.number}`);
     } finally {
@@ -170,7 +170,7 @@ export default function Proforma() {
                 <tr>
                   <th>Number</th><th>Client</th><th>Periods</th><th>Date</th>
                   <th className="num">Taxable</th><th className="num">GST</th><th className="num">Total</th>
-                  <th className="num">Advance</th><th className="num">Balance due</th><th />
+                  <th className="num">Received</th><th className="num">Balance due</th><th />
                 </tr>
               </thead>
               <tbody>

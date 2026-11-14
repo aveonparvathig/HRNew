@@ -181,19 +181,30 @@ export function addressLines(p: ProformaParty): string[] {
   return [...street, cityLine, p.country || 'India'].filter(Boolean);
 }
 
+// "#4f46e5" -> "rgba(79,70,229,a)"; html2canvas handles rgba() everywhere,
+// 8-digit hex less reliably.
+const tint = (hex: string, a: number) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  const n = parseInt(m ? m[1] : '4f46e5', 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+};
+
 export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
-  const accent = brand.brandPrimary || '#0e7490';
+  const accent = /^#[0-9a-f]{6}$/i.test(brand.brandPrimary || '') ? brand.brandPrimary : '#4f46e5';
+  const soft = tint(accent, 0.07);
+  const line = tint(accent, 0.18);
   const totals = proformaTotals(d.lines, d.taxType);
-  const advance = round2(Math.max(Number(d.advanceReceived) || 0, 0));
+  const received = round2(Math.max(Number(d.advanceReceived) || 0, 0));
   const intra = d.taxType === 'CGST_SGST';
   const seller: ProformaParty = {
     name: brand.name, address: brand.address, city: brand.city, state: brand.state,
     pincode: brand.pincode, country: brand.country, gstin: brand.gstin,
   };
   const sellerMeta = [
-    brand.gstin ? `GSTIN: ${esc(brand.gstin)}` : '',
-    brand.phone ? `Ph: ${esc(brand.phone)}` : '',
-  ].filter(Boolean).join(' &nbsp;•&nbsp; ');
+    brand.gstin ? `<strong>GSTIN:</strong> ${esc(brand.gstin)}` : '',
+    brand.phone ? `<strong>Ph:</strong> ${esc(brand.phone)}` : '',
+    brand.email ? esc(brand.email) : '',
+  ].filter(Boolean).join(' &nbsp;·&nbsp; ');
 
   const partyBox = (label: string) => `
     <div class="pf-party">
@@ -205,9 +216,9 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
 
   const rows = d.lines.map((l, i) => `
     <tr>
-      <td class="pf-n">${i + 1}.</td>
+      <td class="pf-n">${i + 1}</td>
       <td><div class="pf-desc">${esc(l.description)}</div>${l.detail ? `<div class="pf-detail">${esc(l.detail)}</div>` : ''}</td>
-      <td>${esc(l.hsn)}</td>
+      <td class="c">${esc(l.hsn)}</td>
       <td class="r">${fmtQty(l.qty)}</td>
       <td class="r">${money2(l.rate)}</td>
       <td class="r">${money2(l.taxable)}</td>
@@ -215,82 +226,101 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
       <td class="r pf-strong">${money2(l.total)}</td>
     </tr>`).join('');
 
-  const totalRow = (label: string, v: number) =>
-    `<tr><td>${label}</td><td class="r pf-strong">Rs.${money2(v)}</td></tr>`;
+  const totalRow = (label: string, v: number, cls = '') =>
+    `<tr class="${cls}"><td>${label}</td><td class="r">Rs.${money2(v)}</td></tr>`;
+
+  const meta = [
+    ['Proforma No.', esc(d.number)],
+    ['Date', esc(fmtDate(d.invoiceDate))],
+    ...(d.validUntil ? [['Valid Until', esc(fmtDate(d.validUntil))]] : []),
+    ...(d.placeOfSupply ? [['Place of Supply', esc(placeOfSupplyLabel(d.placeOfSupply))]] : []),
+  ].map(([k, v]) => `<tr><td class="k">${k}</td><td class="v">${v}</td></tr>`).join('');
 
   return `
 <div class="pf-doc">
   <style>
-    .pf-doc { font-family: Arial, 'Helvetica Neue', sans-serif; color:#111827; font-size:11.5px; line-height:1.45;
-      background:#fff; padding:6mm 7mm 4mm; min-height:272mm; box-sizing:border-box; display:flex; flex-direction:column; }
+    .pf-doc { font-family: 'Segoe UI', Arial, 'Helvetica Neue', sans-serif; color:#1f2937; font-size:11.5px; line-height:1.5;
+      background:#fff; padding:0 7mm 4mm; min-height:276mm; box-sizing:border-box; display:flex; flex-direction:column; }
     .pf-doc table { border-collapse:collapse; width:100%; }
-    .pf-head { display:flex; justify-content:space-between; gap:16px; padding-bottom:14px; border-bottom:1px solid #e5e7eb; }
-    .pf-org { font-size:19px; font-weight:700; margin-bottom:6px; }
-    .pf-small { font-size:10.5px; color:#4b5563; }
-    .pf-orgmeta { font-size:10.5px; font-weight:700; margin-top:2px; }
-    .pf-title { font-size:30px; font-weight:800; line-height:1.05; text-align:right; letter-spacing:.01em; }
-    .pf-bar { height:4px; width:150px; background:${accent}; margin:8px 0 10px auto; }
-    .pf-meta td { padding:2px 0; font-size:11.5px; }
-    .pf-meta .k { color:#9ca3af; font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; text-align:right; padding-right:22px; }
-    .pf-meta .v { font-weight:700; text-align:right; white-space:nowrap; }
-    .pf-parties { display:flex; gap:18px; margin:22px 0 26px; }
-    .pf-party { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:14px 20px 18px; color:#4b5563; }
-    .pf-label { color:${accent}; font-size:10px; font-weight:700; letter-spacing:.08em; margin-bottom:6px; }
-    .pf-pname { color:#111827; font-size:14.5px; font-weight:700; margin-bottom:6px; line-height:1.3; }
+    .pf-topbar { height:5px; background:${accent}; margin:0 -7mm 18px; }
+    .pf-head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
+    .pf-brand { display:flex; align-items:center; gap:14px; min-width:0; }
+    .pf-logo { height:64px; max-width:170px; object-fit:contain; display:block; image-rendering:auto; }
+    .pf-org { font-size:18px; font-weight:700; color:#111827; line-height:1.25; margin-bottom:4px; }
+    .pf-small { font-size:10.5px; color:#6b7280; line-height:1.45; }
+    .pf-orgmeta { font-size:10.5px; color:#374151; margin-top:4px; }
+    .pf-titlebox { flex:none; text-align:right; }
+    .pf-title { font-size:24px; font-weight:800; color:#111827; letter-spacing:.06em; line-height:1.1; }
+    .pf-rule { height:3px; width:64px; background:${accent}; margin:8px 0 12px auto; border-radius:2px; }
+    .pf-meta { width:auto !important; margin-left:auto; background:${soft}; border-radius:8px; }
+    .pf-meta td { padding:4px 12px; font-size:11.5px; }
+    .pf-meta tr:first-child td { padding-top:9px; }
+    .pf-meta tr:last-child td { padding-bottom:9px; }
+    .pf-meta .k { color:#6b7280; font-size:9.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; text-align:left; }
+    .pf-meta .v { font-weight:700; color:#111827; text-align:right; white-space:nowrap; }
+    .pf-sep { height:1px; background:#e5e7eb; margin:18px 0; }
+    .pf-parties { display:flex; gap:16px; margin-bottom:22px; }
+    .pf-party { flex:1; background:#f9fafb; border:1px solid #eef0f3; border-left:3px solid ${accent};
+      border-radius:8px; padding:12px 18px 14px; color:#4b5563; }
+    .pf-label { color:${accent}; font-size:9.5px; font-weight:700; letter-spacing:.1em; margin-bottom:5px; text-transform:uppercase; }
+    .pf-pname { color:#111827; font-size:14px; font-weight:700; margin-bottom:4px; line-height:1.3; }
     .pf-gstin { color:#111827; font-weight:700; margin-top:4px; }
-    .pf-items th { background:#f9fafb; color:#9ca3af; font-size:9.5px; font-weight:700; text-transform:uppercase;
-      letter-spacing:.04em; text-align:left; padding:9px 6px; }
-    .pf-items td { padding:10px 6px; vertical-align:top; border-bottom:1px solid #e5e7eb; }
+    .pf-items { border:1px solid #e5e7eb; border-radius:8px; overflow:hidden; border-collapse:separate !important; border-spacing:0; }
+    .pf-items th { background:${soft}; color:#374151; font-size:9.5px; font-weight:700; text-transform:uppercase;
+      letter-spacing:.05em; text-align:left; padding:10px 8px; border-bottom:1px solid ${line}; }
+    .pf-items td { padding:10px 8px; vertical-align:top; border-bottom:1px solid #f0f1f4; }
+    .pf-items tr:last-child td { border-bottom:none; }
+    .pf-items tr:nth-child(odd) td { background:#fcfcfd; }
     .pf-items tr { page-break-inside:avoid; }
     .pf-items .r { text-align:right; white-space:nowrap; }
-    .pf-n { width:22px; }
-    .pf-desc { font-weight:700; }
-    .pf-detail { color:#4b5563; }
+    .pf-items .c { white-space:nowrap; }
+    .pf-n { width:20px; color:#9ca3af; }
+    .pf-desc { font-weight:700; color:#111827; }
+    .pf-detail { color:#6b7280; font-size:11px; }
     .pf-rate { color:${accent}; font-size:9.5px; font-weight:700; }
-    .pf-strong { font-weight:700; }
+    .pf-strong { font-weight:700; color:#111827; }
     .pf-muted { color:#9ca3af; }
-    .pf-bottom { display:flex; gap:18px; margin-top:22px; align-items:stretch; page-break-inside:avoid; }
-    .pf-words { flex:1.15; background:#fefce8; border:1px solid #fde68a; border-radius:8px; padding:14px 20px; }
-    .pf-words .pf-label { color:#9a3412; }
-    .pf-words .w { font-size:13px; font-weight:700; }
-    .pf-tot { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:10px 20px; }
-    .pf-tot td { padding:6px 0; font-size:12.5px; color:#4b5563; }
-    .pf-tot .pf-strong { color:#111827; font-size:13px; }
-    .pf-tot .grand td { border-top:1px solid #e5e7eb; color:#111827; font-size:15px; font-weight:700; padding-top:8px; }
-    .pf-tot .r { text-align:right; }
-    .pf-tot .adv td { padding-top:8px; }
-    .pf-due { display:flex; justify-content:space-between; background:${accent}; color:#fff; font-size:14px;
-      font-weight:700; border-radius:6px; padding:7px 12px; margin:4px -12px 2px; }
-    .pf-foot { margin-top:auto; padding-top:40px; page-break-inside:avoid; }
-    .pf-signs { display:flex; gap:90px; }
+    .pf-bottom { display:flex; gap:16px; margin-top:20px; align-items:flex-start; page-break-inside:avoid; }
+    .pf-words { flex:1.1; background:${soft}; border-radius:8px; padding:14px 18px; }
+    .pf-words .w { font-size:13px; font-weight:700; color:#111827; line-height:1.45; }
+    .pf-tot { flex:1; border:1px solid #e5e7eb; border-radius:8px; padding:8px 18px 10px; }
+    .pf-tot td { padding:5px 0; font-size:12px; color:#4b5563; }
+    .pf-tot td.r { text-align:right; color:#111827; font-weight:600; }
+    .pf-tot .grand td { border-top:1px solid #e5e7eb; padding-top:9px; font-size:14.5px; font-weight:800; color:#111827; }
+    .pf-tot .recv td { color:#047857; }
+    .pf-tot .recv td.r { color:#047857; }
+    .pf-due { display:flex; justify-content:space-between; align-items:center; background:${accent}; color:#fff;
+      font-size:14px; font-weight:700; border-radius:6px; padding:8px 12px; margin:6px -10px 0; }
+    .pf-foot { margin-top:auto; padding-top:36px; page-break-inside:avoid; }
+    .pf-signs { display:flex; gap:80px; }
     .pf-sign { flex:1; text-align:center; font-size:11px; color:#4b5563; }
-    .pf-sign .line { border-top:1px solid #111827; padding-top:6px; }
+    .pf-sign .line { border-top:1px solid #9ca3af; padding-top:6px; }
+    .pf-for { font-size:10.5px; color:#6b7280; margin-bottom:2px; height:16px; }
     .pf-sigimg { height:48px; display:flex; justify-content:center; align-items:flex-end; margin-bottom:4px; }
-    .pf-note { text-align:center; font-style:italic; color:#9ca3af; font-size:10px; margin-top:20px; }
+    .pf-note { text-align:center; color:#9ca3af; font-size:9.5px; margin-top:18px; padding-top:10px; border-top:1px solid #f0f1f4; }
   </style>
 
+  <div class="pf-topbar"></div>
+
   <div class="pf-head">
-    <div style="display:flex;gap:12px;min-width:0;">
-      ${brand.logoData ? `<img src="${brand.logoData}" alt="" style="height:52px;max-width:120px;object-fit:contain;"/>` : ''}
+    <div class="pf-brand">
+      ${brand.logoData ? `<img class="pf-logo" src="${brand.logoData}" alt=""/>` : ''}
       <div style="min-width:0;">
         <div class="pf-org">${esc(brand.name)}</div>
         ${addressLines(seller).map(l => `<div class="pf-small">${esc(l)}</div>`).join('')}
         ${sellerMeta ? `<div class="pf-orgmeta">${sellerMeta}</div>` : ''}
       </div>
     </div>
-    <div style="flex:none;">
+    <div class="pf-titlebox">
       <div class="pf-title">PROFORMA<br/>INVOICE</div>
-      <div class="pf-bar"></div>
-      <table class="pf-meta" style="width:auto;margin-left:auto;">
-        <tr><td class="k">Proforma No.</td><td class="v">${esc(d.number)}</td></tr>
-        <tr><td class="k">Date</td><td class="v">${esc(fmtDate(d.invoiceDate))}</td></tr>
-        ${d.validUntil ? `<tr><td class="k">Valid Until</td><td class="v">${esc(fmtDate(d.validUntil))}</td></tr>` : ''}
-        ${d.placeOfSupply ? `<tr><td class="k">Place of Supply</td><td class="v">${esc(placeOfSupplyLabel(d.placeOfSupply))}</td></tr>` : ''}
-      </table>
+      <div class="pf-rule"></div>
+      <table class="pf-meta">${meta}</table>
     </div>
   </div>
 
-  <div class="pf-parties">${partyBox('BILL TO')}${partyBox('SHIP TO')}</div>
+  <div class="pf-sep"></div>
+
+  <div class="pf-parties">${partyBox('Bill To')}${partyBox('Ship To')}</div>
 
   <table class="pf-items">
     <tr><th>#</th><th>Item / Description</th><th>HSN/SAC</th><th class="r">Qty</th><th class="r">Rate</th>
@@ -300,24 +330,28 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
 
   <div class="pf-bottom">
     <div class="pf-words">
-      <div class="pf-label">AMOUNT IN WORDS</div>
+      <div class="pf-label">Amount in words</div>
       <div class="w">${esc(proformaAmountInWords(totals.total))}</div>
     </div>
     <div class="pf-tot">
       <table>
         ${totalRow('Subtotal', totals.subtotal)}
-        ${intra ? totalRow('CGST', totals.cgst) + totalRow('SGST', totals.sgst) : totalRow('IGST', totals.igst)}
-        <tr class="grand"><td>Grand Total</td><td class="r">Rs.${money2(totals.total)}</td></tr>
-        ${advance > 0 ? `<tr class="adv"><td>Advance Received</td><td class="r pf-strong">Rs.-${money2(advance)}</td></tr>` : ''}
+        ${intra ? totalRow('CGST @ 9%', totals.cgst) + totalRow('SGST @ 9%', totals.sgst) : totalRow('IGST @ 18%', totals.igst)}
+        ${totalRow('Grand Total', totals.total, 'grand')}
+        ${received > 0 ? `<tr class="recv"><td>Received Amount</td><td class="r">Rs.-${money2(received)}</td></tr>` : ''}
       </table>
-      ${advance > 0 ? `<div class="pf-due"><span>Balance Due</span><span>Rs.${money2(round2(totals.total - advance))}</span></div>` : ''}
+      ${received > 0 ? `<div class="pf-due"><span>Balance Due</span><span>Rs.${money2(round2(totals.total - received))}</span></div>` : ''}
     </div>
   </div>
 
   <div class="pf-foot">
     <div class="pf-signs">
-      <div class="pf-sign"><div class="pf-sigimg"></div><div class="line">Receiver's Signature</div></div>
       <div class="pf-sign">
+        <div class="pf-for">&nbsp;</div>
+        <div class="pf-sigimg"></div><div class="line">Receiver's Signature</div>
+      </div>
+      <div class="pf-sign">
+        <div class="pf-for">For ${esc(brand.name)}</div>
         <div class="pf-sigimg">${signatureImg(brand.signatureData)}</div>
         <div class="line">Authorized Signatory${brand.signatoryName ? `<br/><span style="color:#111827;font-weight:700;">${esc(brand.signatoryName)}</span>` : ''}</div>
       </div>
