@@ -146,6 +146,15 @@ describe('renderProformaHtml', () => {
     expect(h).toContain('computer-generated proforma invoice');
   });
 
+  it('never prints the logo, even when the organisation has one', () => {
+    const h = renderProformaHtml({ ...brand, logoData: 'data:image/png;base64,AAAA' }, {
+      number: 'X', invoiceDate: '2026-11-14', validUntil: '', placeOfSupply: '', taxType: 'CGST_SGST',
+      buyer: { name: 'B' }, lines: buildProformaLines([{ description: 'd', rate: 1 }]),
+    });
+    expect(h).not.toContain('<img');
+    expect(h).not.toContain('data:image/png');
+  });
+
   it('shows IGST for inter-state supply', () => {
     const h = doc('IGST');
     expect(h).toContain('>IGST<');
