@@ -39,6 +39,14 @@ export const incomeAPI = {
   deleteBilling: (billingId: string) =>
     apiClient.delete(`/income/billings/${billingId}`),
 
+  // Proforma invoices
+  generateProforma: (billingId: string, data: {
+    invoiceDate: string; lineDescription: string; taxableAmount: number; oneTimePayment?: number; oneTimeGst?: boolean;
+  }) => apiClient.post(`/income/billings/${billingId}/proforma`, data),
+  listProformas: (params?: { clientId?: string }) => apiClient.get('/income/proformas', { params }),
+  getProforma: (proformaId: string) => apiClient.get(`/income/proformas/${proformaId}`),
+  deleteProforma: (proformaId: string) => apiClient.delete(`/income/proformas/${proformaId}`),
+
   // Payments
   addPayment: (billingId: string, data: { amount: number; receivedOn?: string; mode?: string; note?: string }) =>
     apiClient.post(`/income/billings/${billingId}/payments`, data),

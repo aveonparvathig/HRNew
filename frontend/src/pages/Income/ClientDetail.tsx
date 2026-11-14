@@ -5,6 +5,7 @@ import {
   PageHeader, StatCard, StatusBadge, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
 import BillingFormModal from '../../components/BillingFormModal';
+import ProformaFormModal from '../../components/ProformaFormModal';
 import { formatINR, formatDate } from '../../utils/format';
 import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
@@ -39,6 +40,7 @@ export default function ClientDetail() {
   const [editModal, setEditModal] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', agreementStatus: '', notes: '', isActive: true });
   const [paymentModal, setPaymentModal] = useState<any>(null); // billing row
+  const [proformaModal, setProformaModal] = useState<any>(null); // billing row
   const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT);
   const [saving, setSaving] = useState(false);
 
@@ -297,6 +299,9 @@ export default function ClientDetail() {
                             onClick={() => { setPaymentForm(EMPTY_PAYMENT); setPaymentModal(b); }}>
                             + Payment
                           </button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setProformaModal(b)}>
+                            Proforma
+                          </button>
                           <button className="btn btn-secondary btn-sm"
                             onClick={() => setBillingModal({ open: true, billing: b })}>
                             Edit
@@ -365,6 +370,15 @@ export default function ClientDetail() {
         clientId={client.id}
         meta={meta}
         onClose={() => setBillingModal({ open: false, billing: null })}
+        onSaved={fetchAll}
+      />
+
+      {/* Proforma invoice */}
+      <ProformaFormModal
+        open={Boolean(proformaModal)}
+        billing={proformaModal}
+        clientName={client.name}
+        onClose={() => setProformaModal(null)}
         onSaved={fetchAll}
       />
 

@@ -3,6 +3,10 @@ import { prisma } from '../config/database';
 import { AppError } from '../middleware/errorHandler';
 import { loadActor, actorPerson } from '../middleware/roles';
 import { escapeHtml } from '../utils/html';
+import { orgBrand } from '../services/orgBrand';
+import {
+  computeProformaAmounts, nextProformaNumber, proformaPrefix, proformaFilename, renderProformaHtml,
+} from '../services/proformaService';
 
 const GST_RATE = 0.18;
 
@@ -1623,6 +1627,142 @@ export const incomeController = {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${safeName}_statement${suffix}_${todayStr()}.xlsx"`);
     res.send(Buffer.from(buffer as any));
+  },
+
+  // -------------------------------------------------------------------------
+  // Proforma invoices — numbered, frozen documents raised against a billing
+  // row. The server renders HTML; the frontend turns it into a PDF.
+  // -------------------------------------------------------------------------
+  async generateProforma(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const billing = await fetchOrgBilling(req.params.billingId, orgId);
+    await assertClientAccess(req, billing.clientId);
+    const body = req.body || {};
+
+    const invoiceDate = String(body.invoiceDate || todayStr());
+    if (!DATE_RE.test(invoiceDate)) throw new AppError(400, 'Pick a valid invoice date');
+    const lineDescription = String(body.lineDescription || '').trim();
+    if (!lineDescription) throw new AppError(400, 'A line description is required');
+    if (lineDescription.length > 500) throw new AppError(400, 'Keep the description under 500 characters');
+    const taxableRaw = Number(body.taxableAmount);
+    if (!Number.isFinite(taxableRaw) || taxableRaw <= 0) {
+      throw new AppError(400, 'The taxable amount must be greater than zero');
+    }
+    const oneTimeRaw = body.oneTimePayment === undefined || body.oneTimePayment === '' ? 0 : Number(body.oneTimePayment);
+    if (!Number.isFinite(oneTimeRaw) || oneTimeRaw < 0) {
+      throw new AppError(400, 'The one-time fee cannot be negative');
+    }
+    const oneTimeGst = body.oneTimeGst === true || body.oneTimeGst === 'true';
+    const amounts = computeProformaAmounts(taxableRaw, oneTimeRaw, oneTimeGst);
+
+    const [client, onboarding, brand] = await Promise.all([
+      fetchOrgClient(billing.clientId, orgId),
+      prisma.clientOnboarding.findUnique({ where: { clientId: billing.clientId } }),
+      orgBrand(orgId),
+    ]);
+    const periodLabel = periodLabelOf(billing);
+
+    // Sequential per org + period; the @@unique guards concurrent issues,
+    // and a collision re-reads the max and retries once.
+    let record: any = null;
+    for (let attempt = 0; attempt < 2 && !record; attempt++) {
+      const existing = await prisma.proformaInvoice.findMany({
+        where: { organizationId: orgId, number: { startsWith: proformaPrefix(billing.academicYear) } },
+        select: { number: true },
+      });
+      const number = nextProformaNumber(billing.academicYear, existing.map(e => e.number));
+      const html = renderProformaHtml(brand, {
+        number, invoiceDate, periodLabel, clientName: client.name, onboarding,
+        lineDescription, ...amounts,
+      });
+      try {
+        record = await prisma.proformaInvoice.create({
+          data: {
+            organizationId: orgId,
+            clientId: client.id,
+            billingId: billing.id,
+            number,
+            academicYear: billing.academicYear,
+            periodLabel,
+            invoiceDate,
+            lineDescription,
+            taxableValue: amounts.taxable,
+            gstAmount: amounts.gst,
+            oneTimePayment: amounts.oneTime,
+            oneTimeGst: amounts.oneTimeGst,
+            totalAmount: amounts.total,
+            html,
+            createdById: req.actor?.id || null,
+          },
+        });
+      } catch (err: any) {
+        if (err?.code !== 'P2002' || attempt === 1) throw err;
+      }
+    }
+
+    await prisma.clientBilling.update({
+      where: { id: billing.id },
+      data: { invoiceStatus: 'PROFORMA' },
+    });
+
+    res.status(201).json({
+      id: record.id,
+      number: record.number,
+      totalAmount: record.totalAmount,
+      html: record.html,
+      filename: proformaFilename(record.number, client.name),
+    });
+  },
+
+  async listProformas(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const scope = await employeeScope(req);
+    const clientId = String(req.query.clientId || '');
+    const records = await prisma.proformaInvoice.findMany({
+      where: {
+        organizationId: orgId,
+        ...inScope(scope),
+        ...(clientId ? { clientId } : {}),
+      },
+      select: {
+        id: true, number: true, clientId: true, billingId: true, academicYear: true,
+        periodLabel: true, invoiceDate: true, lineDescription: true, taxableValue: true,
+        gstAmount: true, oneTimePayment: true, oneTimeGst: true, totalAmount: true, createdAt: true,
+        client: { select: { name: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json({
+      records: records.map(r => ({ ...r, client: undefined, clientName: r.client?.name || '' })),
+      total: records.length,
+    });
+  },
+
+  // Reprint: the stored html, byte-for-byte as issued.
+  async getProforma(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const record = await prisma.proformaInvoice.findFirst({
+      where: { id: req.params.proformaId, organizationId: orgId },
+      include: { client: { select: { name: true } } },
+    });
+    if (!record) throw new AppError(404, 'Proforma invoice not found');
+    await assertClientAccess(req, record.clientId);
+    res.json({
+      id: record.id,
+      number: record.number,
+      html: record.html,
+      filename: proformaFilename(record.number, record.client.name),
+    });
+  },
+
+  async deleteProforma(req: any, res: Response) {
+    const orgId = req.user?.organizationId;
+    const record = await prisma.proformaInvoice.findFirst({
+      where: { id: req.params.proformaId, organizationId: orgId },
+    });
+    if (!record) throw new AppError(404, 'Proforma invoice not found');
+    await prisma.proformaInvoice.delete({ where: { id: record.id } });
+    res.json({ message: `Deleted proforma ${record.number}` });
   },
 
   // Branded statement document for the same data — the frontend turns it

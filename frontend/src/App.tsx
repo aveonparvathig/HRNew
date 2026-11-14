@@ -20,6 +20,7 @@ const ClientOnboarding = lazy(() => import('./pages/Income/ClientOnboarding'));
 const Implementation = lazy(() => import('./pages/Income/Implementation'));
 const ClientVisits = lazy(() => import('./pages/Income/ClientVisits'));
 const AcademicYears = lazy(() => import('./pages/Income/AcademicYears'));
+const Proforma = lazy(() => import('./pages/Income/Proforma'));
 const ImportExport = lazy(() => import('./pages/Income/ImportExport'));
 const PostingsList = lazy(() => import('./pages/Recruitment/PostingsList'));
 const PostingDetail = lazy(() => import('./pages/Recruitment/PostingDetail'));
@@ -147,6 +148,7 @@ function App() {
             <Route path="/income/clients/:clientId/implementation" element={<RequireRole roles={SA_EMP}><ClientOnboarding /></RequireRole>} />
             <Route path="/income/implementation" element={<RequireRole roles={SA_EMP}><Implementation /></RequireRole>} />
             <Route path="/income/implementation/visits" element={<RequireRole roles={SA_EMP}><ClientVisits /></RequireRole>} />
+            <Route path="/income/proforma" element={<RequireRole roles={SA_EMP}><Proforma /></RequireRole>} />
             <Route path="/income/academic-years" element={<RequireRole roles={SA}><AcademicYears /></RequireRole>} />
             <Route path="/income/import-export" element={<RequireRole roles={SA}><ImportExport /></RequireRole>} />
             <Route path="/recruitment" element={<RequireRole roles={SA_HR}><PostingsList /></RequireRole>} />
