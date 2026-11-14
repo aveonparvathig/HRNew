@@ -244,6 +244,39 @@ async function engineerNames(organizationId: string): Promise<string[]> {
 // and dashboards never need the bytes, only the download route does.
 const OMIT_DOCUMENTS = { poDocumentData: true, agreementDocumentData: true } as const;
 
+const ADDRESS_KEYS = ['address', 'city', 'state', 'pincode', 'gstin'] as const;
+type ClientAddress = Partial<Record<typeof ADDRESS_KEYS[number], string>>;
+
+// Client address (Bill To on proforma invoices). Checks the fields sent and
+// returns them cleaned; fields left out are not returned.
+function clientAddressFrom(b: any): ClientAddress {
+  if (b.state && !INDIAN_STATES.includes(String(b.state).trim())) {
+    throw new AppError(400, 'Pick the state from the list');
+  }
+  if (b.pincode && !/^\d{6}$/.test(String(b.pincode).trim())) {
+    throw new AppError(400, 'The PIN code must be 6 digits');
+  }
+  if (b.gstin && !isValidGstin(b.gstin)) {
+    throw new AppError(400, 'That GSTIN is not valid — check all 15 characters');
+  }
+  const out: ClientAddress = {};
+  for (const k of ADDRESS_KEYS) {
+    if (b[k] === undefined || b[k] === null) continue;
+    out[k] = k === 'gstin' ? cleanGstin(String(b[k])) : String(b[k]).trim();
+  }
+  return out;
+}
+
+// Saves the address on the client's onboarding record, creating it if needed
+async function saveClientAddress(clientId: string, organizationId: string, addr: ClientAddress) {
+  if (!Object.keys(addr).length) return;
+  await prisma.clientOnboarding.upsert({
+    where: { clientId },
+    create: { ...addr, clientId, organizationId },
+    update: addr,
+  });
+}
+
 type Scope = { name: string; clientIds: Set<string> } | null;
 
 // Narrows a query to the employee's clients, so the database does the
@@ -718,6 +751,7 @@ export const incomeController = {
       where: { organizationId: orgId, name: { equals: name, mode: 'insensitive' } },
     });
     if (dup) throw new AppError(400, 'A client with this name already exists');
+    const addr = clientAddressFrom(req.body);
     const client = await prisma.incomeClient.create({
       data: {
         organizationId: orgId,
@@ -726,6 +760,7 @@ export const incomeController = {
         notes: String(req.body.notes || ''),
       },
     });
+    await saveClientAddress(client.id, orgId, addr);
     res.status(201).json(client);
   },
 
@@ -771,6 +806,7 @@ export const incomeController = {
     const client = await fetchOrgClient(req.params.clientId, orgId);
     await assertClientAccess(req, client.id);
     const { name, agreementStatus, notes, isActive } = req.body;
+    const addr = clientAddressFrom(req.body);
     const data: any = {};
     if (name !== undefined) {
       const trimmed = String(name).trim();
@@ -789,6 +825,7 @@ export const incomeController = {
     if (notes !== undefined) data.notes = String(notes);
     if (isActive !== undefined) data.isActive = Boolean(isActive);
     const updated = await prisma.incomeClient.update({ where: { id: client.id }, data });
+    await saveClientAddress(client.id, orgId, addr);
     res.json(updated);
   },
 
@@ -1215,15 +1252,7 @@ export const incomeController = {
     if (b.agreementStart && b.agreementEnd && b.agreementEnd <= b.agreementStart) {
       throw new AppError(400, 'Agreement end date must be after the start date');
     }
-    if (b.state && !INDIAN_STATES.includes(String(b.state).trim())) {
-      throw new AppError(400, 'Pick the state from the list');
-    }
-    if (b.pincode && !/^\d{6}$/.test(String(b.pincode).trim())) {
-      throw new AppError(400, 'The PIN code must be 6 digits');
-    }
-    if (b.gstin && !isValidGstin(b.gstin)) {
-      throw new AppError(400, 'That GSTIN is not valid — check all 15 characters');
-    }
+    clientAddressFrom(b);
     const numOrKeep = (v: any, fallback: any) =>
       v != null && v !== '' ? Number(v) : fallback ?? null;
     const data: any = {

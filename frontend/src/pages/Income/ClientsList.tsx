@@ -7,6 +7,8 @@ import {
 import { formatINR, collectionTone } from '../../utils/format';
 import { useRole } from '../../store/authStore';
 import { confirmDialog } from '../../components/feedback';
+import { ClientAddressFields } from '../../components/ClientAddressFields';
+import { EMPTY_ADDRESS } from '../../utils/clientAddress';
 
 const GST_RATE = 0.18;
 const AGREEMENT_SUGGESTIONS = ['Agreement signed', 'MOU signed', 'Renewal due', 'Pending'];
@@ -103,7 +105,7 @@ export default function ClientsList() {
 
   const [showModal, setShowModal] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const [form, setForm] = useState({ name: '', agreementStatus: '', notes: '' });
+  const [form, setForm] = useState({ name: '', agreementStatus: '', notes: '', ...EMPTY_ADDRESS });
   const [billingForm, setBillingForm] = useState({ academicYear: '', engineer: '', studentCount: '', rate: '' });
   const [modalError, setModalError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -129,7 +131,7 @@ export default function ClientsList() {
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
   const openModal = () => {
-    setForm({ name: '', agreementStatus: '', notes: '' });
+    setForm({ name: '', agreementStatus: '', notes: '', ...EMPTY_ADDRESS });
     setBillingForm({ academicYear: yearChips[1], engineer: '', studentCount: '', rate: '' });
     setStep(1);
     setModalError('');
@@ -299,6 +301,7 @@ export default function ClientsList() {
                 placeholder="Institution / company name"
                 onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
+            <ClientAddressFields value={form} onChange={addr => setForm({ ...form, ...addr })} />
             <div className="field" style={{ marginBottom: 16 }}>
               <label>Agreement status</label>
               <div className="chip-row" style={{ marginBottom: 8 }}>

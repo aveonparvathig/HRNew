@@ -6,6 +6,8 @@ import {
 } from '../../components/ui';
 import BillingFormModal from '../../components/BillingFormModal';
 import ProformaFormModal from '../../components/ProformaFormModal';
+import { ClientAddressFields } from '../../components/ClientAddressFields';
+import { EMPTY_ADDRESS, addressOf } from '../../utils/clientAddress';
 import { formatINR, formatDate } from '../../utils/format';
 import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 import { useRole } from '../../store/authStore';
@@ -38,7 +40,7 @@ export default function ClientDetail() {
 
   const [billingModal, setBillingModal] = useState<{ open: boolean; billing: any | null }>({ open: false, billing: null });
   const [editModal, setEditModal] = useState(false);
-  const [editForm, setEditForm] = useState({ name: '', agreementStatus: '', notes: '', isActive: true });
+  const [editForm, setEditForm] = useState({ name: '', agreementStatus: '', notes: '', isActive: true, ...EMPTY_ADDRESS });
   const [paymentModal, setPaymentModal] = useState<any>(null); // billing row
   const [proformaModal, setProformaModal] = useState<any>(null); // billing row
   const [paymentForm, setPaymentForm] = useState(EMPTY_PAYMENT);
@@ -57,6 +59,7 @@ export default function ClientDetail() {
         agreementStatus: clientRes.data.agreementStatus || '',
         notes: clientRes.data.notes || '',
         isActive: clientRes.data.isActive,
+        ...addressOf(clientRes.data.onboarding),
       });
       setError('');
     } catch (err: any) {
@@ -390,6 +393,8 @@ export default function ClientDetail() {
             <input className="input" value={editForm.name} required
               onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
           </div>
+          <ClientAddressFields value={editForm} states={meta?.states}
+            onChange={addr => setEditForm({ ...editForm, ...addr })} />
           <div className="form-grid" style={{ marginBottom: 16 }}>
             <div className="field">
               <label>Agreement status</label>
