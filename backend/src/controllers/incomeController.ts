@@ -1712,9 +1712,19 @@ export const incomeController = {
 
     const invoiceDate = String(body.invoiceDate || todayStr());
     if (!DATE_RE.test(invoiceDate)) throw new AppError(400, 'Pick a valid invoice date');
-    const validUntil = String(body.validUntil || addDaysStr(invoiceDate, PROFORMA_VALID_DAYS));
-    if (!DATE_RE.test(validUntil)) throw new AppError(400, 'Pick a valid "valid until" date');
-    if (validUntil < invoiceDate) throw new AppError(400, '"Valid until" cannot be before the invoice date');
+    // Omitted -> the default validity; '' -> no "Valid until" on the invoice
+    const validUntil = body.validUntil === undefined || body.validUntil === null
+      ? addDaysStr(invoiceDate, PROFORMA_VALID_DAYS)
+      : String(body.validUntil).trim();
+    if (validUntil) {
+      if (!DATE_RE.test(validUntil)) throw new AppError(400, 'Pick a valid "valid until" date');
+      if (validUntil < invoiceDate) throw new AppError(400, '"Valid until" cannot be before the invoice date');
+    }
+    const advanceRaw = body.advanceReceived === undefined || body.advanceReceived === '' ? 0 : Number(body.advanceReceived);
+    if (!Number.isFinite(advanceRaw) || advanceRaw < 0) {
+      throw new AppError(400, 'The advance received cannot be negative');
+    }
+    const advanceReceived = round2(advanceRaw);
     const placeOfSupply = String(body.placeOfSupply || '').trim();
     if (placeOfSupply && !INDIAN_STATES.includes(placeOfSupply)) {
       throw new AppError(400, 'Pick the place of supply from the list of states');
@@ -1759,6 +1769,9 @@ export const incomeController = {
     ]);
     const taxType = taxTypeFor(supplierStateCode(brand.gstin || '', brand.state || ''), placeOfSupply);
     const totals = proformaTotals(lines, taxType);
+    if (advanceReceived > totals.total) {
+      throw new AppError(400, 'The advance received cannot be more than the grand total');
+    }
     const fiscalYear = fiscalYearOf(invoiceDate);
     const floor = Number((org?.proformaSeqFloor as any)?.[fiscalYear] || 0);
     const buyer = {
@@ -1780,7 +1793,9 @@ export const incomeController = {
         select: { number: true },
       });
       const number = nextProformaNumber(fiscalYear, existing.map(e => e.number), floor);
-      const html = renderProformaHtml(brand, { number, invoiceDate, validUntil, placeOfSupply, taxType, buyer, lines });
+      const html = renderProformaHtml(brand, {
+        number, invoiceDate, validUntil, placeOfSupply, taxType, buyer, lines, advanceReceived,
+      });
       try {
         record = await prisma.proformaInvoice.create({
           data: {
@@ -1799,6 +1814,7 @@ export const incomeController = {
             sgst: totals.sgst,
             igst: totals.igst,
             totalAmount: totals.total,
+            advanceReceived,
             html,
             createdById: req.actor?.id || null,
           },
@@ -1837,7 +1853,8 @@ export const incomeController = {
       select: {
         id: true, number: true, clientId: true, billingIds: true, fiscalYear: true,
         invoiceDate: true, validUntil: true, placeOfSupply: true, taxType: true, lines: true,
-        subtotal: true, cgst: true, sgst: true, igst: true, totalAmount: true, createdAt: true,
+        subtotal: true, cgst: true, sgst: true, igst: true, totalAmount: true, advanceReceived: true,
+        createdAt: true,
         client: { select: { name: true } },
       },
       orderBy: { createdAt: 'desc' },
@@ -1847,8 +1864,11 @@ export const incomeController = {
         ...r,
         client: undefined,
         clientName: r.client?.name || '',
-        periods: ((r.lines as any[]) || []).filter(l => l.billingId).map(l => l.detail || l.description),
+        // One entry per period (a period's one-time fee line shares its billingId)
+        periods: [...new Map(((r.lines as any[]) || []).filter(l => l.billingId)
+          .map(l => [l.billingId, l.detail || l.description])).values()],
         gstAmount: round2(r.cgst + r.sgst + r.igst),
+        balanceDue: round2(r.totalAmount - r.advanceReceived),
       })),
       total: records.length,
     });

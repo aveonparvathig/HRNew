@@ -328,6 +328,7 @@ model ProformaInvoice {
   sgst           Float    @default(0)
   igst           Float    @default(0)
   totalAmount    Float
+  advanceReceived Float   @default(0) // printed as "Advance Received"; balance due = total - advance
   html           String
   createdById    String?
   createdAt      DateTime @default(now())

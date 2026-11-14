@@ -169,7 +169,8 @@ export default function Proforma() {
               <thead>
                 <tr>
                   <th>Number</th><th>Client</th><th>Periods</th><th>Date</th>
-                  <th className="num">Taxable</th><th className="num">GST</th><th className="num">Total</th><th />
+                  <th className="num">Taxable</th><th className="num">GST</th><th className="num">Total</th>
+                  <th className="num">Advance</th><th className="num">Balance due</th><th />
                 </tr>
               </thead>
               <tbody>
@@ -187,6 +188,8 @@ export default function Proforma() {
                       <div className="text-muted" style={{ fontSize: 11 }}>{r.taxType === 'IGST' ? 'IGST' : 'CGST+SGST'}</div>
                     </td>
                     <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.totalAmount)}</td>
+                    <td className="num text-success">{r.advanceReceived > 0 ? formatINR(r.advanceReceived) : '—'}</td>
+                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.balanceDue)}</td>
                     <td>
                       <div className="row-actions">
                         <button className="btn btn-secondary btn-sm" disabled={busy === r.id}
