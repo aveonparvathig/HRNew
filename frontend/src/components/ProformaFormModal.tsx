@@ -11,11 +11,6 @@ import {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const today = () => new Date().toLocaleDateString('en-CA'); // local YYYY-MM-DD
-const addDays = (date: string, days: number) => {
-  const d = new Date(`${date}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().split('T')[0];
-};
 
 interface Props {
   open: boolean;
@@ -30,7 +25,6 @@ let extraSeq = 0;
 export default function ProformaFormModal({ open, onClose, client, preselect = [], onSaved }: Props) {
   const [settings, setSettings] = useState<any>(null);
   const [invoiceDate, setInvoiceDate] = useState('');
-  const [validUntil, setValidUntil] = useState('');
   const [placeOfSupply, setPlaceOfSupply] = useState('');
   const [hsn, setHsn] = useState('998311');
   const [lines, setLines] = useState<DraftLine[]>([]);      // every period's lines + extra lines
@@ -49,7 +43,6 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
     setError('');
     const date = today();
     setInvoiceDate(date);
-    setValidUntil(addDays(date, 7));
     setPlaceOfSupply(client.onboarding?.state || '');
     const picked = new Set(preselectKey ? preselectKey.split(',') : []);
     setTicked(picked);
@@ -61,7 +54,6 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
     incomeAPI.getProformaSettings(fiscalYearOf(date)).then(res => {
       setSettings(res.data);
       setHsn(res.data.defaultSac || '998311');
-      setValidUntil(addDays(date, res.data.validDays || 7));
       setPlaceOfSupply(p => p || res.data.supplier?.taxState || '');
     }).catch(() => setSettings(null));
     // Keyed on the client's id, not the object: a data refresh after saving
@@ -111,7 +103,7 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
     let generated = false;
     try {
       const res = await incomeAPI.generateProforma(client.id, {
-        invoiceDate, validUntil, placeOfSupply, advanceReceived: t.advance, previousPending: t.previousPending,
+        invoiceDate, validUntil: '', placeOfSupply, advanceReceived: t.advance, previousPending: t.previousPending,
         lines: chosen.map(l => ({
           billingId: l.billingId, description: l.description.trim(), detail: l.detail.trim(),
           hsn, qty: Number(l.qty), rate: round2(Number(l.rate)), gst: l.gst,
@@ -192,22 +184,12 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
               {settings?.nextNumber && <span className="hint">Next number: {settings.nextNumber}</span>}
             </div>
             <div className="field">
-              <label>Valid until</label>
-              <input className="input" type="date" min={invoiceDate} value={validUntil}
-                onChange={e => setValidUntil(e.target.value)} />
-              <span className="hint">
-                {validUntil
-                  ? <a style={{ cursor: 'pointer' }} onClick={() => setValidUntil('')}>Don't print a validity date</a>
-                  : 'Not printed on the invoice.'}
-              </span>
-            </div>
-            <div className="field">
               <label>Place of supply</label>
               <select className="select" value={placeOfSupply} onChange={e => setPlaceOfSupply(e.target.value)}>
                 <option value="">—</option>
                 {(settings?.states || []).map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
-              <span className="hint">{intra ? 'Same state: CGST + SGST' : 'Other state: IGST'}</span>
+              <span className="hint">{intra ? 'Same state: CGST + SGST' : 'Other state: IGST'} · not printed</span>
             </div>
             <div className="field">
               <label>HSN / SAC</label>
