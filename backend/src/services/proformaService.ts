@@ -244,8 +244,7 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
     .pf-doc table { border-collapse:collapse; width:100%; }
     .pf-topbar { height:5px; background:${accent}; margin:0 -7mm 18px; }
     .pf-head { display:flex; justify-content:space-between; align-items:flex-start; gap:20px; }
-    .pf-brand { display:flex; align-items:center; gap:14px; min-width:0; }
-    .pf-logo { height:64px; max-width:170px; object-fit:contain; display:block; image-rendering:auto; }
+    .pf-brand { min-width:0; }
     .pf-org { font-size:18px; font-weight:700; color:#111827; line-height:1.25; margin-bottom:4px; }
     .pf-small { font-size:10.5px; color:#6b7280; line-height:1.45; }
     .pf-orgmeta { font-size:10.5px; color:#374151; margin-top:4px; }
@@ -303,13 +302,11 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
   <div class="pf-topbar"></div>
 
   <div class="pf-head">
+    <!-- No logo on the proforma, by choice: the company name heads the page -->
     <div class="pf-brand">
-      ${brand.logoData ? `<img class="pf-logo" src="${brand.logoData}" alt=""/>` : ''}
-      <div style="min-width:0;">
-        <div class="pf-org">${esc(brand.name)}</div>
-        ${addressLines(seller).map(l => `<div class="pf-small">${esc(l)}</div>`).join('')}
-        ${sellerMeta ? `<div class="pf-orgmeta">${sellerMeta}</div>` : ''}
-      </div>
+      <div class="pf-org">${esc(brand.name)}</div>
+      ${addressLines(seller).map(l => `<div class="pf-small">${esc(l)}</div>`).join('')}
+      ${sellerMeta ? `<div class="pf-orgmeta">${sellerMeta}</div>` : ''}
     </div>
     <div class="pf-titlebox">
       <div class="pf-title">PROFORMA<br/>INVOICE</div>
