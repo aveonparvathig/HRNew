@@ -328,7 +328,8 @@ model ProformaInvoice {
   sgst           Float    @default(0)
   igst           Float    @default(0)
   totalAmount    Float
-  advanceReceived Float   @default(0) // printed as "Advance Received"; balance due = total - advance
+  advanceReceived Float   @default(0) // printed as "Received Amount"
+  previousPending Float   @default(0) // carry-forward, no GST; balance due = total + previousPending - advanceReceived
   html           String
   createdById    String?
   createdAt      DateTime @default(now())

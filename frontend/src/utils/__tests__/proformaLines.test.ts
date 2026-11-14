@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { periodLines, lineAmounts, draftTotals, advanceFor, periodDetail } from '../proformaLines';
+import { periodLines, lineAmounts, draftTotals, advanceFor, previousPendingFor, periodDetail } from '../proformaLines';
 
 const row2526 = {
   id: 'b1', academicYear: '2025-2026', periodLabel: '2025-2026',
@@ -35,7 +35,15 @@ describe('draftTotals', () => {
     const t = draftTotals([{ qty: '2092', rate: '100', gst: true }], true, 100000);
     expect(t).toEqual({
       subtotal: 209200, gst: 37656, cgst: 18828, sgst: 18828, igst: 0,
-      total: 246856, advance: 100000, balanceDue: 146856,
+      total: 246856, previousPending: 0, totalDue: 246856, advance: 100000, balanceDue: 146856,
+    });
+  });
+
+  it('adds previous pending after the grand total, without GST (the 2025-2026 row)', () => {
+    const t = draftTotals([{ qty: '9263', rate: '250', gst: true }], true, 1000000, 250000);
+    expect(t).toMatchObject({
+      subtotal: 2315750, gst: 416835, total: 2732585,
+      previousPending: 250000, totalDue: 2982585, advance: 1000000, balanceDue: 1982585,
     });
   });
 
@@ -49,5 +57,13 @@ describe('advanceFor', () => {
     const billings = [{ id: 'a', received: 1000000 }, { id: 'b', received: 0 }, { id: 'c', received: 5 }];
     expect(advanceFor(billings, new Set(['a', 'b']))).toBe(1000000);
     expect(advanceFor(billings, new Set())).toBe(0);
+  });
+});
+
+describe('previousPendingFor', () => {
+  it('sums the carry-forward on the ticked periods only', () => {
+    const billings = [{ id: 'a', previousPending: 250000 }, { id: 'b', previousPending: 0 }, { id: 'c', previousPending: 7 }];
+    expect(previousPendingFor(billings, new Set(['a', 'b']))).toBe(250000);
+    expect(previousPendingFor(billings, new Set())).toBe(0);
   });
 });

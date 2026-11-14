@@ -54,7 +54,11 @@ export function lineAmounts(l: Pick<DraftLine, 'qty' | 'rate' | 'gst'>) {
 }
 
 // Same rounding as the server: per-line GST summed; CGST = half, SGST = rest
-export function draftTotals(lines: Pick<DraftLine, 'qty' | 'rate' | 'gst'>[], intra: boolean, advance = 0) {
+// Previous pending (carry-forward) adds after the grand total with no GST:
+// balance due = total + previous pending − received.
+export function draftTotals(
+  lines: Pick<DraftLine, 'qty' | 'rate' | 'gst'>[], intra: boolean, advance = 0, previousPending = 0,
+) {
   const amounts = lines.map(lineAmounts);
   const subtotal = round2(amounts.reduce((s, a) => s + a.taxable, 0));
   const gst = round2(amounts.reduce((s, a) => s + a.gst, 0));
@@ -62,8 +66,17 @@ export function draftTotals(lines: Pick<DraftLine, 'qty' | 'rate' | 'gst'>[], in
   const sgst = intra ? round2(gst - cgst) : 0;
   const total = round2(subtotal + gst);
   const adv = round2(Math.max(Number(advance) || 0, 0));
-  return { subtotal, gst, cgst, sgst, igst: intra ? 0 : gst, total, advance: adv, balanceDue: round2(total - adv) };
+  const pending = round2(Math.max(Number(previousPending) || 0, 0));
+  const totalDue = round2(total + pending);
+  return {
+    subtotal, gst, cgst, sgst, igst: intra ? 0 : gst, total,
+    previousPending: pending, totalDue, advance: adv, balanceDue: round2(totalDue - adv),
+  };
 }
+
+// Carry-forward recorded on the ticked periods
+export const previousPendingFor = (billings: { id: string; previousPending?: number }[], ticked: Set<string>) =>
+  round2(billings.filter(b => ticked.has(b.id)).reduce((s, b) => s + (Number(b.previousPending) || 0), 0));
 
 // Payments already recorded on the ticked periods
 export const advanceFor = (billings: { id: string; received?: number }[], ticked: Set<string>) =>

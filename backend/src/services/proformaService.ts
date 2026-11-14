@@ -168,7 +168,8 @@ export interface ProformaDoc {
   taxType: 'CGST_SGST' | 'IGST';
   buyer: ProformaParty;
   lines: ProformaLine[];
-  advanceReceived?: number; // > 0 prints "Advance Received" + "Balance Due"
+  advanceReceived?: number; // > 0 prints "Received Amount" + "Balance Due"
+  previousPending?: number; // carry-forward, no GST; > 0 prints "Previous Pending" + "Balance Due"
 }
 
 export const proformaFilename = (number: string) =>
@@ -195,6 +196,9 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
   const line = tint(accent, 0.18);
   const totals = proformaTotals(d.lines, d.taxType);
   const received = round2(Math.max(Number(d.advanceReceived) || 0, 0));
+  const pending = round2(Math.max(Number(d.previousPending) || 0, 0));
+  const totalDue = round2(totals.total + pending);
+  const balanceDue = round2(totalDue - received);
   const intra = d.taxType === 'CGST_SGST';
   const seller: ProformaParty = {
     name: brand.name, address: brand.address, city: brand.city, state: brand.state,
@@ -286,6 +290,7 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
     .pf-tot td { padding:5px 0; font-size:12px; color:#4b5563; }
     .pf-tot td.r { text-align:right; color:#111827; font-weight:600; }
     .pf-tot .grand td { border-top:1px solid #e5e7eb; padding-top:9px; font-size:14.5px; font-weight:800; color:#111827; }
+    .pf-tot .due td { font-weight:700; color:#111827; border-top:1px dashed #e5e7eb; }
     .pf-tot .recv td { color:#047857; }
     .pf-tot .recv td.r { color:#047857; }
     .pf-due { display:flex; justify-content:space-between; align-items:center; background:${accent}; color:#fff;
@@ -335,9 +340,11 @@ export function renderProformaHtml(brand: OrgBrand, d: ProformaDoc): string {
         ${totalRow('Subtotal', totals.subtotal)}
         ${intra ? totalRow('CGST @ 9%', totals.cgst) + totalRow('SGST @ 9%', totals.sgst) : totalRow('IGST @ 18%', totals.igst)}
         ${totalRow('Grand Total', totals.total, 'grand')}
+        ${pending > 0 ? totalRow('Previous Pending', pending) : ''}
+        ${pending > 0 && received > 0 ? totalRow('Total Due', totalDue, 'due') : ''}
         ${received > 0 ? `<tr class="recv"><td>Received Amount</td><td class="r">Rs.-${money2(received)}</td></tr>` : ''}
       </table>
-      ${received > 0 ? `<div class="pf-due"><span>Balance Due</span><span>Rs.${money2(round2(totals.total - received))}</span></div>` : ''}
+      ${received > 0 || pending > 0 ? `<div class="pf-due"><span>Balance Due</span><span>Rs.${money2(balanceDue)}</span></div>` : ''}
     </div>
   </div>
 
