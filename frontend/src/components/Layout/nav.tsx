@@ -63,6 +63,7 @@ const INCOME_ITEMS: NavItem[] = [
   { to: '/income/clients', icon: 'building', label: 'Clients' },
   { to: '/income/implementation', icon: 'layers', label: 'Implementation' },
   { to: '/income/implementation/visits', icon: 'pin', label: 'Client Visits' },
+  { to: '/income/proforma', icon: 'receipt', label: 'Proforma' },
   { to: '/income/academic-years', icon: 'calendar', label: 'Billing Periods' },
   { to: '/income/import-export', icon: 'transfer', label: 'Import / Export' },
 ];

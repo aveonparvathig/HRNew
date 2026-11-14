@@ -64,6 +64,7 @@ model Organization {
   people        Person[]
   jobOpenings   JobOpening[]
   proposals     ProposalRecord[]
+  proformaInvoices ProformaInvoice[]
   payrollRuns   PayrollRun[]
   workLocations WorkLocation[]
 
@@ -256,6 +257,7 @@ model IncomeClient {
   onboarding   ClientOnboarding?
   features     FeatureStatus[]
   visits       ClientVisit[]
+  proformaInvoices ProformaInvoice[]
 
   @@unique([organizationId, name])
   @@map("income_clients")
@@ -292,11 +294,44 @@ model ClientBilling {
 
   client   IncomeClient     @relation(fields: [clientId], references: [id], onDelete: Cascade)
   payments PaymentReceipt[]
+  proformaInvoices ProformaInvoice[]
 
   @@unique([clientId, academicYear])
   @@index([organizationId, yearStart])
   @@index([organizationId, nextFollowupDate])
   @@map("client_billings")
+}
+
+// Numbered, reprintable proforma invoice raised against one billing row.
+// `html` is the frozen render: an issued invoice never changes on reprint.
+// Deleting the billing row keeps the issued invoice (billingId -> null).
+model ProformaInvoice {
+  id              String   @id @default(cuid())
+  organizationId  String
+  clientId        String
+  billingId       String?
+  number          String // PI/<academicYear>/NNN, sequential per org + period
+  academicYear    String
+  periodLabel     String   @default("")
+  invoiceDate     String // YYYY-MM-DD
+  lineDescription String
+  taxableValue    Float
+  gstAmount       Float
+  oneTimePayment  Float    @default(0)
+  oneTimeGst      Boolean  @default(false) // GST applied to the one-time fee
+  totalAmount     Float
+  html            String
+  createdById     String?
+  createdAt       DateTime @default(now())
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       IncomeClient   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  billing      ClientBilling? @relation(fields: [billingId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, number])
+  @@index([organizationId, clientId])
+  @@index([organizationId, academicYear])
+  @@map("proforma_invoices")
 }
 
 model PaymentReceipt {

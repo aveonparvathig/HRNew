@@ -49,6 +49,12 @@ router.post('/clients/:clientId/billings', asyncHandler((req, res) => incomeCont
 router.put('/billings/:billingId', asyncHandler((req, res) => incomeController.updateBilling(req, res)));
 router.delete('/billings/:billingId', adminOnly, asyncHandler((req, res) => incomeController.deleteBilling(req, res)));
 
+// Proforma invoices
+router.post('/billings/:billingId/proforma', asyncHandler((req, res) => incomeController.generateProforma(req, res)));
+router.get('/proformas', asyncHandler((req, res) => incomeController.listProformas(req, res)));
+router.get('/proformas/:proformaId', asyncHandler((req, res) => incomeController.getProforma(req, res)));
+router.delete('/proformas/:proformaId', adminOnly, asyncHandler((req, res) => incomeController.deleteProforma(req, res)));
+
 // Payments
 router.post('/billings/:billingId/payments', asyncHandler((req, res) => incomeController.addPayment(req, res)));
 router.delete('/payments/:paymentId', adminOnly, asyncHandler((req, res) => incomeController.deletePayment(req, res)));
