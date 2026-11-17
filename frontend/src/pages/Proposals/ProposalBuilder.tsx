@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, ErrorAlert, LoadingBlock } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR } from '../../utils/format';
 
 // Optional document sections (mirrors SECTION_DEFAULTS on the server)
@@ -194,15 +196,15 @@ export default function ProposalBuilder() {
   return (
     <>
       <PageHeader
-        title={revising ? `Revise Proposal — ${form.clientName}` : 'Proposal Builder'}
+        title={revising ? `Revise proposal — ${form.clientName}` : 'Proposal builder'}
         subtitle="Pick a bundle or custom modules, set the commercials — the A4 document previews live."
         actions={
           <>
-            <button type="button" className="btn btn-secondary"
+            <Button icon="browser" aria-pressed={showPreview}
               onClick={() => setShowPreview(p => !p)}>
-              {showPreview ? '◧ Hide Preview' : '◨ Live Preview'}
-            </button>
-            <Link to="/proposals/history" className="btn btn-secondary">History</Link>
+              {showPreview ? 'Hide preview' : 'Live preview'}
+            </Button>
+            <ButtonLink to="/proposals/history" icon="history">History</ButtonLink>
           </>
         }
       />
@@ -214,32 +216,32 @@ export default function ProposalBuilder() {
         {/* Client */}
         <div className="card card-pad mb-24">
           <div className="form-section-title"><span className="step-dot">1</span> Client</div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
-            <div className="field" style={{ gridColumn: 'span 2' }}>
-              <label>Institution / client name *</label>
-              <input className="input" required autoFocus placeholder="e.g. St. Xavier's College"
+          <div className="form-grid mb-14">
+            <div className="field mp-span-2">
+              <label htmlFor="pb-client-name">Institution / client name *</label>
+              <input id="pb-client-name" className="input" required autoFocus placeholder="e.g. St. Xavier's College"
                 value={form.clientName} onChange={e => set('clientName', e.target.value)} />
             </div>
             <div className="field">
-              <label>Proposal date</label>
-              <input className="input" type="date" value={form.proposalDate}
+              <label htmlFor="pb-date">Proposal date</label>
+              <input id="pb-date" className="input" type="date" value={form.proposalDate}
                 onChange={e => set('proposalDate', e.target.value)} />
             </div>
           </div>
           <div className="form-grid">
             <div className="field">
-              <label>Client address</label>
-              <textarea className="input" rows={2} value={form.clientAddress}
+              <label htmlFor="pb-client-address">Client address</label>
+              <textarea id="pb-client-address" className="input" rows={2} value={form.clientAddress}
                 onChange={e => set('clientAddress', e.target.value)} />
             </div>
             <div className="field">
-              <label>Addressed to</label>
-              <input className="input" value={form.toAddress}
+              <label htmlFor="pb-to">Addressed to</label>
+              <input id="pb-to" className="input" value={form.toAddress}
                 onChange={e => set('toAddress', e.target.value)} />
             </div>
             <div className="field">
-              <label>Prepared by</label>
-              <input className="input" placeholder="Your name" value={form.preparedBy}
+              <label htmlFor="pb-prepared-by">Prepared by</label>
+              <input id="pb-prepared-by" className="input" placeholder="Your name" value={form.preparedBy}
                 onChange={e => set('preparedBy', e.target.value)} />
             </div>
           </div>
@@ -248,50 +250,52 @@ export default function ProposalBuilder() {
         {/* Selection */}
         <div className="card card-pad mb-24">
           <div className="form-section-title"><span className="step-dot">2</span> What are you proposing?</div>
-          <div className="segmented" style={{ marginBottom: 18 }}>
-            <button type="button" className={form.selectionMode === 'BUNDLE' ? 'active' : ''}
+          <div className="segmented mp-segmented" role="group" aria-label="Selection mode">
+            <button type="button" className={form.selectionMode === 'BUNDLE' ? 'active' : ''} aria-pressed={form.selectionMode === 'BUNDLE'}
               onClick={() => set('selectionMode', 'BUNDLE')}>Bundle</button>
-            <button type="button" className={form.selectionMode === 'CUSTOM' ? 'active' : ''}
+            <button type="button" className={form.selectionMode === 'CUSTOM' ? 'active' : ''} aria-pressed={form.selectionMode === 'CUSTOM'}
               onClick={() => set('selectionMode', 'CUSTOM')}>Custom modules</button>
           </div>
 
           {form.selectionMode === 'BUNDLE' ? (
             <div className="module-grid">
-              {Object.values<any>(catalog.bundles).map(b => (
-                <div key={b.code}
-                  className="module-card"
-                  onClick={() => pickBundle(b.code)}
-                  style={{
-                    cursor: 'pointer',
-                    borderColor: form.bundle === b.code ? b.heroColor : undefined,
-                    borderWidth: form.bundle === b.code ? 2 : 1,
-                  }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <h3 style={{ fontSize: 15 }}>{b.name}</h3>
-                    {form.bundle === b.code && <span className="badge badge-success">✓ Selected</span>}
-                  </div>
-                  <p style={{ marginBottom: 10 }}>{b.tagline}</p>
-                  <div style={{ fontSize: 12.5 }}>
-                    <strong style={{ color: 'var(--primary)' }}>{formatINR(b.price)}</strong>
-                    <span className="text-muted"> / student · {b.modules.length} modules</span>
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>
-                      standalone value {formatINR(b.standaloneTotal)}
+              {Object.values<any>(catalog.bundles).map(b => {
+                const picked = form.bundle === b.code;
+                return (
+                  <button key={b.code} type="button" aria-pressed={picked}
+                    className={`module-card mp-bundle${picked ? ' selected' : ''}`}
+                    onClick={() => pickBundle(b.code)}>
+                    <div className="cluster between mp-bundle-head">
+                      <h3 className="mp-bundle-name">
+                        {/* the bundle's own brand colour, from the catalog */}
+                        <span className="mp-bundle-swatch" style={{ background: b.heroColor }} aria-hidden="true" />
+                        {b.name}
+                      </h3>
+                      {picked && <span className="badge badge-success"><Icon name="checkCircle" size={13} className="mp-badge-icon" />Selected</span>}
                     </div>
-                  </div>
-                </div>
-              ))}
+                    <p className="mp-bundle-tagline">{b.tagline}</p>
+                    <div className="mp-bundle-price">
+                      <strong className="num">{formatINR(b.price)}</strong>
+                      <span className="text-muted"> / student · <span className="num">{b.modules.length}</span> modules</span>
+                      <div className="mp-cell-sub">
+                        standalone value <span className="num">{formatINR(b.standaloneTotal)}</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <>
-              <div className="toolbar" style={{ marginBottom: 10 }}>
-                <span className="badge badge-info">{form.selectedModules.length} selected</span>
-                <div className="search-input" style={{ maxWidth: 240 }}>
-                  <input className="input" placeholder="Search modules…" value={modSearch}
+              <div className="toolbar">
+                <span className="badge badge-info"><span className="num">{form.selectedModules.length}</span> selected</span>
+                <div className="search-input mp-search">
+                  <input className="input" aria-label="Search modules" placeholder="Search modules…" value={modSearch}
                     onChange={e => setModSearch(e.target.value)} />
                 </div>
                 {suggestedCustomPrice > 0 && (
-                  <span className="text-muted" style={{ fontSize: 12.5 }}>
-                    Suggested rate: {formatINR(suggestedCustomPrice)} / student (sum of module rates)
+                  <span className="text-sm-muted">
+                    Suggested rate: <span className="num">{formatINR(suggestedCustomPrice)}</span> / student (sum of module rates)
                   </span>
                 )}
               </div>
@@ -301,10 +305,10 @@ export default function ProposalBuilder() {
                 if (!mods.length) return null;
                 const allOn = mods.every((m: any) => form.selectedModules.includes(m.code));
                 return (
-                  <div key={catCode} style={{ marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '10px 0 8px' }}>
-                      <div className="section-title" style={{ margin: 0, fontSize: 13 }}>{catLabel}</div>
-                      <button type="button" className="btn btn-ghost btn-sm" style={{ fontSize: 11.5, padding: '2px 8px' }}
+                  <div key={catCode} className="mp-category">
+                    <div className="cluster mp-category-head">
+                      <div className="mp-category-title">{catLabel}</div>
+                      <Button variant="ghost" size="sm"
                         onClick={() => setForm((f: any) => ({
                           ...f,
                           selectedModules: allOn
@@ -312,12 +316,13 @@ export default function ProposalBuilder() {
                             : Array.from(new Set([...f.selectedModules, ...mods.map((m: any) => m.code)])),
                         }))}>
                         {allOn ? 'Clear all' : 'Select all'}
-                      </button>
+                      </Button>
                     </div>
                     <div className="chip-row">
                       {mods.map((m: any) => (
                         <button key={m.code} type="button"
                           className={`chip ${form.selectedModules.includes(m.code) ? 'active' : ''}`}
+                          aria-pressed={form.selectedModules.includes(m.code)}
                           title={`${m.shortDesc} · ${formatINR(m.price)}/student`}
                           onClick={() => toggleModule(m.code)}>
                           {m.icon} {m.name}
@@ -328,16 +333,16 @@ export default function ProposalBuilder() {
                       ))}
                     </div>
                     {catCode === 'ADDON' && mods.some((m: any) => form.selectedModules.includes(m.code)) && (
-                      <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div className="stack mp-addons">
                         {mods.filter((m: any) => form.selectedModules.includes(m.code)).map((m: any) => {
                           const charged = (form.addonsCharged || []).includes(m.code);
                           return (
-                            <div key={m.code} style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: 12.5, color: 'var(--text-2)', minWidth: 160 }}>{m.name}</span>
-                              <div className="segmented">
-                                <button type="button" className={!charged ? 'active' : ''}
+                            <div key={m.code} className="cluster mp-addon-row">
+                              <span className="mp-addon-name">{m.name}</span>
+                              <div className="segmented" role="group" aria-label={`${m.name} pricing`}>
+                                <button type="button" className={!charged ? 'active' : ''} aria-pressed={!charged}
                                   onClick={() => setAddonFree(m.code, true)}>Free</button>
-                                <button type="button" className={charged ? 'active' : ''}
+                                <button type="button" className={charged ? 'active' : ''} aria-pressed={charged}
                                   onClick={() => setAddonFree(m.code, false)}>Charged · {formatINR(m.addonPrice)}/student</button>
                               </div>
                             </div>
@@ -355,26 +360,26 @@ export default function ProposalBuilder() {
         {/* Commercials */}
         <div className="card card-pad mb-24">
           <div className="form-section-title"><span className="step-dot">3</span> Commercials</div>
-          <div className="segmented" style={{ marginBottom: 18 }}>
-            <button type="button" className={!isOneTime ? 'active' : ''}
+          <div className="segmented mp-segmented" role="group" aria-label="Pricing model">
+            <button type="button" className={!isOneTime ? 'active' : ''} aria-pressed={!isOneTime}
               onClick={() => set('pricingModel', 'PER_STUDENT')}>Per student / year</button>
-            <button type="button" className={isOneTime ? 'active' : ''}
+            <button type="button" className={isOneTime ? 'active' : ''} aria-pressed={isOneTime}
               onClick={() => set('pricingModel', 'ONE_TIME')}>One-time + AMC</button>
           </div>
 
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {!isOneTime ? (
               <>
                 <div className="field">
-                  <label>Rate per student / year *</label>
+                  <label htmlFor="pb-rate">Rate per student / year *</label>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01" required
+                    <input id="pb-rate" className="input" type="number" min={0} step="0.01" required
                       value={form.pricePerUnit} onChange={e => set('pricePerUnit', e.target.value)} />
                   </div>
                 </div>
                 <div className="field">
-                  <label>Minimum student commitment *</label>
-                  <input className="input" type="number" min={0} required
+                  <label htmlFor="pb-min-students">Minimum student commitment *</label>
+                  <input id="pb-min-students" className="input" type="number" min={0} required
                     value={form.minimumStudentCommitment}
                     onChange={e => set('minimumStudentCommitment', e.target.value)} />
                 </div>
@@ -382,75 +387,75 @@ export default function ProposalBuilder() {
             ) : (
               <>
                 <div className="field">
-                  <label>One-time license fee *</label>
+                  <label htmlFor="pb-license">One-time license fee *</label>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01" required
+                    <input id="pb-license" className="input" type="number" min={0} step="0.01" required
                       value={form.oneTimePrice} onChange={e => set('oneTimePrice', e.target.value)} />
                   </div>
                 </div>
                 <div className="field">
-                  <label>AMC per year (from Year 2)</label>
+                  <label htmlFor="pb-amc">AMC per year (from year 2)</label>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01"
+                    <input id="pb-amc" className="input" type="number" min={0} step="0.01"
                       value={form.amcAmount} onChange={e => set('amcAmount', e.target.value)} />
                   </div>
                 </div>
                 <div className="field">
-                  <label>AMC as % of license</label>
-                  <input className="input" type="number" min={0} max={100} placeholder="optional"
+                  <label htmlFor="pb-amc-pct">AMC as % of license</label>
+                  <input id="pb-amc-pct" className="input" type="number" min={0} max={100} placeholder="optional"
                     value={form.amcPercent} onChange={e => set('amcPercent', e.target.value)} />
                 </div>
               </>
             )}
             <div className="field">
-              <label>One-time implementation fee</label>
+              <label htmlFor="pb-impl-fee">One-time implementation fee</label>
               <div className="input-unit"><span className="unit">₹</span>
-                <input className="input" type="number" min={0} step="0.01"
+                <input id="pb-impl-fee" className="input" type="number" min={0} step="0.01"
                   value={form.oneTimeImplementationFee}
                   onChange={e => set('oneTimeImplementationFee', e.target.value)} />
               </div>
             </div>
             <div className="field">
-              <label>GST %</label>
-              <input className="input" type="number" min={0} max={100}
+              <label htmlFor="pb-gst">GST %</label>
+              <input id="pb-gst" className="input" type="number" min={0} max={100}
                 value={form.gstPercent} onChange={e => set('gstPercent', e.target.value)} />
             </div>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>One-time setup / implementation fee</label>
-            <div className="segmented">
-              <button type="button" className={form.waiveOneTimeFee ? 'active' : ''}
-                onClick={() => set('waiveOneTimeFee', true)}>Waived Off</button>
-              <button type="button" className={!form.waiveOneTimeFee ? 'active' : ''}
-                onClick={() => set('waiveOneTimeFee', false)}>Not Waived Off</button>
+          <div className="field mb-14">
+            <label id="pb-waive-label">One-time setup / implementation fee</label>
+            <div className="segmented" role="group" aria-labelledby="pb-waive-label">
+              <button type="button" className={form.waiveOneTimeFee ? 'active' : ''} aria-pressed={form.waiveOneTimeFee}
+                onClick={() => set('waiveOneTimeFee', true)}>Waived off</button>
+              <button type="button" className={!form.waiveOneTimeFee ? 'active' : ''} aria-pressed={!form.waiveOneTimeFee}
+                onClick={() => set('waiveOneTimeFee', false)}>Not waived off</button>
             </div>
-            <span className="hint">Waived Off shows “(One-time) – Currently Waived Off” and is not added to the total; Not Waived Off charges the fee.</span>
+            <span className="hint">Waived off shows “(One-time) – Currently Waived Off” in the document and is not added to the total; not waived off charges the fee.</span>
           </div>
 
           <div className="calc-card">
-            <div className="calc-row"><span>Subtotal</span><span className="amount">{formatINR(totals.subtotal)}</span></div>
-            <div className="calc-row"><span>GST @ {form.gstPercent || 0}%</span><span className="amount">{formatINR(totals.gstAmt)}</span></div>
-            <div className="calc-row total"><span>Year-1 total</span><span className="amount">{formatINR(totals.grand)}</span></div>
+            <div className="calc-row"><span>Subtotal</span><span className="amount num">{formatINR(totals.subtotal)}</span></div>
+            <div className="calc-row"><span>GST @ {form.gstPercent || 0}%</span><span className="amount num">{formatINR(totals.gstAmt)}</span></div>
+            <div className="calc-row total"><span>Year-1 total</span><span className="amount num">{formatINR(totals.grand)}</span></div>
           </div>
         </div>
 
         {/* Document content */}
         <div className="card card-pad mb-24">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div className="form-section-title" style={{ marginBottom: 0 }}>
+          <div className="cluster mp-content-head">
+            <div className="form-section-title mp-flush">
               <span className="step-dot">4</span> Document content
             </div>
-            <button type="button" className="btn btn-ghost btn-sm"
-              onClick={() => set('sections', { ...ALL_SECTIONS })}>All</button>
-            <button type="button" className="btn btn-ghost btn-sm"
-              onClick={() => set('sections', Object.fromEntries(Object.keys(SECTION_LABELS).map(k => [k, false])))}>None</button>
+            <Button variant="ghost" size="sm"
+              onClick={() => set('sections', { ...ALL_SECTIONS })}>All</Button>
+            <Button variant="ghost" size="sm"
+              onClick={() => set('sections', Object.fromEntries(Object.keys(SECTION_LABELS).map(k => [k, false])))}>None</Button>
           </div>
-          <p className="text-muted" style={{ fontSize: 12.5, margin: '8px 0 12px' }}>
+          <p className="text-sm-muted mp-content-lede">
             Tune the document to the audience — a lean commercial quote or the full company story.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '6px 16px' }}>
+          <div className="mp-check-grid">
             {Object.entries(SECTION_LABELS).map(([key, label]) => (
-              <label key={key} className="checkbox-field" style={{ fontSize: 13 }}>
+              <label key={key} className="checkbox-field mp-check">
                 <input type="checkbox" checked={form.sections?.[key] !== false}
                   onChange={e => set('sections', { ...form.sections, [key]: e.target.checked })} />
                 {label}
@@ -458,32 +463,32 @@ export default function ProposalBuilder() {
             ))}
           </div>
           {form.sections?.clients !== false && (catalog.clients?.length || 0) > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <div className="section-title" style={{ fontSize: 12.5, margin: '0 0 8px' }}>
-                Client logos — {catalog.clients.length - (form.hiddenClients?.length || 0)} of {catalog.clients.length} shown
+            <div className="mp-logos">
+              <div className="mp-logos-title">
+                Client logos — <span className="num">{catalog.clients.length - (form.hiddenClients?.length || 0)}</span> of <span className="num">{catalog.clients.length}</span> shown
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
-                <input className="input" style={{ maxWidth: 240 }} placeholder="New client name"
+              <div className="cluster mp-logo-add">
+                <input className="input mp-logo-name" aria-label="New client name" placeholder="New client name"
                   value={logoName} onChange={e => setLogoName(e.target.value)} />
-                <input type="file" accept="image/*" style={{ fontSize: 12 }}
+                <input type="file" accept="image/*" aria-label="Client logo image" className="mp-logo-file"
                   onChange={e => setLogoFile(e.target.files?.[0] || null)} />
-                <button type="button" className="btn btn-secondary btn-sm" disabled={!logoName.trim() || !logoFile}
-                  onClick={addLogo}>+ Add logo</button>
+                <Button size="sm" icon="plus" disabled={!logoName.trim() || !logoFile}
+                  onClick={addLogo}>Add logo</Button>
               </div>
               {(catalog.customLogos?.length || 0) > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                <div className="cluster mp-logo-chips">
                   {catalog.customLogos.map((cl: any) => (
-                    <span key={cl.name} className="chip" style={{ fontSize: 11.5, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <span key={cl.name} className="chip mp-logo-chip">
                       {cl.name}
-                      <button type="button" onClick={() => removeLogo(cl.name)} title="Remove"
-                        style={{ border: 'none', background: 'none', color: 'var(--danger)', cursor: 'pointer', padding: 0, fontSize: 13 }}>✕</button>
+                      <button type="button" onClick={() => removeLogo(cl.name)} title="Remove" aria-label={`Remove ${cl.name}`}
+                        className="mp-logo-remove">✕</button>
                     </span>
                   ))}
                 </div>
               )}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '4px 16px', maxHeight: 230, overflowY: 'auto', paddingRight: 4 }}>
+              <div className="mp-check-grid mp-client-list">
                 {catalog.clients.map((name: string) => (
-                  <label key={name} className="checkbox-field" style={{ fontSize: 12.5 }}>
+                  <label key={name} className="checkbox-field mp-check mp-check-sm">
                     <input type="checkbox" checked={!(form.hiddenClients || []).includes(name)}
                       onChange={() => toggleClient(name)} />
                     {name}
@@ -499,43 +504,43 @@ export default function ProposalBuilder() {
           <div className="form-section-title"><span className="step-dot">5</span> Signatory &amp; legal</div>
           <div className="form-grid">
             <div className="field">
-              <label>Authorized signatory name</label>
-              <input className="input" value={form.authorizedSignatoryName}
+              <label htmlFor="pb-sig-name">Authorized signatory name</label>
+              <input id="pb-sig-name" className="input" value={form.authorizedSignatoryName}
                 onChange={e => set('authorizedSignatoryName', e.target.value)} />
             </div>
             <div className="field">
-              <label>Signatory designation</label>
-              <input className="input" placeholder="e.g. Director"
+              <label htmlFor="pb-sig-designation">Signatory designation</label>
+              <input id="pb-sig-designation" className="input" placeholder="e.g. Director"
                 value={form.authorizedSignatoryDesignation}
                 onChange={e => set('authorizedSignatoryDesignation', e.target.value)} />
             </div>
             <div className="field">
-              <label>Jurisdiction</label>
-              <input className="input" value={form.jurisdiction}
+              <label htmlFor="pb-jurisdiction">Jurisdiction</label>
+              <input id="pb-jurisdiction" className="input" value={form.jurisdiction}
                 onChange={e => set('jurisdiction', e.target.value)} />
             </div>
           </div>
         </div>
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ padding: '12px 28px' }}>
-            {saving ? 'Generating…' : `Generate Proposal — ${formatINR(totals.grand)}`}
-          </button>
+        <div className="form-actions mp-generate-bar">
+          <Button type="submit" variant="accent" icon="sparkles" loading={saving} className="mp-generate">
+            {saving ? 'Generating…' : <>Generate proposal — <span className="num">{formatINR(totals.grand)}</span></>}
+          </Button>
         </div>
       </form>
 
       {showPreview && (
         <aside className="builder-preview">
           <div className="preview-bar">
-            <span style={{ fontWeight: 600, fontSize: 13 }}>A4 Preview</span>
-            <span className="text-muted" style={{ fontSize: 12 }}>
-              {previewBusy ? 'Rendering…' : 'live'}
+            <span className="mp-preview-label">A4 preview</span>
+            <span className="text-sm-muted" aria-live="polite">
+              {previewBusy ? 'Rendering…' : 'Live'}
             </span>
           </div>
           <div className="preview-frame">
             {previewHtml
               ? <iframe title="Proposal preview" srcDoc={previewHtml} />
-              : <div className="text-muted" style={{ padding: 24, fontSize: 13 }}>Start typing — the document renders here.</div>}
+              : <div className="text-sm-muted mp-preview-empty">Start typing — the document renders here.</div>}
           </div>
         </aside>
       )}

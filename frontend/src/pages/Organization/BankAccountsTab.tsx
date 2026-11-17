@@ -3,6 +3,7 @@ import { mastersAPI } from '../../api/masters';
 import { EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, Modal } from '../../components/ui';
 import { confirmDialog } from '../../components/feedback';
 import ListSelect from '../../components/ListSelect';
+import { Button } from '../../components/Button';
 
 const EMPTY = { label: '', bankName: '', branch: '', accountNumber: '', ifsc: '', isDefault: false };
 
@@ -71,11 +72,11 @@ export default function BankAccountsTab() {
         <div className="card-header">
           <div>
             <h3>Company bank accounts</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="og-header-hint">
               Salaries are paid from one of these. The default is offered first when a payment batch is made.
             </span>
           </div>
-          <button className="btn btn-primary" onClick={() => { setForm({ ...EMPTY, isDefault: accounts.length === 0 }); setFormError(''); }}>+ Add Account</button>
+          <Button variant="accent" icon="plus" onClick={() => { setForm({ ...EMPTY, isDefault: accounts.length === 0 }); setFormError(''); }}>Add account</Button>
         </div>
         {accounts.length === 0 ? (
           <EmptyState icon="🏦" title="No bank account yet"
@@ -89,36 +90,36 @@ export default function BankAccountsTab() {
               <tbody>
                 {accounts.map(a => (
                   <tr key={a.id}>
-                    <td style={{ fontWeight: 600 }}>
+                    <td className="og-strong">
                       {a.label || <span className="text-muted">—</span>}
-                      {a.isDefault && <span className="badge badge-info" style={{ marginLeft: 8 }}>Default</span>}
+                      {a.isDefault && <span className="badge badge-info og-badge-gap">Default</span>}
                     </td>
                     <td>{a.bankName}</td>
                     <td>{a.branch || <span className="text-muted">—</span>}</td>
-                    <td style={{ fontVariantNumeric: 'tabular-nums' }}>{a.accountNumber}</td>
-                    <td>{a.ifsc || <span className="text-muted">—</span>}</td>
+                    <td className="mono">{a.accountNumber}</td>
+                    <td className="mono">{a.ifsc || <span className="text-muted">—</span>}</td>
                     <td>
                       <span className={`badge ${a.isActive ? 'badge-success' : 'badge-neutral'}`}>{a.isActive ? 'In use' : 'Switched off'}</span>
                     </td>
                     <td>
                       <div className="row-actions">
                         {a.isActive && !a.isDefault && (
-                          <button className="btn btn-ghost btn-sm" disabled={saving}
+                          <Button variant="ghost" size="sm" disabled={saving}
                             onClick={() => act(() => mastersAPI.updateBankAccount(a.id, { isDefault: true }), 'Default account changed.')}>
-                            Make Default
-                          </button>
+                            Make default
+                          </Button>
                         )}
-                        <button className="btn btn-secondary btn-sm" onClick={() => { setForm({ ...a }); setFormError(''); }}>Edit</button>
-                        <button className="btn btn-ghost btn-sm" disabled={saving}
+                        <Button size="sm" onClick={() => { setForm({ ...a }); setFormError(''); }}>Edit</Button>
+                        <Button variant="ghost" size="sm" disabled={saving}
                           onClick={() => act(() => mastersAPI.updateBankAccount(a.id, { isActive: !a.isActive }), a.isActive ? 'Account switched off.' : 'Account switched on.')}>
-                          {a.isActive ? 'Switch Off' : 'Switch On'}
-                        </button>
+                          {a.isActive ? 'Switch off' : 'Switch on'}
+                        </Button>
                         {a.batchCount === 0 && (
-                          <button className="btn btn-danger btn-sm" disabled={saving}
+                          <Button variant="danger" size="sm" disabled={saving}
                             onClick={async () => await confirmDialog(`Delete the account ${a.label || a.bankName} ending ${a.accountNumber.slice(-4)}?`)
                               && act(() => mastersAPI.deleteBankAccount(a.id), 'Account deleted.')}>
                             Delete
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -130,44 +131,44 @@ export default function BankAccountsTab() {
         )}
       </div>
 
-      <Modal title={form?.id ? 'Edit Bank Account' : 'Add Bank Account'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit bank account' : 'Add bank account'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={handleSave}>
             <ErrorAlert message={formError} onDismiss={() => setFormError('')} />
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
                 <label>Bank *</label>
                 <ListSelect listType="BANK" required value={form.bankName} onChange={v => setForm({ ...form, bankName: v })} />
               </div>
               <div className="field">
-                <label>Branch</label>
-                <input className="input" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} />
+                <label htmlFor="og-bank-branch">Branch</label>
+                <input id="og-bank-branch" className="input" value={form.branch} onChange={e => setForm({ ...form, branch: e.target.value })} />
               </div>
               <div className="field">
-                <label>Account number *</label>
-                <input className="input" required value={form.accountNumber}
+                <label htmlFor="og-bank-number">Account number *</label>
+                <input id="og-bank-number" className="input mono" required value={form.accountNumber}
                   onChange={e => setForm({ ...form, accountNumber: e.target.value })} />
               </div>
               <div className="field">
-                <label>IFSC</label>
-                <input className="input" placeholder="HDFC0001234" value={form.ifsc} maxLength={11}
+                <label htmlFor="og-bank-ifsc">IFSC</label>
+                <input id="og-bank-ifsc" className="input" placeholder="HDFC0001234" value={form.ifsc} maxLength={11}
                   onChange={e => setForm({ ...form, ifsc: e.target.value.toUpperCase() })} />
               </div>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Called</label>
-                <input className="input" placeholder="e.g. Salary account" value={form.label}
+              <div className="field og-span-all">
+                <label htmlFor="og-bank-label">Called</label>
+                <input id="og-bank-label" className="input" placeholder="e.g. Salary account" value={form.label}
                   onChange={e => setForm({ ...form, label: e.target.value })} />
                 <span className="hint">A name for the account in-house, shown when picking it for a payment batch.</span>
               </div>
             </div>
-            <label className="checkbox-field" style={{ marginBottom: 14 }}>
+            <label className="checkbox-field mb-14">
               <input type="checkbox" checked={Boolean(form.isDefault)} disabled={Boolean(form.id) && form.isDefault}
                 onChange={e => setForm({ ...form, isDefault: e.target.checked })} />
               Default account for salary payments
             </label>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Account'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save account'}</Button>
             </div>
           </form>
         )}

@@ -1,0 +1,56 @@
+/* Redesign: organization. */
+
+/* Section heading and lede inside a settings card. */
+.og-title { font-size: 15px; margin-bottom: 4px; }
+.og-title-gap { font-size: 15px; margin-bottom: 12px; }
+.og-subtitle { font-size: 15px; margin: 6px 0 12px; }
+.og-subtitle-top { font-size: 15px; margin: 18px 0 4px; }
+.og-lede { font-size: 12.5px; color: var(--text-3); margin-bottom: 16px; }
+.og-lede.tight { margin-bottom: 14px; }
+.og-lede.tighter { margin-bottom: 12px; }
+.og-note { font-size: 12.5px; color: var(--text-3); margin-top: 10px; }
+.og-sub { font-size: 11.5px; color: var(--text-3); }
+.og-sub-err { font-size: 11.5px; color: var(--danger); }
+.og-header-hint { font-size: 12.5px; color: var(--text-3); }
+.og-mb-18 { margin-bottom: 18px; }
+.og-mt-4 { margin-top: 4px; }
+.og-span-2 { grid-column: span 2; }
+.og-span-all { grid-column: 1 / -1; }
+.og-warn-hint { color: var(--warning); }
+.og-actions-start { justify-content: flex-start; }
+.og-actions-start.og-actions-gap { margin-bottom: 24px; }
+
+/* Branding colour pickers. */
+.og-color { width: 44px; height: 38px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px; background: var(--surface); }
+.og-color-hex { max-width: 120px; }
+
+/* Checkbox with a second line of explanation. */
+.og-check-top { align-items: flex-start; margin-bottom: 10px; }
+.og-check-top input { margin-top: 2px; }
+.og-check-desc { display: block; font-size: 12px; color: var(--text-3); }
+.og-test-input { max-width: 320px; }
+
+/* Storage. */
+.og-usage-row { padding: 8px 0; }
+.og-inline-alert { margin-top: 14px; margin-bottom: 0; align-items: center; }
+.og-inline-alert .og-alert-icon { margin-top: 0; }
+.og-provider { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; cursor: pointer; }
+.og-provider input { margin-top: 3px; }
+.og-provider-name { font-weight: 600; }
+.og-provider-hint { display: block; font-size: 12.5px; color: var(--text-3); }
+.og-plain-check { font-size: 13.5px; font-weight: 400; }
+
+/* Tables. */
+.og-strong { font-weight: 600; }
+.og-badge-gap { margin-left: 8px; }
+.og-nowrap { white-space: nowrap; }
+.og-ua { font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.og-role-select { width: 140px; padding: 5px 8px; font-size: 12.5px; }
+
+/* Lists and number series. */
+.og-chip-count { opacity: 0.7; }
+.og-add-input { width: 220px; }
+.og-series-head { align-items: baseline; --gap: 12px; }
+.og-series-actions { margin-top: 14px; --gap: 10px; }
+.og-alert-icon { flex: none; margin-top: 1px; }
+.og-grow { flex: 1; min-width: 0; }

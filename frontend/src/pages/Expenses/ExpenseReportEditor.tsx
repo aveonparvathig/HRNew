@@ -4,6 +4,8 @@ import { expensesAPI } from '../../api/expenses';
 import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton, SuccessAlert,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { preprocessImage, ocrImage, parseReceipt } from '../../utils/ocr';
 import { formatINR, formatDate } from '../../utils/format';
 import { EXPENSE_STATUS_TONES } from './ExpensesList';
@@ -14,11 +16,11 @@ const EMPTY_LINE = {
   receiptData: '', receiptFilename: '', ocrText: '',
 };
 
-const ACTION_LABELS: Record<string, { label: string; cls: string; confirm?: string }> = {
-  submit: { label: '⇧ Submit', cls: 'btn-primary' },
-  approve: { label: '✓ Approve', cls: 'btn-primary' },
-  reject: { label: '✗ Reject', cls: 'btn-danger', confirm: 'Reject this report? The employee can edit and resubmit.' },
-  reimburse: { label: '₹ Mark Reimbursed', cls: 'btn-primary', confirm: 'Mark this report as reimbursed?' },
+const ACTION_LABELS: Record<string, { label: string; icon?: string; danger?: boolean; confirm?: string }> = {
+  submit: { label: 'Submit', icon: 'send' },
+  approve: { label: 'Approve', icon: 'checkCircle' },
+  reject: { label: 'Reject', danger: true, confirm: 'Reject this report? The employee can edit and resubmit.' },
+  reimburse: { label: 'Mark reimbursed', icon: 'banknote', confirm: 'Mark this report as reimbursed?' },
 };
 
 interface OcrJob {
@@ -188,10 +190,13 @@ export default function ExpenseReportEditor() {
   if (loading) return <LoadingBlock label="Loading report…" />;
   if (!report) {
     return <EmptyState icon="⌯" title="Report not found"
-      action={<Link to="/expenses" className="btn btn-secondary">Back to Expenses</Link>} />;
+      action={<ButtonLink to="/expenses">Back to expenses</ButtonLink>} />;
   }
 
   const catOf = (v: string) => meta.categories.find((c: any) => c.value === v);
+  // One accent per view: the first forward action (submit / approve / reimburse).
+  const accentAction = report.actions.find((a: string) => a !== 'reject');
+  const pickFiles = () => fileRef.current?.click();
 
   return (
     <>
@@ -207,15 +212,20 @@ export default function ExpenseReportEditor() {
         actions={
           <>
             <span className={`badge ${EXPENSE_STATUS_TONES[report.status]}`}>{report.status.toLowerCase()}</span>
-            <Link to={`/expenses/${report.id}/print`} className="btn btn-secondary">🖨 Report</Link>
+            <ButtonLink to={`/expenses/${report.id}/print`} icon="printer">Print report</ButtonLink>
             {report.status === 'DRAFT' && (
-              <button className="btn btn-danger" onClick={handleDeleteReport}>Delete</button>
+              <Button variant="danger" onClick={handleDeleteReport}>Delete</Button>
             )}
-            {report.actions.map((a: string) => (
-              <button key={a} className={`btn ${ACTION_LABELS[a].cls}`} onClick={() => doAction(a)}>
-                {ACTION_LABELS[a].label}
-              </button>
-            ))}
+            {report.actions.map((a: string) => {
+              const cfg = ACTION_LABELS[a];
+              return (
+                <Button key={a} icon={cfg.icon}
+                  variant={cfg.danger ? 'danger' : a === accentAction ? 'accent' : 'secondary'}
+                  onClick={() => doAction(a)}>
+                  {cfg.label}
+                </Button>
+              );
+            })}
           </>
         }
       />
@@ -224,16 +234,16 @@ export default function ExpenseReportEditor() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="stat-grid">
-        <StatCard label="Total Claimed" value={formatINR(report.total)} icon="₹" tone="primary" />
-        <StatCard label="Expense Lines" value={report.lines.length}
-          sub={`${report.lines.filter((l: any) => l.hasReceipt).length} with receipts`} icon="⌯" tone="info" />
-        <StatCard label="Business Purpose" value={report.businessPurpose || '—'} icon="✎" tone="warning" />
+        <StatCard label="Total claimed" value={formatINR(report.total)} icon="banknote" tone="primary" />
+        <StatCard label="Expense lines" value={report.lines.length}
+          sub={`${report.lines.filter((l: any) => l.hasReceipt).length} with receipts`} icon="receipt" tone="info" />
+        <StatCard label="Business purpose" value={report.businessPurpose || '—'} icon="briefcase" tone="warning" />
       </div>
 
       {report.approvals?.length > 0 && (
         <div className="card card-pad mb-24">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ fontSize: 15, margin: 0 }}>Approval chain</h3>
+          <div className="cluster between re-chain-head">
+            <h3 className="re-card-title re-flush">Approval chain</h3>
             {report.canApproveNow && <span className="badge badge-warning">Awaiting your approval</span>}
           </div>
           <div className="approval-chain">
@@ -243,7 +253,7 @@ export default function ExpenseReportEditor() {
               return (
                 <div key={s.level} className={`approval-step ${state}`}>
                   <span className="step-mark">{state === 'done' ? '✓' : state === 'rejected' ? '✗' : s.level}</span>
-                  <div style={{ minWidth: 0 }}>
+                  <div className="re-min0">
                     <div className="step-name">{s.approverName}</div>
                     <div className="step-sub">
                       {s.decision === 'APPROVED' ? `Approved${s.decidedAt ? ' · ' + formatDate(s.decidedAt) : ''}`
@@ -261,20 +271,21 @@ export default function ExpenseReportEditor() {
       {/* OCR drop zone */}
       {report.editable && (
         <div
-          className="card card-pad mb-24"
+          className={`card card-pad mb-24 re-dropzone${dragOver ? ' is-over' : ''}`}
+          role="button"
+          tabIndex={0}
+          aria-label="Add receipt photos"
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          style={{
-            border: `2px dashed ${dragOver ? 'var(--primary)' : 'var(--border)'}`,
-            background: dragOver ? 'var(--primary-soft)' : 'var(--surface)',
-            textAlign: 'center', cursor: 'pointer', transition: 'all .15s',
+          onClick={pickFiles}
+          onKeyDown={e => {
+            if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickFiles(); }
           }}
-          onClick={() => fileRef.current?.click()}
         >
-          <div style={{ fontSize: 28, marginBottom: 6 }}>🧾</div>
-          <div style={{ fontWeight: 600 }}>Drop receipt photos here — or click to choose</div>
-          <div className="text-muted" style={{ fontSize: 12.5, marginTop: 4 }}>
+          <Icon name="receipt" size={28} className="re-dropzone-icon" />
+          <div className="re-strong">Drop receipt photos here, or click to choose</div>
+          <div className="text-sm-muted re-dropzone-hint">
             OCR reads the amount, date and merchant, attaches the image, and adds an editable line.
           </div>
           <input ref={fileRef} type="file" accept="image/*" multiple hidden
@@ -286,16 +297,17 @@ export default function ExpenseReportEditor() {
         <div className="card card-pad mb-24">
           {jobs.map(j => (
             <div key={j.id} className="list-row">
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <span style={{ fontWeight: 600, fontSize: 13 }}>{j.name}</span>
-                <span className="text-muted" style={{ fontSize: 12, marginLeft: 8 }}>
+              <div className="re-job">
+                <span className="re-job-name">{j.name}</span>
+                <span className={`re-job-status${j.status === 'done' ? ' is-done' : j.status === 'error' ? ' is-error' : ''}`}>
                   {j.status === 'preprocessing' && 'enhancing image…'}
-                  {j.status === 'recognizing' && `reading text… ${j.progress}%`}
-                  {j.status === 'done' && `✓ ${j.message}`}
-                  {j.status === 'error' && `✗ ${j.message}`}
+                  {j.status === 'recognizing' && <>reading text… <span className="num">{j.progress}%</span></>}
+                  {j.status === 'done' && <><Icon name="checkCircle" size={14} className="re-inline-icon" />{j.message}</>}
+                  {j.status === 'error' && <><Icon name="alert" size={14} className="re-inline-icon" />{j.message}</>}
                 </span>
                 {j.status === 'recognizing' && (
-                  <div className="bar-track" style={{ marginTop: 6 }}>
+                  <div className="bar-track re-job-bar">
+                    {/* width is the live OCR progress */}
                     <div className="bar-fill" style={{ width: `${j.progress}%` }} />
                   </div>
                 )}
@@ -310,7 +322,7 @@ export default function ExpenseReportEditor() {
         <div className="card-header">
           <h3>Expense lines</h3>
           {report.editable && (
-            <button className="btn btn-primary btn-sm" onClick={() => openLine(null)}>+ Add Line</button>
+            <Button size="sm" icon="plus" onClick={() => openLine(null)}>Add line</Button>
           )}
         </div>
         {report.lines.length === 0 ? (
@@ -322,13 +334,14 @@ export default function ExpenseReportEditor() {
               <thead>
                 <tr>
                   <th>Date</th><th>Category</th><th>Description</th>
-                  <th>Merchant</th><th>Receipt</th><th className="num">Amount</th><th />
+                  <th>Merchant</th><th>Receipt</th><th className="num">Amount</th>
+                  <th><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {report.lines.map((l: any) => (
                   <tr key={l.id}>
-                    <td>{l.date ? formatDate(l.date) : '—'}</td>
+                    <td className="re-date">{l.date ? formatDate(l.date) : '—'}</td>
                     <td>
                       <span className="badge badge-neutral">
                         {catOf(l.category)?.icon} {catOf(l.category)?.label || l.category}
@@ -338,15 +351,15 @@ export default function ExpenseReportEditor() {
                     <td>{l.merchant || '—'}</td>
                     <td>
                       {l.hasReceipt ? (
-                        <button className="btn btn-ghost btn-sm" onClick={() => viewReceipt(l)}>📎 View</button>
+                        <Button variant="ghost" size="sm" icon="receipt" onClick={() => viewReceipt(l)}>View</Button>
                       ) : <span className="text-muted">—</span>}
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(l.amount)}</td>
+                    <td className="num re-strong">{formatINR(l.amount)}</td>
                     <td>
                       {report.editable && (
                         <div className="row-actions">
-                          <button className="btn btn-secondary btn-sm" onClick={() => openLine(l)}>Edit</button>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleDeleteLine(l)}>✕</button>
+                          <Button size="sm" onClick={() => openLine(l)}>Edit</Button>
+                          <Button variant="danger" size="sm" aria-label="Remove line" onClick={() => handleDeleteLine(l)}>✕</Button>
                         </div>
                       )}
                     </td>
@@ -364,18 +377,18 @@ export default function ExpenseReportEditor() {
       </div>
 
       {/* Line modal */}
-      <Modal title={lineModal.line ? 'Edit Expense Line' : 'Add Expense Line'}
+      <Modal title={lineModal.line ? 'Edit expense line' : 'Add expense line'}
         open={lineModal.open} onClose={() => setLineModal({ open: false, line: null })}>
         <form onSubmit={handleSaveLine}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Date</label>
-              <input className="input" type="date" value={form.date}
+              <label htmlFor="re-line-date">Date</label>
+              <input id="re-line-date" className="input" type="date" value={form.date}
                 onChange={e => setForm({ ...form, date: e.target.value })} />
             </div>
             <div className="field">
-              <label>Category</label>
-              <select className="select" value={form.category}
+              <label htmlFor="re-line-category">Category</label>
+              <select id="re-line-category" className="select" value={form.category}
                 onChange={e => setForm({ ...form, category: e.target.value })}>
                 {meta.categories.map((c: any) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -383,36 +396,36 @@ export default function ExpenseReportEditor() {
               </select>
             </div>
             <div className="field">
-              <label>Amount *</label>
+              <label htmlFor="re-line-amount">Amount *</label>
               <div className="input-unit"><span className="unit">₹</span>
-                <input className="input" type="number" min={0.01} step="0.01" required autoFocus
+                <input id="re-line-amount" className="input num" type="number" min={0.01} step="0.01" required autoFocus
                   value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} />
               </div>
             </div>
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Merchant</label>
-              <input className="input" placeholder="e.g. Hotel Saravana Bhavan"
+              <label htmlFor="re-line-merchant">Merchant</label>
+              <input id="re-line-merchant" className="input" placeholder="e.g. Hotel Saravana Bhavan"
                 value={form.merchant} onChange={e => setForm({ ...form, merchant: e.target.value })} />
             </div>
             <div className="field">
-              <label>Description</label>
-              <input className="input" placeholder="e.g. Lunch with client"
+              <label htmlFor="re-line-desc">Description</label>
+              <input id="re-line-desc" className="input" placeholder="e.g. Lunch with client"
                 value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
             </div>
           </div>
           {lineModal.line?.hasReceipt && (
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
-              📎 Receipt attached ({lineModal.line.receiptFilename || 'image'}) — kept as-is.
+            <p className="text-sm-muted re-receipt-note">
+              <Icon name="receipt" size={14} className="re-inline-icon" />
+              Receipt attached ({lineModal.line.receiptFilename || 'image'}) — kept as-is.
             </p>
           )}
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost"
-              onClick={() => setLineModal({ open: false, line: null })}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : lineModal.line ? 'Save Changes' : 'Add Line'}
-            </button>
+            <Button variant="ghost" onClick={() => setLineModal({ open: false, line: null })}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Saving…' : lineModal.line ? 'Save changes' : 'Add line'}
+            </Button>
           </div>
         </form>
       </Modal>

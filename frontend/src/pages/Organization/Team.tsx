@@ -5,6 +5,7 @@ import {
 } from '../../components/ui';
 import { formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
 
 const EMPTY_MEMBER = { email: '', password: '', firstName: '', lastName: '', role: 'EMPLOYEE' };
 
@@ -115,7 +116,7 @@ export default function Team() {
           : 'Your organization’s team. Only owners can make changes.'}
         actions={isOwner && (
           <>
-            <button className="btn btn-secondary" disabled={saving} onClick={async () => {
+            <Button icon="key" disabled={saving} onClick={async () => {
               if (!await confirmDialog(`Generate logins for ${data?.employeesWithoutLogin ?? 'all'} employees without one? A credential sheet will download — share each password securely; everyone must change it at first sign-in.`)) return;
               setSaving(true);
               try {
@@ -135,11 +136,11 @@ export default function Team() {
                 setSaving(false);
               }
             }}>
-              ⚿ Generate Employee Logins{data?.employeesWithoutLogin ? ` (${data.employeesWithoutLogin})` : ''}
-            </button>
-            <button className="btn btn-primary" onClick={() => { setForm(EMPTY_MEMBER); setAddModal(true); }}>
-              + Add Member
-            </button>
+              Generate employee logins{data?.employeesWithoutLogin ? ` (${data.employeesWithoutLogin})` : ''}
+            </Button>
+            <Button variant="accent" icon="userPlus" onClick={() => { setForm(EMPTY_MEMBER); setAddModal(true); }}>
+              Add member
+            </Button>
           </>
         )}
       />
@@ -160,11 +161,11 @@ export default function Team() {
               {(data?.members || []).map((m: any) => (
                 <tr key={m.id}>
                   <td>
-                    <span style={{ fontWeight: 600 }}>
+                    <span className="og-strong">
                       {[m.firstName, m.lastName].filter(Boolean).join(' ') || m.email}
-                      {m.id === data.myId && <span className="badge badge-info" style={{ marginLeft: 8 }}>you</span>}
+                      {m.id === data.myId && <span className="badge badge-info og-badge-gap">you</span>}
                     </span>
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>
+                    <div className="og-sub">
                       {m.email}
                       {m.personName && <> · linked to {m.personName}</>}
                       {m.mustChangePassword && !m.passwordExpired && <> · <span className="text-warning">{m.tempPasswordExpired ? 'temp password expired' : 'temp password'}</span></>}
@@ -173,7 +174,7 @@ export default function Team() {
                   </td>
                   <td>
                     {isOwner && m.id !== data.myId ? (
-                      <select className="select" style={{ width: 140, padding: '5px 8px', fontSize: 12.5 }}
+                      <select className="select og-role-select" aria-label={`Role of ${m.email}`}
                         value={m.role}
                         onChange={e => handleUpdate(m, { role: e.target.value },
                           `${m.email} is now ${ROLE_LABELS[e.target.value] || e.target.value}.`)}>
@@ -186,14 +187,14 @@ export default function Team() {
                   <td>
                     <StatusBadge status={m.isActive ? 'active' : 'inactive'} />
                     {m.locked && (
-                      <div style={{ marginTop: 4 }}>
+                      <div className="og-mt-4">
                         <span className="badge badge-danger" title="Too many wrong passwords">
                           Locked{m.lockedUntil ? ` until ${dateTime(m.lockedUntil)}` : ''}
                         </span>
                       </div>
                     )}
                     {!m.locked && m.failedAttempts > 0 && (
-                      <div className="text-muted" style={{ fontSize: 11.5, marginTop: 4 }}>
+                      <div className="og-sub og-mt-4">
                         {m.failedAttempts} wrong {m.failedAttempts === 1 ? 'password' : 'passwords'} since
                       </div>
                     )}
@@ -204,18 +205,18 @@ export default function Team() {
                     <td>
                       <div className="row-actions">
                         {m.locked && (
-                          <button className="btn btn-primary btn-sm" onClick={() => handleUnlock(m)}>Unlock</button>
+                          <Button size="sm" onClick={() => handleUnlock(m)}>Unlock</Button>
                         )}
-                        <button className="btn btn-secondary btn-sm"
+                        <Button size="sm"
                           onClick={() => { setNewPassword(''); setResetModal(m); }}>
-                          Reset Password
-                        </button>
+                          Reset password
+                        </Button>
                         {m.id !== data.myId && (
-                          <button className="btn btn-ghost btn-sm"
+                          <Button variant="ghost" size="sm"
                             onClick={() => handleUpdate(m, { isActive: !m.isActive },
                               m.isActive ? `${m.email} disabled — they can no longer sign in.` : `${m.email} re-enabled.`)}>
                             {m.isActive ? 'Disable' : 'Enable'}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -228,36 +229,36 @@ export default function Team() {
       </div>
 
       {/* Add member */}
-      <Modal title="Add Team Member" open={addModal} onClose={() => setAddModal(false)}>
+      <Modal title="Add team member" open={addModal} onClose={() => setAddModal(false)}>
         <form onSubmit={handleAdd}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>First name</label>
-              <input className="input" value={form.firstName}
+              <label htmlFor="og-member-first">First name</label>
+              <input id="og-member-first" className="input" value={form.firstName}
                 onChange={e => setForm({ ...form, firstName: e.target.value })} />
             </div>
             <div className="field">
-              <label>Last name</label>
-              <input className="input" value={form.lastName}
+              <label htmlFor="og-member-last">Last name</label>
+              <input id="og-member-last" className="input" value={form.lastName}
                 onChange={e => setForm({ ...form, lastName: e.target.value })} />
             </div>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Email *</label>
-            <input className="input" type="email" required autoFocus value={form.email}
+          <div className="field mb-14">
+            <label htmlFor="og-member-email">Email *</label>
+            <input id="og-member-email" className="input" type="email" required autoFocus value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })} />
           </div>
           <div className="form-grid">
             <div className="field">
-              <label>Temporary password *</label>
-              <input className="input" type="text" required minLength={minLength}
+              <label htmlFor="og-member-password">Temporary password *</label>
+              <input id="og-member-password" className="input" type="text" required minLength={minLength}
                 placeholder={`At least ${minLength} characters`} value={form.password}
                 onChange={e => setForm({ ...form, password: e.target.value })} />
               <span className="hint">Share it securely. They must choose their own at first sign-in.</span>
             </div>
             <div className="field">
-              <label>Role</label>
-              <select className="select" value={form.role}
+              <label htmlFor="og-member-role">Role</label>
+              <select id="og-member-role" className="select" value={form.role}
                 onChange={e => setForm({ ...form, role: e.target.value })}>
                 {ROLE_OPTIONS.map(r => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
               </select>
@@ -267,21 +268,21 @@ export default function Team() {
             </div>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setAddModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Adding…' : 'Add Member'}
-            </button>
+            <Button variant="ghost" onClick={() => setAddModal(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Adding…' : 'Add member'}
+            </Button>
           </div>
         </form>
       </Modal>
 
       {/* Reset password */}
-      <Modal title={resetModal ? `Reset Password — ${resetModal.email}` : ''}
+      <Modal title={resetModal ? `Reset password — ${resetModal.email}` : ''}
         open={Boolean(resetModal)} onClose={() => setResetModal(null)}>
         <form onSubmit={handleReset}>
           <div className="field">
-            <label>New password *</label>
-            <input className="input" type="text" required minLength={minLength} autoFocus
+            <label htmlFor="og-reset-password">New password *</label>
+            <input id="og-reset-password" className="input" type="text" required minLength={minLength} autoFocus
               placeholder={`At least ${minLength} characters`} value={newPassword}
               onChange={e => setNewPassword(e.target.value)} />
             <span className="hint">
@@ -291,10 +292,10 @@ export default function Team() {
             </span>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setResetModal(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Resetting…' : 'Reset Password'}
-            </button>
+            <Button variant="ghost" onClick={() => setResetModal(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Resetting…' : 'Reset password'}
+            </Button>
           </div>
         </form>
       </Modal>

@@ -4,6 +4,8 @@ import { expensesAPI } from '../../api/expenses';
 import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Tabs } from '../../components/Tabs';
 import { formatINR, formatDate } from '../../utils/format';
 
 export const EXPENSE_STATUS_TONES: Record<string, string> = {
@@ -66,44 +68,41 @@ export default function ExpensesList() {
 
   if (loading && !data) return <LoadingBlock label="Loading expenses…" />;
 
+  const openNew = () => { setForm(EMPTY); setShowModal(true); };
+
   return (
     <>
       <PageHeader
-        title="Travel & Expenses"
+        title="Travel and expenses"
         subtitle="Expense reports per employee — scan receipts, get reimbursed."
-        actions={
-          <button className="btn btn-primary"
-            onClick={() => { setForm(EMPTY); setShowModal(true); }}>
-            + New Report
-          </button>
-        }
+        actions={<Button variant="accent" icon="plus" onClick={openNew}>New expense report</Button>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {data && (
         <div className="stat-grid">
-          <StatCard label="Reports" value={data.reports.length} icon="⌯" tone="primary" />
-          <StatCard label="Awaiting Reimbursement" value={formatINR(data.pendingTotal)}
-            sub="Submitted + approved" icon="◷" tone="warning" />
-          <StatCard label="Reimbursed" value={formatINR(data.reimbursedTotal)} icon="✓" tone="success" />
+          <StatCard label="Reports" value={data.reports.length} icon="receipt" tone="primary" />
+          <StatCard label="Awaiting reimbursement" value={formatINR(data.pendingTotal)}
+            sub="Submitted + approved" icon="clock" tone="warning" />
+          <StatCard label="Reimbursed" value={formatINR(data.reimbursedTotal)} icon="checkCircle" tone="success" />
         </div>
       )}
 
-      <div className="segmented" style={{ marginBottom: 14, display: 'inline-flex' }}>
-        <button type="button" className={awaiting ? '' : 'active'} onClick={() => setAwaiting(false)}>All reports</button>
-        <button type="button" className={awaiting ? 'active' : ''} onClick={() => setAwaiting(true)}>
-          Awaiting my approval{awaitingCount ? ` (${awaitingCount})` : ''}
-        </button>
-      </div>
+      <Tabs label="Expense reports view" value={awaiting ? 'awaiting' : 'all'}
+        onChange={k => setAwaiting(k === 'awaiting')}
+        items={[
+          { key: 'all', label: 'All reports' },
+          { key: 'awaiting', label: 'Awaiting my approval', count: awaitingCount || undefined },
+        ]} />
 
       {!awaiting && (
         <div className="toolbar">
           <div className="search-input">
-            <input className="input" placeholder="Search by title, number or employee…"
+            <input className="input" aria-label="Search reports" placeholder="Search by title, number or employee…"
               value={q} onChange={e => setQ(e.target.value)} />
           </div>
-          <select className="select" value={status} onChange={e => setStatus(e.target.value)}>
+          <select className="select" aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">All statuses</option>
             {meta.statuses.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
@@ -115,7 +114,7 @@ export default function ExpensesList() {
           <EmptyState icon="⌯" title={awaiting ? 'Nothing awaiting your approval' : q || status ? 'No matching reports' : 'No expense reports yet'}
             message={awaiting ? 'Reports waiting for your sign-off will appear here.' : 'Create a report, then drop receipt photos on it — OCR fills the lines.'}
             action={!awaiting && !(q || status) && (
-              <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Report</button>
+              <Button icon="plus" onClick={openNew}>New expense report</Button>
             )} />
         ) : (
           <div className="table-wrap">
@@ -124,22 +123,22 @@ export default function ExpensesList() {
                 <tr>
                   <th>Report</th><th>Employee</th><th>Period</th>
                   <th className="num">Lines</th><th className="num">Total</th>
-                  <th>Status</th><th />
+                  <th>Status</th><th><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {data.reports.map((r: any) => (
                   <tr key={r.id}>
                     <td>
-                      <Link to={`/expenses/${r.id}`} style={{ fontWeight: 600 }}>{r.title}</Link>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.reportNumber}</div>
+                      <Link to={`/expenses/${r.id}`} className="re-strong">{r.title}</Link>
+                      <div className="re-sub re-mono">{r.reportNumber}</div>
                     </td>
                     <td className="text-muted">{r.person.name}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>
+                    <td className="re-date re-date-cell">
                       {r.periodStart ? `${formatDate(r.periodStart)} – ${r.periodEnd ? formatDate(r.periodEnd) : '…'}` : '—'}
                     </td>
                     <td className="num">{r.lineCount}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.total)}</td>
+                    <td className="num re-strong">{formatINR(r.total)}</td>
                     <td>
                       <span className={`badge ${EXPENSE_STATUS_TONES[r.status]}`}>
                         {r.status.toLowerCase()}
@@ -147,7 +146,7 @@ export default function ExpensesList() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/expenses/${r.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                        <ButtonLink to={`/expenses/${r.id}`} size="sm">Open</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -158,11 +157,11 @@ export default function ExpensesList() {
         )}
       </div>
 
-      <Modal title="New Expense Report" open={showModal} onClose={() => setShowModal(false)}>
+      <Modal title="New expense report" open={showModal} onClose={() => setShowModal(false)}>
         <form onSubmit={handleCreate}>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Employee *</label>
-            <select className="select" required value={form.personId}
+          <div className="field mb-14">
+            <label htmlFor="re-new-person">Employee *</label>
+            <select id="re-new-person" className="select" required value={form.personId}
               onChange={e => setForm({ ...form, personId: e.target.value })}>
               <option value="">Select employee…</option>
               {meta.employees.map((e2: any) => (
@@ -172,38 +171,38 @@ export default function ExpensesList() {
               ))}
             </select>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Report title *</label>
-            <input className="input" required autoFocus placeholder="e.g. Chennai client visit — Feb 2026"
+          <div className="field mb-14">
+            <label htmlFor="re-new-title">Report title *</label>
+            <input id="re-new-title" className="input" required autoFocus placeholder="e.g. Chennai client visit — Feb 2026"
               value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Period start</label>
-              <input className="input" type="date" value={form.periodStart}
+              <label htmlFor="re-new-start">Period start</label>
+              <input id="re-new-start" className="input" type="date" value={form.periodStart}
                 onChange={e => setForm({ ...form, periodStart: e.target.value })} />
             </div>
             <div className="field">
-              <label>Period end</label>
-              <input className="input" type="date" value={form.periodEnd}
+              <label htmlFor="re-new-end">Period end</label>
+              <input id="re-new-end" className="input" type="date" value={form.periodEnd}
                 onChange={e => setForm({ ...form, periodEnd: e.target.value })} />
             </div>
             <div className="field">
-              <label>Report to</label>
-              <input className="input" placeholder="e.g. Accounts / Director"
+              <label htmlFor="re-new-reportto">Report to</label>
+              <input id="re-new-reportto" className="input" placeholder="e.g. Accounts / Director"
                 value={form.reportTo} onChange={e => setForm({ ...form, reportTo: e.target.value })} />
             </div>
           </div>
           <div className="field">
-            <label>Business purpose</label>
-            <textarea className="input" rows={2} value={form.businessPurpose}
+            <label htmlFor="re-new-purpose">Business purpose</label>
+            <textarea id="re-new-purpose" className="input" rows={2} value={form.businessPurpose}
               onChange={e => setForm({ ...form, businessPurpose: e.target.value })} />
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Creating…' : 'Create Report'}
-            </button>
+            <Button variant="ghost" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Creating…' : 'Create report'}
+            </Button>
           </div>
         </form>
       </Modal>

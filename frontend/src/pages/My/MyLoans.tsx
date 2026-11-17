@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, StatusBadge } from '../../components/ui';
+import { ButtonLink } from '../../components/Button';
 import { formatINR, formatDate } from '../../utils/format';
 
 const monthLabel = (period: string) => {
@@ -24,7 +24,7 @@ export default function MyLoans() {
 
   return (
     <>
-      <PageHeader title="My Loans" subtitle="Instalments are deducted from your salary each month." />
+      <PageHeader title="My loans" subtitle="Instalments are deducted from your salary each month." />
 
       <div className="card">
         {loans.length === 0 ? (
@@ -42,21 +42,21 @@ export default function MyLoans() {
                 {loans.map(l => (
                   <tr key={l.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{l.loanNo}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>
+                      <span className="mp-strong mono">{l.loanNo}</span>
+                      <div className="mp-cell-sub">
                         {[l.title, l.typeLabel, l.annualRate ? `${l.annualRate}%` : ''].filter(Boolean).join(' · ')}
                       </div>
                     </td>
                     <td className="num">
                       {formatINR(l.totalLent)}
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{formatDate(l.loanDate)}</div>
+                      <div className="mp-cell-sub">{formatDate(l.loanDate)}</div>
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(l.outstanding)}</td>
+                    <td className="num mp-strong">{formatINR(l.outstanding)}</td>
                     <td className="num">
                       {l.nextInstalment ? (
                         <>
                           {formatINR(l.nextInstalment.amount)}
-                          <div className="text-muted" style={{ fontSize: 11.5 }}>
+                          <div className="mp-cell-sub">
                             {monthLabel(l.nextInstalment.period)} · {l.instalmentsLeft} left
                           </div>
                         </>
@@ -66,7 +66,7 @@ export default function MyLoans() {
                     <td><StatusBadge status={l.status === 'ACTIVE' ? 'active' : 'completed'} /></td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/my/reports/loan-statement?loanId=${l.id}`} className="btn btn-secondary btn-sm">Statement</Link>
+                        <ButtonLink size="sm" icon="receipt" to={`/my/reports/loan-statement?loanId=${l.id}`}>Statement</ButtonLink>
                       </div>
                     </td>
                   </tr>

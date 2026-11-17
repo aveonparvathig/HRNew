@@ -4,6 +4,8 @@ import { recruitmentAPI } from '../../api/recruitment';
 import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, Modal, StatusBadge, BackButton,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Tabs } from '../../components/Tabs';
 import PostingFormModal from '../../components/PostingFormModal';
 import { formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
@@ -138,7 +140,7 @@ export default function PostingDetail() {
   if (!posting) {
     return (
       <EmptyState icon="◎" title="Posting not found"
-        action={<Link to="/recruitment" className="btn btn-secondary">Back to Recruitment</Link>} />
+        action={<ButtonLink to="/recruitment">Back to recruitment</ButtonLink>} />
     );
   }
 
@@ -160,9 +162,9 @@ export default function PostingDetail() {
         actions={
           <>
             <StatusBadge status={posting.status === 'ON_HOLD' ? 'pending' : posting.status.toLowerCase()} />
-            <button className="btn btn-secondary" onClick={() => setEditModal(true)}>Edit</button>
-            <button className="btn btn-danger" onClick={handleDeletePosting}>Delete</button>
-            <button className="btn btn-primary" onClick={() => openAppModal(null)}>+ Add Candidate</button>
+            <Button icon="pen" onClick={() => setEditModal(true)}>Edit</Button>
+            <Button variant="danger" onClick={handleDeletePosting}>Delete</Button>
+            <Button variant="accent" icon="plus" onClick={() => openAppModal(null)}>Add candidate</Button>
           </>
         }
       />
@@ -176,52 +178,57 @@ export default function PostingDetail() {
       )}
 
       <div className="stat-grid">
-        <StatCard label="Applications" value={posting.totalApps} icon="⇥" tone="primary" />
-        <StatCard label="In Progress" value={inProgress} sub="Applied → Offered" icon="◔" tone="info" />
+        <StatCard label="Applications" value={posting.totalApps} icon="users" tone="primary" />
+        <StatCard label="In progress" value={inProgress} sub="Applied → Offered" icon="kanban" tone="info" />
         <StatCard label="Hired" value={`${posting.hiredCount}/${posting.positionsCount}`}
-          sub="Against open positions" icon="✓"
+          sub="Against open positions" icon="checkCircle"
           tone={posting.hiredCount >= posting.positionsCount ? 'success' : 'warning'} />
         <StatCard label="Closing" value={posting.closingDate ? formatDate(posting.closingDate) : '—'}
           sub={posting.postedDate ? `Posted ${formatDate(posting.postedDate)}` : 'Not posted yet'}
-          icon="◷" tone="warning" />
+          icon="calendar" tone="warning" />
       </div>
 
-      <div className="tabs">
-        <button className={`tab ${tab === 'pipeline' ? 'active' : ''}`} onClick={() => setTab('pipeline')}>
-          Pipeline ({posting.totalApps})
-        </button>
-        <button className={`tab ${tab === 'details' ? 'active' : ''}`} onClick={() => setTab('details')}>
-          Job Details
-        </button>
-      </div>
+      <Tabs label="Posting sections" value={tab} onChange={setTab}
+        items={[
+          { key: 'pipeline', label: 'Pipeline', count: posting.totalApps },
+          { key: 'details', label: 'Job details' },
+        ]} />
 
       {tab === 'pipeline' && (
         posting.totalApps === 0 ? (
           <div className="card">
             <EmptyState icon="⇥" title="No applications yet"
               message="Add the first candidate to start the pipeline."
-              action={<button className="btn btn-primary" onClick={() => openAppModal(null)}>+ Add Candidate</button>} />
+              action={<Button icon="plus" onClick={() => openAppModal(null)}>Add candidate</Button>} />
           </div>
         ) : (
-          <div className="kanban">
+          <div className="kanban re-kanban">
             {posting.pipeline.map((col: any) => (
               <div key={col.value} className="kanban-col">
                 <div className="kanban-col-head">
                   <span>{col.label}</span>
-                  <span className="kanban-count">{col.count}</span>
+                  <span className="kanban-count num">{col.count}</span>
                 </div>
                 <div className="kanban-cards">
                   {col.apps.length === 0 ? (
                     <div className="kanban-empty">No candidates</div>
                   ) : col.apps.map((app: any) => (
-                    <div key={app.id} className="app-card" onClick={() => openAppModal(app)}>
+                    <div key={app.id} className="app-card" role="button" tabIndex={0}
+                      onClick={() => openAppModal(app)}
+                      onKeyDown={e => {
+                        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault();
+                          openAppModal(app);
+                        }
+                      }}>
                       <div className="name">{app.applicantName}</div>
                       <div className="meta">
-                        <span>{formatDate(app.appliedDate)}</span>
-                        {app.rating && <span className="stars">{stars(app.rating)}</span>}
+                        <span className="re-date">{formatDate(app.appliedDate)}</span>
+                        {app.rating && <span className="stars" aria-label={`${app.rating} of 5`}>{stars(app.rating)}</span>}
                       </div>
                       <select
                         className="quick-move"
+                        aria-label={`Move ${app.applicantName} to stage`}
                         value={app.stage}
                         onClick={e => e.stopPropagation()}
                         onChange={e => handleQuickMove(app, e.target.value)}
@@ -242,20 +249,20 @@ export default function PostingDetail() {
       {tab === 'details' && (
         <div className="grid-2">
           <div className="card card-pad">
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>Description</h3>
-            <p className="text-muted" style={{ whiteSpace: 'pre-wrap', fontSize: 13.5 }}>
+            <h3 className="re-card-title">Description</h3>
+            <p className="text-muted re-prose">
               {posting.description || 'No description added.'}
             </p>
           </div>
           <div className="card card-pad">
-            <h3 style={{ fontSize: 15, marginBottom: 12 }}>Requirements</h3>
-            <p className="text-muted" style={{ whiteSpace: 'pre-wrap', fontSize: 13.5, marginBottom: 18 }}>
+            <h3 className="re-card-title">Requirements</h3>
+            <p className="text-muted re-prose re-prose-gap">
               {posting.requirements || 'No requirements added.'}
             </p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="cluster">
               {posting.experienceRange && <span className="badge badge-neutral">Experience: {posting.experienceRange}</span>}
               {posting.salaryRange && <span className="badge badge-neutral">Salary: {posting.salaryRange}</span>}
-              <span className="badge badge-neutral">{posting.positionsCount} position{posting.positionsCount !== 1 ? 's' : ''}</span>
+              <span className="badge badge-neutral"><span className="num">{posting.positionsCount}</span> position{posting.positionsCount !== 1 ? 's' : ''}</span>
             </div>
           </div>
         </div>
@@ -271,28 +278,28 @@ export default function PostingDetail() {
 
       {/* Application create/edit */}
       <Modal size="lg"
-        title={appModal.app ? appModal.app.applicantName : `Add Candidate — ${posting.title}`}
+        title={appModal.app ? appModal.app.applicantName : `Add candidate — ${posting.title}`}
         open={appModal.open}
         onClose={() => setAppModal({ open: false, app: null })}>
         <form onSubmit={handleSaveApp}>
           <div className="form-section">
             <div className="form-section-title"><span className="step-dot">1</span> Candidate</div>
-            <div className="field" style={{ marginBottom: 14 }}>
-              <label>Full name *</label>
-              <input className="input" required autoFocus={!appModal.app}
+            <div className="field mb-14">
+              <label htmlFor="re-app-name">Full name *</label>
+              <input id="re-app-name" className="input" required autoFocus={!appModal.app}
                 value={appForm.applicantName}
                 onChange={e => setAppForm({ ...appForm, applicantName: e.target.value })} />
             </div>
             <div className="form-grid">
               <div className="field">
-                <label>Email</label>
-                <input className="input" type="email" placeholder="name@email.com"
+                <label htmlFor="re-app-email">Email</label>
+                <input id="re-app-email" className="input" type="email" placeholder="name@email.com"
                   value={appForm.applicantEmail}
                   onChange={e => setAppForm({ ...appForm, applicantEmail: e.target.value })} />
               </div>
               <div className="field">
-                <label>Phone</label>
-                <input className="input" placeholder="+91…"
+                <label htmlFor="re-app-phone">Phone</label>
+                <input id="re-app-phone" className="input" placeholder="+91…"
                   value={appForm.applicantPhone}
                   onChange={e => setAppForm({ ...appForm, applicantPhone: e.target.value })} />
               </div>
@@ -301,10 +308,10 @@ export default function PostingDetail() {
 
           <div className="form-section">
             <div className="form-section-title"><span className="step-dot">2</span> Pipeline</div>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Stage</label>
-                <select className="select" value={appForm.stage}
+                <label htmlFor="re-app-stage">Stage</label>
+                <select id="re-app-stage" className="select" value={appForm.stage}
                   onChange={e => setAppForm({ ...appForm, stage: e.target.value })}>
                   {meta.applicationStages.map((s: any) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
@@ -312,8 +319,8 @@ export default function PostingDetail() {
                 </select>
               </div>
               <div className="field">
-                <label>Applied on</label>
-                <input className="input" type="date" value={appForm.appliedDate}
+                <label htmlFor="re-app-applied">Applied on</label>
+                <input id="re-app-applied" className="input" type="date" value={appForm.appliedDate}
                   onChange={e => setAppForm({ ...appForm, appliedDate: e.target.value })} />
               </div>
             </div>
@@ -324,54 +331,46 @@ export default function PostingDetail() {
           </div>
 
           <div className="form-section">
-            <div className="form-section-title"><span className="step-dot">3</span> Notes <span style={{ textTransform: 'none', fontWeight: 500 }}>(optional)</span></div>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-section-title"><span className="step-dot">3</span> Notes <span className="re-optional">(optional)</span></div>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Resume notes</label>
-                <textarea className="input" rows={3} placeholder="Key points from the resume"
+                <label htmlFor="re-app-resume">Resume notes</label>
+                <textarea id="re-app-resume" className="input" rows={3} placeholder="Key points from the resume"
                   value={appForm.resumeNotes}
                   onChange={e => setAppForm({ ...appForm, resumeNotes: e.target.value })} />
               </div>
               <div className="field">
-                <label>Cover letter</label>
-                <textarea className="input" rows={3}
+                <label htmlFor="re-app-cover">Cover letter</label>
+                <textarea id="re-app-cover" className="input" rows={3}
                   value={appForm.coverLetter}
                   onChange={e => setAppForm({ ...appForm, coverLetter: e.target.value })} />
               </div>
             </div>
             <div className="field">
-              <label>Internal notes</label>
-              <textarea className="input" rows={2} placeholder="Interview feedback, next steps…"
+              <label htmlFor="re-app-notes">Internal notes</label>
+              <textarea id="re-app-notes" className="input" rows={2} placeholder="Interview feedback, next steps…"
                 value={appForm.notes}
                 onChange={e => setAppForm({ ...appForm, notes: e.target.value })} />
             </div>
           </div>
 
-          <div className="form-actions" style={{ justifyContent: appModal.app ? 'space-between' : 'flex-end' }}>
+          <div className={appModal.app ? 'form-actions re-actions-between' : 'form-actions'}>
             {appModal.app && (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" className="btn btn-danger" onClick={handleDeleteApp}>
-                  Delete Application
-                </button>
+              <div className="cluster re-actions-group">
+                <Button variant="danger" onClick={handleDeleteApp}>Delete application</Button>
                 {appModal.app.stage === 'HIRED' && !appModal.app.personId && (
-                  <button type="button" className="btn btn-secondary"
-                    onClick={() => handleAddToPeople(appModal.app)}>
-                    ☰ Add to People
-                  </button>
+                  <Button icon="userPlus" onClick={() => handleAddToPeople(appModal.app)}>Add to People</Button>
                 )}
                 {appModal.app.personId && (
-                  <Link to={`/people/${appModal.app.personId}`} className="btn btn-secondary">
-                    ☰ People Record
-                  </Link>
+                  <ButtonLink to={`/people/${appModal.app.personId}`} icon="user">People record</ButtonLink>
                 )}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button type="button" className="btn btn-ghost"
-                onClick={() => setAppModal({ open: false, app: null })}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Saving…' : appModal.app ? 'Save Changes' : 'Add Candidate'}
-              </button>
+            <div className="cluster re-actions-group">
+              <Button variant="ghost" onClick={() => setAppModal({ open: false, app: null })}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>
+                {saving ? 'Saving…' : appModal.app ? 'Save changes' : 'Add candidate'}
+              </Button>
             </div>
           </div>
         </form>

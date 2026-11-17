@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { mastersAPI, forgetLists } from '../../api/masters';
 import { EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, Modal } from '../../components/ui';
 import { confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
 
 // The company's value lists: what the pickers on forms offer. Renaming a
 // value renames it on the records that hold it; renaming it to a value
@@ -91,7 +92,7 @@ export default function ListsTab() {
       <div className="chip-row mb-16">
         {lists.map(l => (
           <button key={l.type} className={`chip ${l.type === type ? 'active' : ''}`} onClick={() => { setType(l.type); setDraft(''); }}>
-            {l.label} <span style={{ opacity: 0.7 }}>· {l.values.length}</span>
+            {l.label} <span className="og-chip-count num">· {l.values.length}</span>
           </button>
         ))}
       </div>
@@ -101,12 +102,12 @@ export default function ListsTab() {
           <div className="card-header">
             <div>
               <h3>{current.label}</h3>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>Picked on: {current.usedFor}.</span>
+              <span className="og-header-hint">Picked on: {current.usedFor}.</span>
             </div>
-            <form onSubmit={handleAdd} style={{ display: 'flex', gap: 8 }}>
-              <input className="input" style={{ width: 220 }} placeholder={`New ${current.label.toLowerCase()}`}
+            <form onSubmit={handleAdd} className="cluster">
+              <input className="input og-add-input" aria-label={`New ${current.label.toLowerCase()}`} placeholder={`New ${current.label.toLowerCase()}`}
                 value={draft} onChange={e => setDraft(e.target.value)} />
-              <button type="submit" className="btn btn-primary" disabled={saving || !draft.trim()}>Add</button>
+              <Button type="submit" variant="accent" icon="plus" disabled={saving || !draft.trim()}>Add</Button>
             </form>
           </div>
           {current.values.length === 0 ? (
@@ -118,25 +119,25 @@ export default function ListsTab() {
                 <tbody>
                   {current.values.map((v: any) => (
                     <tr key={v.id}>
-                      <td style={{ fontWeight: 600 }}>{v.label}</td>
+                      <td className="og-strong">{v.label}</td>
                       <td className="num">{v.inUse || <span className="text-muted">—</span>}</td>
                       <td>
                         <span className={`badge ${v.isActive ? 'badge-success' : 'badge-neutral'}`}>{v.isActive ? 'Offered' : 'Switched off'}</span>
                       </td>
                       <td>
                         <div className="row-actions">
-                          <button className="btn btn-secondary btn-sm" onClick={() => setRename({ id: v.id, from: v.label, label: v.label })}>Rename</button>
-                          <button className="btn btn-ghost btn-sm" disabled={saving}
+                          <Button size="sm" onClick={() => setRename({ id: v.id, from: v.label, label: v.label })}>Rename</Button>
+                          <Button variant="ghost" size="sm" disabled={saving}
                             title={v.isActive ? 'Stop offering this value on forms; records keep it' : 'Offer this value on forms again'}
                             onClick={() => act(() => mastersAPI.updateListValue(v.id, { isActive: !v.isActive }), v.isActive ? `"${v.label}" is no longer offered.` : `"${v.label}" is offered again.`)}>
-                            {v.isActive ? 'Switch Off' : 'Switch On'}
-                          </button>
+                            {v.isActive ? 'Switch off' : 'Switch on'}
+                          </Button>
                           {v.inUse === 0 && (
-                            <button className="btn btn-danger btn-sm" disabled={saving}
+                            <Button variant="danger" size="sm" disabled={saving}
                               onClick={async () => await confirmDialog(`Delete "${v.label}" from the ${current.label.toLowerCase()} list?`)
                                 && act(() => mastersAPI.deleteListValue(v.id))}>
                               Delete
-                            </button>
+                            </Button>
                           )}
                         </div>
                       </td>
@@ -152,17 +153,17 @@ export default function ListsTab() {
       <Modal title="Rename" open={Boolean(rename)} onClose={() => setRename(null)}>
         {rename && (
           <form onSubmit={handleRename}>
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label>{current?.label}</label>
-              <input className="input" required autoFocus value={rename.label}
+            <div className="field mb-14">
+              <label htmlFor="og-rename">{current?.label}</label>
+              <input id="og-rename" className="input" required autoFocus value={rename.label}
                 onChange={e => setRename({ ...rename, label: e.target.value })} />
             </div>
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+            <p className="og-lede tight">
               Records holding “{rename.from}” take the new name. To fold two spellings into one, rename the wrong one to the right one.
             </p>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setRename(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving || !rename.label.trim()}>Rename</button>
+              <Button variant="ghost" onClick={() => setRename(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving} disabled={!rename.label.trim()}>Rename</Button>
             </div>
           </form>
         )}

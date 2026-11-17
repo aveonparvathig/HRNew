@@ -64,8 +64,8 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 /* UI reference page */
 .ui-ref section { margin-bottom: 28px; }
 .ui-ref h2 { font-size: 13px; color: var(--text-3); font-weight: 500; margin-bottom: 10px; }
-.swatch { width: 100%; height: 44px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
-.swatch-label { font-size: 11.5px; color: var(--text-3); margin-top: 4px; font-family: var(--font-num); }
+.ui-swatch { width: 100%; height: 44px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.ui-swatch-label { font-size: 11.5px; color: var(--text-3); margin-top: 4px; font-family: var(--font-num); }
 
 @media (prefers-reduced-motion: reduce) {
   .btn .spinner-inline { animation-duration: 1.6s; }
@@ -119,3 +119,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .auth-card-sub { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
 .auth-card .stack { --gap: 14px; }
 .auth-form .switch { display: block; cursor: default; }
+.segmented-fill { display: flex; }
+.segmented-fill > button { flex: 1; }
+.grow-1 { flex: 1; }
+.min-w-0 { min-width: 0; }

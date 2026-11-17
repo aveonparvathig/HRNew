@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, EmptyState, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR, formatDate } from '../../utils/format';
 import { useRole } from '../../store/authStore';
 import { confirmDialog } from '../../components/feedback';
@@ -42,33 +44,33 @@ export default function ProposalHistory() {
   return (
     <>
       <PageHeader
-        title="Proposal History"
+        title="Proposal history"
         subtitle="Every generated proposal, kept verbatim with a revision chain per client."
-        actions={<Link to="/proposals" className="btn btn-primary">+ New Proposal</Link>}
+        actions={<ButtonLink to="/proposals" variant="accent" icon="plus">New proposal</ButtonLink>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="toolbar">
         <div className="search-input">
-          <input className="input" placeholder="Search by client…" value={q}
+          <input className="input" aria-label="Search proposals by client" placeholder="Search by client…" value={q}
             onChange={e => setQ(e.target.value)} />
         </div>
-        <span className="toolbar-count">{data?.total || 0} proposal{data?.total !== 1 ? 's' : ''}</span>
+        <span className="toolbar-count"><span className="num">{data?.total || 0}</span> proposal{data?.total !== 1 ? 's' : ''}</span>
       </div>
 
       <div className="card">
         {(data?.records || []).length === 0 ? (
           <EmptyState icon="📄" title={q ? 'No matching proposals' : 'No proposals yet'}
             message={q ? 'Try a different client name.' : 'Generate your first proposal from the builder.'}
-            action={!q && <Link to="/proposals" className="btn btn-primary">+ New Proposal</Link>} />
+            action={!q && <ButtonLink to="/proposals" icon="plus">New proposal</ButtonLink>} />
         ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
                   <th>Client</th><th>Rev</th><th>Selection</th>
-                  <th className="num">Year-1 Total</th><th className="num">Δ vs prev</th>
+                  <th className="num">Year-1 total</th><th className="num">Change vs previous</th>
                   <th>Generated</th><th />
                 </tr>
               </thead>
@@ -88,17 +90,17 @@ export default function ProposalHistory() {
                       const prev = recs[i + 1];
                       const delta = prev ? r.totalAmount - prev.totalAmount : null;
                       rows.push(
-                        <tr key={r.id} style={i === 0 && rows.length > 0 ? { borderTop: '2px solid var(--border)' } : undefined}>
+                        <tr key={r.id} className={i === 0 && rows.length > 0 ? 'mp-chain-start' : undefined}>
                           <td>
                             {i === 0 ? (
                               <>
-                                <Link to={`/proposals/history/${r.id}`} style={{ fontWeight: 600 }}>{r.clientName}</Link>
+                                <Link to={`/proposals/history/${r.id}`} className="mp-strong">{r.clientName}</Link>
                                 {recs.length > 1 && (
-                                  <span className="text-muted" style={{ fontSize: 11.5 }}> · {recs.length} revisions</span>
+                                  <span className="mp-inline-sub"> · {recs.length} revisions</span>
                                 )}
                               </>
                             ) : (
-                              <span className="text-muted" style={{ fontSize: 12, paddingLeft: 14 }}>↳ earlier revision</span>
+                              <span className="mp-earlier">↳ earlier revision</span>
                             )}
                           </td>
                           <td>
@@ -107,20 +109,22 @@ export default function ProposalHistory() {
                             </span>
                           </td>
                           <td className="text-muted">{r.selectionLabel}</td>
-                          <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.totalAmount)}</td>
+                          <td className="num mp-strong">{formatINR(r.totalAmount)}</td>
                           <td className="num">
                             {delta == null ? <span className="text-muted">—</span> : delta === 0
                               ? <span className="text-muted">same</span>
-                              : <span className={delta > 0 ? 'text-success' : 'text-danger'} style={{ fontSize: 12.5 }}>
-                                  {delta > 0 ? '▲' : '▼'} {formatINR(Math.abs(delta))}
+                              : <span className={`mp-delta ${delta > 0 ? 'num-pos' : 'num-neg'}`}>
+                                  <Icon name={delta > 0 ? 'trendingUp' : 'trendingDown'} size={13} className="mp-delta-icon" />
+                                  <span className="sr-only">{delta > 0 ? 'up ' : 'down '}</span>
+                                  {formatINR(Math.abs(delta))}
                                 </span>}
                           </td>
                           <td className="text-muted">{formatDate(r.createdAt)}</td>
                           <td>
                             <div className="row-actions">
-                              <Link to={`/proposals/history/${r.id}`} className="btn btn-secondary btn-sm">View</Link>
-                              <Link to={`/proposals?from=${r.id}`} className="btn btn-secondary btn-sm">Revise</Link>
-                              {isSA && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r)}>Del</button>}
+                              <ButtonLink size="sm" to={`/proposals/history/${r.id}`}>View</ButtonLink>
+                              <ButtonLink size="sm" to={`/proposals?from=${r.id}`}>Revise</ButtonLink>
+                              {isSA && <Button variant="danger" size="sm" onClick={() => handleDelete(r)}>Delete</Button>}
                             </div>
                           </td>
                         </tr>

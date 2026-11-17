@@ -1,0 +1,67 @@
+/* Redesign: recruit-expenses. */
+
+/* Shared text helpers */
+.re-strong { font-weight: 600; color: var(--text); }
+.re-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.re-mono { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.re-date { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.re-date-cell { font-size: 12.5px; color: var(--text-2); }
+.re-gap-left { margin-left: 6px; }
+.re-optional { text-transform: none; font-weight: 400; color: var(--text-3); letter-spacing: 0; }
+.re-min0 { min-width: 0; }
+.re-inline-icon { flex: none; vertical-align: -2px; margin-right: 4px; }
+.re-card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.re-card-title.re-flush { margin: 0; }
+.form-actions.re-actions-between { justify-content: space-between; }
+.cluster.re-actions-group { --gap: 10px; }
+
+/* Postings list cards */
+.module-card.re-posting-card { padding: 18px; }
+.re-posting-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.module-card .re-posting-title { font-size: 15px; margin-bottom: 0; }
+.module-card p.re-posting-meta { margin-bottom: 10px; }
+.cluster.re-posting-tags { --gap: 6px; margin-bottom: 10px; }
+.re-posting-foot { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--text-3); }
+.module-grid.re-section-grid { margin-bottom: 8px; }
+
+/* Posting detail */
+.re-prose { white-space: pre-wrap; font-size: 13.5px; }
+.re-prose-gap { margin-bottom: 18px; }
+
+/* Kanban on Swiss Slate: flat columns, quiet heads, sentence case */
+.re-kanban .kanban-col { background: var(--surface-2); border: 1px solid var(--border); }
+.re-kanban .kanban-col-head { text-transform: none; letter-spacing: 0; font-size: 12.5px; font-weight: 600; color: var(--text); }
+.re-kanban .kanban-count { border: 1px solid var(--border); font-family: var(--font-num); }
+.re-kanban .app-card { box-shadow: none; }
+.re-kanban .app-card:hover { box-shadow: var(--shadow-xs); border-color: var(--border-strong); }
+.re-kanban .app-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.re-kanban .app-card .quick-move { border-radius: var(--radius-sm); }
+.re-kanban .kanban-empty { border-width: 1px; }
+
+/* Pipeline table */
+.select.re-stage-select { width: 140px; padding: 5px 8px; font-size: 12.5px; }
+
+/* Expense report: approval chain head */
+.cluster.re-chain-head { margin-bottom: 10px; }
+
+/* Receipt drop zone */
+.re-dropzone {
+  border: 1px dashed var(--border-strong); background: var(--surface);
+  text-align: center; cursor: pointer; transition: background-color .15s, border-color .15s;
+}
+.re-dropzone:hover { border-color: var(--text-3); }
+.re-dropzone.is-over { border-color: var(--primary); background: var(--surface-2); }
+.re-dropzone:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.re-dropzone-icon { color: var(--text-3); margin-bottom: 6px; }
+.re-dropzone-hint { margin-top: 4px; }
+
+/* OCR jobs */
+.re-job { min-width: 0; flex: 1; }
+.re-job-name { font-weight: 600; font-size: 13px; }
+.re-job-status { font-size: 12px; color: var(--text-3); margin-left: 8px; }
+.re-job-status.is-done { color: var(--success); }
+.re-job-status.is-error { color: var(--danger); }
+.bar-track.re-job-bar { margin-top: 6px; }
+
+/* Line modal */
+.re-receipt-note { margin-bottom: 12px; }

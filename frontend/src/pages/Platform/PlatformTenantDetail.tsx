@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { platformAPI, type Tenant, type PlatformAuditEntry, type Plan } from '../../api/platform';
-import { StatCard, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { PageHeader, StatCard, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Stack } from '../../components/layout';
 import { toast, confirmDialog } from '../../components/feedback';
 import { formatDate } from '../../utils/format';
 import { useAuthStore } from '../../store/authStore';
@@ -174,7 +176,7 @@ export default function PlatformTenantDetail() {
   if (!tenant) return (
     <>
       <ErrorAlert message={error || 'Tenant not found'} />
-      <Link to="/platform/tenants" className="btn btn-secondary btn-sm">← Back to tenants</Link>
+      <ButtonLink to="/platform/tenants" size="sm">Back to tenants</ButtonLink>
     </>
   );
 
@@ -182,70 +184,70 @@ export default function PlatformTenantDetail() {
 
   return (
     <>
-      <div className="platform-head">
-        <div>
-          <Link to="/platform/tenants" className="text-muted" style={{ fontSize: 13 }}>← Tenants</Link>
-          <h1 style={{ marginTop: 4 }}>
-            {tenant.name}{' '}
-            <span className={`badge ${suspended ? 'badge-danger' : 'badge-success'}`} style={{ verticalAlign: 'middle' }}>
-              {tenant.status.toLowerCase()}
-            </span>
-          </h1>
-          <p className="text-muted">{tenant.email || 'No contact email'} · joined {formatDate(tenant.createdAt)} · {tenant.createdVia === 'OWNER' ? 'owner-created' : 'self-signup'}</p>
-        </div>
-        <div className="row-actions">
-          <button className="btn btn-secondary" onClick={loginAs}>Log in as</button>
-          {suspended
-            ? <button className="btn btn-primary" onClick={doReactivate}>Reactivate</button>
-            : <button className="btn btn-danger" onClick={() => setSuspendOpen(true)}>Suspend</button>}
-          <button className="btn btn-ghost" onClick={() => { setConfirmName(''); setDeleteOpen(true); }}>Delete</button>
-        </div>
-      </div>
+      <PageHeader
+        crumbs={<span className="pf-crumbs"><Link to="/platform/tenants">Tenants</Link><span className="sep">/</span>{tenant.name}</span>}
+        title={tenant.name}
+        badge={
+          <span className={`badge pf-title-badge ${suspended ? 'badge-danger' : 'badge-success'}`}>
+            {tenant.status.toLowerCase()}
+          </span>
+        }
+        subtitle={`${tenant.email || 'No contact email'} · joined ${formatDate(tenant.createdAt)} · ${tenant.createdVia === 'OWNER' ? 'owner-created' : 'self-signup'}`}
+        actions={
+          <>
+            <Button icon="user" onClick={loginAs}>Log in as</Button>
+            {suspended
+              ? <Button variant="accent" onClick={doReactivate}>Reactivate</Button>
+              : <Button variant="danger" onClick={() => setSuspendOpen(true)}>Suspend</Button>}
+            <Button variant="danger" onClick={() => { setConfirmName(''); setDeleteOpen(true); }}>Delete</Button>
+          </>
+        }
+      />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {suspended && (
-        <div className="alert alert-danger" style={{ marginBottom: 16 }}>
+        <div className="alert alert-danger mb-16">
           <strong>Suspended{tenant.suspendedAt ? ` on ${formatDate(tenant.suspendedAt)}` : ''}.</strong>{' '}
           {tenant.suspendedReason ? `Reason: ${tenant.suspendedReason}` : 'No reason recorded.'} All logins for this tenant are blocked.
         </div>
       )}
 
       <div className="stat-grid">
-        <StatCard label="Users" value={tenant.users} icon="◴" tone="primary" />
-        <StatCard label="Employees" value={tenant.employees} icon="◷" tone="info" />
-        <StatCard label="People (total)" value={tenant.people} icon="◵" tone="warning" />
-        <StatCard label="Last sign-in" value={tenant.lastLoginAt ? formatDate(tenant.lastLoginAt) : '—'} icon="◶" tone="success" />
+        <StatCard label="Users" value={tenant.users} icon="key" tone="primary" />
+        <StatCard label="Employees" value={tenant.employees} icon="users" tone="info" />
+        <StatCard label="People (total)" value={tenant.people} icon="user" tone="warning" />
+        <StatCard label="Last sign-in" value={tenant.lastLoginAt ? formatDate(tenant.lastLoginAt) : '—'} icon="history" tone="success" />
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 15, margin: 0 }}>Plan &amp; limits</h3>
-          <button className="btn btn-secondary btn-sm" onClick={openPlan}>Change plan</button>
+        <div className="pf-card-head">
+          <h3 className="pf-card-title">Plan &amp; limits</h3>
+          <Button size="sm" onClick={openPlan}>Change plan</Button>
         </div>
         <div className="form-grid">
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>Plan</div>
-            <div style={{ fontWeight: 600 }}>{tenant.planName || 'No plan (all modules, no caps)'}</div>
+            <div className="pf-figure-label">Plan</div>
+            <div className="pf-figure-value">{tenant.planName || 'No plan (all modules, no caps)'}</div>
           </div>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>Employees</div>
-            <div style={{ fontWeight: 600 }}>{tenant.employees} / {cap(tenant.limits.maxEmployees)}
-              {tenant.maxEmployeesOverride != null && <span className="badge badge-info" style={{ marginLeft: 6 }}>override</span>}</div>
+            <div className="pf-figure-label">Employees</div>
+            <div className="pf-figure-value"><span className="num">{tenant.employees} / {cap(tenant.limits.maxEmployees)}</span>
+              {tenant.maxEmployeesOverride != null && <span className="badge badge-info pf-badge-gap">override</span>}</div>
           </div>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>Logins</div>
-            <div style={{ fontWeight: 600 }}>{tenant.users} / {cap(tenant.limits.maxUsers)}
-              {tenant.maxUsersOverride != null && <span className="badge badge-info" style={{ marginLeft: 6 }}>override</span>}</div>
+            <div className="pf-figure-label">Logins</div>
+            <div className="pf-figure-value"><span className="num">{tenant.users} / {cap(tenant.limits.maxUsers)}</span>
+              {tenant.maxUsersOverride != null && <span className="badge badge-info pf-badge-gap">override</span>}</div>
           </div>
           <div>
-            <div className="text-muted" style={{ fontSize: 12 }}>Trial ends</div>
-            <div style={{ fontWeight: 600 }}>{tenant.trialEndsOn ? formatDate(tenant.trialEndsOn) : '—'}</div>
+            <div className="pf-figure-label">Trial ends</div>
+            <div className="pf-figure-value num">{tenant.trialEndsOn ? formatDate(tenant.trialEndsOn) : '—'}</div>
           </div>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <div className="text-muted" style={{ fontSize: 12, marginBottom: 4 }}>Modules</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <div className="pf-modules">
+          <div className="pf-figure-label">Modules</div>
+          <div className="pf-module-list">
             {tenant.limits.modules.map(m => (
               <span key={m} className="badge badge-success">{MODULE_LABELS[m] || m}</span>
             ))}
@@ -255,29 +257,29 @@ export default function PlatformTenantDetail() {
 
       {customCatalog.length > 0 && (
         <div className="card">
-          <h3 style={{ fontSize: 15, marginBottom: 6 }}>Custom modules</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
+          <h3 className="pf-card-title tight">Custom modules</h3>
+          <p className="pf-card-lede">
             Internal add-on modules that are off for every tenant by default and never part of a plan.
             Enable them only for the tenants that should have them.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <Stack gap={8}>
             {customCatalog.map(m => {
               const on = tenant.customModules.includes(m);
               return (
-                <label key={m} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
+                <label key={m} className="pf-check">
                   <input type="checkbox" checked={on} disabled={modBusy === m} onChange={() => toggleCustomModule(m)} />
                   <span>{MODULE_LABELS[m] || m}</span>
                   {on && <span className="badge badge-success">enabled</span>}
-                  {modBusy === m && <span className="text-muted" style={{ fontSize: 12 }}>saving…</span>}
+                  {modBusy === m && <span className="text-sm-muted">saving…</span>}
                 </label>
               );
             })}
-          </div>
+          </Stack>
         </div>
       )}
 
       <div className="card">
-        <h3 style={{ fontSize: 15, marginBottom: 12 }}>Platform activity</h3>
+        <h3 className="pf-card-title">Platform activity</h3>
         {audit.length === 0 ? (
           <p className="text-muted">No platform actions recorded for this tenant yet.</p>
         ) : (
@@ -287,10 +289,10 @@ export default function PlatformTenantDetail() {
               <tbody>
                 {audit.map(a => (
                   <tr key={a.id}>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{dateTime(a.createdAt)}</td>
+                    <td className="pf-date">{dateTime(a.createdAt)}</td>
                     <td>{ACTION_LABEL[a.action] || a.action}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{a.actorEmail}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{a.detail || '—'}</td>
+                    <td className="text-sm-muted">{a.actorEmail}</td>
+                    <td className="text-sm-muted">{a.detail || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -300,27 +302,27 @@ export default function PlatformTenantDetail() {
       </div>
 
       <Modal title={`Suspend ${tenant.name}?`} open={suspendOpen} onClose={() => setSuspendOpen(false)}>
-        <p className="text-muted" style={{ marginBottom: 14 }}>
+        <p className="text-muted pf-lede">
           Every login for this organization will be blocked immediately, including sessions already open.
           You can reactivate at any time.
         </p>
-        <div className="field" style={{ marginBottom: 14 }}>
-          <label>Reason (optional)</label>
-          <textarea className="input" rows={2} value={reason} onChange={e => setReason(e.target.value)}
+        <div className="field mb-14">
+          <label htmlFor="pf-suspend-reason">Reason (optional)</label>
+          <textarea id="pf-suspend-reason" className="input" rows={2} value={reason} onChange={e => setReason(e.target.value)}
             placeholder="e.g. Non-payment, abuse report…" />
         </div>
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => setSuspendOpen(false)}>Cancel</button>
-          <button type="button" className="btn btn-danger" disabled={busy} onClick={doSuspend}>
+          <Button variant="ghost" onClick={() => setSuspendOpen(false)}>Cancel</Button>
+          <Button variant="danger" loading={busy} onClick={doSuspend}>
             {busy ? 'Suspending…' : 'Suspend tenant'}
-          </button>
+          </Button>
         </div>
       </Modal>
 
       <Modal title={`Plan for ${tenant.name}`} open={planOpen} onClose={() => setPlanOpen(false)}>
-        <div className="field" style={{ marginBottom: 14 }}>
-          <label>Plan</label>
-          <select className="select" value={planForm.planId}
+        <div className="field mb-14">
+          <label htmlFor="pf-plan-id">Plan</label>
+          <select id="pf-plan-id" className="select" value={planForm.planId}
             onChange={e => setPlanForm({ ...planForm, planId: e.target.value })}>
             <option value="">No plan (all modules, no caps)</option>
             {plans.filter(p => p.isActive || p.id === planForm.planId).map(p => (
@@ -330,52 +332,52 @@ export default function PlatformTenantDetail() {
             ))}
           </select>
         </div>
-        <div className="form-grid" style={{ marginBottom: 14 }}>
+        <div className="form-grid mb-14">
           <div className="field">
-            <label>Max employees override</label>
-            <input className="input" type="number" min={0} value={planForm.maxEmployeesOverride}
+            <label htmlFor="pf-max-emp">Max employees override</label>
+            <input id="pf-max-emp" className="input" type="number" min={0} value={planForm.maxEmployeesOverride}
               onChange={e => setPlanForm({ ...planForm, maxEmployeesOverride: e.target.value })}
               placeholder="use plan" />
           </div>
           <div className="field">
-            <label>Max logins override</label>
-            <input className="input" type="number" min={0} value={planForm.maxUsersOverride}
+            <label htmlFor="pf-max-users">Max logins override</label>
+            <input id="pf-max-users" className="input" type="number" min={0} value={planForm.maxUsersOverride}
               onChange={e => setPlanForm({ ...planForm, maxUsersOverride: e.target.value })}
               placeholder="use plan" />
           </div>
           <div className="field">
-            <label>Trial ends on</label>
-            <input className="input" type="date" value={planForm.trialEndsOn}
+            <label htmlFor="pf-trial-ends">Trial ends on</label>
+            <input id="pf-trial-ends" className="input" type="date" value={planForm.trialEndsOn}
               onChange={e => setPlanForm({ ...planForm, trialEndsOn: e.target.value })} />
           </div>
         </div>
-        <p className="text-muted" style={{ fontSize: 12, marginBottom: 14 }}>
+        <p className="pf-hint">
           Leave an override blank to use the plan's value. 0 means unlimited. Picking a trial plan with no date set starts the clock today.
         </p>
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => setPlanOpen(false)}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={busy} onClick={savePlan}>
+          <Button variant="ghost" onClick={() => setPlanOpen(false)}>Cancel</Button>
+          <Button variant="accent" loading={busy} onClick={savePlan}>
             {busy ? 'Saving…' : 'Save plan'}
-          </button>
+          </Button>
         </div>
       </Modal>
 
       <Modal title={`Delete ${tenant.name}?`} open={deleteOpen} onClose={() => setDeleteOpen(false)}>
-        <div className="alert alert-danger" style={{ marginBottom: 14 }}>
+        <div className="alert alert-danger mb-14">
           This permanently removes the organization and <strong>all its data</strong> — users, employees,
           payroll, documents, everything. This cannot be undone.
         </div>
-        <div className="field" style={{ marginBottom: 14 }}>
-          <label>Type <strong>{tenant.name}</strong> to confirm</label>
-          <input className="input" value={confirmName} onChange={e => setConfirmName(e.target.value)}
+        <div className="field mb-14">
+          <label htmlFor="pf-confirm-name">Type <strong>{tenant.name}</strong> to confirm</label>
+          <input id="pf-confirm-name" className="input" value={confirmName} onChange={e => setConfirmName(e.target.value)}
             placeholder={tenant.name} autoComplete="off" />
         </div>
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => setDeleteOpen(false)}>Cancel</button>
-          <button type="button" className="btn btn-danger" disabled={busy || confirmName.trim() !== tenant.name}
+          <Button variant="ghost" onClick={() => setDeleteOpen(false)}>Cancel</Button>
+          <Button variant="danger" loading={busy} disabled={confirmName.trim() !== tenant.name}
             onClick={doDelete}>
             {busy ? 'Deleting…' : 'Delete permanently'}
-          </button>
+          </Button>
         </div>
       </Modal>
     </>

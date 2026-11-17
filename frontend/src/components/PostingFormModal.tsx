@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { recruitmentAPI } from '../api/recruitment';
 import { Modal, ErrorAlert } from './ui';
+import { Button } from './Button';
 
 interface Props {
   open: boolean;
@@ -62,31 +63,31 @@ export default function PostingFormModal({ open, onClose, posting, meta, onSaved
   };
 
   return (
-    <Modal size="lg" title={isEdit ? `Edit — ${posting?.title}` : 'New Job Posting'} open={open} onClose={onClose}>
+    <Modal size="lg" title={isEdit ? `Edit — ${posting?.title}` : 'New job posting'} open={open} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <ErrorAlert message={error} />
 
         <div className="form-section">
           <div className="form-section-title"><span className="step-dot">1</span> Role</div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Job title *</label>
-            <input className="input" required autoFocus placeholder="e.g. Implementation Engineer"
+          <div className="field mb-14">
+            <label htmlFor="re-pf-job-title">Job title *</label>
+            <input id="re-pf-job-title" className="input" required autoFocus placeholder="e.g. Implementation Engineer"
               value={form.title} onChange={e => set('title', e.target.value)} />
           </div>
           <div className="form-grid">
             <div className="field">
-              <label>Department</label>
-              <input className="input" placeholder="e.g. Delivery"
+              <label htmlFor="re-pf-department">Department</label>
+              <input id="re-pf-department" className="input" placeholder="e.g. Delivery"
                 value={form.department} onChange={e => set('department', e.target.value)} />
             </div>
             <div className="field">
-              <label>Location</label>
-              <input className="input" placeholder="e.g. Coimbatore / Remote"
+              <label htmlFor="re-pf-location">Location</label>
+              <input id="re-pf-location" className="input" placeholder="e.g. Coimbatore / Remote"
                 value={form.location} onChange={e => set('location', e.target.value)} />
             </div>
             <div className="field">
-              <label>Employment type</label>
-              <select className="select" value={form.employmentType}
+              <label htmlFor="re-pf-employment-type">Employment type</label>
+              <select id="re-pf-employment-type" className="select" value={form.employmentType}
                 onChange={e => set('employmentType', e.target.value)}>
                 {meta.employmentTypes.map((t: any) => (
                   <option key={t.value} value={t.value}>{t.label}</option>
@@ -100,18 +101,18 @@ export default function PostingFormModal({ open, onClose, posting, meta, onSaved
           <div className="form-section-title"><span className="step-dot">2</span> Compensation &amp; capacity</div>
           <div className="form-grid">
             <div className="field">
-              <label>Experience range</label>
-              <input className="input" placeholder="e.g. 2–4 years"
+              <label htmlFor="re-pf-experience-range">Experience range</label>
+              <input id="re-pf-experience-range" className="input" placeholder="e.g. 2–4 years"
                 value={form.experienceRange} onChange={e => set('experienceRange', e.target.value)} />
             </div>
             <div className="field">
-              <label>Salary range</label>
-              <input className="input" placeholder="e.g. ₹4–6 LPA"
+              <label htmlFor="re-pf-salary-range">Salary range</label>
+              <input id="re-pf-salary-range" className="input" placeholder="e.g. ₹4–6 LPA"
                 value={form.salaryRange} onChange={e => set('salaryRange', e.target.value)} />
             </div>
             <div className="field">
-              <label>Open positions</label>
-              <input className="input" type="number" min={1}
+              <label htmlFor="re-pf-open-positions">Open positions</label>
+              <input id="re-pf-open-positions" className="input" type="number" min={1}
                 value={form.positionsCount} onChange={e => set('positionsCount', e.target.value)} />
             </div>
           </div>
@@ -121,21 +122,21 @@ export default function PostingFormModal({ open, onClose, posting, meta, onSaved
           <div className="form-section-title"><span className="step-dot">3</span> Status &amp; dates</div>
           <div className="form-grid">
             <div className="field">
-              <label>Status</label>
-              <select className="select" value={form.status} onChange={e => set('status', e.target.value)}>
+              <label htmlFor="re-pf-status">Status</label>
+              <select id="re-pf-status" className="select" value={form.status} onChange={e => set('status', e.target.value)}>
                 {meta.postingStatuses.map((s: any) => (
                   <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>Posted date</label>
-              <input className="input" type="date" value={form.postedDate || ''}
+              <label htmlFor="re-pf-posted-date">Posted date</label>
+              <input id="re-pf-posted-date" className="input" type="date" value={form.postedDate || ''}
                 onChange={e => set('postedDate', e.target.value)} />
             </div>
             <div className="field">
-              <label>Closing date</label>
-              <input className="input" type="date" value={form.closingDate || ''}
+              <label htmlFor="re-pf-closing-date">Closing date</label>
+              <input id="re-pf-closing-date" className="input" type="date" value={form.closingDate || ''}
                 onChange={e => set('closingDate', e.target.value)} />
             </div>
           </div>
@@ -143,23 +144,23 @@ export default function PostingFormModal({ open, onClose, posting, meta, onSaved
 
         <div className="form-section">
           <div className="form-section-title"><span className="step-dot">4</span> Description</div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Role description</label>
-            <textarea className="input" rows={4} placeholder="What the role involves day to day"
+          <div className="field mb-14">
+            <label htmlFor="re-pf-role-description">Role description</label>
+            <textarea id="re-pf-role-description" className="input" rows={4} placeholder="What the role involves day to day"
               value={form.description} onChange={e => set('description', e.target.value)} />
           </div>
           <div className="field">
-            <label>Requirements</label>
-            <textarea className="input" rows={3} placeholder="Skills, qualifications, must-haves"
+            <label htmlFor="re-pf-requirements">Requirements</label>
+            <textarea id="re-pf-requirements" className="input" rows={3} placeholder="Skills, qualifications, must-haves"
               value={form.requirements} onChange={e => set('requirements', e.target.value)} />
           </div>
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Posting'}
-          </button>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="accent" loading={saving}>
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Create posting'}
+          </Button>
         </div>
       </form>
     </Modal>

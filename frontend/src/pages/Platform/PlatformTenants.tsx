@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { platformAPI, type Tenant } from '../../api/platform';
-import { StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
 import { toast } from '../../components/feedback';
 import { formatDate } from '../../utils/format';
 
@@ -65,31 +66,31 @@ export default function PlatformTenants() {
 
   return (
     <>
-      <div className="platform-head">
-        <div>
-          <h1>Tenants</h1>
-          <p className="text-muted">Every organization on the platform.</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => { setForm(NEW_TENANT); setShowNew(true); }}>
-          + New tenant
-        </button>
-      </div>
+      <PageHeader
+        title="Tenants"
+        subtitle="Every organization on the platform."
+        actions={
+          <Button variant="accent" icon="plus" onClick={() => { setForm(NEW_TENANT); setShowNew(true); }}>
+            New tenant
+          </Button>
+        }
+      />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="stat-grid">
-        <StatCard label="Tenants" value={stats.total} icon="◆" tone="primary" />
-        <StatCard label="Active" value={stats.active} icon="✓" tone="success" />
-        <StatCard label="Suspended" value={stats.suspended} icon="⊘" tone="danger" />
-        <StatCard label="Employees (all tenants)" value={stats.employees} icon="◷" tone="info" />
+        <StatCard label="Tenants" value={stats.total} icon="building" tone="primary" />
+        <StatCard label="Active" value={stats.active} icon="checkCircle" tone="success" />
+        <StatCard label="Suspended" value={stats.suspended} icon="alert" tone="danger" />
+        <StatCard label="Employees (all tenants)" value={stats.employees} icon="users" tone="info" />
       </div>
 
       <div className="toolbar">
         <div className="search-input">
-          <input className="input" placeholder="Search by name or email…" value={q}
+          <input className="input" placeholder="Search by name or email…" value={q} aria-label="Search tenants"
             onChange={e => setQ(e.target.value)} />
         </div>
-        <select className="select" value={status} onChange={e => setStatus(e.target.value)}>
+        <select className="select" value={status} aria-label="Filter by status" onChange={e => setStatus(e.target.value)}>
           <option value="">All statuses</option>
           <option value="ACTIVE">Active</option>
           <option value="SUSPENDED">Suspended</option>
@@ -113,22 +114,20 @@ export default function PlatformTenants() {
                 {filtered.map(t => (
                   <tr key={t.id}>
                     <td>
-                      <Link to={`/platform/tenants/${t.id}`} style={{ fontWeight: 600 }}>{t.name}</Link>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{t.email || '—'}</div>
+                      <Link to={`/platform/tenants/${t.id}`} className="pf-name">{t.name}</Link>
+                      <div className="pf-sub">{t.email || '—'}</div>
                     </td>
                     <td className="num">{t.users}</td>
                     <td className="num">{t.employees}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{formatDate(t.createdAt)}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>
-                      {t.lastLoginAt ? formatDate(t.lastLoginAt) : '—'}
-                    </td>
-                    <td className="text-muted" style={{ fontSize: 12 }}>
+                    <td className="pf-date">{formatDate(t.createdAt)}</td>
+                    <td className="pf-date">{t.lastLoginAt ? formatDate(t.lastLoginAt) : '—'}</td>
+                    <td className="text-sm-muted">
                       {t.createdVia === 'OWNER' ? 'Owner-created' : 'Self-signup'}
                     </td>
                     <td><span className={`badge ${STATUS_TONE[t.status] || 'badge-neutral'}`}>{t.status.toLowerCase()}</span></td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/platform/tenants/${t.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                        <ButtonLink to={`/platform/tenants/${t.id}`} size="sm">Open</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -141,63 +140,63 @@ export default function PlatformTenants() {
 
       <Modal title="New tenant" open={showNew} onClose={() => setShowNew(false)}>
         <form onSubmit={createTenant}>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Organization name *</label>
-            <input className="input" required autoFocus value={form.organizationName}
+          <div className="field mb-14">
+            <label htmlFor="pf-org-name">Organization name *</label>
+            <input id="pf-org-name" className="input" required autoFocus value={form.organizationName}
               onChange={e => setForm({ ...form, organizationName: e.target.value })}
               placeholder="e.g. Acme Textiles Pvt Ltd" />
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Admin email *</label>
-            <input className="input" type="email" required value={form.adminEmail}
+          <div className="field mb-14">
+            <label htmlFor="pf-admin-email">Admin email *</label>
+            <input id="pf-admin-email" className="input" type="email" required value={form.adminEmail}
               onChange={e => setForm({ ...form, adminEmail: e.target.value })}
               placeholder="owner@acme.com" />
             <small className="text-muted">Becomes the organization's first Super Admin.</small>
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>First name</label>
-              <input className="input" value={form.adminFirstName}
+              <label htmlFor="pf-admin-first">First name</label>
+              <input id="pf-admin-first" className="input" value={form.adminFirstName}
                 onChange={e => setForm({ ...form, adminFirstName: e.target.value })} />
             </div>
             <div className="field">
-              <label>Last name</label>
-              <input className="input" value={form.adminLastName}
+              <label htmlFor="pf-admin-last">Last name</label>
+              <input id="pf-admin-last" className="input" value={form.adminLastName}
                 onChange={e => setForm({ ...form, adminLastName: e.target.value })} />
             </div>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Temporary password</label>
-            <input className="input" value={form.adminPassword}
+          <div className="field mb-14">
+            <label htmlFor="pf-admin-password">Temporary password</label>
+            <input id="pf-admin-password" className="input" value={form.adminPassword}
               onChange={e => setForm({ ...form, adminPassword: e.target.value })}
               placeholder="Leave blank to generate one" />
             <small className="text-muted">The admin must change it at first sign-in. Shown once after creating.</small>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setShowNew(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <Button variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
               {saving ? 'Creating…' : 'Create tenant'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>
 
       <Modal title="Tenant created" open={!!created} onClose={() => setCreated(null)}>
-        <p style={{ marginBottom: 14 }}>
+        <p className="pf-lede">
           <strong>{created?.name}</strong> is ready. Share these sign-in details with the admin —
           this password is shown only once.
         </p>
-        <div className="card" style={{ background: 'var(--surface-2)', marginBottom: 16 }}>
-          <div style={{ marginBottom: 8 }}><span className="text-muted">Email:</span> <strong>{created?.email}</strong></div>
+        <div className="card pf-cred">
+          <div className="pf-cred-row"><span className="text-muted">Email:</span> <strong>{created?.email}</strong></div>
           <div><span className="text-muted">Temporary password:</span>{' '}
-            <code style={{ fontSize: 14, fontWeight: 700 }}>{created?.password}</code></div>
+            <code className="pf-code">{created?.password}</code></div>
         </div>
         <div className="form-actions">
-          <button type="button" className="btn btn-secondary"
+          <Button
             onClick={() => { navigator.clipboard?.writeText(`${created?.email} / ${created?.password}`); toast.success('Copied'); }}>
             Copy
-          </button>
-          <button type="button" className="btn btn-primary" onClick={() => setCreated(null)}>Done</button>
+          </Button>
+          <Button variant="accent" onClick={() => setCreated(null)}>Done</Button>
         </div>
       </Modal>
     </>

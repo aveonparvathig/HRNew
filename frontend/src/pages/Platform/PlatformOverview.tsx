@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { platformAPI, type PlatformOverview as Overview } from '../../api/platform';
-import { StatCard, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { PageHeader, StatCard, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
 
 const fmtBytes = (b: number) => {
   if (!b) return '0 B';
@@ -56,13 +57,11 @@ export default function PlatformOverview() {
 
   return (
     <>
-      <div className="platform-head">
-        <div>
-          <h1>Overview</h1>
-          <p className="text-muted">Usage across the whole platform.</p>
-        </div>
-        <button className="btn btn-secondary" onClick={exportCsv} disabled={!data}>Export tenants CSV</button>
-      </div>
+      <PageHeader
+        title="Overview"
+        subtitle="Usage across the whole platform."
+        actions={<Button icon="download" onClick={exportCsv} disabled={!data}>Export tenants CSV</Button>}
+      />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
@@ -70,23 +69,24 @@ export default function PlatformOverview() {
         <>
           <div className="stat-grid">
             <StatCard label="Tenants" value={data.totals.tenants}
-              sub={`${data.totals.active} active · ${data.totals.suspended} suspended`} icon="◆" tone="primary" />
-            <StatCard label="Users" value={data.totals.users} icon="◴" tone="info" />
-            <StatCard label="Employees" value={data.totals.employees} sub={`${data.totals.people} people total`} icon="◷" tone="success" />
-            <StatCard label="Payroll runs" value={data.totals.payrollRuns} icon="▦" tone="warning" />
-            <StatCard label="Document storage" value={fmtBytes(data.totals.storageBytes)} icon="▢" tone="info" />
+              sub={`${data.totals.active} active · ${data.totals.suspended} suspended`} icon="building" tone="primary" />
+            <StatCard label="Users" value={data.totals.users} icon="users" tone="info" />
+            <StatCard label="Employees" value={data.totals.employees} sub={`${data.totals.people} people total`} icon="user" tone="success" />
+            <StatCard label="Payroll runs" value={data.totals.payrollRuns} icon="banknote" tone="warning" />
+            <StatCard label="Document storage" value={fmtBytes(data.totals.storageBytes)} icon="layers" tone="info" />
           </div>
 
           <div className="platform-cards-2">
             <div className="card">
-              <h3 style={{ fontSize: 15, marginBottom: 14 }}>New tenants, last 12 months</h3>
+              <h3 className="pf-card-title">New tenants, last 12 months</h3>
               <div className="signup-bars">
                 {data.signups.map(s => (
                   <div key={s.month} className="signup-bar">
                     <div className="signup-bar-track">
+                      {/* Data-driven: bar height scales with the month's signups. */}
                       <div className="signup-bar-fill" style={{ height: `${(s.count / maxSignup) * 100}%` }} />
                     </div>
-                    <div className="signup-bar-count">{s.count || ''}</div>
+                    <div className="signup-bar-count num">{s.count || ''}</div>
                     <div className="signup-bar-label">{monthShort(s.month)}</div>
                   </div>
                 ))}
@@ -94,23 +94,24 @@ export default function PlatformOverview() {
             </div>
 
             <div className="card">
-              <h3 style={{ fontSize: 15, marginBottom: 14 }}>Tenants by plan</h3>
+              <h3 className="pf-card-title">Tenants by plan</h3>
               {data.byPlan.map(p => (
                 <div key={p.name} className="plan-row">
                   <span className="plan-row-name">{p.name}</span>
                   <div className="plan-row-track">
+                    {/* Data-driven: this plan's share of all tenants. */}
                     <div className="plan-row-fill" style={{ width: `${(p.count / data.totals.tenants) * 100}%` }} />
                   </div>
-                  <span className="plan-row-count">{p.count}</span>
+                  <span className="plan-row-count num">{p.count}</span>
                 </div>
               ))}
             </div>
           </div>
 
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ fontSize: 15, margin: 0 }}>Largest tenants</h3>
-              <Link to="/platform/tenants" className="btn btn-ghost btn-sm">All tenants →</Link>
+            <div className="pf-card-head">
+              <h3 className="pf-card-title">Largest tenants</h3>
+              <ButtonLink to="/platform/tenants" variant="ghost" size="sm">All tenants</ButtonLink>
             </div>
             <div className="table-wrap">
               <table className="table">
@@ -120,12 +121,12 @@ export default function PlatformOverview() {
                 <tbody>
                   {topTenants.map(t => (
                     <tr key={t.id}>
-                      <td><Link to={`/platform/tenants/${t.id}`} style={{ fontWeight: 600 }}>{t.name}</Link></td>
-                      <td className="text-muted" style={{ fontSize: 12.5 }}>{t.planName || 'No plan'}</td>
+                      <td><Link to={`/platform/tenants/${t.id}`} className="pf-name">{t.name}</Link></td>
+                      <td className="text-sm-muted">{t.planName || 'No plan'}</td>
                       <td className="num">{t.employees}</td>
                       <td className="num">{t.users}</td>
                       <td className="num">{t.payrollRuns}</td>
-                      <td className="num text-muted" style={{ fontSize: 12.5 }}>{fmtBytes(t.storageBytes)}</td>
+                      <td className="num text-sm-muted">{fmtBytes(t.storageBytes)}</td>
                       <td><span className={`badge ${t.status === 'ACTIVE' ? 'badge-success' : 'badge-danger'}`}>{t.status.toLowerCase()}</span></td>
                     </tr>
                   ))}

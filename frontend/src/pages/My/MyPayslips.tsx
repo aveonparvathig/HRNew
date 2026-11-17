@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState } from '../../components/ui';
+import { ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR } from '../../utils/format';
 import DownloadButton from '../../components/DownloadButton';
 
@@ -31,16 +32,18 @@ export default function MyPayslips() {
   return (
     <>
       <PageHeader
-        title="My Payslips"
+        title="My payslips"
         subtitle="Payslips appear here once HR releases the month's payroll."
         actions={<>
-          <select className="select" style={{ width: 'auto' }} value={fy} onChange={e => setFy(e.target.value)}>
+          <select className="select mp-select-auto" aria-label="Financial year" value={fy} onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
           </select>
-          <DownloadButton path="/self/payslips.zip" params={{ fy }} busyLabel="Making the files…">⤓ Year's payslips</DownloadButton>
-          <Link to={`/my/reports/ytd-statement?fy=${fy}`} className="btn btn-secondary">Year-to-Date</Link>
-          <Link to={`/my/reports/tax-statement?fy=${fy}`} className="btn btn-secondary">Tax Statement</Link>
-          <Link to={`/my/reports/form-16?fy=${fy}`} className="btn btn-secondary">Form 16</Link>
+          <DownloadButton path="/self/payslips.zip" params={{ fy }} busyLabel="Making the files…">
+            <Icon name="download" size={16} className="btn-icon" />Year's payslips
+          </DownloadButton>
+          <ButtonLink to={`/my/reports/ytd-statement?fy=${fy}`}>Year to date</ButtonLink>
+          <ButtonLink to={`/my/reports/tax-statement?fy=${fy}`}>Tax statement</ButtonLink>
+          <ButtonLink to={`/my/reports/form-16?fy=${fy}`}>Form 16</ButtonLink>
         </>}
       />
 
@@ -59,15 +62,17 @@ export default function MyPayslips() {
               <tbody>
                 {data.entries.map((e: any) => (
                   <tr key={e.id}>
-                    <td style={{ fontWeight: 600 }}>{monthLabel(e.period)}</td>
+                    <td className="mp-strong">{monthLabel(e.period)}</td>
                     <td className="num">{e.payDays} / {e.totalWorkingDays}</td>
                     <td className="num">{formatINR(e.grossSalary)}</td>
                     <td className="num">{formatINR(e.totalDeductions)}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(e.netPayable)}</td>
+                    <td className="num mp-strong">{formatINR(e.netPayable)}</td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/my/payslips/${e.id}`} className="btn btn-secondary btn-sm">View</Link>
-                        <DownloadButton path={`/self/payslips/${e.id}/pdf`} className="btn btn-secondary btn-sm">⤓ PDF</DownloadButton>
+                        <ButtonLink size="sm" to={`/my/payslips/${e.id}`}>View</ButtonLink>
+                        <DownloadButton path={`/self/payslips/${e.id}/pdf`} className="btn btn-secondary btn-sm">
+                          <Icon name="download" size={16} className="btn-icon" />PDF
+                        </DownloadButton>
                       </div>
                     </td>
                   </tr>

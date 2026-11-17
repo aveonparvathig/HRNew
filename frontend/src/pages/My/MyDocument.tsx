@@ -3,14 +3,16 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, EmptyState, BackButton } from '../../components/ui';
 import DownloadButton from '../../components/DownloadButton';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 const REPORT_LABELS: Record<string, string> = {
-  'tax-statement': 'Income Tax Statement',
+  'tax-statement': 'Income tax statement',
   'form-12bb': 'Form 12BB',
-  'ytd-statement': 'Year-to-Date Statement',
-  'loan-statement': 'Loan Statement',
+  'ytd-statement': 'Year-to-date statement',
+  'loan-statement': 'Loan statement',
   'form-16': 'Form 16',
-  'form-12ba': 'Statement of Perquisites',
+  'form-12ba': 'Statement of perquisites',
 };
 
 // Part A of Form 16 is a PDF from the tax department, uploaded by HR.
@@ -42,12 +44,12 @@ export default function MyDocument() {
   }, [entryId, kind, query]);
 
   const back = kind === 'loan-statement' ? '/my/loans' : kind === 'form-12bb' ? '/my/declaration' : '/my/payslips';
-  const backLabel = kind === 'loan-statement' ? 'My Loans' : kind === 'form-12bb' ? 'My Tax Declaration' : 'My Payslips';
+  const backLabel = kind === 'loan-statement' ? 'My loans' : kind === 'form-12bb' ? 'My tax declaration' : 'My payslips';
 
   if (loading) return <LoadingBlock label="Preparing…" />;
   if (!doc) {
     return <EmptyState icon="▦" title="Not available" message={error}
-      action={<Link to={back} className="btn btn-secondary">Back to {backLabel}</Link>} />;
+      action={<ButtonLink to={back}>Back to {backLabel}</ButtonLink>} />;
   }
 
   return (
@@ -64,23 +66,23 @@ export default function MyDocument() {
             {kind === 'form-16' && (
               <>
                 {doc.partA && (
-                  <button className="btn btn-secondary" onClick={() => openPartA(String(doc.fyStart)).catch(() => setError('Could not open Part A'))}>
+                  <Button icon="browser" onClick={() => openPartA(String(doc.fyStart)).catch(() => setError('Could not open Part A'))}>
                     Part A (PDF)
-                  </button>
+                  </Button>
                 )}
-                <Link to={`/my/reports/form-12ba?fy=${doc.fyStart}`} className="btn btn-secondary">Perquisites Statement</Link>
+                <ButtonLink to={`/my/reports/form-12ba?fy=${doc.fyStart}`}>Perquisites statement</ButtonLink>
               </>
             )}
             {entryId
-              ? <DownloadButton path={`/self/payslips/${entryId}/pdf`}>⤓ PDF</DownloadButton>
+              ? <DownloadButton path={`/self/payslips/${entryId}/pdf`}><Icon name="download" size={16} className="btn-icon" />PDF</DownloadButton>
               : kind === 'form-16'
                 // One file: Part A where HR has uploaded it, then Part B
-                ? <DownloadButton path="/self/form16.pdf" params={{ fy: String(doc.fyStart) }}>⤓ Form 16 (PDF)</DownloadButton>
-              : <DownloadButton path={`/self/reports/${kind}`} params={{ ...Object.fromEntries(new URLSearchParams(query)), format: 'pdf' }}>⤓ PDF</DownloadButton>}
-            <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print</button>
+                ? <DownloadButton path="/self/form16.pdf" params={{ fy: String(doc.fyStart) }}><Icon name="download" size={16} className="btn-icon" />Form 16 (PDF)</DownloadButton>
+              : <DownloadButton path={`/self/reports/${kind}`} params={{ ...Object.fromEntries(new URLSearchParams(query)), format: 'pdf' }}><Icon name="download" size={16} className="btn-icon" />PDF</DownloadButton>}
+            <Button variant="primary" icon="printer" onClick={() => window.print()}>Print</Button>
           </>}
         />
-        {error && <div className="alert alert-error"><span>⚠</span>{error}</div>}
+        {error && <div className="alert alert-error"><Icon name="alert" size={16} className="mp-alert-icon" /><span>{error}</span></div>}
       </div>
 
       <div className={`letter-sheet print-area${entryId ? '' : ' sheet-wide'}`}>
