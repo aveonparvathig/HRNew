@@ -1,0 +1,61 @@
+/* ============ Auth Pages ============ */
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.auth-hero {
+  background: linear-gradient(150deg, #23255C 0%, #3A3D9E 45%, #5A5FE0 100%);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px;
+  position: relative;
+  overflow: hidden;
+}
+.auth-hero::after {
+  content: '';
+  position: absolute;
+  width: 480px; height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35), transparent 65%);
+  bottom: -160px; right: -120px;
+}
+.auth-hero .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+.auth-hero .brand .brand-mark {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: rgba(255,255,255,0.15);
+  display: grid; place-items: center; font-size: 17px;
+}
+.auth-hero-copy { position: relative; z-index: 1; }
+.auth-hero-copy h2 { font-size: 30px; line-height: 1.25; letter-spacing: -0.02em; margin-bottom: 14px; }
+.auth-hero-copy p { color: #C9CCF7; font-size: 14.5px; max-width: 400px; line-height: 1.6; }
+.auth-hero-features { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
+.auth-hero-features .feat { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #e0e7ff; }
+.auth-hero-features .feat .check {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  display: grid; place-items: center; font-size: 11px;
+}
+.auth-hero .fineprint { color: #A9ADF5; font-size: 12px; position: relative; z-index: 1; }
+
+.auth-form-side {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  background: var(--surface);
+}
+.auth-form { width: 100%; max-width: 380px; }
+.auth-form h1 { font-size: 24px; margin-bottom: 6px; letter-spacing: -0.02em; }
+.auth-form .sub { color: var(--text-2); margin-bottom: 28px; font-size: 14px; }
+.auth-form .field { margin-bottom: 16px; }
+.auth-form .btn { width: 100%; padding: 11px; font-size: 14px; margin-top: 6px; }
+.auth-form .switch { text-align: center; margin-top: 22px; font-size: 13.5px; color: var(--text-2); }
+
+@media (max-width: 860px) {
+  .auth-page { grid-template-columns: 1fr; }
+  .auth-hero { display: none; }
+}
+
