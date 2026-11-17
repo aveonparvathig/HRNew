@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, BackButton } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
 import { formatINR, formatDate } from '../../utils/format';
 import { toast } from '../../components/feedback';
 
@@ -71,41 +72,41 @@ export default function Declarations() {
       <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
-        <span>Tax Declarations</span>
+        <span>Tax declarations</span>
       </div>
 
       <PageHeader
-        title="Income Tax Declarations"
+        title="Income tax declarations"
         subtitle={`FY ${data.financialYear} · ${started} of ${data.rows.length} employees have declared something${waiting ? ` · ${waiting} waiting for review` : ''}`}
         actions={<>
-          <select className="select" style={{ width: 'auto' }} value={data.fyStart} onChange={e => setFy(e.target.value)}>
+          <select className="select pt-year-select" aria-label="Financial year" value={data.fyStart} onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
           </select>
-          <Link to={`/payroll/reports/declarations?fy=${data.fyStart}`} className="btn btn-secondary">Declarations Report</Link>
-          <Link to="/payroll/settings?tab=declarations" className="btn btn-secondary">Declaration Items</Link>
+          <ButtonLink to={`/payroll/reports/declarations?fy=${data.fyStart}`}>Declarations report</ButtonLink>
+          <ButtonLink to="/payroll/settings?tab=declarations">Declaration items</ButtonLink>
         </>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>What employees can do — FY {data.financialYear}</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+        <h3 className="pt-section-title">What employees can do — FY {data.financialYear}</h3>
+        <p className="text-sm-muted mb-14">
           These apply to employees using My Pay. HR can always edit a declaration.
         </p>
-        <div style={{ display: 'grid', gap: 12 }}>
+        <div className="pt-options pt-options-lg">
           {WINDOWS.map(([key, label, hint]) => (
-            <label key={key} className="checkbox-field" style={{ alignItems: 'flex-start' }}>
-              <input type="checkbox" style={{ marginTop: 2 }} checked={data.control[key]}
+            <label key={key} className="checkbox-field pt-check">
+              <input type="checkbox" checked={data.control[key]}
                 onChange={e => setWindow(key, e.target.checked)} />
-              <span>{label}<span className="text-muted" style={{ display: 'block', fontSize: 12 }}>{hint}</span></span>
+              <span>{label}<span className="pt-check-hint">{hint}</span></span>
             </label>
           ))}
         </div>
-        <div className="form-grid" style={{ marginTop: 16 }}>
+        <div className="form-grid pt-mt-16">
           <div className="field">
-            <label>Close the declaration window after</label>
-            <input className="input" type="date" disabled={!data.control.declarationOpen} value={data.control.declarationLockOn || ''}
+            <label htmlFor="pt-lock-on">Close the declaration window after</label>
+            <input id="pt-lock-on" className="input" type="date" disabled={!data.control.declarationOpen} value={data.control.declarationLockOn || ''}
               onChange={e => setWindow('declarationLockOn', e.target.value)} />
             <span className="hint">
               {data.control.declarationOpen
@@ -114,8 +115,8 @@ export default function Declarations() {
             </span>
           </div>
           <div className="field">
-            <label>Open proof submission from</label>
-            <input className="input" type="month" disabled={data.control.proofOpen} value={data.control.proofOpenFrom || ''}
+            <label htmlFor="pt-proof-from">Open proof submission from</label>
+            <input id="pt-proof-from" className="input" type="month" disabled={data.control.proofOpen} value={data.control.proofOpenFrom || ''}
               onChange={e => setWindow('proofOpenFrom', e.target.value)} />
             <span className="hint">
               {data.control.proofOpen ? 'Proof submission is open now.' : 'Proofs open by themselves on the first day of this month. Leave blank to open them by hand.'}
@@ -129,7 +130,7 @@ export default function Declarations() {
           <div className="card-header">
             <div>
               <h3>Requests to reopen a declaration</h3>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>
+              <span className="text-sm-muted">
                 Reopening lets the employee change their declaration and submit it again, even with the window closed.
               </span>
             </div>
@@ -141,15 +142,15 @@ export default function Declarations() {
                 {data.reopenRequests.map((r: any) => (
                   <tr key={r.id}>
                     <td>
-                      <Link to={`/payroll/declarations/${r.person.id}?fy=${r.fyStart}`} style={{ fontWeight: 600 }}>{r.person.name}</Link>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo}</div>
+                      <Link to={`/payroll/declarations/${r.person.id}?fy=${r.fyStart}`} className="pt-strong">{r.person.name}</Link>
+                      <div className="pt-sub">{r.person.employeeNo}</div>
                     </td>
                     <td>{formatDate(r.createdAt)}</td>
                     <td>{r.reason}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-primary btn-sm" onClick={() => decide(r, true)}>Reopen</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => decide(r, false)}>Decline</button>
+                        <Button size="sm" onClick={() => decide(r, true)}>Reopen</Button>
+                        <Button variant="ghost" size="sm" onClick={() => decide(r, false)}>Decline</Button>
                       </div>
                     </td>
                   </tr>
@@ -163,14 +164,14 @@ export default function Declarations() {
       <div className="card">
         <div className="card-header">
           <h3>Employees</h3>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <select className="select" style={{ width: 'auto' }} aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}>
+          <div className="cluster">
+            <select className="select pt-year-select" aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}>
               <option value="">Any status</option>
               <option value="DRAFT">Draft</option>
               <option value="SUBMITTED">Submitted, to review</option>
               <option value="REVIEWED">Reviewed</option>
             </select>
-            <input className="input" style={{ maxWidth: 240 }} placeholder="Search name or code…" value={search}
+            <input className="input pt-search" aria-label="Search employees" placeholder="Search name or code…" value={search}
               onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
@@ -190,13 +191,13 @@ export default function Declarations() {
                 {rows.map((r: any) => (
                   <tr key={r.person.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{r.person.name}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo}</div>
+                      <span className="pt-strong">{r.person.name}</span>
+                      <div className="pt-sub">{r.person.employeeNo}</div>
                     </td>
                     <td><span className={`badge ${(STATUS[r.status] || STATUS.DRAFT)[1]}`}>{(STATUS[r.status] || STATUS.DRAFT)[0]}</span></td>
                     <td>
                       {regimeName(r.regime)}
-                      {r.regimeIsDefault && <div className="text-muted" style={{ fontSize: 11.5 }}>default</div>}
+                      {r.regimeIsDefault && <div className="pt-sub">default</div>}
                     </td>
                     <td className="num">{r.declared ? formatINR(r.declared) : '—'}</td>
                     <td className="num">{r.approved ? formatINR(r.approved) : '—'}</td>
@@ -210,7 +211,7 @@ export default function Declarations() {
                     <td>{r.submittedAt ? formatDate(r.submittedAt) : <span className="text-muted">—</span>}</td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/declarations/${r.person.id}?fy=${data.fyStart}`} className="btn btn-secondary btn-sm">Open</Link>
+                        <ButtonLink size="sm" to={`/payroll/declarations/${r.person.id}?fy=${data.fyStart}`}>Open</ButtonLink>
                       </div>
                     </td>
                   </tr>

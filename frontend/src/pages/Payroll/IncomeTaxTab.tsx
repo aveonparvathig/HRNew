@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 const NUMBER_FIELDS: [string, string, string, boolean][] = [
   // key, label, unit, old-regime reliefs only
@@ -12,7 +14,7 @@ const NUMBER_FIELDS: [string, string, string, boolean][] = [
   ['superSeniorExemption', 'Tax-free limit, age 80+', '₹', false],
   ['section80CLimit', 'Section 80C limit', '₹', true],
   ['housingInterestLimit', 'Housing-loan interest limit', '₹', true],
-  ['professionalTaxLimit', 'Professional Tax deduction limit (0 = none)', '₹', true],
+  ['professionalTaxLimit', 'Professional tax deduction limit (0 = none)', '₹', true],
   ['employerNpsLimitPercent', 'Employer NPS deductible, up to % of Basic + DA', '%', false],
 ];
 
@@ -75,22 +77,22 @@ export default function IncomeTaxTab() {
         e.preventDefault();
         run('general', () => payrollAPI.updateTaxSettings(general), 'Saved. Recalculate any open draft run to apply it.');
       }}>
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Computed TDS</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+        <h3 className="pt-section-title">Computed TDS</h3>
+        <p className="text-sm-muted pt-lede">
           Until a starting month is set, TDS is whatever you type on each payslip. From that month on, payroll
           works it out from the year's income and spreads the balance over the months left. You can still type
           over it on any payslip.
         </p>
-        <div className="form-grid" style={{ marginBottom: 14 }}>
+        <div className="form-grid mb-14">
           <div className="field">
-            <label>Compute TDS from</label>
-            <input className="input" type="month" value={general.tdsAutoFrom}
+            <label htmlFor="pt-tds-auto-from">Compute TDS from</label>
+            <input id="pt-tds-auto-from" className="input" type="month" value={general.tdsAutoFrom}
               onChange={e => setGeneral({ ...general, tdsAutoFrom: e.target.value })} />
             <span className="hint">Leave blank to keep typing TDS by hand.</span>
           </div>
           <div className="field">
-            <label>Regime when an employee has none set</label>
-            <select className="select" value={general.defaultTaxRegime}
+            <label htmlFor="pt-default-regime">Regime when an employee has none set</label>
+            <select id="pt-default-regime" className="select" value={general.defaultTaxRegime}
               onChange={e => setGeneral({ ...general, defaultTaxRegime: e.target.value })}>
               <option value="NEW">New regime</option>
               <option value="OLD">Old regime</option>
@@ -98,9 +100,9 @@ export default function IncomeTaxTab() {
             <span className="hint">Each employee's regime is set on their profile, per financial year.</span>
           </div>
         </div>
-        <button type="submit" className="btn btn-primary" disabled={saving === 'general'}>
+        <Button type="submit" variant="primary" loading={saving === 'general'}>
           {saving === 'general' ? 'Saving…' : 'Save'}
-        </button>
+        </Button>
       </form>
 
       {forms && (
@@ -108,37 +110,37 @@ export default function IncomeTaxTab() {
           e.preventDefault();
           run('forms', () => payrollAPI.updateTaxSettings(forms), 'Form names saved.');
         }}>
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Names of the tax forms</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          <h3 className="pt-section-title">Names of the tax forms</h3>
+          <p className="text-sm-muted pt-lede">
             Printed as the title of each form. The Income-tax Act, 2025 gives the forms new numbers, so set these to
             what the rules for the year call them.
           </p>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {[['form24qName', 'Quarterly TDS return on salary'], ['form16Name', 'Salary TDS certificate'], ['form12baName', 'Statement of perquisites']].map(([key, label]) => (
               <div key={key} className="field">
-                <label>{label}</label>
-                <input className="input" required maxLength={60} value={forms[key]}
+                <label htmlFor={`pt-${key}`}>{label}</label>
+                <input id={`pt-${key}`} className="input" required maxLength={60} value={forms[key]}
                   onChange={e => setForms({ ...forms, [key]: e.target.value })} />
               </div>
             ))}
           </div>
-          <button type="submit" className="btn btn-primary" disabled={saving === 'forms'}>
-            {saving === 'forms' ? 'Saving…' : 'Save Names'}
-          </button>
+          <Button type="submit" variant="primary" loading={saving === 'forms'}>
+            {saving === 'forms' ? 'Saving…' : 'Save names'}
+          </Button>
         </form>
       )}
 
       <div className="alert alert-warning">
-        <span>⚠</span>
+        <Icon name="shield" size={16} className="pt-alert-icon" />
         <span>
           The rules below start from the FY 2025-26 figures. Check them against the Finance Act for each
           year before relying on the computed TDS.
         </span>
       </div>
 
-      <div className="field" style={{ maxWidth: 240, marginBottom: 18 }}>
-        <label>Financial year</label>
-        <select className="select" value={data.fyStart} onChange={e => setFy(e.target.value)}>
+      <div className="field pt-fy-field">
+        <label htmlFor="pt-tax-fy">Financial year</label>
+        <select id="pt-tax-fy" className="select" value={data.fyStart} onChange={e => setFy(e.target.value)}>
           {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
         </select>
       </div>
@@ -149,24 +151,24 @@ export default function IncomeTaxTab() {
           run(c.id, () => payrollAPI.updateTaxConfig(c.id, c),
             `${c.regime === 'NEW' ? 'New' : 'Old'} regime saved. Recalculate any open draft run to apply it.`);
         }}>
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>{c.regime === 'NEW' ? 'New regime' : 'Old regime'} — FY {data.financialYear}</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          <h3 className="pt-section-title">{c.regime === 'NEW' ? 'New regime' : 'Old regime'} — FY {data.financialYear}</h3>
+          <p className="text-sm-muted pt-lede">
             {c.allowsExemptions
               ? 'Allows HRA exemption, Professional Tax, Section 80C and other Chapter VI-A deductions, and housing-loan interest.'
               : 'Standard deduction only; no HRA exemption or Chapter VI-A deductions.'}
           </p>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {NUMBER_FIELDS.filter(([, , , reliefOnly]) => !reliefOnly || c.allowsExemptions).map(([key, label, unit]) => (
               <div key={key} className="field">
-                <label>{label}</label>
+                <label htmlFor={`pt-${c.id}-${key}`}>{label}</label>
                 <div className="input-unit"><span className="unit">{unit}</span>
-                  <input className="input" type="number" min={0} step="0.01" value={c[key]}
+                  <input id={`pt-${c.id}-${key}`} className="input" type="number" min={0} step="0.01" value={c[key]}
                     onChange={e => setConfig(c.id, { [key]: e.target.value })} />
                 </div>
               </div>
             ))}
           </div>
-          <label className="checkbox-field" style={{ marginBottom: 16 }}>
+          <label className="checkbox-field pt-mb-16">
             <input type="checkbox" checked={c.rebateMarginalRelief}
               onChange={e => setConfig(c.id, { rebateMarginalRelief: e.target.checked })} />
             Just above the rebate limit, cap the tax at the income over the limit (marginal relief)
@@ -174,32 +176,32 @@ export default function IncomeTaxTab() {
 
           <div className="form-section">
             <div className="form-section-title">Slabs — taxable income for the year</div>
-            <div className="slab-row slab-row-4 text-muted" style={{ fontSize: 11.5, marginBottom: 4 }}>
+            <div className="slab-row slab-row-4 pt-slab-head" aria-hidden="true">
               <span>From</span><span>To (blank = above)</span><span>Tax rate %</span><span>Surcharge %</span><span />
             </div>
             {c.slabs.map((s: any, i: number) => (
               <div key={i} className="slab-row slab-row-4">
-                <input className="input" type="number" min={0} required value={s.incomeFrom}
+                <input className="input num" type="number" min={0} required aria-label={`Slab ${i + 1} from`} value={s.incomeFrom}
                   onChange={e => setSlab(c, i, { incomeFrom: e.target.value })} />
-                <input className="input" type="number" min={0} value={s.incomeTo}
+                <input className="input num" type="number" min={0} aria-label={`Slab ${i + 1} to`} value={s.incomeTo}
                   onChange={e => setSlab(c, i, { incomeTo: e.target.value })} />
-                <input className="input" type="number" min={0} max={100} step="0.01" required value={s.ratePercent}
+                <input className="input num" type="number" min={0} max={100} step="0.01" required aria-label={`Slab ${i + 1} tax rate %`} value={s.ratePercent}
                   onChange={e => setSlab(c, i, { ratePercent: e.target.value })} />
-                <input className="input" type="number" min={0} max={100} step="0.01" value={s.surchargePercent}
+                <input className="input num" type="number" min={0} max={100} step="0.01" aria-label={`Slab ${i + 1} surcharge %`} value={s.surchargePercent}
                   onChange={e => setSlab(c, i, { surchargePercent: e.target.value })} />
-                <button type="button" className="btn btn-ghost btn-sm" aria-label="Remove slab" disabled={c.slabs.length === 1}
-                  onClick={() => setConfig(c.id, { slabs: c.slabs.filter((_: any, j: number) => j !== i) })}>✕</button>
+                <Button variant="ghost" size="sm" aria-label="Remove slab" disabled={c.slabs.length === 1}
+                  onClick={() => setConfig(c.id, { slabs: c.slabs.filter((_: any, j: number) => j !== i) })}>✕</Button>
               </div>
             ))}
-            <button type="button" className="btn btn-secondary btn-sm"
-              onClick={() => setConfig(c.id, { slabs: [...c.slabs, EMPTY_SLAB] })}>+ Add slab</button>
-            <span className="hint" style={{ display: 'block', marginTop: 8 }}>
+            <Button size="sm" icon="plus"
+              onClick={() => setConfig(c.id, { slabs: [...c.slabs, EMPTY_SLAB] })}>Add slab</Button>
+            <span className="hint pt-hint-block">
               Surcharge is charged on the whole tax when total income falls in that slab.
             </span>
           </div>
-          <button type="submit" className="btn btn-primary" disabled={saving === c.id}>
-            {saving === c.id ? 'Saving…' : `Save ${c.regime === 'NEW' ? 'New' : 'Old'} Regime`}
-          </button>
+          <Button type="submit" variant="primary" loading={saving === c.id}>
+            {saving === c.id ? 'Saving…' : `Save ${c.regime === 'NEW' ? 'new' : 'old'} regime`}
+          </Button>
         </form>
       ))}
     </>

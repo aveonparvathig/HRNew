@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton, SuccessAlert } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Tabs } from '../../components/Tabs';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
 import DownloadButton from '../../components/DownloadButton';
@@ -41,16 +44,11 @@ export default function TdsReturns() {
       <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
-        <span>TDS Returns</span>
+        <span>TDS returns</span>
       </div>
-      <div className="tabs">
-        {[['returns', 'Deposits and quarterly return'], ['form16', 'Form 16']].map(([key, label]) => (
-          <button key={key} className={`tab ${tab === key ? 'active' : ''}`}
-            onClick={() => setParams({ ...(key === 'form16' ? { tab: key } : {}), ...(fy ? { fy } : {}) }, { replace: true })}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs label="TDS returns" value={tab}
+        items={[{ key: 'returns', label: 'Deposits and quarterly return' }, { key: 'form16', label: 'Form 16' }]}
+        onChange={key => setParams({ ...(key === 'form16' ? { tab: key } : {}), ...(fy ? { fy } : {}) }, { replace: true })} />
       {tab === 'returns' ? <ReturnsTab fy={fy} setFy={setFy} /> : <Form16Tab fy={fy} setFy={setFy} />}
     </>
   );
@@ -58,7 +56,7 @@ export default function TdsReturns() {
 
 function YearSelect({ data, setFy }: { data: any; setFy: (v: string) => void }) {
   return (
-    <select className="select" style={{ width: 'auto' }} value={data.fyStart} onChange={e => setFy(e.target.value)}>
+    <select className="select pt-year-select" aria-label="Financial year" value={data.fyStart} onChange={e => setFy(e.target.value)}>
       {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
     </select>
   );
@@ -153,9 +151,9 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
   const months = data.months.filter((m: any) => m.status || m.deposited > 0);
   const money = (key: string, label: string, hint = '') => (
     <div className="field">
-      <label>{label}</label>
+      <label htmlFor={`pt-challan-${key}`}>{label}</label>
       <div className="input-unit"><span className="unit">₹</span>
-        <input className="input" type="number" min={0} step="0.01" value={form[key]}
+        <input id={`pt-challan-${key}`} className="input" type="number" min={0} step="0.01" value={form[key]}
           onChange={e => setForm({ ...form, [key]: e.target.value })} />
       </div>
       {hint && <span className="hint">{hint}</span>}
@@ -165,11 +163,11 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
   return (
     <>
       <PageHeader
-        title="TDS Deposits and Returns"
+        title="TDS deposits and returns"
         subtitle={`FY ${data.financialYear} · tax deducted from salaries, its deposit, and the quarterly ${data.formName}`}
         actions={<>
           <YearSelect data={data} setFy={setFy} />
-          <Link to={`/payroll/reports/tds-challans?fy=${data.fyStart}`} className="btn btn-secondary">Challan Report</Link>
+          <ButtonLink to={`/payroll/reports/tds-challans?fy=${data.fyStart}`}>Challan report</ButtonLink>
         </>}
       />
 
@@ -180,7 +178,7 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
         <div className="card-header">
           <div>
             <h3>Month by month</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               Tax deducted in a month is due by the 7th of the next month; March is due by 30 April.
             </span>
           </div>
@@ -196,24 +194,24 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
               <tbody>
                 {months.map((m: any) => (
                   <tr key={m.period}>
-                    <td style={{ fontWeight: 600 }}>
+                    <td className="pt-strong">
                       {m.label}
-                      {m.status === 'DRAFT' && <span className="badge badge-warning" style={{ marginLeft: 8 }}>Draft run</span>}
+                      {m.status === 'DRAFT' && <span className="badge badge-warning pt-inline-badge">Draft run</span>}
                     </td>
                     <td className="num">{m.employees || '—'}</td>
                     <td className="num">{m.deducted ? formatINR(m.deducted) : '—'}</td>
                     <td className="num">{m.deposited ? formatINR(m.deposited) : '—'}</td>
-                    <td className="num" style={{ fontWeight: 600, color: m.balance > 0.5 ? 'var(--danger)' : undefined }}>
+                    <td className={`num pt-strong${m.balance > 0.5 ? ' num-neg' : ''}`}>
                       {m.balance > 0.5 ? formatINR(m.balance) : m.deducted ? 'Nil' : '—'}
                     </td>
                     <td>{m.deducted ? formatDate(m.dueDate) : <span className="text-muted">—</span>}</td>
                     <td>
                       <div className="row-actions">
                         {m.status === 'FINALIZED' && m.deducted > 0 && (
-                          <button className="btn btn-secondary btn-sm"
+                          <Button size="sm"
                             onClick={() => setForm({ ...EMPTY_CHALLAN, period: m.period, label: m.label, tds: m.balance > 0 ? String(m.balance) : '' })}>
-                            Record Challan
-                          </button>
+                            Record challan
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -234,35 +232,35 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Salary month</th><th>Deposited on</th><th>BSR code</th><th>Serial no.</th><th className="num">Tax</th><th className="num">Interest, fee, others</th><th className="num">Total</th><th>Employees</th><th /></tr>
+                <tr><th>Salary month</th><th>Deposited on</th><th>BSR code</th><th className="num">Serial no.</th><th className="num">Tax</th><th className="num">Interest, fee, others</th><th className="num">Total</th><th>Employees</th><th /></tr>
               </thead>
               <tbody>
                 {data.challans.map((c: any) => (
                   <tr key={c.id}>
-                    <td style={{ fontWeight: 600 }}>{data.months.find((m: any) => m.period === c.period)?.label || c.period}</td>
+                    <td className="pt-strong">{data.months.find((m: any) => m.period === c.period)?.label || c.period}</td>
                     <td>
                       {formatDate(c.depositedOn)}
-                      {c.late && <div style={{ fontSize: 11.5, color: 'var(--danger)' }}>after the due date</div>}
+                      {c.late && <div className="pt-note pt-note-danger">after the due date</div>}
                     </td>
-                    <td>{c.bsrCode}</td>
-                    <td>{c.challanSerial}</td>
+                    <td className="mono">{c.bsrCode}</td>
+                    <td className="num">{c.challanSerial}</td>
                     <td className="num">{formatINR(c.tax)}</td>
                     <td className="num text-muted">{c.total - c.tax > 0 ? formatINR(c.total - c.tax) : '—'}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(c.total)}</td>
+                    <td className="num pt-strong">{formatINR(c.total)}</td>
                     <td>
                       <button className="link-button" onClick={() => setOpen(open === c.id ? '' : c.id)}>
                         {c.employees} matched
                       </button>
-                      {c.unallocated > 0.5 && <div style={{ fontSize: 11.5, color: 'var(--warning)' }}>{formatINR(c.unallocated)} unmatched</div>}
+                      {c.unallocated > 0.5 && <div className="pt-note pt-note-warning">{formatINR(c.unallocated)} unmatched</div>}
                       {open === c.id && (
-                        <div className="text-muted" style={{ fontSize: 12, marginTop: 4 }}>
+                        <div className="text-muted pt-allocations">
                           {c.allocations.map((a: any) => <div key={a.name}>{a.name}: {formatINR(a.amount)}</div>)}
                         </div>
                       )}
                     </td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(c)}>Delete</button>
+                        <Button variant="danger" size="sm" onClick={() => handleDelete(c)}>Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -274,27 +272,27 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       </div>
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Quarterly return — {data.formName}</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+        <h3 className="pt-section-title">Quarterly return — {data.formName}</h3>
+        <p className="text-sm-muted pt-lede">
           The workbook holds the deductor, challan and employee rows (and the annual salary details in the last quarter),
           laid out for keying into the tax department's return preparation utility, which produces the file you upload.
           {' '}{data.form27aName} is the signed control sheet that goes with it.
         </p>
-        <div style={{ display: 'grid', gap: 8, marginBottom: 16 }}>
-          <label className="checkbox-field" style={{ alignItems: 'flex-start' }}>
-            <input type="checkbox" style={{ marginTop: 2 }} checked={data.options.tdsAnnexure1IncludeZero}
+        <div className="pt-options">
+          <label className="checkbox-field pt-check">
+            <input type="checkbox" checked={data.options.tdsAnnexure1IncludeZero}
               onChange={e => setOption('tdsAnnexure1IncludeZero', e.target.checked)} />
             <span>List employees paid with no tax deducted in Annexure I
-              <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>Off: only employees with tax deducted in the quarter are listed.</span></span>
+              <span className="pt-check-hint">Off: only employees with tax deducted in the quarter are listed.</span></span>
           </label>
-          <label className="checkbox-field" style={{ alignItems: 'flex-start' }}>
-            <input type="checkbox" style={{ marginTop: 2 }} checked={data.options.tdsAnnexure2SkipZero}
+          <label className="checkbox-field pt-check">
+            <input type="checkbox" checked={data.options.tdsAnnexure2SkipZero}
               onChange={e => setOption('tdsAnnexure2SkipZero', e.target.checked)} />
             <span>Leave employees with no tax for the year out of Annexure II
-              <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>Off: the last quarter's annual salary details list everyone paid in the year.</span></span>
+              <span className="pt-check-hint">Off: the last quarter's annual salary details list everyone paid in the year.</span></span>
           </label>
         </div>
-        <div style={{ display: 'grid', gap: 14 }}>
+        <div className="pt-quarters">
           {data.quarters.map((q: any) => {
             const errors = q.issues.filter((i: any) => i.level === 'ERROR');
             const warnings = q.issues.filter((i: any) => i.level !== 'ERROR');
@@ -303,41 +301,41 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                 <div className="quarter-head">
                   <div>
                     <strong>{q.label}</strong> <span className="text-muted">{q.months}</span>
-                    <div className="text-muted" style={{ fontSize: 12.5 }}>
+                    <div className="text-sm-muted">
                       {q.hasRuns
                         ? `${formatINR(q.deducted)} deducted, ${formatINR(q.deposited)} deposited`
                         : 'No payroll in this quarter'}
                     </div>
                   </div>
                   {q.hasRuns && (
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div className="cluster">
                       <span className={`badge ${errors.length ? 'badge-danger' : warnings.length ? 'badge-warning' : 'badge-success'}`}>
                         {errors.length ? `${errors.length} to fix` : warnings.length ? `${warnings.length} to check` : 'Ready'}
                       </span>
-                      <Link to={`/payroll/reports/tds-return?fy=${data.fyStart}&quarter=${q.quarter}`} className="btn btn-secondary btn-sm">Summary</Link>
-                      <Link to={`/payroll/reports/form-27a?fy=${data.fyStart}&quarter=${q.quarter}`} className="btn btn-secondary btn-sm">{data.form27aName}</Link>
-                      <button className="btn btn-primary btn-sm" onClick={() => downloadWorkbook(q.quarter)}>⤓ Workbook</button>
+                      <ButtonLink size="sm" to={`/payroll/reports/tds-return?fy=${data.fyStart}&quarter=${q.quarter}`}>Summary</ButtonLink>
+                      <ButtonLink size="sm" to={`/payroll/reports/form-27a?fy=${data.fyStart}&quarter=${q.quarter}`}>{data.form27aName}</ButtonLink>
+                      <Button size="sm" onClick={() => downloadWorkbook(q.quarter)}>Workbook</Button>
                     </div>
                   )}
                 </div>
                 {q.hasRuns && filings[q.quarter] && (
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 10, fontSize: 12.5 }}>
+                  <div className="cluster pt-filing">
                     <span className="text-muted">Once filed, its receipt number:</span>
-                    <input className="input input-sm" style={{ width: 170 }} inputMode="numeric" maxLength={15} placeholder="up to 15 digits"
+                    <input className="input input-sm pt-input-receipt" inputMode="numeric" maxLength={15} placeholder="up to 15 digits"
                       aria-label={`${q.label} receipt number`} value={filings[q.quarter].receiptNo}
                       onChange={e => setFilings({ ...filings, [q.quarter]: { ...filings[q.quarter], receiptNo: e.target.value.replace(/\D/g, '') } })} />
-                    <input className="input input-sm" style={{ width: 150 }} type="date" aria-label={`${q.label} date filed`} value={filings[q.quarter].filedOn}
+                    <input className="input input-sm pt-input-date" type="date" aria-label={`${q.label} date filed`} value={filings[q.quarter].filedOn}
                       onChange={e => setFilings({ ...filings, [q.quarter]: { ...filings[q.quarter], filedOn: e.target.value } })} />
-                    <button className="btn btn-secondary btn-sm"
+                    <Button size="sm"
                       disabled={filings[q.quarter].receiptNo === q.receiptNo && filings[q.quarter].filedOn === q.filedOn}
-                      onClick={() => saveFiling(q)}>Save</button>
+                      onClick={() => saveFiling(q)}>Save</Button>
                     <span className="text-muted">
                       {q.previousReceiptNo ? `Previous return: ${q.previousReceiptNo}` : 'The previous return’s receipt number is not recorded.'}
                     </span>
                   </div>
                 )}
                 {q.consultants?.count > 0 && (
-                  <div style={{ fontSize: 12.5, marginTop: 8 }}>
+                  <div className="pt-consultants">
                     <span className="text-muted">
                       Not in this return: {formatINR(q.consultants.fee)} of fees to {q.consultants.count} consultant{q.consultants.count === 1 ? '' : 's'},
                       {' '}{formatINR(q.consultants.tds)} tax deducted.{' '}
@@ -348,7 +346,7 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                 {q.issues.length > 0 && (
                   <ul className="quarter-issues">
                     {q.issues.map((i: any, n: number) => (
-                      <li key={n} style={{ color: i.level === 'ERROR' ? 'var(--danger)' : 'var(--warning)' }}>{i.message}</li>
+                      <li key={n} className={i.level === 'ERROR' ? 'pt-issue-error' : 'pt-issue-warning'}>{i.message}</li>
                     ))}
                   </ul>
                 )}
@@ -358,29 +356,29 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
         </div>
       </div>
 
-      <Modal size="lg" title={form ? `TDS Challan — ${form.label}` : ''} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal size="lg" title={form ? `TDS challan — ${form.label}` : ''} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={handleSave}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>BSR code *</label>
-                <input className="input" required inputMode="numeric" maxLength={7} placeholder="7 digits" value={form.bsrCode}
+                <label htmlFor="pt-bsr">BSR code *</label>
+                <input id="pt-bsr" className="input" required inputMode="numeric" maxLength={7} placeholder="7 digits" value={form.bsrCode}
                   onChange={e => setForm({ ...form, bsrCode: e.target.value.replace(/\D/g, '') })} />
                 <span className="hint">The bank branch's code, printed on the challan receipt.</span>
               </div>
               <div className="field">
-                <label>Challan serial number *</label>
-                <input className="input" required inputMode="numeric" maxLength={5} placeholder="up to 5 digits" value={form.challanSerial}
+                <label htmlFor="pt-serial">Challan serial number *</label>
+                <input id="pt-serial" className="input" required inputMode="numeric" maxLength={5} placeholder="up to 5 digits" value={form.challanSerial}
                   onChange={e => setForm({ ...form, challanSerial: e.target.value.replace(/\D/g, '') })} />
               </div>
               <div className="field">
-                <label>Date of deposit *</label>
-                <input className="input" type="date" required value={form.depositedOn}
+                <label htmlFor="pt-deposited">Date of deposit *</label>
+                <input id="pt-deposited" className="input" type="date" required value={form.depositedOn}
                   onChange={e => setForm({ ...form, depositedOn: e.target.value })} />
               </div>
               <div className="field">
-                <label>Minor head</label>
-                <select className="select" value={form.minorHead} onChange={e => setForm({ ...form, minorHead: e.target.value })}>
+                <label htmlFor="pt-minor-head">Minor head</label>
+                <select id="pt-minor-head" className="select" value={form.minorHead} onChange={e => setForm({ ...form, minorHead: e.target.value })}>
                   <option value="200">200 — TDS payable by the taxpayer</option>
                   <option value="400">400 — TDS on regular assessment</option>
                 </select>
@@ -391,14 +389,14 @@ function ReturnsTab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
               {money('interest', 'Interest', 'For a late deposit.')}
               {money('fee', 'Fee', 'Late filing fee.')}
               {money('others', 'Others')}
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Remarks</label>
-                <input className="input" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} />
+              <div className="field pt-span-all">
+                <label htmlFor="pt-remarks">Remarks</label>
+                <input id="pt-remarks" className="input" value={form.remarks} onChange={e => setForm({ ...form, remarks: e.target.value })} />
               </div>
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Record Challan'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Record challan'}</Button>
             </div>
           </form>
         )}
@@ -468,8 +466,8 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
         subtitle={`FY ${data.financialYear} · Part B from ${data.monthsRun} finalized payroll month${data.monthsRun === 1 ? '' : 's'}`}
         actions={<>
           <YearSelect data={data} setFy={setFy} />
-          <Link to={`/payroll/reports/form-16-all?fy=${data.fyStart}`}
-            className={`btn btn-secondary${data.rows.length ? '' : ' disabled'}`}>🖨 All Part B</Link>
+          <ButtonLink to={`/payroll/reports/form-16-all?fy=${data.fyStart}`}
+            className={data.rows.length ? undefined : 'disabled'}>All Part B</ButtonLink>
         </>}
       />
 
@@ -477,7 +475,7 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
       {(data.monthsRun < 12 || data.draftMonths.length > 0) && data.rows.length > 0 && (
         <div className="alert alert-warning">
-          <span>◷</span>
+          <Icon name="clock" size={16} className="pt-alert-icon" />
           <span>
             The year is not complete: {data.monthsRun} of 12 months are finalized
             {data.draftMonths.length > 0 && ` (${data.draftMonths.join(', ')} still in draft and left out)`}.
@@ -487,19 +485,19 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
       )}
       {data.signatoryMissing && data.rows.length > 0 && (
         <div className="alert alert-warning">
-          <span>✎</span>
-          <span>The signatory is not set. Add the name, designation and place in <Link to="/organization?tab=signatories">Company Settings → Signatories</Link>.</span>
+          <Icon name="pen" size={16} className="pt-alert-icon" />
+          <span>The signatory is not set. Add the name, designation and place in <Link to="/organization?tab=signatories">Company settings → Signatories</Link>.</span>
         </div>
       )}
 
       <div className="card card-pad mb-24">
-        <label className="checkbox-field" style={{ alignItems: 'flex-start' }}>
-          <input type="checkbox" style={{ marginTop: 2 }} checked={data.released}
+        <label className="checkbox-field pt-check">
+          <input type="checkbox" checked={data.released}
             onChange={e => act(() => payrollAPI.setForm16Released(data.fyStart, e.target.checked),
               e.target.checked ? `${name} for FY ${data.financialYear} is now visible to employees in My Pay.` : `${name} withdrawn from employees.`)} />
           <span>
             Employees can see their {name} for FY {data.financialYear}
-            <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
+            <span className="pt-check-hint">
               They get one PDF: Part A where you have uploaded it, Part B, and the perquisites statement if they have any.
             </span>
           </span>
@@ -522,20 +520,20 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                 {data.rows.map((r: any) => (
                   <tr key={r.person.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{r.person.name}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>
+                      <span className="pt-strong">{r.person.name}</span>
+                      <div className="pt-sub">
                         {r.person.employeeNo} · {r.months} month{r.months === 1 ? '' : 's'}{!r.hasValidPan && ' · no valid PAN'}
                       </div>
                     </td>
                     <td>{regimeName(r.regime)}</td>
                     <td className="num">{formatINR(r.salary)}</td>
                     <td className="num">{formatINR(r.taxableIncome)}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.tax)}</td>
+                    <td className="num pt-strong">{formatINR(r.tax)}</td>
                     <td className="num">{formatINR(r.deducted)}</td>
-                    <td className="num" style={{ color: r.balance > 0.5 ? 'var(--danger)' : undefined }}>
+                    <td className={`num${r.balance > 0.5 ? ' num-neg' : ''}`}>
                       {Math.abs(r.balance) < 0.5 ? 'Nil' : r.balance > 0 ? `${formatINR(r.balance)} short` : `${formatINR(-r.balance)} excess`}
                     </td>
-                    <td style={{ fontSize: 12.5 }}>
+                    <td className="pt-part-a">
                       {r.partA ? (
                         <span className="proof-chip">
                           <button type="button" className="proof-open" onClick={() => openPartA(r)}>{r.partA.fileName}</button>
@@ -553,11 +551,11 @@ function Form16Tab({ fy, setFy }: { fy: string; setFy: (v: string) => void }) {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/reports/form-16?${query(r)}`} className="btn btn-secondary btn-sm">Part B</Link>
-                        <Link to={`/payroll/reports/form-12ba?${query(r)}`} className="btn btn-secondary btn-sm">{data.formNames.form12ba}</Link>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setPerquisitesOf(r.person.id)}>Perquisites</button>
-                        <DownloadButton className="btn btn-primary btn-sm" path={`/payroll/form16/${r.person.id}/file`} params={{ fy: String(data.fyStart) }}>
-                          ⤓ {r.partA ? 'Part A + B' : 'PDF'}
+                        <ButtonLink size="sm" to={`/payroll/reports/form-16?${query(r)}`}>Part B</ButtonLink>
+                        <ButtonLink size="sm" to={`/payroll/reports/form-12ba?${query(r)}`}>{data.formNames.form12ba}</ButtonLink>
+                        <Button size="sm" onClick={() => setPerquisitesOf(r.person.id)}>Perquisites</Button>
+                        <DownloadButton className="btn btn-secondary btn-sm" path={`/payroll/form16/${r.person.id}/file`} params={{ fy: String(data.fyStart) }}>
+                          {r.partA ? 'Part A + B' : 'PDF'}
                         </DownloadButton>
                       </div>
                     </td>

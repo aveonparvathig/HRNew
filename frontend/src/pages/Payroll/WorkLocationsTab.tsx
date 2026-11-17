@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, EmptyState, Modal, StatusBadge } from '../../components/ui';
 import { confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
 
 const EMPTY = { name: '', city: '', state: '', isActive: true };
 
@@ -67,12 +68,12 @@ export default function WorkLocationsTab() {
         <div className="card-header">
           <div>
             <h3>Work locations</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               The state of an employee's location decides Professional Tax and Labour Welfare Fund rules; where
               the town sets its own Professional Tax, the city decides the slabs. Assign a location on each employee's profile.
             </span>
           </div>
-          <button className="btn btn-primary" onClick={() => open()}>+ Add Location</button>
+          <Button variant="accent" icon="plus" onClick={() => open()}>Add location</Button>
         </div>
         {data.locations.length === 0 ? (
           <EmptyState icon="⌖" title="No work locations yet"
@@ -81,23 +82,23 @@ export default function WorkLocationsTab() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Location</th><th>City</th><th>State</th><th className="num">Employees</th><th>Status</th><th /></tr>
+                <tr><th>Location</th><th>City</th><th>State</th><th className="num">Employees</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {data.locations.map((l: any) => (
                   <tr key={l.id}>
-                    <td style={{ fontWeight: 600 }}>{l.name}</td>
+                    <td className="ps-strong">{l.name}</td>
                     <td>{l.city || '—'}</td>
                     <td>
                       {l.state}
-                      {l.excludeFromPt && <div className="text-muted" style={{ fontSize: 11.5 }}>No Professional Tax</div>}
+                      {l.excludeFromPt && <div className="ps-sub">No Professional Tax</div>}
                     </td>
                     <td className="num">{l.employeeCount}</td>
                     <td><StatusBadge status={l.isActive ? 'active' : 'inactive'} /></td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => open(l)}>Edit</button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDelete(l)}>Delete</button>
+                        <Button size="sm" onClick={() => open(l)}>Edit</Button>
+                        <Button variant="danger" size="sm" onClick={() => handleDelete(l)}>Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -108,47 +109,47 @@ export default function WorkLocationsTab() {
         )}
       </div>
 
-      <Modal title={editing?.id ? 'Edit Location' : 'Add Location'} open={Boolean(editing)}
+      <Modal title={editing?.id ? 'Edit location' : 'Add location'} open={Boolean(editing)}
         onClose={() => setEditing(null)}>
         <form onSubmit={handleSave}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Location name *</label>
-              <input className="input" required placeholder="e.g. Coimbatore Office" value={form.name}
+              <label htmlFor="ps-loc-name">Location name *</label>
+              <input id="ps-loc-name" className="input" required placeholder="e.g. Coimbatore office" value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
             <div className="field">
-              <label>City</label>
-              <input className="input" value={form.city}
+              <label htmlFor="ps-loc-city">City</label>
+              <input id="ps-loc-city" className="input" value={form.city}
                 onChange={e => setForm({ ...form, city: e.target.value })} />
               <span className="hint">The town whose Professional Tax slabs apply, where the local body sets them.</span>
             </div>
             <div className="field">
-              <label>State *</label>
-              <select className="select" required value={form.state}
+              <label htmlFor="ps-loc-state">State *</label>
+              <select id="ps-loc-state" className="select" required value={form.state}
                 onChange={e => setForm({ ...form, state: e.target.value })}>
                 <option value="">—</option>
                 {data.states.map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
-          <label className="checkbox-field" style={{ marginBottom: 14 }}>
+          <label className="checkbox-field mb-14">
             <input type="checkbox" checked={Boolean(form.excludeFromPt)}
               onChange={e => setForm({ ...form, excludeFromPt: e.target.checked })} />
             No Professional Tax here: employees at this location are left out, whatever the state's policy
           </label>
           {editing?.id && (
-            <label className="checkbox-field" style={{ marginBottom: 14 }}>
+            <label className="checkbox-field mb-14">
               <input type="checkbox" checked={form.isActive}
                 onChange={e => setForm({ ...form, isActive: e.target.checked })} />
               Active — inactive locations cannot be assigned to employees
             </label>
           )}
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setEditing(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save Location'}
-            </button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Saving…' : 'Save location'}
+            </Button>
           </div>
         </form>
       </Modal>

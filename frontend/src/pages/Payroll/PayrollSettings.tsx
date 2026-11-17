@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, BackButton, SuccessAlert } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Tabs, type TabItem } from '../../components/Tabs';
 import WorkLocationsTab from './WorkLocationsTab';
 import PayComponentsTab from './PayComponentsTab';
 import StatutoryPoliciesTab from './StatutoryPoliciesTab';
@@ -10,7 +12,7 @@ import DeclarationItemsTab from './DeclarationItemsTab';
 import PayoutSettingsTab from './PayoutSettingsTab';
 import StructureTemplatesTab from './StructureTemplatesTab';
 
-const TABS = [
+const TABS: TabItem<string>[] = [
   { key: 'rates', label: 'Salary & statutory rates' },
   { key: 'structures', label: 'Structure templates' },
   { key: 'components', label: 'Pay components' },
@@ -116,19 +118,13 @@ export default function PayrollSettings() {
       </div>
 
       <PageHeader
-        title="Payroll Settings"
+        title="Payroll settings"
         subtitle="Salary split, statutory rates, tax rules and work locations."
-        actions={<Link to="/organization?tab=registrations" className="btn btn-secondary">Company registrations</Link>}
+        actions={<ButtonLink to="/organization?tab=registrations" icon="building">Company registrations</ButtonLink>}
       />
 
-      <div className="tabs">
-        {TABS.map(t => (
-          <button key={t.key} className={`tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setParams(t.key === 'rates' ? {} : { tab: t.key }, { replace: true })}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Payroll settings sections" items={TABS} value={tab}
+        onChange={key => setParams(key === 'rates' ? {} : { tab: key }, { replace: true })} />
 
       {tab === 'rates' && <RatesTab />}
       {tab === 'structures' && <StructureTemplatesTab />}
@@ -180,14 +176,14 @@ function RatesTab() {
       <form onSubmit={handleSave}>
         {GROUPS.map(g => (
           <div key={g.title} className="card card-pad mb-24">
-            <h3 style={{ fontSize: 15, marginBottom: 4 }}>{g.title}</h3>
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>{g.hint}</p>
+            <h3 className="ps-group-title">{g.title}</h3>
+            <p className="ps-group-hint">{g.hint}</p>
             <div className="form-grid">
               {g.fields.map(([key, label, unit]) => (
                 <div key={key} className="field">
-                  <label>{label}</label>
+                  <label htmlFor={`ps-rate-${key}`}>{label}</label>
                   <div className="input-unit"><span className="unit">{unit}</span>
-                    <input className="input" type="number" min={0} step="0.01"
+                    <input id={`ps-rate-${key}`} className="input num" type="number" min={0} step="0.01"
                       value={form[key]}
                       onChange={e => setForm({ ...form, [key]: e.target.value })} />
                   </div>
@@ -196,12 +192,12 @@ function RatesTab() {
             </div>
             {g.title === 'ESI' && (
               <>
-                <label className="checkbox-field" style={{ marginTop: 14 }}>
+                <label className="checkbox-field ps-mt-14">
                   <input type="checkbox" checked={form.esiAutoCoverage}
                     onChange={e => setForm({ ...form, esiAutoCoverage: e.target.checked })} />
                   Decide ESI automatically in new runs
                 </label>
-                <p className="text-muted" style={{ fontSize: 12.5, marginTop: 6 }}>
+                <p className="ps-note">
                   When on, a new run covers every employee whose full-month wage is within the ceiling, and keeps
                   them covered until the contribution period (April–September or October–March) ends, even after
                   a raise. The employee flag is then ignored; you can still change ESI on an individual payslip.
@@ -209,7 +205,7 @@ function RatesTab() {
               </>
             )}
             {g.title === 'Provident Fund' && (
-              <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginTop: 14 }}>
+              <div className="cluster ps-check-row">
                 <label className="checkbox-field">
                   <input type="checkbox" checked={form.pfEmployerMatchesEmployee}
                     onChange={e => setForm({ ...form, pfEmployerMatchesEmployee: e.target.checked })} />
@@ -225,10 +221,10 @@ function RatesTab() {
           </div>
         ))}
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Settings'}
-          </button>
+        <div className="form-actions ps-actions-start">
+          <Button type="submit" variant="accent" loading={saving}>
+            {saving ? 'Saving…' : 'Save settings'}
+          </Button>
         </div>
       </form>
     </>

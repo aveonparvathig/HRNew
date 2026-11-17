@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { ErrorAlert, SuccessAlert } from './ui';
+import { Button } from './Button';
+import { Icon } from './Layout/nav';
 import { formatINR, formatDate } from '../utils/format';
 import { confirmDialog } from './feedback';
 
@@ -199,18 +201,18 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
 
   const money = (key: string, label: string, hint = '', disabled = !canEdit) => (
     <div className="field">
-      <label>{label}</label>
+      <label htmlFor={`pt-decl-${key}`}>{label}</label>
       <div className="input-unit"><span className="unit">₹</span>
-        <input className="input" type="number" min={0} step="0.01" disabled={disabled}
+        <input id={`pt-decl-${key}`} className="input" type="number" min={0} step="0.01" disabled={disabled}
           value={form[key]} onChange={e => set({ [key]: e.target.value })} />
       </div>
       {hint && <span className="hint">{hint}</span>}
     </div>
   );
   const text = (key: string, label: string, props: any = {}, hint = '') => (
-    <div className="field" style={props.wide ? { gridColumn: '1 / -1' } : undefined}>
-      <label>{label}</label>
-      <input className="input" disabled={!canEdit} placeholder={props.placeholder} value={form[key] || ''}
+    <div className={`field${props.wide ? ' pt-span-all' : ''}`}>
+      <label htmlFor={`pt-decl-${key}`}>{label}</label>
+      <input id={`pt-decl-${key}`} className="input" disabled={!canEdit} placeholder={props.placeholder} value={form[key] || ''}
         onChange={e => set({ [key]: props.upper ? e.target.value.toUpperCase() : e.target.value })} />
       {hint && <span className="hint">{hint}</span>}
     </div>
@@ -230,9 +232,9 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
       </div>
 
       <div className="card card-pad mb-24">
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ fontSize: 13.5 }}>
-            <span className={`badge ${statusClass}`} style={{ marginRight: 8 }}>{statusLabel}</span>
+        <div className="cluster between pt-status-row">
+          <div className="pt-status-text">
+            <span className={`badge ${statusClass} pt-status-badge`}>{statusLabel}</span>
             {status === 'DRAFT' && (isHr
               ? (data.profile.editGranted ? 'With the employee to correct. They can change it even though the window is closed.' : 'Not submitted yet.')
               : data.self.canEdit
@@ -245,67 +247,67 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
             {!isHr && <span className="text-muted"> {canUpload ? 'Proofs can be attached now.' : 'Proof submission is not open yet.'}</span>}
           </div>
           {isHr && actions.review && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div className="cluster">
               {status === 'SUBMITTED' && (
-                <button type="button" className="btn btn-primary btn-sm" disabled={busy === 'REVIEW'}
-                  onClick={() => review('REVIEW', 'Marked as reviewed.')}>Mark as Reviewed</button>
+                <Button variant="primary" size="sm" loading={busy === 'REVIEW'}
+                  onClick={() => review('REVIEW', 'Marked as reviewed.')}>Mark as reviewed</Button>
               )}
               {status !== 'DRAFT' && (
-                <button type="button" className="btn btn-secondary btn-sm" disabled={busy === 'SEND_BACK'}
+                <Button size="sm" loading={busy === 'SEND_BACK'}
                   onClick={async () => await confirmDialog({
                     title: 'Send the declaration back?',
                     message: 'It becomes a draft again and the employee can change it, even with the declaration window closed.',
-                    confirmLabel: 'Send Back',
-                  }) && review('SEND_BACK', 'Sent back to the employee.')}>Send Back to Employee</button>
+                    confirmLabel: 'Send back',
+                  }) && review('SEND_BACK', 'Sent back to the employee.')}>Send back to employee</Button>
               )}
             </div>
           )}
         </div>
 
         {pendingRequest && (
-          <div className="alert alert-warning" style={{ marginTop: 14, marginBottom: 0, alignItems: 'flex-start' }}>
-            <span>↺</span>
-            <div style={{ flex: 1 }}>
+          <div className="alert alert-warning pt-reopen-alert">
+            <Icon name="history" size={16} className="pt-alert-icon" />
+            <div className="pt-grow">
               {isHr ? 'The employee has asked for this declaration to be reopened' : 'You asked HR to reopen this declaration'}
               {' '}on {formatDate(pendingRequest.createdAt)}: “{pendingRequest.reason}”
-              {!isHr && <div className="text-muted" style={{ fontSize: 12.5 }}>Waiting for HR to decide.</div>}
+              {!isHr && <div className="text-sm-muted">Waiting for HR to decide.</div>}
               {isHr && actions.decideReopen && (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10, alignItems: 'center' }}>
-                  <button type="button" className="btn btn-primary btn-sm" disabled={busy === 'decide'}
+                <div className="cluster pt-mt-10">
+                  <Button variant="primary" size="sm" disabled={busy === 'decide'}
                     onClick={() => run('decide', () => actions.decideReopen!(pendingRequest.id, { approve: true }), 'Declaration reopened for the employee.')}>
-                    Reopen for the Employee
-                  </button>
-                  <input className="input input-sm" style={{ maxWidth: 260 }} placeholder="Reason for declining (optional)" value={note}
+                    Reopen for the employee
+                  </Button>
+                  <input className="input input-sm pt-input-note" aria-label="Reason for declining" placeholder="Reason for declining (optional)" value={note}
                     onChange={e => setNote(e.target.value)} />
-                  <button type="button" className="btn btn-secondary btn-sm" disabled={busy === 'decide'}
+                  <Button size="sm" disabled={busy === 'decide'}
                     onClick={() => run('decide', () => actions.decideReopen!(pendingRequest.id, { approve: false, note }), 'Request declined.')}>
                     Decline
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
           </div>
         )}
         {!isHr && !pendingRequest && lastRequest?.status === 'DECLINED' && !data.self.canEdit && (
-          <p className="text-muted" style={{ fontSize: 12.5, marginTop: 10 }}>
+          <p className="text-sm-muted pt-mt-10">
             HR declined your request of {formatDate(lastRequest.createdAt)}{lastRequest.decisionNote ? `: “${lastRequest.decisionNote}”` : '.'}
           </p>
         )}
         {!isHr && actions.requestReopen && !data.self.canEdit && !pendingRequest && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 14, alignItems: 'center' }}>
-            <input className="input" style={{ flex: 1, minWidth: 220 }} maxLength={500} placeholder="What do you need to change?" value={reason}
+          <div className="cluster pt-mt-14">
+            <input className="input pt-input-reason" aria-label="What do you need to change?" maxLength={500} placeholder="What do you need to change?" value={reason}
               onChange={e => setReason(e.target.value)} />
-            <button type="button" className="btn btn-secondary" disabled={busy === 'reopen' || !reason.trim()}
+            <Button loading={busy === 'reopen'} disabled={!reason.trim()}
               onClick={() => run('reopen', async () => { await actions.requestReopen!({ fyStart: data.fyStart, reason }); setReason(''); }, 'Your request has gone to HR.')}>
-              Ask HR to Reopen It
-            </button>
+              Ask HR to reopen it
+            </Button>
           </div>
         )}
       </div>
 
       {effectiveRegime === 'NEW' && (
         <div className="alert alert-warning">
-          <span>ⓘ</span>
+          <Icon name="alert" size={16} className="pt-alert-icon" />
           <span>
             Under the new regime, rent, housing-loan interest and the deductions below do not reduce tax.
             They are kept in case the regime changes. Previous-employer and other income always count.
@@ -314,11 +316,11 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
       )}
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 14 }}>Regime and other income</h3>
+        <h3 className="pt-card-title">Regime and other income</h3>
         <div className="form-grid">
           <div className="field">
-            <label>Tax regime</label>
-            <select className="select" disabled={!canEdit || !canPickRegime} value={form.regime}
+            <label htmlFor="pt-decl-regime">Tax regime</label>
+            <select id="pt-decl-regime" className="select" disabled={!canEdit || !canPickRegime} value={form.regime}
               onChange={e => set({ regime: e.target.value })}>
               <option value="">Organization default ({regimeName(data.defaultTaxRegime)})</option>
               <option value="NEW">New regime</option>
@@ -330,31 +332,31 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
           {money('prevEmployerTds', 'Tax deducted by previous employer')}
           {money('otherIncome', 'Other income', 'A single figure; or use the lines under “Income from other sources” below.')}
         </div>
-        <div style={{ marginTop: 12, fontSize: 12.5 }}>
+        <div className="pt-proofs-row">
           <span className="text-muted">Previous-employer documents (Form 16 or final payslip): </span>
           {proofChips(otherProofs('PREVIOUS_EMPLOYER'), 'PREVIOUS_EMPLOYER', null)}
         </div>
       </div>
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 14 }}>House rent</h3>
-        <label className="checkbox-field" style={{ marginBottom: 12 }}>
+        <h3 className="pt-card-title">House rent</h3>
+        <label className="checkbox-field pt-mb-12">
           <input type="checkbox" disabled={!canEdit} checked={form.rentMonthly}
             onChange={e => set({ rentMonthly: e.target.checked })} />
           The rent was not the same every month (enter it month by month)
         </label>
         {form.rentMonthly ? (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(128px, 1fr))', gap: 10 }}>
+            <div className="pt-month-grid">
               {data.periods.map((p: string) => (
                 <div key={p} className="field">
-                  <label>{monthName(p)}</label>
-                  <input className="input" type="number" min={0} step="0.01" disabled={!canEdit} aria-label={`Rent for ${monthName(p)}`}
+                  <label htmlFor={`pt-rent-${p}`}>{monthName(p)}</label>
+                  <input id={`pt-rent-${p}`} className="input" type="number" min={0} step="0.01" disabled={!canEdit} aria-label={`Rent for ${monthName(p)}`}
                     value={form.rentByMonth[p]} onChange={e => set({ rentByMonth: { ...form.rentByMonth, [p]: e.target.value } })} />
                 </div>
               ))}
             </div>
-            <p style={{ fontSize: 13, margin: '10px 0 0' }}>
+            <p className="pt-year-rent">
               Rent for the year: <strong>{formatINR(yearRent)}</strong>
               <span className="text-muted"> · the exemption is worked out for each month on its own</span>
             </p>
@@ -365,39 +367,39 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
           </div>
         )}
         {isHr && (
-          <div className="form-grid" style={{ marginTop: 12 }}>
+          <div className="form-grid pt-mt-12">
             {money('rentApproved', 'Rent approved', 'Against rent receipts, for the year.', false)}
           </div>
         )}
 
-        <h4 style={{ fontSize: 13.5, margin: '18px 0 4px' }}>Landlord{form.landlords.length > 1 ? 's' : ''}</h4>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+        <h4 className="pt-subhead">Landlord{form.landlords.length > 1 ? 's' : ''}</h4>
+        <p className="text-sm-muted pt-mb-10">
           The PAN is required when the year's rent is above ₹1,00,000. Add each landlord if you moved house during the year.
         </p>
         {form.landlords.map((l: any, i: number) => (
-          <div key={i} className="form-grid" style={{ marginBottom: 10, alignItems: 'end' }}>
+          <div key={i} className="form-grid pt-landlord-row">
             <div className="field">
-              <label>Name</label>
-              <input className="input" disabled={!canEdit} value={l.name} onChange={e => setLandlord(i, { name: e.target.value })} />
+              <label htmlFor={`pt-landlord-${i}-name`}>Name</label>
+              <input id={`pt-landlord-${i}-name`} className="input" disabled={!canEdit} value={l.name} onChange={e => setLandlord(i, { name: e.target.value })} />
             </div>
             <div className="field">
-              <label>PAN</label>
-              <input className="input" disabled={!canEdit} placeholder="ABCDE1234F" maxLength={10} value={l.pan}
+              <label htmlFor={`pt-landlord-${i}-pan`}>PAN</label>
+              <input id={`pt-landlord-${i}-pan`} className="input" disabled={!canEdit} placeholder="ABCDE1234F" maxLength={10} value={l.pan}
                 onChange={e => setLandlord(i, { pan: e.target.value.toUpperCase() })} />
             </div>
             <div className="field">
-              <label>Address</label>
-              <input className="input" disabled={!canEdit} value={l.address} onChange={e => setLandlord(i, { address: e.target.value })} />
+              <label htmlFor={`pt-landlord-${i}-address`}>Address</label>
+              <input id={`pt-landlord-${i}-address`} className="input" disabled={!canEdit} value={l.address} onChange={e => setLandlord(i, { address: e.target.value })} />
             </div>
             {form.landlords.length > 1 && (
               <div className="field">
-                <label>Rent paid to them</label>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input className="input" type="number" min={0} step="0.01" disabled={!canEdit} value={l.rent}
+                <label htmlFor={`pt-landlord-${i}-rent`}>Rent paid to them</label>
+                <div className="pt-inline-field">
+                  <input id={`pt-landlord-${i}-rent`} className="input" type="number" min={0} step="0.01" disabled={!canEdit} value={l.rent}
                     onChange={e => setLandlord(i, { rent: e.target.value })} />
                   {canEdit && (
-                    <button type="button" className="btn btn-ghost btn-sm" aria-label={`Remove landlord ${i + 1}`}
-                      onClick={() => set({ landlords: form.landlords.filter((_: any, n: number) => n !== i) })}>✕</button>
+                    <Button variant="ghost" size="sm" aria-label={`Remove landlord ${i + 1}`}
+                      onClick={() => set({ landlords: form.landlords.filter((_: any, n: number) => n !== i) })}>✕</Button>
                   )}
                 </div>
               </div>
@@ -405,22 +407,22 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
           </div>
         ))}
         {canEdit && form.landlords.length < MAX_LANDLORDS && (
-          <button type="button" className="btn btn-ghost btn-sm"
-            onClick={() => set({ landlords: [...form.landlords, { ...EMPTY_LANDLORD }] })}>+ Add another landlord</button>
+          <Button variant="ghost" size="sm" icon="plus"
+            onClick={() => set({ landlords: [...form.landlords, { ...EMPTY_LANDLORD }] })}>Add another landlord</Button>
         )}
 
-        <label className="checkbox-field" style={{ marginTop: 12 }}>
+        <label className="checkbox-field pt-mt-12">
           <input type="checkbox" disabled={!canEdit} checked={form.isMetro} onChange={e => set({ isMetro: e.target.checked })} />
           Lives in a metro city (exemption up to 50% of salary instead of 40%)
         </label>
-        <div style={{ marginTop: 12, fontSize: 12.5 }}>
+        <div className="pt-proofs-row">
           <span className="text-muted">Rent receipts or agreement: </span>
           {proofChips(otherProofs('RENT'), 'RENT', null)}
         </div>
       </div>
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 14 }}>Housing loan</h3>
+        <h3 className="pt-card-title">Housing loan</h3>
         <div className="form-grid">
           {money('housingLoanInterest', 'Interest on housing loan', 'Self-occupied property, for the year.')}
           {isHr && money('housingInterestApproved', 'Interest approved', 'Against the lender’s certificate.', false)}
@@ -428,7 +430,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
           {text('lenderPan', 'Lender’s PAN', { placeholder: 'ABCDE1234F', upper: true }, 'Asked for on Form 12BB and the annual return.')}
           {text('lenderAddress', 'Lender’s address', { wide: true })}
         </div>
-        <div style={{ marginTop: 12, fontSize: 12.5 }}>
+        <div className="pt-proofs-row">
           <span className="text-muted">Lender's interest certificate: </span>
           {proofChips(otherProofs('HOUSING_LOAN'), 'HOUSING_LOAN', null)}
         </div>
@@ -444,7 +446,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
             <div className="card-header">
               <div>
                 <h3>{title}</h3>
-                <span className="text-muted" style={{ fontSize: 12.5 }}>{hint}</span>
+                <span className="text-sm-muted">{hint}</span>
               </div>
             </div>
             <div className="table-wrap">
@@ -462,17 +464,17 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
                     const automatic = exemption && !l.proofRequired;
                     return (
                       <tr key={l.itemId}>
-                        <td style={{ whiteSpace: 'nowrap' }}>
+                        <td className="pt-nowrap">
                           {l.section}
-                          {l.sectionNew && <div className="text-muted" style={{ fontSize: 11 }}>new Act {l.sectionNew}</div>}
+                          {l.sectionNew && <div className="pt-sub">new Act {l.sectionNew}</div>}
                         </td>
                         <td>
                           {l.name}
-                          {l.proofRequired && <span className="badge badge-neutral" style={{ marginLeft: 6 }} title="An amount here needs a proof attached">proof needed</span>}
+                          {l.proofRequired && <span className="badge badge-neutral pt-inline-badge" title="An amount here needs a proof attached">proof needed</span>}
                           {l.deductPercent < 100 && !l.name.includes('%')
                             && <span className="text-muted"> ({l.deductPercent}% deductible)</span>}
                           {exemption && (
-                            <div className="text-muted" style={{ fontSize: 11.5 }}>
+                            <div className="pt-sub">
                               {l.componentLabel ? `On ${l.componentLabel}` : 'Pay component no longer exists'} · {l.itemRegime === 'BOTH' ? 'both regimes' : 'old regime only'}
                             </div>
                           )}
@@ -492,7 +494,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
                               onChange={e => setLine(l.itemId, { approved: e.target.value })} />
                           ) : l.approvedAmount == null ? <span className="text-muted">—</span> : formatINR(l.approvedAmount)}
                         </td>
-                        <td style={{ fontSize: 12.5 }}>{automatic ? <span className="text-muted">—</span> : proofChips(l.proofs, 'ITEM', l.itemId)}</td>
+                        <td className="pt-cell-sm">{automatic ? <span className="text-muted">—</span> : proofChips(l.proofs, 'ITEM', l.itemId)}</td>
                       </tr>
                     );
                   })}
@@ -504,7 +506,7 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
       })}
 
       <div className="card card-pad mb-24">
-        <p style={{ fontSize: 13, marginBottom: 12 }}>
+        <p className="pt-totals">
           Counted for tax now ({data.profile.poiConsidered ? 'approved amounts' : 'declared amounts'}):
           {' '}Section 80C pool <strong>{formatINR(data.totals.section80C)}</strong>,
           other deductions <strong>{formatINR(data.totals.otherDeductions)}</strong>
@@ -514,22 +516,22 @@ export default function DeclarationEditor({ data, mode, actions, onChanged }: {
               {' '}<strong>{formatINR(Math.abs(data.totals.letOutIncome - data.totals.letOutLoss))}</strong></>}
           {data.totals.taxCredit > 0 && <>, tax paid elsewhere <strong>{formatINR(data.totals.taxCredit)}</strong></>}.
         </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div className="cluster pt-actions">
           {canEdit && (
-            <button type="button" className={`btn ${isHr || status !== 'DRAFT' ? 'btn-primary' : 'btn-secondary'}`} disabled={busy === 'save'} onClick={saveDeclared}>
-              {busy === 'save' ? 'Saving…' : isHr ? 'Save Declaration' : 'Save as Draft'}
-            </button>
+            <Button variant={isHr || status !== 'DRAFT' ? 'accent' : 'secondary'} loading={busy === 'save'} onClick={saveDeclared}>
+              {busy === 'save' ? 'Saving…' : isHr ? 'Save declaration' : 'Save as draft'}
+            </Button>
           )}
           {canEdit && status === 'DRAFT' && (
-            <button type="button" className={`btn ${isHr ? 'btn-secondary' : 'btn-primary'}`} disabled={busy === 'submit'} onClick={submit}>
-              {busy === 'submit' ? 'Submitting…' : isHr ? 'Save and Submit for the Employee' : 'Save and Submit'}
-            </button>
+            <Button variant={isHr ? 'secondary' : 'accent'} loading={busy === 'submit'} onClick={submit}>
+              {busy === 'submit' ? 'Submitting…' : isHr ? 'Save and submit for the employee' : 'Save and submit'}
+            </Button>
           )}
           {isHr && actions.approve && (
             <>
-              <button type="button" className="btn btn-secondary" disabled={busy === 'approve'} onClick={saveApproved}>
-                {busy === 'approve' ? 'Saving…' : 'Save Approvals'}
-              </button>
+              <Button loading={busy === 'approve'} onClick={saveApproved}>
+                {busy === 'approve' ? 'Saving…' : 'Save approvals'}
+              </Button>
               <label className="checkbox-field">
                 <input type="checkbox" checked={form.poiConsidered} onChange={e => set({ poiConsidered: e.target.checked })} />
                 Tax uses the approved amounts (anything not approved counts as nil)

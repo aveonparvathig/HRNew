@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Icon } from '../../components/Layout/nav';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import {
   PageHeader, StatCard, LoadingBlock, ErrorAlert, EmptyState, Modal, BackButton, SuccessAlert,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Tabs } from '../../components/Tabs';
 import { formatINR, formatDate } from '../../utils/format';
 
 const monthLabel = (period: string) => {
@@ -28,16 +31,11 @@ export default function Adjustments() {
       <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
-        <span>Arrears &amp; Settlements</span>
+        <span>Arrears &amp; settlements</span>
       </div>
-      <div className="tabs">
-        {[['arrears', 'Arrears'], ['settlements', 'Final settlements']].map(([key, label]) => (
-          <button key={key} className={`tab ${tab === key ? 'active' : ''}`}
-            onClick={() => setParams(key === 'settlements' ? { tab: key } : {}, { replace: true })}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Adjustments" value={tab}
+        items={[{ key: 'arrears', label: 'Arrears' }, { key: 'settlements', label: 'Final settlements' }]}
+        onChange={key => setParams(key === 'settlements' ? { tab: key } : {}, { replace: true })} />
       {tab === 'arrears' ? <ArrearsTab /> : <SettlementsTab />}
     </>
   );
@@ -127,8 +125,8 @@ function ArrearsTab() {
         title="Arrears"
         subtitle="Corrections to months that are already finalized. They are paid, or taken back, with the next payroll run, with PF and ESI on them."
         actions={<>
-          <button className="btn btn-secondary" onClick={() => setForm({ mode: 'ADD', personId: '', entryId: '', days: '', reason: '' })}>Add Loss of Pay</button>
-          <button className="btn btn-primary" onClick={() => setForm({ mode: 'REVERSE', personId: '', entryId: '', days: '', reason: '' })}>Reverse Loss of Pay</button>
+          <Button onClick={() => setForm({ mode: 'ADD', personId: '', entryId: '', days: '', reason: '' })}>Add loss of pay</Button>
+          <Button variant="accent" onClick={() => setForm({ mode: 'REVERSE', personId: '', entryId: '', days: '', reason: '' })}>Reverse loss of pay</Button>
         </>}
       />
 
@@ -136,15 +134,15 @@ function ArrearsTab() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="stat-grid">
-        <StatCard label="To be paid" value={formatINR(data.totals.open.amount)} icon="₹" tone="warning"
+        <StatCard label="To be paid" value={formatINR(data.totals.open.amount)} icon="banknote" tone="warning"
           sub={`${data.totals.open.count} arrear${data.totals.open.count === 1 ? '' : 's'}, ${data.totals.waiting} waiting for a run`} />
-        <StatCard label="To be recovered" value={formatINR(data.totals.recovering.amount)} icon="↩" tone="danger"
+        <StatCard label="To be recovered" value={formatINR(data.totals.recovering.amount)} icon="history" tone="danger"
           sub={data.totals.recovering.count ? `${data.totals.recovering.count} recover${data.totals.recovering.count === 1 ? 'y' : 'ies'} of pay already given` : 'Nothing to take back'} />
-        <StatCard label="Settled" value={data.totals.paid} icon="✓" tone="success" sub="Paid or recovered through payroll" />
+        <StatCard label="Settled" value={data.totals.paid} icon="checkCircle" tone="success" sub="Paid or recovered through payroll" />
       </div>
 
       <div className="alert alert-warning">
-        <span>ⓘ</span>
+        <Icon name="info" size={16} className="ps-alert-icon" />
         <span>
           A salary revision dated back into finalized months raises arrears on its own. Loss of pay can be reversed,
           or added, up to {data.lopReversalMonths} months back. A back-dated cut in salary is recovered only when you
@@ -167,34 +165,34 @@ function ArrearsTab() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Employee</th><th>For the month</th><th>Why</th><th className="num">Pay</th><th className="num">PF + ESI</th><th className="num">Net</th><th>Status</th><th /></tr>
+                <tr><th>Employee</th><th>For the month</th><th>Why</th><th className="num">Pay</th><th className="num">PF + ESI</th><th className="num">Net</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {rows.map((a: any) => (
                   <tr key={a.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{a.person.name}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{a.person.employeeNo}</div>
+                      <span className="ps-strong">{a.person.name}</span>
+                      <div className="ps-sub num">{a.person.employeeNo}</div>
                     </td>
                     <td>{monthLabel(a.sourcePeriod)}</td>
                     <td>
                       {a.kind === 'LOP_REVERSAL' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} reversed`
                         : a.kind === 'LOP_RECOVERY' ? `${a.lopDays} LOP day${a.lopDays === 1 ? '' : 's'} added`
                         : `Package ${formatINR(a.fromPackage)} → ${formatINR(a.toPackage)}`}
-                      {a.recovery && <span className="badge badge-danger" style={{ marginLeft: 6 }}>Recovery</span>}
-                      {a.reason && <div className="text-muted" style={{ fontSize: 11.5 }}>{a.reason}</div>}
+                      {a.recovery && <span className="badge badge-danger ps-ml-6">Recovery</span>}
+                      {a.reason && <div className="ps-sub">{a.reason}</div>}
                     </td>
-                    <td className="num" style={{ fontWeight: 600, color: a.recovery ? 'var(--danger)' : undefined }}>{signedINR(a.gross)}</td>
+                    <td className={`num ps-strong${a.recovery ? ' num-neg' : ''}`}>{signedINR(a.gross)}</td>
                     <td className="num text-muted">{a.pfEmployee + a.esiEmployee ? signedINR(a.pfEmployee + a.esiEmployee) : '—'}</td>
-                    <td className="num" style={{ color: a.recovery ? 'var(--danger)' : undefined }}>{signedINR(a.net)}</td>
+                    <td className={`num${a.recovery ? ' num-neg' : ''}`}>{signedINR(a.net)}</td>
                     <td>
                       <span className={`badge ${STATE_BADGE[a.state]}`}>{a.recovery ? a.label.replace('Paid with', 'Recovered with') : a.label}</span>
                     </td>
                     <td>
                       <div className="row-actions">
-                        {a.runId && <Link to={`/payroll/runs/${a.runId}`} className="btn btn-secondary btn-sm">Run</Link>}
+                        {a.runId && <ButtonLink to={`/payroll/runs/${a.runId}`} size="sm">Run</ButtonLink>}
                         {['WAITING', 'IN_DRAFT'].includes(a.state) && (
-                          <button className="btn btn-danger btn-sm" onClick={() => handleCancel(a)}>Cancel</button>
+                          <Button variant="danger" size="sm" onClick={() => handleCancel(a)}>Cancel</Button>
                         )}
                       </div>
                     </td>
@@ -206,29 +204,29 @@ function ArrearsTab() {
         )}
       </div>
 
-      <Modal title={adding ? 'Add Loss of Pay to a Past Month' : 'Reverse Loss of Pay'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={adding ? 'Add loss of pay to a past month' : 'Reverse loss of pay'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={handleReverse}>
-            <div className="field" style={{ marginBottom: 14 }}>
-              <label>Employee *</label>
-              <select className="select" required value={form.personId}
+            <div className="field mb-14">
+              <label htmlFor="ps-lop-person">Employee *</label>
+              <select id="ps-lop-person" className="select" required value={form.personId}
                 onChange={e => setForm({ ...form, personId: e.target.value, entryId: '', days: '' })}>
                 <option value="">Pick an employee…</option>
                 {employees.map(p => <option key={p.id} value={p.id}>{p.name}{p.employeeNo ? ` (${p.employeeNo})` : ''}</option>)}
               </select>
             </div>
             {form.personId && months && monthOptions.length === 0 && (
-              <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+              <p className="ps-muted mb-14">
                 {adding
                   ? `No finalized month from ${monthLabel(months.from)} has paid days to mark as loss of pay.`
                   : `No finalized month from ${monthLabel(months.from)} has loss of pay left to reverse.`}
               </p>
             )}
             {monthOptions.length > 0 && (
-              <div className="form-grid" style={{ marginBottom: 14 }}>
+              <div className="form-grid mb-14">
                 <div className="field">
-                  <label>Month *</label>
-                  <select className="select" required value={form.entryId}
+                  <label htmlFor="ps-lop-month">Month *</label>
+                  <select id="ps-lop-month" className="select" required value={form.entryId}
                     onChange={e => setForm({ ...form, entryId: e.target.value, days: '' })}>
                     <option value="">Pick a month…</option>
                     {monthOptions.map((m: any) => (
@@ -237,28 +235,28 @@ function ArrearsTab() {
                   </select>
                 </div>
                 <div className="field">
-                  <label>{adding ? 'Days of loss of pay to add *' : 'Days to reverse *'}</label>
-                  <input className="input" type="number" required min={0.5} max={limit} step="0.5" value={form.days}
+                  <label htmlFor="ps-lop-days">{adding ? 'Days of loss of pay to add *' : 'Days to reverse *'}</label>
+                  <input id="ps-lop-days" className="input" type="number" required min={0.5} max={limit} step="0.5" value={form.days}
                     onChange={e => setForm({ ...form, days: e.target.value })} />
                   {picked && <span className="hint">Up to {limit}.</span>}
                 </div>
-                <div className="field" style={{ gridColumn: '1 / -1' }}>
-                  <label>Reason{adding ? ' *' : ''}</label>
-                  <input className="input" required={adding} placeholder={adding ? 'e.g. Absence reported after payroll closed' : 'e.g. Leave approved late'} value={form.reason}
+                <div className="field ps-span-all">
+                  <label htmlFor="ps-lop-reason">Reason{adding ? ' *' : ''}</label>
+                  <input id="ps-lop-reason" className="input" required={adding} placeholder={adding ? 'e.g. Absence reported after payroll closed' : 'e.g. Leave approved late'} value={form.reason}
                     onChange={e => setForm({ ...form, reason: e.target.value })} />
                 </div>
               </div>
             )}
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+            <p className="text-sm-muted mb-14">
               {adding
                 ? 'The month\'s payslip is not changed. The pay for these days is taken back on the next payslip as Salary Recovery, and the PF and ESI deducted on that pay are returned.'
                 : 'The month\'s payslip is not changed. The pay for these days is added to the next payslip as Salary Arrears.'}
             </p>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className={`btn ${adding ? 'btn-danger-solid' : 'btn-primary'}`} disabled={saving || !form.entryId}>
-                {saving ? 'Saving…' : adding ? 'Add and Recover' : 'Reverse'}
-              </button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant={adding ? 'danger' : 'accent'} loading={saving} disabled={!form.entryId}>
+                {saving ? 'Saving…' : adding ? 'Add and recover' : 'Reverse'}
+              </Button>
             </div>
           </form>
         )}
@@ -286,15 +284,15 @@ function SettlementsTab() {
   return (
     <>
       <PageHeader
-        title="Final Settlements"
+        title="Final settlements"
         subtitle="Leave encashment, gratuity, notice pay and recoveries of people who leave, paid on their last payslip."
         actions={<>
-          <select className="select" style={{ width: 'auto', maxWidth: 240 }} value={personId} onChange={e => setPersonId(e.target.value)}>
+          <select className="select ps-select-auto" aria-label="Employee to settle" value={personId} onChange={e => setPersonId(e.target.value)}>
             <option value="">Pick an employee…</option>
             {employees.map(p => <option key={p.id} value={p.id}>{p.name}{p.employeeNo ? ` (${p.employeeNo})` : ''}</option>)}
           </select>
-          <button className="btn btn-primary" disabled={!personId}
-            onClick={() => navigate(`/payroll/settlements/new?personId=${personId}`)}>New Settlement</button>
+          <Button variant="accent" icon="plus" disabled={!personId}
+            onClick={() => navigate(`/payroll/settlements/new?personId=${personId}`)}>New settlement</Button>
         </>}
       />
 
@@ -305,21 +303,21 @@ function SettlementsTab() {
           <div className="card-header">
             <div>
               <h3>Leaving, not yet settled</h3>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>On notice, resigned or with a leaving date, and no settlement so far.</span>
+              <span className="text-sm-muted">On notice, resigned or with a leaving date, and no settlement so far.</span>
             </div>
           </div>
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Employee</th><th>Status</th><th>Leaving date</th><th /></tr></thead>
+              <thead><tr><th>Employee</th><th>Status</th><th>Leaving date</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {data.leavers.map((p: any) => (
                   <tr key={p.id}>
-                    <td><span style={{ fontWeight: 600 }}>{p.name}</span><div className="text-muted" style={{ fontSize: 11.5 }}>{p.employeeNo}</div></td>
+                    <td><span className="ps-strong">{p.name}</span><div className="ps-sub num">{p.employeeNo}</div></td>
                     <td>{String(p.employmentStatus || '').replace(/_/g, ' ').toLowerCase()}</td>
                     <td>{p.leavingDate ? formatDate(p.leavingDate) : <span className="text-muted">not set</span>}</td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/settlements/new?personId=${p.id}`} className="btn btn-secondary btn-sm">Settle</Link>
+                        <ButtonLink to={`/payroll/settlements/new?personId=${p.id}`} size="sm">Settle</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -338,25 +336,25 @@ function SettlementsTab() {
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Employee</th><th>Kind</th><th>Last working day</th><th>Paid with</th><th className="num">Settlement amounts</th><th className="num">Net on payslip</th><th>Status</th><th /></tr>
+                <tr><th>Employee</th><th>Kind</th><th>Last working day</th><th>Paid with</th><th className="num">Settlement amounts</th><th className="num">Net on payslip</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {data.settlements.map((s: any) => (
                   <tr key={s.id}>
-                    <td><span style={{ fontWeight: 600 }}>{s.person.name}</span><div className="text-muted" style={{ fontSize: 11.5 }}>{s.person.employeeNo}</div></td>
+                    <td><span className="ps-strong">{s.person.name}</span><div className="ps-sub num">{s.person.employeeNo}</div></td>
                     <td>
                       {s.sequence === 1 ? 'Final settlement' : `Resettlement ${s.sequence - 1}`}
-                      {s.settlementNo && <div className="text-muted" style={{ fontSize: 11.5 }}>No. {s.settlementNo}</div>}
+                      {s.settlementNo && <div className="ps-sub num">No. {s.settlementNo}</div>}
                     </td>
                     <td>{formatDate(s.lastWorkingDate)}</td>
                     <td>{monthLabel(s.period)}</td>
                     <td className="num">{formatINR(s.leaveEncashment + s.gratuity + s.noticePay - s.noticeRecovery)}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{s.netPayable == null ? '—' : formatINR(s.netPayable)}</td>
+                    <td className="num ps-strong">{s.netPayable == null ? '—' : formatINR(s.netPayable)}</td>
                     <td><span className={`badge ${STATE_BADGE[s.state]}`}>{s.label}</span></td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/settlements/${s.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                        <Link to={`/payroll/reports/settlement-statement?settlementId=${s.id}`} className="btn btn-secondary btn-sm">Statement</Link>
+                        <ButtonLink to={`/payroll/settlements/${s.id}`} size="sm">Open</ButtonLink>
+                        <ButtonLink to={`/payroll/reports/settlement-statement?settlementId=${s.id}`} size="sm">Statement</ButtonLink>
                       </div>
                     </td>
                   </tr>

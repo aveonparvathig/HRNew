@@ -45,11 +45,11 @@ export default function AuditLog() {
       <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
-        <span>Audit Log</span>
+        <span>Audit log</span>
       </div>
 
       <PageHeader
-        title="Payroll Audit Log"
+        title="Payroll audit log"
         subtitle="Every change to payroll runs, entries, settings and setup — who made it and when."
       />
 
@@ -73,13 +73,13 @@ export default function AuditLog() {
                   <tbody>
                     {data.rows.map((r: any) => (
                       <tr key={r.id}>
-                        <td style={{ whiteSpace: 'nowrap' }}>{when(r.createdAt)}</td>
+                        <td className="pr-nowrap num">{when(r.createdAt)}</td>
                         <td>{r.userName || '—'}</td>
                         <td>
                           {actionLabel(r.action)}
-                          {r.source !== 'MANUAL' && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>{r.source.toLowerCase()}</span>}
+                          {r.source !== 'MANUAL' && <span className="badge badge-neutral pr-badge-gap">{r.source.toLowerCase()}</span>}
                         </td>
-                        <td style={{ whiteSpace: 'nowrap' }}>{r.period ? monthLabel(r.period) : '—'}</td>
+                        <td className="pr-nowrap">{r.period ? monthLabel(r.period) : '—'}</td>
                         <td>{r.personName || '—'}</td>
                         <td>{r.fieldLabel || '—'}</td>
                         <td className="text-muted">{r.oldValue || '—'}</td>

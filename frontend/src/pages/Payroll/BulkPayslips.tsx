@@ -4,6 +4,7 @@ import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, StatusBadge, BackButton,
 } from '../../components/ui';
 import DownloadButton from '../../components/DownloadButton';
+import { Button, ButtonLink } from '../../components/Button';
 import { toast } from '../../components/feedback';
 
 const monthLabel = (period: string) => {
@@ -27,7 +28,7 @@ export default function BulkPayslips() {
   if (loading) return <LoadingBlock label="Rendering payslips…" />;
   if (!data) {
     return <EmptyState icon="▦" title="Run not found"
-      action={<Link to="/payroll" className="btn btn-secondary">Back to Payroll</Link>} />;
+      action={<ButtonLink to="/payroll">Back to payroll</ButtonLink>} />;
   }
 
   return (
@@ -41,7 +42,7 @@ export default function BulkPayslips() {
           <span>All payslips</span>
         </div>
         <PageHeader
-          title={`All Payslips — ${monthLabel(data.period)}`}
+          title={`All payslips — ${monthLabel(data.period)}`}
           subtitle={`${data.slips.length} payslips, one page each when printed.`}
           actions={
             <>
@@ -51,13 +52,13 @@ export default function BulkPayslips() {
                   const skipped = Number(headers['x-skipped'] || 0);
                   if (skipped) toast.info(`${headers['x-included']} payslips in the ZIP. ${skipped} left out: see NOT-INCLUDED.txt inside it.`);
                 }}>
-                ⤓ ZIP, a file each
+                ZIP, a file each
               </DownloadButton>
-              <DownloadButton path={`/payroll/runs/${data.runId}/payslips.pdf`} busyLabel="Making the file…">⤓ One PDF</DownloadButton>
-              <Link to={`/payroll/runs/${data.runId}/email`} className="btn btn-secondary">✉ Email</Link>
-              <button className="btn btn-primary" onClick={() => window.print()}>
-                🖨 Print All
-              </button>
+              <DownloadButton path={`/payroll/runs/${data.runId}/payslips.pdf`} busyLabel="Making the file…">One PDF</DownloadButton>
+              <ButtonLink to={`/payroll/runs/${data.runId}/email`}>Email</ButtonLink>
+              <Button variant="primary" icon="receipt" onClick={() => window.print()}>
+                Print all
+              </Button>
             </>
           }
         />

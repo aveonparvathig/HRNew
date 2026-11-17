@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Icon } from '../../components/Layout/nav';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
 import { formatINR } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -102,8 +104,8 @@ export default function StatutoryPoliciesTab() {
   const setSlab = (i: number, patch: any) =>
     setPt({ ...pt, slabs: pt.slabs.map((s: any, j: number) => (j === i ? { ...s, ...patch } : s)) });
 
-  const stateSelect = (value: string, onChange: (v: string) => void) => (
-    <select className="select" required value={value} onChange={e => onChange(e.target.value)}>
+  const stateSelect = (id: string, value: string, onChange: (v: string) => void) => (
+    <select id={id} className="select" required value={value} onChange={e => onChange(e.target.value)}>
       <option value="">—</option>
       {data.states.map((s: string) => <option key={s} value={s}>{s}</option>)}
     </select>
@@ -114,7 +116,7 @@ export default function StatutoryPoliciesTab() {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="alert alert-warning">
-        <span>⚠</span>
+        <Icon name="alert" size={16} className="ps-alert-icon" />
         <span>
           Rates differ by state and local body and are revised from time to time. Enter the amounts from your
           current notification. A policy applies to employees whose work location is in its state, from the
@@ -127,12 +129,12 @@ export default function StatutoryPoliciesTab() {
         <div className="card-header">
           <div>
             <h3>Professional Tax</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               Slabs by state, or by town where the local body sets them. Half-yearly states use the income of April–September and October–March.
               {data.excludedLocations?.length > 0 && ` No Professional Tax at: ${data.excludedLocations.join(', ')}.`}
             </span>
           </div>
-          <button className="btn btn-primary" onClick={() => openPt()}>+ Add Policy</button>
+          <Button variant="accent" icon="plus" onClick={() => openPt()}>Add policy</Button>
         </div>
         {data.ptPolicies.length === 0 ? (
           <EmptyState icon="▤" title="No Professional Tax policy yet"
@@ -140,13 +142,13 @@ export default function StatutoryPoliciesTab() {
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>Applies to</th><th>From</th><th>Basis</th><th>Deducted</th><th>Slabs</th><th /></tr></thead>
+              <thead><tr><th>Applies to</th><th>From</th><th>Basis</th><th>Deducted</th><th>Slabs</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {data.ptPolicies.map((p: any) => (
                   <tr key={p.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{p.locality ? `${p.locality}, ${p.state}` : p.state}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>
+                      <span className="ps-strong">{p.locality ? `${p.locality}, ${p.state}` : p.state}</span>
+                      <div className="ps-sub">
                         {!p.locality ? 'Whole state, except towns with their own policy'
                           : p.locations.length ? `Work locations: ${p.locations.join(', ')}`
                           : <span className="text-warning">No work location is in this town, so it is not used</span>}
@@ -158,18 +160,18 @@ export default function StatutoryPoliciesTab() {
                       {p.frequency === 'MONTHLY' ? 'Every month'
                         : p.deductionMode === 'LUMP_SUM' ? `Lump sum in ${monthNames(p.deductionMonths)}` : 'Spread over the half-year'}
                     </td>
-                    <td style={{ fontSize: 12.5 }}>
+                    <td className="ps-small">
                       {p.slabs.map((s: any) => (
-                        <div key={s.id}>
+                        <div key={s.id} className="num">
                           {formatINR(s.incomeFrom)} – {s.incomeTo == null ? 'above' : formatINR(s.incomeTo)}: <strong>{formatINR(s.amount)}</strong>
                         </div>
                       ))}
                     </td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => openPt(p)}>Edit</button>
-                        <button className="btn btn-danger btn-sm"
-                          onClick={() => remove(`${p.locality ? `${p.locality}, ` : ''}${p.state} Professional Tax policy`, () => payrollAPI.deletePtPolicy(p.id))}>Delete</button>
+                        <Button size="sm" onClick={() => openPt(p)}>Edit</Button>
+                        <Button variant="danger" size="sm"
+                          onClick={() => remove(`${p.locality ? `${p.locality}, ` : ''}${p.state} Professional Tax policy`, () => payrollAPI.deletePtPolicy(p.id))}>Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -184,9 +186,9 @@ export default function StatutoryPoliciesTab() {
         <div className="card-header">
           <div>
             <h3>Labour Welfare Fund</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>A fixed contribution from employee and employer in the months it falls due.</span>
+            <span className="text-sm-muted">A fixed contribution from employee and employer in the months it falls due.</span>
           </div>
-          <button className="btn btn-primary" onClick={() => openLwf()}>+ Add Policy</button>
+          <Button icon="plus" onClick={() => openLwf()}>Add policy</Button>
         </div>
         {data.lwfPolicies.length === 0 ? (
           <EmptyState icon="▤" title="No Labour Welfare Fund policy yet"
@@ -194,20 +196,20 @@ export default function StatutoryPoliciesTab() {
         ) : (
           <div className="table-wrap">
             <table className="table">
-              <thead><tr><th>State</th><th>From</th><th className="num">Employee</th><th className="num">Employer</th><th>Months</th><th /></tr></thead>
+              <thead><tr><th>State</th><th>From</th><th className="num">Employee</th><th className="num">Employer</th><th>Months</th><th><span className="sr-only">Actions</span></th></tr></thead>
               <tbody>
                 {data.lwfPolicies.map((p: any) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{p.state}</td>
+                    <td className="ps-strong">{p.state}</td>
                     <td>{monthLabel(p.effectiveFrom)}</td>
                     <td className="num">{formatINR(p.employeeAmount)}</td>
                     <td className="num">{formatINR(p.employerAmount)}</td>
                     <td>{monthNames(p.deductionMonths)}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => openLwf(p)}>Edit</button>
-                        <button className="btn btn-danger btn-sm"
-                          onClick={() => remove(`${p.state} Labour Welfare Fund policy`, () => payrollAPI.deleteLwfPolicy(p.id))}>Delete</button>
+                        <Button size="sm" onClick={() => openLwf(p)}>Edit</Button>
+                        <Button variant="danger" size="sm"
+                          onClick={() => remove(`${p.state} Labour Welfare Fund policy`, () => payrollAPI.deleteLwfPolicy(p.id))}>Delete</Button>
                       </div>
                     </td>
                   </tr>
@@ -219,7 +221,7 @@ export default function StatutoryPoliciesTab() {
       </div>
 
       {/* Professional Tax policy */}
-      <Modal size="lg" title={pt?.id ? 'Edit Professional Tax Policy' : 'Add Professional Tax Policy'}
+      <Modal size="lg" title={pt?.id ? 'Edit Professional Tax policy' : 'Add Professional Tax policy'}
         open={Boolean(pt)} onClose={() => setPt(null)}>
         {pt && (
           <form onSubmit={e => {
@@ -227,11 +229,11 @@ export default function StatutoryPoliciesTab() {
             save(() => (pt.id ? payrollAPI.updatePtPolicy(pt.id, pt) : payrollAPI.createPtPolicy(pt)),
               () => setPt(null), 'Failed to save the policy');
           }}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
-              <div className="field"><label>State *</label>{stateSelect(pt.state, v => setPt({ ...pt, state: v, locality: '' }))}</div>
+            <div className="form-grid mb-14">
+              <div className="field"><label htmlFor="ps-pt-state">State *</label>{stateSelect('ps-pt-state', pt.state, v => setPt({ ...pt, state: v, locality: '' }))}</div>
               <div className="field">
-                <label>Town</label>
-                <select className="select" value={pt.locality || ''} onChange={e => setPt({ ...pt, locality: e.target.value })}>
+                <label htmlFor="ps-pt-town">Town</label>
+                <select id="ps-pt-town" className="select" value={pt.locality || ''} onChange={e => setPt({ ...pt, locality: e.target.value })}>
                   <option value="">Whole state</option>
                   {/* A town already on the policy stays selectable even if no location is there now */}
                   {[...new Set([...(data.towns[pt.state] || []), ...(pt.locality ? [pt.locality] : [])])].map((t: string) => (
@@ -245,21 +247,21 @@ export default function StatutoryPoliciesTab() {
                 </span>
               </div>
               <div className="field">
-                <label>Applies from *</label>
-                <input className="input" type="month" required value={pt.effectiveFrom}
+                <label htmlFor="ps-pt-from">Applies from *</label>
+                <input id="ps-pt-from" className="input" type="month" required value={pt.effectiveFrom}
                   onChange={e => setPt({ ...pt, effectiveFrom: e.target.value })} />
               </div>
               <div className="field">
-                <label>Slabs are for *</label>
-                <select className="select" value={pt.frequency} onChange={e => setPt({ ...pt, frequency: e.target.value })}>
+                <label htmlFor="ps-pt-freq">Slabs are for *</label>
+                <select id="ps-pt-freq" className="select" value={pt.frequency} onChange={e => setPt({ ...pt, frequency: e.target.value })}>
                   <option value="HALF_YEARLY">Half-yearly income (e.g. Tamil Nadu)</option>
                   <option value="MONTHLY">Monthly income</option>
                 </select>
               </div>
               {pt.frequency === 'HALF_YEARLY' && (
                 <div className="field">
-                  <label>Deduct *</label>
-                  <select className="select" value={pt.deductionMode} onChange={e => setPt({ ...pt, deductionMode: e.target.value })}>
+                  <label htmlFor="ps-pt-mode">Deduct *</label>
+                  <select id="ps-pt-mode" className="select" value={pt.deductionMode} onChange={e => setPt({ ...pt, deductionMode: e.target.value })}>
                     <option value="SPREAD">A share every month</option>
                     <option value="LUMP_SUM">In full, in chosen months</option>
                   </select>
@@ -267,7 +269,7 @@ export default function StatutoryPoliciesTab() {
               )}
             </div>
             {pt.frequency === 'HALF_YEARLY' && pt.deductionMode === 'LUMP_SUM' && (
-              <div className="field" style={{ marginBottom: 14 }}>
+              <div className="field mb-14">
                 <label>Deduction months — one in each half-year</label>
                 <MonthPicker value={pt.deductionMonths} onChange={csv => setPt({ ...pt, deductionMonths: csv })} />
               </div>
@@ -280,38 +282,38 @@ export default function StatutoryPoliciesTab() {
               {pt.slabs.map((s: any, i: number) => (
                 <div key={i} className="slab-row">
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} placeholder="From" required value={s.incomeFrom}
+                    <input className="input num" type="number" min={0} placeholder="From" aria-label={`Slab ${i + 1} income from`} required value={s.incomeFrom}
                       onChange={e => setSlab(i, { incomeFrom: e.target.value })} />
                   </div>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} placeholder="To (blank = above)" value={s.incomeTo}
+                    <input className="input num" type="number" min={0} placeholder="To (blank = above)" aria-label={`Slab ${i + 1} income to`} value={s.incomeTo}
                       onChange={e => setSlab(i, { incomeTo: e.target.value })} />
                   </div>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01" placeholder="Tax" required value={s.amount}
+                    <input className="input num" type="number" min={0} step="0.01" placeholder="Tax" aria-label={`Slab ${i + 1} tax`} required value={s.amount}
                       onChange={e => setSlab(i, { amount: e.target.value })} />
                   </div>
-                  <button type="button" className="btn btn-ghost btn-sm" aria-label="Remove slab"
+                  <Button variant="ghost" size="sm" aria-label="Remove slab"
                     disabled={pt.slabs.length === 1}
-                    onClick={() => setPt({ ...pt, slabs: pt.slabs.filter((_: any, j: number) => j !== i) })}>✕</button>
+                    onClick={() => setPt({ ...pt, slabs: pt.slabs.filter((_: any, j: number) => j !== i) })}>✕</Button>
                 </div>
               ))}
-              <button type="button" className="btn btn-secondary btn-sm"
-                onClick={() => setPt({ ...pt, slabs: [...pt.slabs, EMPTY_SLAB] })}>+ Add slab</button>
-              <span className="hint" style={{ display: 'block', marginTop: 8 }}>
+              <Button size="sm" icon="plus"
+                onClick={() => setPt({ ...pt, slabs: [...pt.slabs, EMPTY_SLAB] })}>Add slab</Button>
+              <span className="hint ps-hint-block">
                 Income from, income to, and the tax for that range. Leave "to" blank on the last slab.
               </span>
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setPt(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Policy'}</button>
+              <Button variant="ghost" onClick={() => setPt(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save policy'}</Button>
             </div>
           </form>
         )}
       </Modal>
 
       {/* Labour Welfare Fund policy */}
-      <Modal title={lwf?.id ? 'Edit Labour Welfare Fund Policy' : 'Add Labour Welfare Fund Policy'}
+      <Modal title={lwf?.id ? 'Edit Labour Welfare Fund policy' : 'Add Labour Welfare Fund policy'}
         open={Boolean(lwf)} onClose={() => setLwf(null)}>
         {lwf && (
           <form onSubmit={e => {
@@ -319,35 +321,35 @@ export default function StatutoryPoliciesTab() {
             save(() => (lwf.id ? payrollAPI.updateLwfPolicy(lwf.id, lwf) : payrollAPI.createLwfPolicy(lwf)),
               () => setLwf(null), 'Failed to save the policy');
           }}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
-              <div className="field"><label>State *</label>{stateSelect(lwf.state, v => setLwf({ ...lwf, state: v }))}</div>
+            <div className="form-grid mb-14">
+              <div className="field"><label htmlFor="ps-lwf-state">State *</label>{stateSelect('ps-lwf-state', lwf.state, v => setLwf({ ...lwf, state: v }))}</div>
               <div className="field">
-                <label>Applies from *</label>
-                <input className="input" type="month" required value={lwf.effectiveFrom}
+                <label htmlFor="ps-lwf-from">Applies from *</label>
+                <input id="ps-lwf-from" className="input" type="month" required value={lwf.effectiveFrom}
                   onChange={e => setLwf({ ...lwf, effectiveFrom: e.target.value })} />
               </div>
               <div className="field">
-                <label>Employee contribution *</label>
+                <label htmlFor="ps-lwf-ee">Employee contribution *</label>
                 <div className="input-unit"><span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" required value={lwf.employeeAmount}
+                  <input id="ps-lwf-ee" className="input num" type="number" min={0} step="0.01" required value={lwf.employeeAmount}
                     onChange={e => setLwf({ ...lwf, employeeAmount: e.target.value })} />
                 </div>
               </div>
               <div className="field">
-                <label>Employer contribution *</label>
+                <label htmlFor="ps-lwf-er">Employer contribution *</label>
                 <div className="input-unit"><span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" required value={lwf.employerAmount}
+                  <input id="ps-lwf-er" className="input num" type="number" min={0} step="0.01" required value={lwf.employerAmount}
                     onChange={e => setLwf({ ...lwf, employerAmount: e.target.value })} />
                 </div>
               </div>
             </div>
-            <div className="field" style={{ marginBottom: 14 }}>
+            <div className="field mb-14">
               <label>Months it is deducted *</label>
               <MonthPicker value={lwf.deductionMonths} onChange={csv => setLwf({ ...lwf, deductionMonths: csv })} />
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setLwf(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Policy'}</button>
+              <Button variant="ghost" onClick={() => setLwf(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save policy'}</Button>
             </div>
           </form>
         )}
