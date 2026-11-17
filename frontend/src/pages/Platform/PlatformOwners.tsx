@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { platformAPI, type PlatformOwner } from '../../api/platform';
-import { EmptyState, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button } from '../../components/Button';
 import { toast, confirmDialog } from '../../components/feedback';
 import { usePlatformStore } from '../../store/platformStore';
 import { formatDate } from '../../utils/format';
@@ -58,15 +59,15 @@ export default function PlatformOwners() {
 
   return (
     <>
-      <div className="platform-head">
-        <div>
-          <h1>Platform owners</h1>
-          <p className="text-muted">People who can open this console and manage every tenant.</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => { setForm(NEW_OWNER); setShowNew(true); }}>
-          + Add owner
-        </button>
-      </div>
+      <PageHeader
+        title="Platform owners"
+        subtitle="People who can open this console and manage every tenant."
+        actions={
+          <Button variant="accent" icon="userPlus" onClick={() => { setForm(NEW_OWNER); setShowNew(true); }}>
+            Add owner
+          </Button>
+        }
+      />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
@@ -82,20 +83,20 @@ export default function PlatformOwners() {
               <tbody>
                 {(owners || []).map(o => (
                   <tr key={o.id}>
-                    <td style={{ fontWeight: 600 }}>
-                      {o.email}{o.id === me?.id && <span className="badge badge-info" style={{ marginLeft: 8 }}>you</span>}
+                    <td className="pf-name">
+                      {o.email}{o.id === me?.id && <span className="badge badge-info pf-badge-gap">you</span>}
                     </td>
                     <td className="text-muted">{o.name || '—'}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{formatDate(o.createdAt)}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{o.lastLoginAt ? formatDate(o.lastLoginAt) : '—'}</td>
+                    <td className="pf-date">{formatDate(o.createdAt)}</td>
+                    <td className="pf-date">{o.lastLoginAt ? formatDate(o.lastLoginAt) : '—'}</td>
                     <td><span className={`badge ${o.isActive ? 'badge-success' : 'badge-neutral'}`}>{o.isActive ? 'active' : 'disabled'}</span></td>
                     <td>
                       <div className="row-actions">
                         {o.id === me?.id
-                          ? <span className="text-muted" style={{ fontSize: 12 }}>—</span>
-                          : <button className="btn btn-secondary btn-sm" onClick={() => toggle(o)}>
+                          ? <span className="text-sm-muted">—</span>
+                          : <Button size="sm" variant="secondary" onClick={() => toggle(o)}>
                               {o.isActive ? 'Disable' : 'Enable'}
-                            </button>}
+                            </Button>}
                       </div>
                     </td>
                   </tr>
@@ -108,27 +109,27 @@ export default function PlatformOwners() {
 
       <Modal title="Add platform owner" open={showNew} onClose={() => setShowNew(false)}>
         <form onSubmit={addOwner}>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Email *</label>
-            <input className="input" type="email" required autoFocus value={form.email}
+          <div className="field mb-14">
+            <label htmlFor="pf-owner-email">Email *</label>
+            <input id="pf-owner-email" className="input" type="email" required autoFocus value={form.email}
               onChange={e => setForm({ ...form, email: e.target.value })} placeholder="owner@yourco.com" />
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Name</label>
-            <input className="input" value={form.name}
+          <div className="field mb-14">
+            <label htmlFor="pf-owner-name">Name</label>
+            <input id="pf-owner-name" className="input" value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Password *</label>
-            <input className="input" type="password" required value={form.password}
+          <div className="field mb-14">
+            <label htmlFor="pf-owner-password">Password *</label>
+            <input id="pf-owner-password" className="input" type="password" required value={form.password}
               onChange={e => setForm({ ...form, password: e.target.value })} placeholder="At least 8 characters" />
             <small className="text-muted">Share it with them securely; they can change it later.</small>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setShowNew(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
+            <Button variant="ghost" onClick={() => setShowNew(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
               {saving ? 'Adding…' : 'Add owner'}
-            </button>
+            </Button>
           </div>
         </form>
       </Modal>

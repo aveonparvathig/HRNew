@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { orgAPI } from '../../api/org';
 import { PageHeader, EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, Pagination } from '../../components/ui';
+import { Button } from '../../components/Button';
 
 // The rules, in the order they are read on the screen. `off` is what a
 // zero means for a rule that can be switched off.
@@ -79,8 +80,8 @@ export default function Security() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <form className="card card-pad mb-24" onSubmit={handleSave}>
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Sign-in rules</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+        <h3 className="og-title">Sign-in rules</h3>
+        <p className="og-lede">
           These apply to every login of the organization. A rule set to 0 is switched off.
         </p>
         <div className="rule-list">
@@ -92,7 +93,7 @@ export default function Security() {
               <div key={r.key} className="rule-row">
                 <label htmlFor={r.key}>{r.label}</label>
                 <div className="rule-input">
-                  <input id={r.key} className="input" type="number" disabled={disabled}
+                  <input id={r.key} className="input num" type="number" disabled={disabled}
                     min={limits[r.key]?.[0]} max={limits[r.key]?.[1]} step={1} required
                     value={value} onChange={e => setForm({ ...form, [r.key]: e.target.value })} />
                   <span>{r.unit}</span>
@@ -105,8 +106,8 @@ export default function Security() {
             );
           })}
         </div>
-        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Rules'}</button>
+        <div className="form-actions og-actions-start">
+          <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save rules'}</Button>
         </div>
       </form>
 
@@ -114,7 +115,7 @@ export default function Security() {
         <div className="card-header">
           <div>
             <h3>Sign-in history</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="og-header-hint">
               Every sign-in attempt on a login of this organization{history ? `, kept for ${history.keptDays} days` : ''}.
             </span>
           </div>
@@ -135,11 +136,11 @@ export default function Security() {
                 <tbody>
                   {history.rows.map((r: any) => (
                     <tr key={r.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{dateTime(r.createdAt)}</td>
+                      <td className="og-nowrap">{dateTime(r.createdAt)}</td>
                       <td>{r.email}</td>
                       <td><span className={`badge ${RESULT_TONES[r.result] || 'badge-neutral'}`}>{r.resultLabel}</span></td>
-                      <td style={{ fontVariantNumeric: 'tabular-nums' }}>{r.ip || <span className="text-muted">—</span>}</td>
-                      <td className="text-muted" style={{ fontSize: 12, maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      <td className="mono">{r.ip || <span className="text-muted">—</span>}</td>
+                      <td className="text-muted og-ua"
                         title={r.userAgent}>{r.userAgent || '—'}</td>
                     </tr>
                   ))}

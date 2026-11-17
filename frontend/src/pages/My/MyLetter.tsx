@@ -4,6 +4,8 @@ import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, EmptyState, BackButton } from '../../components/ui';
 import { formatDate } from '../../utils/format';
 import DownloadButton from '../../components/DownloadButton';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 // One letter HR has shared with the signed-in employee.
 export default function MyLetter() {
@@ -23,21 +25,21 @@ export default function MyLetter() {
   if (loading) return <LoadingBlock label="Loading letter…" />;
   if (!doc) {
     return <EmptyState icon="▤" title="Not available" message={error}
-      action={<Link to="/my/documents" className="btn btn-secondary">Back to My Documents</Link>} />;
+      action={<ButtonLink to="/my/documents">Back to my documents</ButtonLink>} />;
   }
 
   return (
     <>
       <div className="no-print">
         <div className="breadcrumb"><BackButton />
-          <Link to="/my/documents">My Documents</Link>
+          <Link to="/my/documents">My documents</Link>
           <span>/</span>
           <span>{doc.title}</span>
         </div>
         <PageHeader title={doc.title} subtitle={`Issued ${formatDate(doc.createdAt)}`}
           actions={<>
-            <DownloadButton path={`/self/documents/letters/${doc.id}/pdf`} busyLabel="Making the PDF…">⤓ PDF</DownloadButton>
-            <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print</button>
+            <DownloadButton path={`/self/documents/letters/${doc.id}/pdf`} busyLabel="Making the PDF…"><Icon name="download" size={16} className="btn-icon" />PDF</DownloadButton>
+            <Button variant="primary" icon="printer" onClick={() => window.print()}>Print</Button>
           </>} />
       </div>
       <div className="letter-sheet print-area">

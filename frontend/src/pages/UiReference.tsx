@@ -50,8 +50,8 @@ export default function UiReference() {
         <AutoGrid min={110} gap={12}>
           {SWATCHES.map(v => (
             <div key={v}>
-              <div className="swatch" style={{ background: `var(${v})` }} />
-              <div className="swatch-label">{v}</div>
+              <div className="ui-swatch" style={{ background: `var(${v})` }} />
+              <div className="ui-swatch-label">{v}</div>
             </div>
           ))}
         </AutoGrid>

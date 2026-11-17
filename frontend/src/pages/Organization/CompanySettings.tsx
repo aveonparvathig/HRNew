@@ -1,6 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { PageHeader } from '../../components/ui';
+import { Tabs } from '../../components/Tabs';
 import OrgProfileForm from './OrgProfileForm';
 import BankAccountsTab from './BankAccountsTab';
 import ListsTab from './ListsTab';
@@ -34,18 +35,12 @@ export default function CompanySettings() {
   return (
     <>
       <PageHeader
-        title="Company Settings"
+        title="Company settings"
         subtitle="Identity, registrations, signatories, bank accounts and the lists that forms pick from."
       />
 
-      <div className="tabs" role="tablist">
-        {tabs.map(t => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} className={`tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setParams({ tab: t.key })}>
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <Tabs label="Company settings sections" items={tabs} value={tab}
+        onChange={key => setParams({ tab: key })} />
 
       {tab === 'identity' && <OrgProfileForm section="identity" />}
       {tab === 'registrations' && <StatutoryProfileTab section="registrations" />}

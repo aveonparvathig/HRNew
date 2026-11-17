@@ -143,7 +143,7 @@ export default function AppLayout() {
             strokeWidth="2.2" strokeLinecap="round"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <BrandMark />
-        <span style={{ flex: 1 }}>Aveon HR</span>
+        <span className="grow-1">Aveon HR</span>
         <button className="hamburger" onClick={toggleTheme} aria-label="Toggle theme">
           <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={20} className="" />
         </button>
@@ -300,7 +300,7 @@ export default function AppLayout() {
                   <div className="dropdown-panel">
                     <div className="dropdown-head">
                       <div className="avatar">{initials}</div>
-                      <div style={{ minWidth: 0 }}>
+                      <div className="min-w-0">
                         <div className="name">{fullName}</div>
                         <div className="email">{user?.email}</div>
                       </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { orgAPI } from '../../api/org';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 import ImageUpload from '../../components/ImageUpload';
+import { Button } from '../../components/Button';
 
 // What each section of the company's profile holds. A section saves only
 // its own fields.
@@ -63,12 +64,12 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
 
       {section === 'identity' && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Identity</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          <h3 className="og-title">Identity</h3>
+          <p className="og-lede">
             Printed at the head of every letter, payslip, report and proposal.
           </p>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
-            <div className="field" style={{ gridColumn: 'span 2' }}>
+          <div className="form-grid mb-14">
+            <div className="field og-span-2">
               <label>Organization name *</label>
               <input className="input" required value={form.name} onChange={e => set('name', e.target.value)} />
             </div>
@@ -78,7 +79,7 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
                 value={form.tagline} onChange={e => set('tagline', e.target.value)} />
             </div>
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
               <label>Phone</label>
               <input className="input" value={form.phone} onChange={e => set('phone', e.target.value)} />
@@ -94,7 +95,7 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
             </div>
           </div>
           <div className="form-grid">
-            <div className="field" style={{ gridColumn: 'span 2' }}>
+            <div className="field og-span-2">
               <label>Address</label>
               <textarea className="input" rows={2} value={form.address}
                 placeholder="One line per row — e.g. door/street, then area"
@@ -116,7 +117,7 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
                 <input className="input" value={form.state} onChange={e => set('state', e.target.value)} />
               )}
               {inIndia && stateOffList && (
-                <span className="hint" style={{ color: 'var(--warning)' }}>
+                <span className="hint og-warn-hint">
                   Pick the state from the list so it matches work locations and tax policies.
                 </span>
               )}
@@ -147,11 +148,11 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
 
       {section === 'branding' && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Branding</h3>
-          <div style={{ marginBottom: 18 }}>
+          <h3 className="og-title mb-16">Branding</h3>
+          <div className="og-mb-18">
             <ImageUpload noun="logo" value={form.logoData} onChange={data => set('logoData', data)} />
           </div>
-          <div className="field" style={{ marginBottom: 18 }}>
+          <div className="field og-mb-18">
             <label>Logo and company name in headers</label>
             <div>
               <div className="segmented">
@@ -166,11 +167,11 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
           <div className="form-grid">
             {[['brandPrimary', 'Primary color'], ['brandAccent', 'Accent color']].map(([key, label]) => (
               <div key={key} className="field">
-                <label>{label}</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input type="color" value={form[key]} onChange={e => set(key, e.target.value)}
-                    style={{ width: 44, height: 38, border: '1px solid var(--border)', borderRadius: 7, padding: 2, background: 'var(--surface)' }} />
-                  <input className="input" value={form[key]} onChange={e => set(key, e.target.value)} style={{ maxWidth: 120 }} />
+                <label htmlFor={`og-${key}`}>{label}</label>
+                <div className="cluster">
+                  <input type="color" className="og-color" aria-label={`${label} picker`} value={form[key]}
+                    onChange={e => set(key, e.target.value)} />
+                  <input id={`og-${key}`} className="input og-color-hex" value={form[key]} onChange={e => set(key, e.target.value)} />
                 </div>
               </div>
             ))}
@@ -180,11 +181,11 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
 
       {section === 'signatory' && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Default signatory</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+          <h3 className="og-title">Default signatory</h3>
+          <p className="og-lede">
             Signs letters, proposals, the bank transfer advice and settlement statements unless a document names someone else.
           </p>
-          <div className="form-grid" style={{ marginBottom: 16 }}>
+          <div className="form-grid mb-16">
             <div className="field">
               <label>Name</label>
               <input className="input" placeholder="e.g. R. Kumar" value={form.signatoryName}
@@ -207,8 +208,8 @@ export default function OrgProfileForm({ section }: { section: 'identity' | 'bra
         </div>
       )}
 
-      <div className="form-actions" style={{ justifyContent: 'flex-start', marginBottom: 24 }}>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      <div className="form-actions og-actions-start og-actions-gap">
+        <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
       </div>
     </form>
   );

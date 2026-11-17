@@ -3,6 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR, formatDate } from '../../utils/format';
 import { useRole } from '../../store/authStore';
 import { confirmDialog } from '../../components/feedback';
@@ -59,7 +61,7 @@ export default function ProposalView() {
   if (loading) return <LoadingBlock label="Loading proposal…" />;
   if (!record) {
     return <EmptyState icon="📄" title="Proposal not found"
-      action={<Link to="/proposals/history" className="btn btn-secondary">Back to History</Link>} />;
+      action={<ButtonLink to="/proposals/history">Back to history</ButtonLink>} />;
   }
 
   const revisions: any[] = record.revisions || [];
@@ -77,10 +79,10 @@ export default function ProposalView() {
         subtitle={`${record.selectionLabel} · ${formatINR(record.totalAmount)} · generated ${formatDate(record.createdAt)}`}
         actions={
           <>
-            {isSA && <button className="btn btn-danger" onClick={handleDelete}>Delete</button>}
-            <Link to={`/proposals?from=${record.id}`} className="btn btn-secondary">↻ Revise</Link>
-            <button className="btn btn-secondary" onClick={openFullPage}>⧉ Full Page</button>
-            <button className="btn btn-primary" onClick={printToPdf}>⤓ Download PDF</button>
+            {isSA && <Button variant="danger" onClick={handleDelete}>Delete</Button>}
+            <ButtonLink to={`/proposals?from=${record.id}`} icon="pen">Revise</ButtonLink>
+            <Button icon="browser" onClick={openFullPage}>Full page</Button>
+            <Button variant="accent" icon="download" onClick={printToPdf}>Download PDF</Button>
           </>
         }
       />
@@ -89,7 +91,7 @@ export default function ProposalView() {
 
       {revisions.length > 1 && (
         <div className="rev-strip">
-          <span className="text-muted" style={{ fontSize: 12.5, marginRight: 4 }}>Revision history:</span>
+          <span className="text-sm-muted mp-rev-label">Revision history:</span>
           {revisions.map((r, i) => {
             const prev = i > 0 ? revisions[i - 1] : null;
             const delta = prev ? r.totalAmount - prev.totalAmount : 0;
@@ -99,24 +101,26 @@ export default function ProposalView() {
                 className={`rev-chip ${current ? 'current' : ''}`}
                 title={`${r.selectionLabel} · ${formatDate(r.createdAt)}`}>
                 <strong>Rev {r.revision}</strong>
-                <span>{formatINR(r.totalAmount)}</span>
+                <span className="num">{formatINR(r.totalAmount)}</span>
                 {prev && delta !== 0 && (
-                  <span className={delta > 0 ? 'text-success' : 'text-danger'} style={{ fontSize: 11 }}>
-                    {delta > 0 ? '▲' : '▼'}{formatINR(Math.abs(delta))}
+                  <span className={`mp-delta mp-delta-xs ${delta > 0 ? 'num-pos' : 'num-neg'}`}>
+                    <Icon name={delta > 0 ? 'trendingUp' : 'trendingDown'} size={12} className="mp-delta-icon" />
+                    <span className="sr-only">{delta > 0 ? 'up ' : 'down '}</span>
+                    {formatINR(Math.abs(delta))}
                   </span>
                 )}
-                {i === revisions.length - 1 && <span className="badge badge-success" style={{ fontSize: 10, padding: '1px 8px' }}>latest</span>}
+                {i === revisions.length - 1 && <span className="badge badge-success mp-rev-latest">latest</span>}
               </Link>
             );
           })}
         </div>
       )}
 
-      <div className="card" style={{ overflow: 'hidden', background: '#E9ECF2' }}>
+      <div className="card mp-doc-card">
         <iframe
           title="Proposal preview"
           srcDoc={record.html}
-          style={{ width: '100%', height: '78vh', border: 'none', display: 'block' }}
+          className="mp-doc-frame"
         />
       </div>
     </>

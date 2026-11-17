@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { expensesAPI } from '../../api/expenses';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
 import { EXPENSE_STATUS_TONES } from './ExpensesList';
 
 export default function ExpenseReportView() {
@@ -21,7 +22,7 @@ export default function ExpenseReportView() {
   if (loading) return <LoadingBlock label="Preparing report…" />;
   if (!doc) {
     return <EmptyState icon="⌯" title="Report not found"
-      action={<Link to="/expenses" className="btn btn-secondary">Back to Expenses</Link>} />;
+      action={<ButtonLink to="/expenses">Back to expenses</ButtonLink>} />;
   }
 
   return (
@@ -36,16 +37,14 @@ export default function ExpenseReportView() {
         </div>
 
         <PageHeader
-          title={`Expense Report — ${doc.personName}`}
+          title={`Expense report — ${doc.personName}`}
           subtitle={`${doc.reportNumber} · ${doc.title}`}
           actions={
             <>
               <span className={`badge ${EXPENSE_STATUS_TONES[doc.status] || 'badge-neutral'}`}>
                 {doc.status.toLowerCase()}
               </span>
-              <button className="btn btn-primary" onClick={() => window.print()}>
-                🖨 Print / Save as PDF
-              </button>
+              <Button variant="accent" icon="printer" onClick={() => window.print()}>Print or save as PDF</Button>
             </>
           }
         />

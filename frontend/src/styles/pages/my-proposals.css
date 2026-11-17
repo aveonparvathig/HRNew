@@ -1,0 +1,106 @@
+/* Redesign: my-proposals. */
+
+/* ---------- Shared ---------- */
+.mp-strong { font-weight: 600; }
+.mp-cell-sub { font-size: 11.5px; color: var(--text-3); }
+.mp-inline-sub { font-size: 11.5px; color: var(--text-3); }
+.mp-mb-12 { margin-bottom: 12px; }
+.mp-span-all { grid-column: 1 / -1; }
+.mp-span-2 { grid-column: span 2; }
+.mp-select-auto { width: auto; max-width: 200px; }
+.mp-alert-icon { flex: none; margin-top: 1px; }
+.mp-badge-icon { flex: none; margin-right: 4px; vertical-align: -2px; }
+
+/* ---------- My: updates ---------- */
+.mp-split { --gap: 12px; }
+.mp-card-title { font-size: 15px; margin: 0 0 4px; }
+.mp-card-sub { font-size: 13px; margin: 0; }
+.mp-requests { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+.mp-requests-title { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+.mp-request-row { font-size: 12.5px; padding: 2px 0; }
+.mp-feed { padding: 4px 22px 16px; }
+.mp-feed-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.mp-feed-item:last-child { border-bottom: 0; }
+.mp-feed-title { font-weight: 600; min-width: 0; }
+.mp-feed-meta { font-size: 11.5px; color: var(--text-3); margin-bottom: 4px; }
+.mp-feed-body { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mp-feed-body-gap { margin-top: 4px; }
+.mp-feed-file { margin-top: 8px; }
+
+/* ---------- Proposals: history / view ---------- */
+.table tr.mp-chain-start td { border-top: 2px solid var(--border); }
+.mp-earlier { font-size: 12px; color: var(--text-3); padding-left: 14px; }
+.mp-delta { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.mp-delta-xs { font-size: 11px; }
+.mp-delta-icon { flex: none; }
+.mp-rev-label { margin-right: 4px; }
+.mp-rev-latest { font-size: 10px; padding: 1px 8px; }
+.mp-doc-card { overflow: hidden; background: var(--surface-2); }
+.mp-doc-frame { width: 100%; height: 78vh; border: none; display: block; }
+/* The spec is a full document; its frame shows white paper like the PDF. */
+.mp-spec-frame {
+  width: 100%; height: calc(100vh - 180px); min-height: 600px;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: #fff; display: block;
+}
+
+/* ---------- Proposals: builder chrome (not the previewed document) ---------- */
+.mp-segmented { margin-bottom: 18px; }
+.mp-bundle {
+  width: 100%; text-align: left; font: inherit; cursor: pointer;
+  padding: 18px; box-shadow: none;
+}
+.mp-bundle.selected { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+.mp-bundle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.mp-bundle-head { margin-bottom: 8px; flex-wrap: nowrap; }
+.mp-bundle-name { font-size: 15px; display: inline-flex; align-items: center; gap: 8px; min-width: 0; margin: 0; }
+.mp-bundle-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.module-card .mp-bundle-tagline { margin-bottom: 10px; }
+.mp-bundle-price { font-size: 12.5px; }
+.mp-bundle-price strong { color: var(--text); }
+.mp-search { max-width: 240px; }
+.mp-category { margin-bottom: 16px; }
+.mp-category-head { --gap: 10px; margin: 10px 0 8px; }
+.mp-category-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.mp-addons { --gap: 8px; margin-top: 10px; }
+.mp-addon-row { --gap: 10px; }
+.mp-addon-name { font-size: 12.5px; color: var(--text-2); min-width: 160px; }
+.mp-content-head { --gap: 12px; }
+.form-section-title.mp-flush { margin-bottom: 0; }
+.mp-content-lede { margin: 8px 0 12px; }
+.mp-check-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 16px; }
+.mp-check { font-size: 13px; }
+.mp-check-sm { font-size: 12.5px; }
+.mp-logos { margin-top: 16px; }
+.mp-logos-title { font-size: 12.5px; font-weight: 600; color: var(--text-2); margin: 0 0 8px; }
+.mp-logo-add { margin-bottom: 10px; }
+.mp-logo-name { max-width: 240px; }
+.mp-logo-file { font-size: 12px; max-width: 100%; }
+.mp-logo-chips { --gap: 6px; margin-bottom: 10px; }
+.mp-logo-chip { font-size: 11.5px; display: inline-flex; align-items: center; gap: 6px; }
+.mp-logo-remove {
+  border: none; background: none; color: var(--danger); cursor: pointer;
+  padding: 0 2px; font-size: 13px; line-height: 1; border-radius: var(--radius-sm);
+}
+.mp-logo-remove:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.mp-client-list { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px 16px; max-height: 230px; overflow-y: auto; padding-right: 4px; }
+.form-actions.mp-generate-bar { justify-content: flex-start; }
+.mp-generate { padding-inline: 22px; }
+.mp-preview-label { font-weight: 600; font-size: 13px; }
+.mp-preview-empty { padding: 24px; font-size: 13px; }
+
+/* ---------- Phones: one column, 40px+ tap targets ---------- */
+@media (max-width: 640px) {
+  .mp-span-2 { grid-column: auto; }
+  .mp-split > *, .mp-actions { width: 100%; }
+  .mp-actions .btn { flex: 1 1 100%; }
+  .mp-feed { padding: 4px 16px 12px; }
+  .mp-feed-file { width: 100%; }
+  .mp-select-auto { width: 100%; max-width: none; }
+  .mp-search, .mp-logo-name { max-width: none; flex: 1 1 100%; }
+  .mp-addon-name { min-width: 0; flex: 1 1 100%; }
+  .mp-check-grid, .mp-client-list { grid-template-columns: 1fr; }
+  .mp-check { min-height: 40px; }
+  .mp-logo-remove { min-width: 32px; min-height: 32px; }
+  .mp-generate-bar .btn { width: 100%; }
+}

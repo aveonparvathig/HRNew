@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { orgAPI } from '../../api/org';
 import { EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, Pagination } from '../../components/ui';
+import { Button } from '../../components/Button';
 
 const PAGE_SIZE = 15;
 const dateTime = (value: string) =>
@@ -78,12 +79,12 @@ export default function MailSettingsTab() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <form className="card card-pad mb-24" onSubmit={save}>
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Mail server</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+        <h3 className="og-title">Mail server</h3>
+        <p className="og-lede">
           Payslips are sent through your own mail service over SMTP: your mail host, Google Workspace, Microsoft 365
           or a sending service. Its help pages give the host, port and the user name and password to use here.
         </p>
-        <div className="form-grid" style={{ marginBottom: 14 }}>
+        <div className="form-grid mb-14">
           <div className="field">
             <label>Mail server (host)</label>
             <input className="input" placeholder="smtp.example.com" value={form.host} onChange={e => set('host', e.target.value)} />
@@ -111,8 +112,8 @@ export default function MailSettingsTab() {
           </div>
         </div>
 
-        <h3 style={{ fontSize: 15, margin: '6px 0 12px' }}>Sender</h3>
-        <div className="form-grid" style={{ marginBottom: 14 }}>
+        <h3 className="og-subtitle">Sender</h3>
+        <div className="form-grid mb-14">
           <div className="field">
             <label>From name</label>
             <input className="input" placeholder="e.g. Aveon HR" value={form.fromName} onChange={e => set('fromName', e.target.value)} />
@@ -134,38 +135,38 @@ export default function MailSettingsTab() {
           </div>
         </div>
 
-        <label className="checkbox-field" style={{ marginBottom: 10, alignItems: 'flex-start' }}>
-          <input type="checkbox" style={{ marginTop: 2 }} checked={Boolean(form.welcomeMail)} onChange={e => set('welcomeMail', e.target.checked)} />
+        <label className="checkbox-field og-check-top">
+          <input type="checkbox" checked={Boolean(form.welcomeMail)} onChange={e => set('welcomeMail', e.target.checked)} />
           <span>
             Mail a new login its sign-in address and temporary password
-            <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
+            <span className="og-check-desc">
               Sent when a login is added on the Team page or generated for employees. The password must be changed at first sign-in.
             </span>
           </span>
         </label>
 
-        <label className="checkbox-field" style={{ marginBottom: 14 }}>
+        <label className="checkbox-field mb-14">
           <input type="checkbox" checked={form.enabled} onChange={e => set('enabled', e.target.checked)} />
           Email is on: the system may send mail
         </label>
-        {problem && !form.enabled && <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>{problem}.</p>}
+        {problem && !form.enabled && <p className="og-lede tight">{problem}.</p>}
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button type="submit" className="btn btn-primary" disabled={busy === 'save'}>{busy === 'save' ? 'Saving…' : 'Save'}</button>
+        <div className="form-actions og-actions-start">
+          <Button type="submit" variant="accent" loading={busy === 'save'}>{busy === 'save' ? 'Saving…' : 'Save'}</Button>
         </div>
       </form>
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 4 }}>Send a test</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+        <h3 className="og-title">Send a test</h3>
+        <p className="og-lede tight">
           Uses the saved settings, whether email is on or off. Save first if you changed anything above.
         </p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <input className="input" type="email" style={{ maxWidth: 320 }} placeholder="Send the test to" value={testTo}
+        <div className="cluster">
+          <input className="input og-test-input" type="email" aria-label="Send the test to" placeholder="Send the test to" value={testTo}
             onChange={e => setTestTo(e.target.value)} />
-          <button type="button" className="btn btn-secondary" disabled={busy === 'test' || !testTo.trim()} onClick={test}>
-            {busy === 'test' ? 'Sending…' : 'Send Test Mail'}
-          </button>
+          <Button icon="mail" loading={busy === 'test'} disabled={!testTo.trim()} onClick={test}>
+            {busy === 'test' ? 'Sending…' : 'Send test mail'}
+          </Button>
         </div>
       </div>
 
@@ -181,12 +182,12 @@ export default function MailSettingsTab() {
                 <tbody>
                   {log.rows.map((r: any) => (
                     <tr key={r.id}>
-                      <td style={{ whiteSpace: 'nowrap' }}>{dateTime(r.createdAt)}</td>
-                      <td>{r.toEmail}{r.personName && <div className="text-muted" style={{ fontSize: 11.5 }}>{r.personName}</div>}</td>
+                      <td className="og-nowrap">{dateTime(r.createdAt)}</td>
+                      <td>{r.toEmail}{r.personName && <div className="og-sub">{r.personName}</div>}</td>
                       <td>{r.subject}</td>
                       <td>
                         <span className={`badge ${r.status === 'SENT' ? 'badge-success' : 'badge-danger'}`}>{r.status === 'SENT' ? 'Sent' : 'Failed'}</span>
-                        {r.error && <div style={{ fontSize: 11.5, color: 'var(--danger)' }}>{r.error}</div>}
+                        {r.error && <div className="og-sub-err">{r.error}</div>}
                       </td>
                       <td className="text-muted">{r.sentBy}</td>
                     </tr>

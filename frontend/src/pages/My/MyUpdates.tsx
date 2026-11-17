@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { selfAPI } from '../../api/self';
 import { readFileAsDataUri, openDataFile } from '../../api/files';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
+import { Button } from '../../components/Button';
 import { toast } from '../../components/feedback';
 import { formatDate } from '../../utils/format';
 
@@ -55,24 +56,24 @@ export default function MyUpdates() {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="card card-pad mb-24">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <div className="cluster between mp-split">
           <div>
-            <h3 style={{ fontSize: 15, margin: '0 0 4px' }}>Your details</h3>
-            <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
-              {needsReview ? 'Please review your details and confirm they are up to date, or propose a change.'
+            <h3 className="mp-card-title">Your details</h3>
+            <p className="text-muted mp-card-sub">
+              {needsReview ? 'Review your details and confirm they are up to date, or propose a change.'
                 : `Confirmed up to date on ${formatDate(data.detailsConfirmedAt)}.`}
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn btn-secondary" onClick={() => setPropose({ section: '', values: {}, file: null })}>Propose a change</button>
-            <button className="btn btn-primary" onClick={confirmDetails}>My details are correct</button>
+          <div className="cluster mp-actions">
+            <Button onClick={() => setPropose({ section: '', values: {}, file: null })}>Propose a change</Button>
+            <Button variant={needsReview ? 'accent' : 'secondary'} icon="checkCircle" onClick={confirmDetails}>My details are correct</Button>
           </div>
         </div>
         {data.myRequests.length > 0 && (
-          <div style={{ marginTop: 14, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>My change requests</div>
+          <div className="mp-requests">
+            <div className="mp-requests-title">My change requests</div>
             {data.myRequests.map((r: any) => (
-              <div key={r.id} style={{ fontSize: 12.5, padding: '2px 0' }}>
+              <div key={r.id} className="mp-request-row">
                 <span className={`badge ${STATUS_TONE[r.status]}`}>{r.status.toLowerCase()}</span>{' '}
                 {(data.sections.find((s: any) => s.value === r.section) || {}).label || r.section}
                 {r.reviewNote && <span className="text-muted"> — {r.reviewNote}</span>}
@@ -83,15 +84,15 @@ export default function MyUpdates() {
       </div>
 
       <div className="card mb-24">
-        <div className="card-header"><h3>Notices ({data.bulletins.length})</h3></div>
+        <div className="card-header"><h3>Notices <span className="num">({data.bulletins.length})</span></h3></div>
         {data.bulletins.length === 0 ? <EmptyState icon="▦" title="Nothing new" message="" /> : (
-          <div style={{ padding: '4px 22px 16px' }}>
+          <div className="mp-feed">
             {data.bulletins.map((b: any) => (
-              <div key={b.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ fontWeight: 600 }}>{b.title}</div>
-                <div className="text-muted" style={{ fontSize: 11.5, marginBottom: 4 }}>{formatDate(b.createdAt)}{b.expiresOn ? ` · until ${formatDate(b.expiresOn)}` : ''}</div>
-                {b.body && <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{b.body}</div>}
-                {b.hasFile && <button className="btn btn-secondary btn-sm" style={{ marginTop: 6 }} onClick={() => openFile('bulletins', b.id)}>Open {b.fileName}</button>}
+              <div key={b.id} className="mp-feed-item">
+                <div className="mp-feed-title">{b.title}</div>
+                <div className="mp-feed-meta">{formatDate(b.createdAt)}{b.expiresOn ? ` · until ${formatDate(b.expiresOn)}` : ''}</div>
+                {b.body && <div className="mp-feed-body">{b.body}</div>}
+                {b.hasFile && <Button size="sm" icon="download" className="mp-feed-file" onClick={() => openFile('bulletins', b.id)}>Open {b.fileName}</Button>}
               </div>
             ))}
           </div>
@@ -99,18 +100,18 @@ export default function MyUpdates() {
       </div>
 
       <div className="card mb-24">
-        <div className="card-header"><h3>Policies ({data.policies.length})</h3></div>
+        <div className="card-header"><h3>Policies <span className="num">({data.policies.length})</span></h3></div>
         {data.policies.length === 0 ? <EmptyState icon="▤" title="No policies" message="" /> : (
-          <div style={{ padding: '4px 22px 16px' }}>
+          <div className="mp-feed">
             {data.policies.map((p: any) => (
-              <div key={p.id} style={{ padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                  <div style={{ fontWeight: 600 }}>{p.title}</div>
+              <div key={p.id} className="mp-feed-item">
+                <div className="cluster between mp-split">
+                  <div className="mp-feed-title">{p.title}</div>
                   {p.acknowledged ? <span className="badge badge-success">Read</span>
-                    : <button className="btn btn-primary btn-sm" onClick={() => acknowledge(p)}>I have read this</button>}
+                    : <Button size="sm" icon="checkCircle" onClick={() => acknowledge(p)}>I have read this</Button>}
                 </div>
-                {p.body && <div style={{ fontSize: 13, whiteSpace: 'pre-wrap', marginTop: 4 }}>{p.body}</div>}
-                {p.hasFile && <button className="btn btn-secondary btn-sm" style={{ marginTop: 6 }} onClick={() => openFile('policies', p.id)}>Open {p.fileName}</button>}
+                {p.body && <div className="mp-feed-body mp-feed-body-gap">{p.body}</div>}
+                {p.hasFile && <Button size="sm" icon="download" className="mp-feed-file" onClick={() => openFile('policies', p.id)}>Open {p.fileName}</Button>}
               </div>
             ))}
           </div>
@@ -120,47 +121,47 @@ export default function MyUpdates() {
       <Modal title="Propose a change" open={Boolean(propose)} onClose={() => setPropose(null)}>
         {propose && <form onSubmit={submitPropose}>
           <ErrorAlert message={formError} />
-          <div className="field" style={{ marginBottom: 12 }}>
-            <label>What do you want to change?</label>
-            <select className="select" required value={propose.section} onChange={e => setPropose({ section: e.target.value, values: {}, file: null })}>
+          <div className="field mp-mb-12">
+            <label htmlFor="mp-propose-section">What do you want to change?</label>
+            <select id="mp-propose-section" className="select" required value={propose.section} onChange={e => setPropose({ section: e.target.value, values: {}, file: null })}>
               <option value="">—</option>
               {data.sections.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
           {section && section.value === 'FAMILY' && (
-            <div className="form-grid" style={{ marginBottom: 12 }}>
-              <div className="field"><label>Name *</label><input className="input" required value={propose.values.name || ''} onChange={e => setV('name', e.target.value)} /></div>
-              <div className="field"><label>Relationship *</label>
-                <select className="select" required value={propose.values.relation || ''} onChange={e => setV('relation', e.target.value)}>
+            <div className="form-grid mp-mb-12">
+              <div className="field"><label htmlFor="mp-fam-name">Name *</label><input id="mp-fam-name" className="input" required value={propose.values.name || ''} onChange={e => setV('name', e.target.value)} /></div>
+              <div className="field"><label htmlFor="mp-fam-relation">Relationship *</label>
+                <select id="mp-fam-relation" className="select" required value={propose.values.relation || ''} onChange={e => setV('relation', e.target.value)}>
                   <option value="">—</option>{FAMILY_RELATIONS.map(r => <option key={r}>{r}</option>)}
                 </select></div>
-              <div className="field"><label>Date of birth</label><input className="input" type="date" value={propose.values.dateOfBirth || ''} onChange={e => setV('dateOfBirth', e.target.value)} /></div>
+              <div className="field"><label htmlFor="mp-fam-dob">Date of birth</label><input id="mp-fam-dob" className="input" type="date" value={propose.values.dateOfBirth || ''} onChange={e => setV('dateOfBirth', e.target.value)} /></div>
             </div>
           )}
           {section && section.value !== 'FAMILY' && (
-            <div className="form-grid" style={{ marginBottom: 12 }}>
+            <div className="form-grid mp-mb-12">
               {section.fields.map((f: string) => (
-                <div className="field" key={f} style={f === 'address' || f === 'permanentAddress' ? { gridColumn: '1 / -1' } : undefined}>
-                  <label>{FIELD_LABELS[f] || f}</label>
+                <div className={`field${f === 'address' || f === 'permanentAddress' ? ' mp-span-all' : ''}`} key={f}>
+                  <label htmlFor={`mp-f-${f}`}>{FIELD_LABELS[f] || f}</label>
                   {f === 'bankAccountType'
-                    ? <select className="select" value={propose.values[f] || ''} onChange={e => setV(f, e.target.value)}><option value="">—</option><option value="SAVINGS">Savings</option><option value="CURRENT">Current</option></select>
+                    ? <select id={`mp-f-${f}`} className="select" value={propose.values[f] || ''} onChange={e => setV(f, e.target.value)}><option value="">—</option><option value="SAVINGS">Savings</option><option value="CURRENT">Current</option></select>
                     : (f === 'address' || f === 'permanentAddress')
-                      ? <textarea className="input" rows={2} value={propose.values[f] || ''} onChange={e => setV(f, e.target.value)} />
-                      : <input className="input" value={propose.values[f] || ''} onChange={e => setV(f, e.target.value)} />}
+                      ? <textarea id={`mp-f-${f}`} className="input" rows={2} value={propose.values[f] || ''} onChange={e => setV(f, e.target.value)} />
+                      : <input id={`mp-f-${f}`} className="input" value={propose.values[f] || ''} onChange={e => setV(f, e.target.value)} />}
                 </div>
               ))}
             </div>
           )}
           {section?.proof && (
-            <div className="field" style={{ marginBottom: 12 }}>
-              <label>Proof * (cancelled cheque or bank statement)</label>
-              <input className="input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setPropose((p: any) => ({ ...p, file: e.target.files?.[0] || null }))} />
+            <div className="field mp-mb-12">
+              <label htmlFor="mp-proof">Proof * (cancelled cheque or bank statement)</label>
+              <input id="mp-proof" className="input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setPropose((p: any) => ({ ...p, file: e.target.files?.[0] || null }))} />
             </div>
           )}
-          <p className="text-muted" style={{ fontSize: 12.5 }}>Nothing changes until HR approves your request.</p>
+          <p className="text-sm-muted">Nothing changes until HR approves your request.</p>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setPropose(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || !propose.section}>{saving ? 'Sending…' : 'Send to HR'}</button>
+            <Button variant="ghost" onClick={() => setPropose(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving} disabled={!propose.section}>{saving ? 'Sending…' : 'Send to HR'}</Button>
           </div>
         </form>}
       </Modal>

@@ -57,7 +57,7 @@ export default function ThemeCustomizer() {
                 <div className="swatch-row">
                   {(Object.keys(ACCENTS) as Accent[]).map(a => (
                     <button key={a} className={`swatch${accent === a ? ' active' : ''}`}
-                      style={{ background: ACCENTS[a].primary }}
+                      style={{ background: ACCENTS[a].primary }} /* swatch colour comes from the accent data */
                       onClick={() => setAccent(a)} title={ACCENTS[a].label} aria-label={ACCENTS[a].label}>
                       {accent === a && (
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff"
@@ -70,10 +70,10 @@ export default function ThemeCustomizer() {
 
               <div className="customizer-group">
                 <label>Density</label>
-                <div className="segmented" style={{ display: 'flex' }}>
-                  <button className={density === 'comfortable' ? 'active' : ''} style={{ flex: 1 }}
+                <div className="segmented segmented-fill">
+                  <button className={density === 'comfortable' ? 'active' : ''}
                     onClick={() => setDensity('comfortable')}>Comfortable</button>
-                  <button className={density === 'compact' ? 'active' : ''} style={{ flex: 1 }}
+                  <button className={density === 'compact' ? 'active' : ''}
                     onClick={() => setDensity('compact')}>Compact</button>
                 </div>
               </div>

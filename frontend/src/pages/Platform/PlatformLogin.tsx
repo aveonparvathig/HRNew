@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { usePlatformStore } from '../../store/platformStore';
 import { platformAPI } from '../../api/platform';
 import { ErrorAlert } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 export default function PlatformLogin() {
   const navigate = useNavigate();
@@ -31,15 +33,17 @@ export default function PlatformLogin() {
 
   return (
     <div className="auth-page">
-      <div className="auth-hero" style={{ background: 'linear-gradient(135deg, #0f172a, #312e81)' }}>
-        <div className="brand"><span className="brand-mark">◆</span> Platform Console</div>
+      <div className="auth-hero">
+        <div className="brand">
+          <span className="brand-mark"><Icon name="shield" size={20} className="" /></span> Platform Console
+        </div>
         <div className="auth-hero-copy">
           <h2>Run the whole platform.</h2>
           <p>Manage every organization on Aveon HR — usage, lifecycle, plans and support — from one owner console.</p>
           <div className="auth-hero-features">
-            <div className="feat"><span className="check">✓</span> Every tenant at a glance</div>
-            <div className="feat"><span className="check">✓</span> Suspend &amp; reactivate instantly</div>
-            <div className="feat"><span className="check">✓</span> Separate from any tenant workspace</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Every tenant at a glance</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Suspend &amp; reactivate instantly</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Separate from any tenant workspace</div>
           </div>
         </div>
         <div className="fineprint">© {new Date().getFullYear()} Aveon HR · Platform Operations</div>
@@ -63,9 +67,9 @@ export default function PlatformLogin() {
                 onChange={e => setPassword(e.target.value)} placeholder="••••••••"
                 autoComplete="current-password" required />
             </div>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
+            <Button type="submit" variant="primary" loading={loading}>
               {loading ? 'Signing in…' : 'Sign in to console'}
-            </button>
+            </Button>
           </form>
         </div>
       </div>

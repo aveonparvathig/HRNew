@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { openDataFile } from '../../api/files';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatDate } from '../../utils/format';
 import DownloadButton from '../../components/DownloadButton';
 import { sizeLabel } from '../../components/EmployeeFilesCard';
@@ -31,7 +33,7 @@ export default function MyDocuments() {
 
   return (
     <>
-      <PageHeader title="My Documents" subtitle="Letters and files HR has shared with you. Payslips and Form 16 are under My Payslips." />
+      <PageHeader title="My documents" subtitle="Letters and files HR has shared with you. Payslips and Form 16 are under My payslips." />
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {letters.length === 0 && files.length === 0 ? (
@@ -40,19 +42,21 @@ export default function MyDocuments() {
         <>
           {letters.length > 0 && (
             <div className="card mb-24">
-              <div className="card-header"><h3>Letters ({letters.length})</h3></div>
+              <div className="card-header"><h3>Letters <span className="num">({letters.length})</span></h3></div>
               <div className="table-wrap">
                 <table className="table">
                   <thead><tr><th>Letter</th><th>Issued</th><th /></tr></thead>
                   <tbody>
                     {letters.map((l: any) => (
                       <tr key={l.id}>
-                        <td><Link to={`/my/documents/${l.id}`} style={{ fontWeight: 600 }}>{l.title}</Link></td>
+                        <td><Link to={`/my/documents/${l.id}`} className="mp-strong">{l.title}</Link></td>
                         <td className="text-muted">{formatDate(l.createdAt)}</td>
                         <td>
                           <div className="row-actions">
-                            <Link to={`/my/documents/${l.id}`} className="btn btn-secondary btn-sm">View</Link>
-                            <DownloadButton path={`/self/documents/letters/${l.id}/pdf`} className="btn btn-secondary btn-sm" busyLabel="Making the PDF…">⤓ PDF</DownloadButton>
+                            <ButtonLink size="sm" to={`/my/documents/${l.id}`}>View</ButtonLink>
+                            <DownloadButton path={`/self/documents/letters/${l.id}/pdf`} className="btn btn-secondary btn-sm" busyLabel="Making the PDF…">
+                              <Icon name="download" size={16} className="btn-icon" />PDF
+                            </DownloadButton>
                           </div>
                         </td>
                       </tr>
@@ -65,7 +69,7 @@ export default function MyDocuments() {
 
           {files.length > 0 && (
             <div className="card">
-              <div className="card-header"><h3>Files ({files.length})</h3></div>
+              <div className="card-header"><h3>Files <span className="num">({files.length})</span></h3></div>
               <div className="table-wrap">
                 <table className="table">
                   <thead><tr><th>Document</th><th>Category</th><th>Dated</th><th /></tr></thead>
@@ -73,12 +77,12 @@ export default function MyDocuments() {
                     {files.map((f: any) => (
                       <tr key={f.id}>
                         <td>
-                          <button type="button" className="link-button" style={{ fontWeight: 600 }} onClick={() => open(f)}>{f.title}</button>
-                          <div className="text-muted" style={{ fontSize: 11.5 }}>{f.fileName} · {sizeLabel(f.sizeBytes)}</div>
+                          <button type="button" className="link-button mp-strong" onClick={() => open(f)}>{f.title}</button>
+                          <div className="mp-cell-sub">{f.fileName} · {sizeLabel(f.sizeBytes)}</div>
                         </td>
                         <td><span className="badge badge-neutral">{f.category}</span></td>
                         <td className="text-muted">{f.documentDate ? formatDate(f.documentDate) : '—'}</td>
-                        <td><div className="row-actions"><button className="btn btn-secondary btn-sm" onClick={() => open(f)}>Open</button></div></td>
+                        <td><div className="row-actions"><Button size="sm" onClick={() => open(f)}>Open</Button></div></td>
                       </tr>
                     ))}
                   </tbody>

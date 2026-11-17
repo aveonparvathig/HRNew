@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { mastersAPI } from '../../api/masters';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 import { confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 // What a series would write, for the preview while typing. The server
 // has the same rule.
@@ -60,7 +62,7 @@ export default function NumberSeriesTab() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="alert alert-warning">
-        <span>ⓘ</span>
+        <Icon name="info" size={16} className="og-alert-icon" />
         <span>
           A number is the text before it, the number with its digits, and the text after it. In the text,
           {' '}<code>{'{FY}'}</code> stands for the financial year (2026-27) and <code>{'{YYYY}'}</code> for the calendar year.
@@ -74,41 +76,41 @@ export default function NumberSeriesTab() {
         return (
           <form key={s.key} className="card card-pad mb-24"
             onSubmit={e => { e.preventDefault(); run(s.key, () => mastersAPI.updateNumberSeries(s.key, form), `${s.label}: series saved.`); }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'baseline' }}>
-              <h3 style={{ fontSize: 15, marginBottom: 4 }}>{s.label}</h3>
+            <div className="cluster between og-series-head">
+              <h3 className="og-title">{s.label}</h3>
               <span className={`badge ${s.configured ? 'badge-success' : 'badge-neutral'}`}>
                 {s.configured ? 'Series set' : s.key === 'EMPLOYEE_CODE' ? 'Default: EMP-0001 onward' : 'Not numbered'}
               </span>
             </div>
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+            <p className="og-lede tight">
               {s.hint}
               {s.key === 'EMPLOYEE_CODE' && ` The next code offered is ${s.next}; codes already in use are skipped.`}
               {s.key !== 'EMPLOYEE_CODE' && s.configured && ` The next one is ${s.next}.`}
             </p>
             <div className="form-grid">
               <div className="field">
-                <label>Text before the number</label>
-                <input className="input" maxLength={30} placeholder="e.g. AVN/{FY}/" value={form.prefix} onChange={e => set({ prefix: e.target.value })} />
+                <label htmlFor={`og-${s.key}-prefix`}>Text before the number</label>
+                <input id={`og-${s.key}-prefix`} className="input" maxLength={30} placeholder="e.g. AVN/{FY}/" value={form.prefix} onChange={e => set({ prefix: e.target.value })} />
               </div>
               <div className="field">
-                <label>Digits</label>
-                <input className="input" type="number" min={1} max={10} step={1} required value={form.padding}
+                <label htmlFor={`og-${s.key}-padding`}>Digits</label>
+                <input id={`og-${s.key}-padding`} className="input num" type="number" min={1} max={10} step={1} required value={form.padding}
                   onChange={e => set({ padding: e.target.value === '' ? '' : Number(e.target.value) })} />
               </div>
               <div className="field">
-                <label>Next number</label>
-                <input className="input" type="number" min={1} step={1} required value={form.nextNumber}
+                <label htmlFor={`og-${s.key}-next`}>Next number</label>
+                <input id={`og-${s.key}-next`} className="input num" type="number" min={1} step={1} required value={form.nextNumber}
                   onChange={e => set({ nextNumber: e.target.value === '' ? '' : Number(e.target.value) })} />
               </div>
               <div className="field">
-                <label>Text after the number</label>
-                <input className="input" maxLength={30} value={form.suffix} onChange={e => set({ suffix: e.target.value })} />
+                <label htmlFor={`og-${s.key}-suffix`}>Text after the number</label>
+                <input id={`og-${s.key}-suffix`} className="input" maxLength={30} value={form.suffix} onChange={e => set({ suffix: e.target.value })} />
               </div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
-              <button type="submit" className="btn btn-primary" disabled={saving === s.key}>{saving === s.key ? 'Saving…' : 'Save Series'}</button>
+            <div className="cluster og-series-actions">
+              <Button type="submit" loading={saving === s.key}>{saving === s.key ? 'Saving…' : 'Save series'}</Button>
               {s.configured && (
-                <button type="button" className="btn btn-ghost" disabled={saving === s.key}
+                <Button variant="danger" disabled={saving === s.key}
                   onClick={async () => await confirmDialog({
                     title: `Remove the series for ${s.label.toLowerCase()}?`,
                     message: s.key === 'EMPLOYEE_CODE'
@@ -116,10 +118,10 @@ export default function NumberSeriesTab() {
                       : 'New ones are no longer numbered. Those already numbered keep their numbers.',
                     confirmLabel: 'Remove',
                   }) && run(s.key, () => mastersAPI.deleteNumberSeries(s.key), `${s.label}: series removed.`)}>
-                  Remove Series
-                </button>
+                  Remove series
+                </Button>
               )}
-              <span className="text-muted" style={{ fontSize: 12.5 }}>As typed, the next number reads <strong>{sample(form)}</strong></span>
+              <span className="og-header-hint">As typed, the next number reads <strong className="mono">{sample(form)}</strong></span>
             </div>
           </form>
         );

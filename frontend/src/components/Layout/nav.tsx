@@ -45,6 +45,7 @@ export const ICON_PATHS: Record<string, React.ReactNode> = {
   download: <><path d="M12 4v11m0 0-4-4m4 4 4-4" /><path d="M5 20h14" /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
   printer: <><path d="M7 9V3h10v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v7H7z" /></>,
+  send: <><path d="M21 3 10 14" /><path d="m21 3-7 18-4-7-7-4 18-7Z" /></>,
 };
 
 export function Icon({ name, size = 17, className = 'nav-icon' }: { name: string; size?: number; className?: string }) {
@@ -67,9 +68,9 @@ const INCOME_ITEMS: NavItem[] = [
   { to: '/income/analytics', icon: 'analytics', label: 'Analytics' },
   { to: '/income/clients', icon: 'building', label: 'Clients' },
   { to: '/income/implementation', icon: 'layers', label: 'Implementation' },
-  { to: '/income/implementation/visits', icon: 'pin', label: 'Client Visits' },
+  { to: '/income/implementation/visits', icon: 'pin', label: 'Client visits' },
   { to: '/income/proforma', icon: 'receipt', label: 'Proforma' },
-  { to: '/income/academic-years', icon: 'calendar', label: 'Billing Periods' },
+  { to: '/income/academic-years', icon: 'calendar', label: 'Billing periods' },
   { to: '/income/import-export', icon: 'transfer', label: 'Import / Export' },
 ];
 
@@ -77,17 +78,17 @@ const INCOME_ITEMS: NavItem[] = [
 // openings, then move candidates through the pipeline.
 const RECRUITMENT_ITEMS: NavItem[] = [
   { to: '/recruitment', icon: 'megaphone', label: 'Postings' },
-  { to: '/people/openings', icon: 'briefcase', label: 'Job Openings' },
-  { to: '/people/pipeline', icon: 'kanban', label: 'Candidate Pipeline' },
+  { to: '/people/openings', icon: 'briefcase', label: 'Job openings' },
+  { to: '/people/pipeline', icon: 'kanban', label: 'Candidate pipeline' },
 ];
 
 const PEOPLE_ITEMS: NavItem[] = [
   { to: '/people', icon: 'users', label: 'People' },
-  { to: '/people/org-chart', icon: 'layers', label: 'Organization Chart' },
+  { to: '/people/org-chart', icon: 'layers', label: 'Organization chart' },
   { to: '/people/letters', icon: 'pen', label: 'Letters', also: ['/people/documents'] },
   { to: '/people/communication', icon: 'megaphone', label: 'Communication' },
-  { to: '/people/identity-documents', icon: 'key', label: 'Identity Docs' },
-  { to: '/people/import', icon: 'transfer', label: 'Import Employees' },
+  { to: '/people/identity-documents', icon: 'key', label: 'Identity docs' },
+  { to: '/people/import', icon: 'transfer', label: 'Import employees' },
   { to: '/expenses', icon: 'receipt', label: 'Expenses' },
 ];
 
@@ -106,32 +107,32 @@ const LEAVE_ITEMS: NavItem[] = [
 const PROPOSAL_ITEMS: NavItem[] = [
   { to: '/proposals', icon: 'pen', label: 'Builder' },
   { to: '/proposals/history', icon: 'history', label: 'History' },
-  { to: '/proposals/cms-features', icon: 'browser', label: 'CMS Features' },
+  { to: '/proposals/cms-features', icon: 'browser', label: 'CMS features' },
 ];
 
 // Shown to anyone whose login is linked to a person record
 const MY_PAY_ITEMS: NavItem[] = [
-  { to: '/my/updates', icon: 'megaphone', label: 'My Updates' },
-  { to: '/my/payslips', icon: 'banknote', label: 'My Payslips' },
-  { to: '/my/declaration', icon: 'pen', label: 'My Tax Declaration' },
-  { to: '/my/loans', icon: 'layers', label: 'My Loans' },
-  { to: '/my/documents', icon: 'receipt', label: 'My Documents' },
+  { to: '/my/updates', icon: 'megaphone', label: 'My updates' },
+  { to: '/my/payslips', icon: 'banknote', label: 'My payslips' },
+  { to: '/my/declaration', icon: 'pen', label: 'My tax declaration' },
+  { to: '/my/loans', icon: 'layers', label: 'My loans' },
+  { to: '/my/documents', icon: 'receipt', label: 'My documents' },
 ];
 
 const PAYROLL_ITEMS: NavItem[] = [
   { to: '/payroll', icon: 'banknote', label: 'Runs' },
   { to: '/payroll/loans', icon: 'layers', label: 'Loans' },
-  { to: '/payroll/adjustments', icon: 'transfer', label: 'Arrears & Settlements', also: ['/payroll/settlements'] },
-  { to: '/payroll/declarations', icon: 'pen', label: 'Tax Declarations' },
-  { to: '/payroll/tds', icon: 'calendar', label: 'TDS Returns' },
+  { to: '/payroll/adjustments', icon: 'transfer', label: 'Arrears and settlements', also: ['/payroll/settlements'] },
+  { to: '/payroll/declarations', icon: 'pen', label: 'Tax declarations' },
+  { to: '/payroll/tds', icon: 'calendar', label: 'TDS returns' },
   { to: '/payroll/reports', icon: 'chart', label: 'Reports' },
-  { to: '/payroll/remittances', icon: 'receipt', label: 'Statutory Payments' },
-  { to: '/payroll/audit-log', icon: 'history', label: 'Audit Log' },
+  { to: '/payroll/remittances', icon: 'receipt', label: 'Statutory payments' },
+  { to: '/payroll/audit-log', icon: 'history', label: 'Audit log' },
   { to: '/payroll/settings', icon: 'sliders', label: 'Settings' },
 ];
 
 const ORG_ITEMS: NavItem[] = [
-  { to: '/organization', icon: 'home', label: 'Company Settings' },
+  { to: '/organization', icon: 'home', label: 'Company settings' },
   { to: '/organization/team', icon: 'users', label: 'Team' },
   { to: '/organization/security', icon: 'shield', label: 'Security' },
 ];
@@ -182,7 +183,7 @@ export function navSectionsFor(
   });
   // The payroll viewer reads the same pages; the API refuses any change
   if (isSA || isHR || role === 'PAYROLL_VIEWER') sections.push({ key: 'payroll', label: 'Payroll', items: PAYROLL_ITEMS });
-  if (user?.personId) sections.push({ key: 'my', label: 'My Pay', items: MY_PAY_ITEMS });
+  if (user?.personId) sections.push({ key: 'my', label: 'My pay', items: MY_PAY_ITEMS });
   if (isSA || role === 'EMPLOYEE') {
     sections.push({
       key: 'income', label: 'Project',

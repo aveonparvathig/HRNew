@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
 import { selfAPI } from '../../api/self';
 import { PageHeader, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import DeclarationEditor, { type DeclarationActions } from '../../components/DeclarationEditor';
 
 const actions: DeclarationActions = {
@@ -36,21 +37,21 @@ export default function MyDeclaration() {
   return (
     <>
       <PageHeader
-        title="My Tax Declaration"
+        title="My tax declaration"
         subtitle={`FY ${data.financialYear} · what you declare here decides the tax deducted from your salary`}
         actions={<>
-          <select className="select" style={{ width: 'auto' }} value={data.fyStart} onChange={e => setFy(e.target.value)}>
+          <select className="select mp-select-auto" aria-label="Financial year" value={data.fyStart} onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
           </select>
-          <Link to={`/my/reports/form-12bb?fy=${data.fyStart}`} className="btn btn-secondary">Form 12BB</Link>
-          <Link to={`/my/reports/tax-statement?fy=${data.fyStart}`} className="btn btn-secondary">Tax Statement</Link>
+          <ButtonLink to={`/my/reports/form-12bb?fy=${data.fyStart}`}>Form 12BB</ButtonLink>
+          <ButtonLink to={`/my/reports/tax-statement?fy=${data.fyStart}`}>Tax statement</ButtonLink>
         </>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       {!data.person.hasValidPan && (
         <div className="alert alert-warning">
-          <span>⚠</span>
+          <Icon name="alert" size={16} className="mp-alert-icon" />
           <span>Your PAN is not on record. Without it tax is deducted at a higher rate; give it to HR.</span>
         </div>
       )}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { proposalsAPI } from '../../api/proposals';
 import { PageHeader, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { Button } from '../../components/Button';
 import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
 
 // The spec is a complete standalone HTML document (own styles + A4 print
@@ -59,7 +60,7 @@ export default function CmsFeatures() {
         },
       });
     } catch {
-      setError('Could not generate the PDF. Please use “Print / Save as PDF” instead.');
+      setError('Could not generate the PDF. Use “Print / save as PDF” instead.');
     } finally {
       setPdfBusy(false);
     }
@@ -70,15 +71,15 @@ export default function CmsFeatures() {
   return (
     <>
       <PageHeader
-        title="CMS ERP — Product Specifications"
+        title="CMS ERP product specifications"
         subtitle="Version 2026 · 16 chapters, 25+ modules, full functional specs — for demos, tenders and RFP responses."
         actions={doc && (
           <>
-            <button className="btn btn-ghost" onClick={handleDownload}>⬇ HTML</button>
-            <button className="btn btn-secondary" onClick={handlePrint}>🖨 Print / Save as PDF</button>
-            <button className="btn btn-primary" onClick={handlePdf} disabled={pdfBusy}>
-              {pdfBusy ? 'Preparing PDF…' : '⬇ Download PDF'}
-            </button>
+            <Button variant="ghost" icon="download" onClick={handleDownload}>HTML</Button>
+            <Button icon="printer" onClick={handlePrint}>Print / save as PDF</Button>
+            <Button variant="accent" icon="download" onClick={handlePdf} loading={pdfBusy}>
+              {pdfBusy ? 'Preparing PDF…' : 'Download PDF'}
+            </Button>
           </>
         )}
       />
@@ -88,16 +89,9 @@ export default function CmsFeatures() {
       {doc && (
         <iframe
           ref={frameRef}
-          title="CMS ERP Product Specifications"
+          title="CMS ERP product specifications"
           srcDoc={doc.html}
-          style={{
-            width: '100%',
-            height: 'calc(100vh - 180px)',
-            minHeight: 600,
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            background: '#fff',
-          }}
+          className="mp-spec-frame"
         />
       )}
     </>

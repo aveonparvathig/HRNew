@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { platformAPI, type PlatformAuditEntry } from '../../api/platform';
-import { EmptyState, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { PageHeader, EmptyState, LoadingBlock, ErrorAlert } from '../../components/ui';
 
 const dateTime = (d: string) =>
   new Date(d).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -38,12 +38,10 @@ export default function PlatformAudit() {
 
   return (
     <>
-      <div className="platform-head">
-        <div>
-          <h1>Audit log</h1>
-          <p className="text-muted">Every platform-owner action, newest first. Only what changed is recorded.</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Audit log"
+        subtitle="Every platform-owner action, newest first. Only what changed is recorded."
+      />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
@@ -59,15 +57,15 @@ export default function PlatformAudit() {
               <tbody>
                 {(audit || []).map(a => (
                   <tr key={a.id}>
-                    <td className="text-muted" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{dateTime(a.createdAt)}</td>
+                    <td className="pf-date">{dateTime(a.createdAt)}</td>
                     <td><span className={`badge ${ACTION_TONE[a.action] || 'badge-neutral'}`}>{ACTION_LABEL[a.action] || a.action}</span></td>
                     <td>
                       {a.orgName
                         ? <Link to={`/platform/tenants/${a.organizationId}`}>{a.orgName}</Link>
                         : <span className="text-muted">{a.organizationId ? (a.detail || '—') : '—'}</span>}
                     </td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{a.actorEmail}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{a.detail || '—'}</td>
+                    <td className="text-sm-muted">{a.actorEmail}</td>
+                    <td className="text-sm-muted">{a.detail || '—'}</td>
                   </tr>
                 ))}
               </tbody>
