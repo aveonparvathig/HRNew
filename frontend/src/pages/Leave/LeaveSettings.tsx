@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { leaveAPI } from '../../api/leave';
 import { PageHeader, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button } from '../../components/Button';
 import { toast } from '../../components/feedback';
 import { type WeekOffRule, ORDINAL, WEEK_NUMBERS, WEEK_PRESETS } from '../../utils/weekOff';
 
@@ -113,36 +114,36 @@ export default function LeaveSettings() {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {settings && (
-        <div className="card card-pad" style={{ maxWidth: 620 }}>
-          <div className="field" style={{ marginBottom: 20 }}>
+        <div className="card card-pad lr-settings-card">
+          <div className="field">
             <label>Weekly off days</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            <div className="lr-days">
               {DAYS.map((d, i) => {
                 const mode = dayMode(i);
                 const rule = rules().find(r => r.day === i);
                 return (
-                  <div key={i} style={{ paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, minWidth: 108 }}>
+                  <div key={i} className="lr-day">
+                    <div className="lr-day-head">
+                      <label className="lr-check">
                         <input type="checkbox" checked={mode !== 'none'} onChange={e => enableDay(i, e.target.checked)} /> {d}
                       </label>
                       {mode !== 'none' && (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button type="button" className={`btn btn-sm ${mode === 'every' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setMode(i, 'every')}>Every week</button>
-                          <button type="button" className={`btn btn-sm ${mode === 'weeks' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setMode(i, 'weeks')}>Specific weeks</button>
+                        <div className="lr-mode-btns">
+                          <Button size="sm" variant={mode === 'every' ? 'primary' : 'secondary'} aria-pressed={mode === 'every'} onClick={() => setMode(i, 'every')}>Every week</Button>
+                          <Button size="sm" variant={mode === 'weeks' ? 'primary' : 'secondary'} aria-pressed={mode === 'weeks'} onClick={() => setMode(i, 'weeks')}>Specific weeks</Button>
                         </div>
                       )}
                     </div>
                     {mode === 'weeks' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, marginLeft: 24 }}>
+                      <div className="lr-day-weeks">
                         {WEEK_NUMBERS.map(w => (
-                          <button type="button" key={w} style={{ minWidth: 40, padding: '2px 6px' }}
-                            className={`btn btn-sm ${rule?.weeks.includes(w) ? 'btn-primary' : 'btn-secondary'}`}
-                            onClick={() => toggleWeek(i, w)}>{ORDINAL[w - 1]}</button>
+                          <Button key={w} size="sm" className="lr-week-btn"
+                            variant={rule?.weeks.includes(w) ? 'primary' : 'secondary'} aria-pressed={!!rule?.weeks.includes(w)}
+                            onClick={() => toggleWeek(i, w)}>{ORDINAL[w - 1]}</Button>
                         ))}
-                        <span className="text-muted" style={{ margin: '0 2px' }}>·</span>
+                        <span className="lr-sep" aria-hidden="true">·</span>
                         {WEEK_PRESETS.map(p => (
-                          <button type="button" key={p.label} className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => applyPreset(i, p.weeks)}>{p.label}</button>
+                          <Button key={p.label} variant="ghost" size="sm" className="lr-preset" onClick={() => applyPreset(i, p.weeks)}>{p.label}</Button>
                         ))}
                       </div>
                     )}
@@ -153,44 +154,44 @@ export default function LeaveSettings() {
             <small className="text-muted">Excluded from leave-day counts. Holidays are excluded too. “Specific weeks” means the nth occurrence of that day in the month — e.g. 2nd &amp; 4th Saturday.</small>
           </div>
 
-          <div className="field" style={{ marginBottom: 20 }}>
-            <label>Leave year starts in</label>
-            <select className="select" style={{ maxWidth: 220 }} value={settings.leaveYearStartMonth}
+          <div className="field">
+            <label htmlFor="lr-year-start">Leave year starts in</label>
+            <select id="lr-year-start" className="select lr-narrow" value={settings.leaveYearStartMonth}
               onChange={e => setSettings({ ...settings, leaveYearStartMonth: Number(e.target.value) })}>
               {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
             <small className="text-muted">January = calendar-year balances (the greytHR default).</small>
           </div>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20, fontSize: 14 }}>
+          <label className="lr-toggle-row">
             <input type="checkbox" checked={settings.hrApplyOnBehalf} onChange={e => setSettings({ ...settings, hrApplyOnBehalf: e.target.checked })} />
             Let HR apply for leave on behalf of employees
           </label>
 
-          <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving…' : 'Save settings'}</button>
+          <Button variant="accent" onClick={save} loading={saving}>{saving ? 'Saving…' : 'Save settings'}</Button>
         </div>
       )}
 
-      <div className="card card-pad" style={{ marginTop: 20 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <h3 style={{ fontSize: 15, margin: 0 }}>Leave types</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => openType()}>+ Add type</button>
+      <div className="card card-pad lr-section">
+        <div className="lr-card-head">
+          <h3 className="lr-section-title">Leave types</h3>
+          <Button size="sm" icon="plus" onClick={() => openType()}>Add type</Button>
         </div>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+        <p className="text-sm-muted lr-section-lede">
           Each type's policy: paid/unpaid, how it accrues, and an optional reviewer (sends requests of that type to one person instead of the reporting chain).
         </p>
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>Code</th><th>Name</th><th>Paid</th><th>Accrual</th><th>Reviewer</th><th /></tr></thead>
+            <thead><tr><th>Code</th><th>Name</th><th>Paid</th><th>Accrual</th><th>Reviewer</th><th><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {meta.types.map((t: any) => (
                 <tr key={t.id}>
                   <td><span className="badge badge-neutral">{t.code}</span></td>
                   <td>{t.name}</td>
                   <td>{t.paid ? 'Paid' : <span className="badge badge-warning">Unpaid</span>}</td>
-                  <td className="text-muted">{accrualLabel(t)}</td>
-                  <td className="text-muted" style={{ fontSize: 12.5 }}>{t.reviewerId ? (meta.employees.find((e: any) => e.id === t.reviewerId)?.name || 'Reviewer') : 'Reporting chain'}</td>
-                  <td><div className="row-actions"><button className="btn btn-secondary btn-sm" onClick={() => openType(t)}>Edit</button></div></td>
+                  <td className="text-muted lr-date">{accrualLabel(t)}</td>
+                  <td className="text-sm-muted">{t.reviewerId ? (meta.employees.find((e: any) => e.id === t.reviewerId)?.name || 'Reviewer') : 'Reporting chain'}</td>
+                  <td><div className="row-actions"><Button size="sm" icon="pen" onClick={() => openType(t)}>Edit</Button></div></td>
                 </tr>
               ))}
             </tbody>
@@ -199,57 +200,57 @@ export default function LeaveSettings() {
       </div>
 
       <Modal title={typeForm.id ? `Edit ${typeForm.code}` : 'Add leave type'} open={typeOpen} onClose={() => setTypeOpen(false)}>
-        <form onSubmit={saveType}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+        <form onSubmit={saveType} className="lr-form">
+          <div className="form-grid">
             <div className="field">
-              <label>Code *</label>
-              <input className="input" required value={typeForm.code} disabled={!!typeForm.id}
+              <label htmlFor="lr-type-code">Code *</label>
+              <input id="lr-type-code" className="input" required value={typeForm.code} disabled={!!typeForm.id}
                 onChange={e => setTypeForm({ ...typeForm, code: e.target.value.toUpperCase() })} placeholder="e.g. ML" />
             </div>
             <div className="field">
-              <label>Name *</label>
-              <input className="input" required value={typeForm.name} onChange={e => setTypeForm({ ...typeForm, name: e.target.value })} />
+              <label htmlFor="lr-type-name">Name *</label>
+              <input id="lr-type-name" className="input" required value={typeForm.name} onChange={e => setTypeForm({ ...typeForm, name: e.target.value })} />
             </div>
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid">
             <div className="field">
-              <label>Accrual</label>
-              <select className="select" value={typeForm.accrualFrequency} onChange={e => setTypeForm({ ...typeForm, accrualFrequency: e.target.value })}>
+              <label htmlFor="lr-type-accrual">Accrual</label>
+              <select id="lr-type-accrual" className="select" value={typeForm.accrualFrequency} onChange={e => setTypeForm({ ...typeForm, accrualFrequency: e.target.value })}>
                 <option value="NONE">Manual only</option>
                 <option value="MONTHLY">Monthly</option>
                 <option value="ANNUAL">Annual</option>
               </select>
             </div>
             {typeForm.accrualFrequency === 'MONTHLY' && (
-              <div className="field"><label>Days / month</label><input className="input" type="number" step="0.25" value={typeForm.accrualRate} onChange={e => setTypeForm({ ...typeForm, accrualRate: e.target.value })} /></div>
+              <div className="field"><label htmlFor="lr-type-rate">Days / month</label><input id="lr-type-rate" className="input" type="number" step="0.25" value={typeForm.accrualRate} onChange={e => setTypeForm({ ...typeForm, accrualRate: e.target.value })} /></div>
             )}
             {typeForm.accrualFrequency === 'ANNUAL' && (
-              <div className="field"><label>Days / year</label><input className="input" type="number" step="0.5" value={typeForm.annualQuota} onChange={e => setTypeForm({ ...typeForm, annualQuota: e.target.value })} /></div>
+              <div className="field"><label htmlFor="lr-type-quota">Days / year</label><input id="lr-type-quota" className="input" type="number" step="0.5" value={typeForm.annualQuota} onChange={e => setTypeForm({ ...typeForm, annualQuota: e.target.value })} /></div>
             )}
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Reviewer</label>
-            <select className="select" value={typeForm.reviewerId} onChange={e => setTypeForm({ ...typeForm, reviewerId: e.target.value })}>
+          <div className="field">
+            <label htmlFor="lr-type-reviewer">Reviewer</label>
+            <select id="lr-type-reviewer" className="select" value={typeForm.reviewerId} onChange={e => setTypeForm({ ...typeForm, reviewerId: e.target.value })}>
               <option value="">Reporting manager (chain)</option>
               {meta.employees.map((e2: any) => <option key={e2.id} value={e2.id}>{e2.name}{e2.employeeNo ? ` (${e2.employeeNo})` : ''}</option>)}
             </select>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Gender</label>
-            <select className="select" style={{ maxWidth: 220 }} value={typeForm.genderGate} onChange={e => setTypeForm({ ...typeForm, genderGate: e.target.value })}>
+          <div className="field">
+            <label htmlFor="lr-type-gender">Gender</label>
+            <select id="lr-type-gender" className="select lr-narrow" value={typeForm.genderGate} onChange={e => setTypeForm({ ...typeForm, genderGate: e.target.value })}>
               <option value="">Any</option><option value="F">Female only</option><option value="M">Male only</option>
             </select>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginBottom: 18, fontSize: 13 }}>
+          <div className="lr-checks lr-checks-wide">
             {[['paid', 'Paid (unchecked = LOP)'], ['halfDayAllowed', 'Half-day allowed'], ['requiresAttachment', 'Requires document'], ['eligibleAfterProbation', 'After probation only'], ['encashable', 'Encashable']].map(([k, label]) => (
-              <label key={k} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <label key={k} className="lr-check">
                 <input type="checkbox" checked={!!typeForm[k]} onChange={e => setTypeForm({ ...typeForm, [k]: e.target.checked })} /> {label}
               </label>
             ))}
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setTypeOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={typeSaving}>{typeSaving ? 'Saving…' : 'Save type'}</button>
+            <Button variant="ghost" onClick={() => setTypeOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={typeSaving}>{typeSaving ? 'Saving…' : 'Save type'}</Button>
           </div>
         </form>
       </Modal>

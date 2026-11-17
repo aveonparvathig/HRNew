@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { leaveAPI } from '../../api/leave';
 import { PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Tabs } from '../../components/Tabs';
 import { toast } from '../../components/feedback';
 import { formatDate } from '../../utils/format';
 import { useRole } from '../../store/authStore';
@@ -71,12 +73,14 @@ export default function LeaveList() {
 
   if (loading && !data) return <LoadingBlock label="Loading leave…" />;
 
+  const openApply = () => { setForm({ ...EMPTY, personId: personId || '' }); setShowModal(true); };
+
   return (
     <>
       <PageHeader
         title="Leave"
         subtitle="Apply for leave, track approvals and balances."
-        actions={<button className="btn btn-primary" onClick={() => { setForm({ ...EMPTY, personId: personId || '' }); setShowModal(true); }}>+ Apply for Leave</button>}
+        actions={<Button variant="accent" icon="plus" onClick={openApply}>Apply for leave</Button>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
@@ -84,32 +88,32 @@ export default function LeaveList() {
       {overview && (
         <>
           <div className="stat-grid">
-            <StatCard label="On leave today" value={overview.onLeaveToday} icon="◷" tone="primary" />
-            <StatCard label="Pending approvals" value={overview.pending} icon="◴" tone="warning" />
+            <StatCard label="On leave today" value={overview.onLeaveToday} icon="calendar" tone="primary" />
+            <StatCard label="Pending approvals" value={overview.pending} icon="clock" tone="warning" />
             <StatCard label="Approved this year" value={overview.byType.reduce((s: number, t: any) => s + t.days, 0)}
-              sub="days" icon="✓" tone="success" />
-            <StatCard label="Leave types used" value={overview.byType.length} icon="◆" tone="info" />
+              sub="days" icon="checkCircle" tone="success" />
+            <StatCard label="Leave types used" value={overview.byType.length} icon="layers" tone="info" />
           </div>
           {(overview.byType.length > 0 || overview.thisWeek.length > 0) && (
-            <div className="platform-cards-2" style={{ marginBottom: 16 }}>
+            <div className="platform-cards-2 lr-overview">
               <div className="card">
-                <h3 style={{ fontSize: 14, marginBottom: 10 }}>Leave taken this year, by type</h3>
+                <h3 className="lr-card-title">Leave taken this year, by type</h3>
                 {overview.byType.length === 0 ? <p className="text-muted">None yet.</p> : (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  <div className="lr-type-chips">
                     {overview.byType.map((t: any) => (
-                      <span key={t.code} className="badge badge-neutral" style={{ fontSize: 12.5 }}>{t.code}: <strong>{t.days}</strong> d</span>
+                      <span key={t.code} className="badge badge-neutral">{t.code}: <strong className="num">{t.days}</strong> d</span>
                     ))}
                   </div>
                 )}
               </div>
               <div className="card">
-                <h3 style={{ fontSize: 14, marginBottom: 10 }}>On leave this week</h3>
+                <h3 className="lr-card-title">On leave this week</h3>
                 {overview.thisWeek.length === 0 ? <p className="text-muted">Nobody on leave this week.</p> : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <div className="lr-week">
                     {overview.thisWeek.slice(0, 6).map((r: any, i: number) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                      <div key={i} className="lr-week-row">
                         <span>{r.name} <span className="badge badge-neutral">{r.code}</span></span>
-                        <span className="text-muted" style={{ fontSize: 12 }}>{formatDate(r.startDate)}{r.endDate !== r.startDate ? `–${formatDate(r.endDate)}` : ''}</span>
+                        <span className="lr-date">{formatDate(r.startDate)}{r.endDate !== r.startDate ? `–${formatDate(r.endDate)}` : ''}</span>
                       </div>
                     ))}
                   </div>
@@ -124,24 +128,24 @@ export default function LeaveList() {
         <div className="stat-grid">
           {myBalances.filter(b => b.paid).slice(0, 4).map(b => (
             <StatCard key={b.leaveTypeId} label={`${b.code} balance`} value={b.balance}
-              sub={`${b.availed} availed of ${b.granted}`} icon="◷" tone="info" />
+              sub={`${b.availed} availed of ${b.granted}`} icon="calendar" tone="info" />
           ))}
         </div>
       )}
 
-      <div className="segmented" style={{ marginBottom: 14, display: 'inline-flex' }}>
-        <button type="button" className={awaiting ? '' : 'active'} onClick={() => setAwaiting(false)}>All requests</button>
-        <button type="button" className={awaiting ? 'active' : ''} onClick={() => setAwaiting(true)}>
-          Awaiting my approval{awaitingCount ? ` (${awaitingCount})` : ''}
-        </button>
-      </div>
+      <Tabs label="Leave requests view" value={awaiting ? 'awaiting' : 'all'}
+        onChange={k => setAwaiting(k === 'awaiting')}
+        items={[
+          { key: 'all', label: 'All requests' },
+          { key: 'awaiting', label: 'Awaiting my approval', count: awaitingCount || undefined },
+        ]} />
 
       {!awaiting && (
         <div className="toolbar">
           <div className="search-input">
-            <input className="input" placeholder="Search by number, reason or employee…" value={q} onChange={e => setQ(e.target.value)} />
+            <input className="input" aria-label="Search leave requests" placeholder="Search by number, reason or employee…" value={q} onChange={e => setQ(e.target.value)} />
           </div>
-          <select className="select" value={status} onChange={e => setStatus(e.target.value)}>
+          <select className="select" aria-label="Status" value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">All statuses</option>
             {meta.statuses.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
@@ -152,23 +156,23 @@ export default function LeaveList() {
         {(data?.requests || []).length === 0 ? (
           <EmptyState icon="◷" title={awaiting ? 'Nothing awaiting your approval' : q || status ? 'No matching requests' : 'No leave requests yet'}
             message={awaiting ? 'Requests waiting for your sign-off will appear here.' : 'Apply for leave — it routes to your manager for approval.'}
-            action={!awaiting && !(q || status) && <button className="btn btn-primary" onClick={() => { setForm({ ...EMPTY, personId: personId || '' }); setShowModal(true); }}>+ Apply for Leave</button>} />
+            action={!awaiting && !(q || status) && <Button icon="plus" onClick={openApply}>Apply for leave</Button>} />
         ) : (
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Request</th><th>Employee</th><th>Type</th><th>Dates</th><th className="num">Days</th><th>Status</th><th /></tr>
+                <tr><th>Request</th><th>Employee</th><th>Type</th><th>Dates</th><th className="num">Days</th><th>Status</th><th><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {data.requests.map((r: any) => (
                   <tr key={r.id}>
-                    <td><Link to={`/leave/${r.id}`} style={{ fontWeight: 600 }}>{r.requestNumber}</Link></td>
+                    <td><Link to={`/leave/${r.id}`} className="lr-strong">{r.requestNumber}</Link></td>
                     <td className="text-muted">{r.person.name}</td>
-                    <td><span className="badge badge-neutral">{r.leaveType.code}</span>{!r.leaveType.paid && <span className="badge badge-warning" style={{ marginLeft: 4 }}>LOP</span>}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{formatDate(r.startDate)}{r.endDate !== r.startDate ? ` – ${formatDate(r.endDate)}` : ''}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{r.days}</td>
+                    <td><span className="badge badge-neutral">{r.leaveType.code}</span>{!r.leaveType.paid && <span className="badge badge-warning lr-tag">LOP</span>}</td>
+                    <td className="lr-date">{formatDate(r.startDate)}{r.endDate !== r.startDate ? ` – ${formatDate(r.endDate)}` : ''}</td>
+                    <td className="num lr-strong">{r.days}</td>
                     <td><span className={`badge ${LEAVE_STATUS_TONES[r.status]}`}>{r.status.toLowerCase()}</span></td>
-                    <td><div className="row-actions"><Link to={`/leave/${r.id}`} className="btn btn-secondary btn-sm">Open</Link></div></td>
+                    <td><div className="row-actions"><ButtonLink to={`/leave/${r.id}`} size="sm">Open</ButtonLink></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -177,46 +181,46 @@ export default function LeaveList() {
         )}
       </div>
 
-      <Modal title="Apply for Leave" open={showModal} onClose={() => setShowModal(false)}>
-        <form onSubmit={handleCreate}>
+      <Modal title="Apply for leave" open={showModal} onClose={() => setShowModal(false)}>
+        <form onSubmit={handleCreate} className="lr-form">
           {canManagePeople && (
-            <div className="field" style={{ marginBottom: 14 }}>
-              <label>Employee *</label>
-              <select className="select" required value={form.personId} onChange={e => setForm({ ...form, personId: e.target.value })}>
+            <div className="field">
+              <label htmlFor="lr-apply-person">Employee *</label>
+              <select id="lr-apply-person" className="select" required value={form.personId} onChange={e => setForm({ ...form, personId: e.target.value })}>
                 <option value="">Select employee…</option>
                 {meta.employees.map((e2: any) => <option key={e2.id} value={e2.id}>{e2.name}{e2.employeeNo ? ` (${e2.employeeNo})` : ''}</option>)}
               </select>
               {!personId && <small className="text-muted">Your login isn't linked to an employee, so pick who this is for.</small>}
             </div>
           )}
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Leave type *</label>
-            <select className="select" required value={form.leaveTypeId} onChange={e => setForm({ ...form, leaveTypeId: e.target.value })}>
+          <div className="field">
+            <label htmlFor="lr-apply-type">Leave type *</label>
+            <select id="lr-apply-type" className="select" required value={form.leaveTypeId} onChange={e => setForm({ ...form, leaveTypeId: e.target.value })}>
               <option value="">Select type…</option>
               {meta.types.map((t: any) => <option key={t.id} value={t.id}>{t.code} — {t.name}{t.paid ? '' : ' (unpaid)'}</option>)}
             </select>
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid">
             <div className="field">
-              <label>From *</label>
-              <input className="input" type="date" required value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value, endDate: form.endDate || e.target.value })} />
+              <label htmlFor="lr-apply-from">From *</label>
+              <input id="lr-apply-from" className="input" type="date" required value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value, endDate: form.endDate || e.target.value })} />
             </div>
             <div className="field">
-              <label>To *</label>
-              <input className="input" type="date" required value={form.endDate} min={form.startDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
+              <label htmlFor="lr-apply-to">To *</label>
+              <input id="lr-apply-to" className="input" type="date" required value={form.endDate} min={form.startDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 18, marginBottom: 14, fontSize: 13 }}>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={form.halfDayStart} onChange={e => setForm({ ...form, halfDayStart: e.target.checked })} /> Half day on start</label>
-            <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={form.halfDayEnd} onChange={e => setForm({ ...form, halfDayEnd: e.target.checked })} /> Half day on end</label>
+          <div className="lr-checks">
+            <label className="lr-check"><input type="checkbox" checked={form.halfDayStart} onChange={e => setForm({ ...form, halfDayStart: e.target.checked })} /> Half day on start</label>
+            <label className="lr-check"><input type="checkbox" checked={form.halfDayEnd} onChange={e => setForm({ ...form, halfDayEnd: e.target.checked })} /> Half day on end</label>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Reason</label>
-            <textarea className="input" rows={2} value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
+          <div className="field">
+            <label htmlFor="lr-apply-reason">Reason</label>
+            <textarea id="lr-apply-reason" className="input" rows={2} value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} />
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Creating…' : 'Continue'}</button>
+            <Button variant="ghost" onClick={() => setShowModal(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Creating…' : 'Continue'}</Button>
           </div>
         </form>
       </Modal>

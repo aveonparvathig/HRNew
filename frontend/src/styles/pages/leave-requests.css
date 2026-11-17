@@ -1,0 +1,58 @@
+/* Leave redesign: requests. */
+
+/* Shared: modal fields stack with a 14px rhythm; checkbox rows. */
+.lr-form { display: flex; flex-direction: column; gap: 14px; }
+.lr-form .form-actions { margin-top: 4px; }
+.lr-checks { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 13px; }
+.lr-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text); }
+.lr-date { font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.lr-date { font-size: 12.5px; color: var(--text-2); }
+.lr-strong { font-weight: 600; }
+.lr-tag { margin-left: 6px; }
+.lr-card-title { font-size: 14px; font-weight: 600; margin: 0 0 10px; }
+.lr-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.lr-card-head .lr-card-title { margin: 0; }
+.lr-preview { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; }
+.lr-preview-sub { font-size: 12px; color: var(--text-3); margin-top: 6px; }
+.lr-narrow { max-width: 220px; }
+
+/* LeaveList */
+.lr-overview { margin-bottom: 16px; }
+.lr-type-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.lr-type-chips .badge { font-size: 12.5px; }
+.lr-week { display: flex; flex-direction: column; gap: 6px; }
+.lr-week-row { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.lr-week-row .lr-date { font-size: 12px; color: var(--text-3); }
+
+/* LeaveRequestEditor: definition rows */
+.lr-detail-row { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.lr-detail-row:last-child { border-bottom: 0; }
+.lr-detail-label { flex: 0 0 130px; color: var(--text-3); }
+.lr-detail-value { flex: 1; min-width: 0; }
+.lr-step-body { min-width: 0; }
+
+/* LeaveSettings */
+.lr-settings-card { max-width: 620px; }
+.lr-settings-card > .field { margin-bottom: 20px; }
+.lr-days { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.lr-day { padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.lr-day-head { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.lr-day-head .lr-check { min-width: 108px; }
+.lr-day-weeks { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 0 24px; }
+.lr-week-btn { min-width: 40px; padding: 2px 6px; }
+.lr-sep { color: var(--text-3); margin: 0 2px; }
+.lr-toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; font-size: 14px; color: var(--text); }
+.lr-section { margin-top: 20px; }
+.lr-section .lr-card-head { margin-bottom: 6px; }
+.lr-section-title { font-size: 15px; font-weight: 600; margin: 0; }
+.lr-checks-wide { gap: 10px 14px; }
+
+/* LeaveBalances */
+.lr-person-select { min-width: 240px; }
+.lr-balance { font-weight: 700; }
+.lr-details-title { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+.lr-alert-icon { flex: none; }
+.lr-form .modal-lede { margin-bottom: 0; }
+.lr-preset { font-size: 12px; }
+.lr-section-lede { margin-bottom: 14px; }
+.lr-mode-btns { display: flex; gap: 6px; }
