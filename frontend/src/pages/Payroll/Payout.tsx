@@ -4,6 +4,8 @@ import { payrollAPI } from '../../api/payroll';
 import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton, SuccessAlert,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
 
@@ -135,9 +137,9 @@ export default function Payout() {
         title={`Payout — ${monthLabel(run.period)}`}
         subtitle={`${data.stage.label} · ${data.stage.paidCount} of ${data.stage.payable} salaries paid`}
         actions={<>
-          <Link to={`/payroll/runs/${run.id}/reports/payment-register`} className="btn btn-secondary">Payment Register</Link>
-          <Link to={`/payroll/runs/${run.id}/reports/cash-cheque`} className="btn btn-secondary">Cash & Cheque</Link>
-          <Link to={`/payroll/runs/${run.id}/reports/payout-reconciliation`} className="btn btn-secondary">Reconciliation</Link>
+          <ButtonLink to={`/payroll/runs/${run.id}/reports/payment-register`}>Payment register</ButtonLink>
+          <ButtonLink to={`/payroll/runs/${run.id}/reports/cash-cheque`}>Cash and cheque</ButtonLink>
+          <ButtonLink to={`/payroll/runs/${run.id}/reports/payout-reconciliation`}>Reconciliation</ButtonLink>
         </>}
       />
 
@@ -145,26 +147,26 @@ export default function Payout() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
       {!finalized && (
         <div className="alert alert-warning">
-          <span>◷</span>
+          <Icon name="clock" size={16} className="pr-alert-icon" />
           <span>This run is still a draft. Finalize it before creating payment batches; the amounts below may still change.</span>
         </div>
       )}
 
       <div className="stat-grid">
-        <StatCard label="To pay" value={formatINR(totals.payable.amount)} icon="₹" tone="primary"
+        <StatCard label="To pay" value={formatINR(totals.payable.amount)} icon="banknote" tone="primary"
           sub={`${totals.payable.count} salaries, net pay plus claims`} />
-        <StatCard label="Paid" value={formatINR(totals.paid.amount)} icon="✓" tone="success"
+        <StatCard label="Paid" value={formatINR(totals.paid.amount)} icon="checkCircle" tone="success"
           sub={`${totals.paid.count} salaries`} />
-        <StatCard label="Not yet paid" value={formatINR(totals.unpaid.amount + totals.inBatch.amount)} icon="◷" tone="warning"
+        <StatCard label="Not yet paid" value={formatINR(totals.unpaid.amount + totals.inBatch.amount)} icon="clock" tone="warning"
           sub={`${totals.unpaid.count} not in a batch, ${totals.inBatch.count} in a batch`} />
-        <StatCard label="On hold" value={formatINR(totals.held.amount)} icon="⏸" tone="info"
+        <StatCard label="On hold" value={formatINR(totals.held.amount)} icon="shield" tone="info"
           sub={totals.held.count ? `${totals.held.count} ${totals.held.count === 1 ? 'salary' : 'salaries'} held back` : 'None'} />
       </div>
 
       {finalized && data.unpaidByMode.length > 0 && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Ready to pay</h3>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+          <h3 className="pr-card-title">Ready to pay</h3>
+          <p className="text-sm-muted mb-14">
             A batch takes every unpaid salary of one payment mode. An employee's mode is set on their profile.
           </p>
           <div className="report-grid">
@@ -174,7 +176,7 @@ export default function Payout() {
                   mode: m.mode, label: m.label, count: m.count, amount: m.amount, payDate: data.today, reference: '', notes: '',
                   bankAccountId: m.mode === 'BANK' ? data.bankAccounts[0]?.id || '' : '',
                 })}>
-                <strong>{m.label} — {formatINR(m.amount)}</strong>
+                <strong>{m.label} — <span className="num">{formatINR(m.amount)}</span></strong>
                 <span>
                   {m.count} {m.count === 1 ? 'salary' : 'salaries'} ready. Create a batch.
                   {m.missingBank > 0 && ` ${m.missingBank} left out: account number or IFSC missing.`}
@@ -183,7 +185,7 @@ export default function Payout() {
             ))}
           </div>
           {outside.payable.count > 0 && (
-            <p className="text-muted" style={{ fontSize: 12.5, marginTop: 14 }}>
+            <p className="text-sm-muted pr-mt-14">
               Already paid some other way, or before payments were recorded here?{' '}
               <button className="link-button" onClick={() => setOutsideForm({ payDate: outside.suggestedDate, reference: '', earlier: false })}>
                 Mark this month as paid outside the system
@@ -194,19 +196,19 @@ export default function Payout() {
       )}
 
       {outside.paid.count > 0 && (
-        <div className="alert alert-warning" style={{ background: 'var(--info-soft)', color: 'var(--info)', borderColor: '#CFE2FB' }}>
-          <span>ℹ</span>
-          <span style={{ flex: 1 }}>
+        <div className="alert alert-info">
+          <Icon name="info" size={16} className="pr-alert-icon" />
+          <span className="pr-grow">
             {outside.paid.count} {outside.paid.count === 1 ? 'salary' : 'salaries'} ({formatINR(outside.paid.amount)}) marked as paid outside the system, with no payment batch.
           </span>
-          <button className="btn btn-secondary btn-sm" disabled={saving}
+          <Button size="sm" disabled={saving}
             onClick={async () => await confirmDialog({
               title: 'Undo the payment marking?',
               message: `${outside.paid.count} ${outside.paid.count === 1 ? 'salary' : 'salaries'} of ${monthLabel(run.period)} will show as unpaid again.`,
               confirmLabel: 'Undo',
             }) && act(() => payrollAPI.undoPaidOutside(run.id))}>
             Undo
-          </button>
+          </Button>
         </div>
       )}
 
@@ -224,34 +226,34 @@ export default function Payout() {
               <tbody>
                 {data.batches.map((b: any) => (
                   <tr key={b.id}>
-                    <td style={{ fontWeight: 600 }}>{b.batchRef || `#${b.batchNo}`}<div className="text-muted" style={{ fontSize: 11.5, fontWeight: 400 }}>{b.createdBy}</div></td>
+                    <td><span className="pr-strong num">{b.batchRef || `#${b.batchNo}`}</span><div className="pr-sub">{b.createdBy}</div></td>
                     <td>
                       {b.modeLabel}
-                      {b.bankAccount && <div className="text-muted" style={{ fontSize: 11.5 }}>from {b.bankAccount}</div>}
+                      {b.bankAccount && <div className="pr-sub">from {b.bankAccount}</div>}
                     </td>
                     <td>{formatDate(b.payDate)}</td>
                     <td>{b.reference || <span className="text-muted">—</span>}</td>
                     <td className="num">{b.count}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(b.total)}</td>
+                    <td className="num pr-strong">{formatINR(b.total)}</td>
                     <td><span className={`badge ${b.status === 'PAID' ? 'badge-success' : 'badge-info'}`}>{b.status === 'PAID' ? 'Paid' : 'Prepared'}</span></td>
                     <td>
                       <div className="row-actions">
                         {b.mode === 'BANK' && (
                           <>
-                            <button className="btn btn-secondary btn-sm" onClick={() => downloadBankFile(b)}>⤓ Bank File</button>
-                            <Link to={`/payroll/reports/bank-advice?batchId=${b.id}`} className="btn btn-secondary btn-sm">Bank Advice</Link>
+                            <Button size="sm" onClick={() => downloadBankFile(b)}>Bank file</Button>
+                            <ButtonLink to={`/payroll/reports/bank-advice?batchId=${b.id}`} size="sm">Bank advice</ButtonLink>
                           </>
                         )}
                         {b.status !== 'PAID' && (
-                          <button className="btn btn-primary btn-sm" onClick={() => openPaid(b)}>Mark Paid</button>
+                          <Button variant="primary" size="sm" onClick={() => openPaid(b)}>Mark paid</Button>
                         )}
-                        <button className="btn btn-danger btn-sm" disabled={saving}
+                        <Button variant="danger" size="sm" disabled={saving}
                           onClick={async () => await confirmDialog(b.status === 'PAID'
                             ? `Delete batch #${b.batchNo}? Its ${b.count} salaries will show as unpaid again.`
                             : `Delete batch #${b.batchNo}?`)
                             && act(() => payrollAPI.deletePayoutBatch(b.id))}>
                           Delete
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -261,7 +263,7 @@ export default function Payout() {
           </div>
         )}
         {data.batches.some((b: any) => b.mode === 'BANK') && !hasAccount && (
-          <p className="text-muted" style={{ fontSize: 12.5, padding: '12px 22px' }}>
+          <p className="text-sm-muted pr-card-note">
             The bank advice needs the account salaries are paid from. Add it in{' '}
             <Link to="/organization?tab=bank">Company Settings → Bank accounts</Link>.
           </p>
@@ -292,40 +294,40 @@ export default function Payout() {
                 {rows.map((r: any) => (
                   <tr key={r.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{r.person.name}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo}</div>
+                      <span className="pr-strong">{r.person.name}</span>
+                      <div className="pr-sub num">{r.person.employeeNo}</div>
                     </td>
                     <td>
                       {r.modeLabel}
                       {r.mode === 'BANK' && !r.hasBankDetails && r.amount > 0 && (
-                        <div style={{ fontSize: 11.5, color: 'var(--danger)' }}>
-                          <Link to={`/people/${r.person.id}`} style={{ color: 'inherit' }}>Bank details missing</Link>
+                        <div className="pr-sub pr-sub-danger">
+                          <Link to={`/people/${r.person.id}`}>Bank details missing</Link>
                         </div>
                       )}
                     </td>
                     <td className="num">{formatINR(r.netPayable)}</td>
                     <td className="num text-muted">{r.reimbursement ? formatINR(r.reimbursement) : '—'}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.amount)}</td>
+                    <td className="num pr-strong">{formatINR(r.amount)}</td>
                     <td>
                       <span className={`badge ${STATE_BADGES[r.state][0]}`}>{STATE_BADGES[r.state][1]}</span>
-                      {r.state === 'IN_BATCH' && <span className="text-muted" style={{ fontSize: 11.5 }}> #{r.batchNo}</span>}
-                      {r.state === 'HELD' && r.holdReason && <div className="text-muted" style={{ fontSize: 11.5 }}>{r.holdReason}</div>}
+                      {r.state === 'IN_BATCH' && <span className="pr-sub num"> #{r.batchNo}</span>}
+                      {r.state === 'HELD' && r.holdReason && <div className="pr-sub">{r.holdReason}</div>}
                     </td>
                     <td>{r.paidOn ? formatDate(r.paidOn) : <span className="text-muted">—</span>}</td>
                     <td>{r.paymentRef || <span className="text-muted">—</span>}</td>
                     <td>
                       <div className="row-actions">
                         {r.state === 'HELD' && (
-                          <button className="btn btn-secondary btn-sm" disabled={saving}
+                          <Button size="sm" disabled={saving}
                             onClick={() => act(() => payrollAPI.releaseSalary(r.id), `${r.person.name}'s salary is released for payment.`)}>
                             Release
-                          </button>
+                          </Button>
                         )}
                         {r.state === 'IN_BATCH' && (
-                          <button className="btn btn-ghost btn-sm" disabled={saving}
+                          <Button variant="ghost" size="sm" disabled={saving}
                             onClick={() => act(() => payrollAPI.removeFromBatch(r.id))}>
-                            Take Out
-                          </button>
+                            Take out
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -338,28 +340,28 @@ export default function Payout() {
       </div>
 
       {/* New batch */}
-      <Modal title={batchForm ? `${batchForm.label} Batch` : ''} open={Boolean(batchForm)} onClose={() => setBatchForm(null)}>
+      <Modal title={batchForm ? `${batchForm.label} batch` : ''} open={Boolean(batchForm)} onClose={() => setBatchForm(null)}>
         {batchForm && (
           <form onSubmit={handleCreateBatch}>
-            <p style={{ fontSize: 13.5, marginBottom: 14 }}>
+            <p className="pr-modal-summary">
               <strong>{batchForm.count}</strong> {batchForm.count === 1 ? 'salary' : 'salaries'}, <strong>{formatINR(batchForm.amount)}</strong> in all.
             </p>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Payment date *</label>
-                <input className="input" type="date" required value={batchForm.payDate}
+                <label htmlFor="batch-date">Payment date *</label>
+                <input id="batch-date" className="input" type="date" required value={batchForm.payDate}
                   onChange={e => setBatchForm({ ...batchForm, payDate: e.target.value })} />
               </div>
               <div className="field">
-                <label>Reference</label>
-                <input className="input" value={batchForm.reference}
+                <label htmlFor="batch-ref">Reference</label>
+                <input id="batch-ref" className="input" value={batchForm.reference}
                   placeholder={batchForm.mode === 'BANK' ? 'Bank reference, if known' : ''}
                   onChange={e => setBatchForm({ ...batchForm, reference: e.target.value })} />
               </div>
               {batchForm.mode === 'BANK' && data.bankAccounts.length > 0 && (
-                <div className="field" style={{ gridColumn: '1 / -1' }}>
-                  <label>Paid from</label>
-                  <select className="select" value={batchForm.bankAccountId}
+                <div className="field pr-span-all">
+                  <label htmlFor="batch-account">Paid from</label>
+                  <select id="batch-account" className="select" value={batchForm.bankAccountId}
                     onChange={e => setBatchForm({ ...batchForm, bankAccountId: e.target.value })}>
                     {data.bankAccounts.map((a: any) => (
                       <option key={a.id} value={a.id}>{a.name}{a.isDefault ? ' (default)' : ''}</option>
@@ -368,18 +370,18 @@ export default function Payout() {
                   <span className="hint">The company account the bank transfer advice asks the bank to debit.</span>
                 </div>
               )}
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Notes</label>
-                <input className="input" value={batchForm.notes}
+              <div className="field pr-span-all">
+                <label htmlFor="batch-notes">Notes</label>
+                <input id="batch-notes" className="input" value={batchForm.notes}
                   onChange={e => setBatchForm({ ...batchForm, notes: e.target.value })} />
               </div>
             </div>
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 14 }}>
+            <p className="text-sm-muted mb-14">
               Creating the batch does not mark anything paid. {batchForm.mode === 'BANK' ? 'Download the bank file, make the transfer, then mark the batch paid.' : 'Mark it paid once the money has been handed over.'}
             </p>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setBatchForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Creating…' : 'Create Batch'}</button>
+              <Button variant="ghost" onClick={() => setBatchForm(null)}>Cancel</Button>
+              <Button type="submit" variant="primary" loading={saving}>{saving ? 'Creating…' : 'Create batch'}</Button>
             </div>
           </form>
         )}
@@ -389,73 +391,73 @@ export default function Payout() {
       <Modal title="Mark as paid outside the system" open={Boolean(outsideForm)} onClose={() => setOutsideForm(null)}>
         {outsideForm && (
           <form onSubmit={handlePaidOutside}>
-            <p style={{ fontSize: 13.5, marginBottom: 14 }}>
+            <p className="pr-modal-summary">
               <strong>{outside.payable.count}</strong> unpaid {outside.payable.count === 1 ? 'salary' : 'salaries'} of {monthLabel(run.period)},{' '}
               <strong>{formatINR(outside.payable.amount)}</strong> in all, will be marked as paid. No payment batch or bank file is made.
               Salaries on hold or already in a batch are left as they are.
             </p>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Paid on *</label>
-                <input className="input" type="date" required value={outsideForm.payDate}
+                <label htmlFor="outside-date">Paid on *</label>
+                <input id="outside-date" className="input" type="date" required value={outsideForm.payDate}
                   onChange={e => setOutsideForm({ ...outsideForm, payDate: e.target.value })} />
                 <span className="hint">Printed as the payment date in the payment and wage registers.</span>
               </div>
               <div className="field">
-                <label>Reference</label>
-                <input className="input" value={outsideForm.reference} placeholder="Paid outside the system"
+                <label htmlFor="outside-ref">Reference</label>
+                <input id="outside-ref" className="input" value={outsideForm.reference} placeholder="Paid outside the system"
                   onChange={e => setOutsideForm({ ...outsideForm, reference: e.target.value })} />
               </div>
             </div>
             {earlierCount > 0 && (
-              <label className="checkbox-field" style={{ alignItems: 'flex-start', marginBottom: 14 }}>
-                <input type="checkbox" style={{ marginTop: 2 }} checked={outsideForm.earlier}
+              <label className="checkbox-field pr-check-top mb-14">
+                <input type="checkbox" checked={outsideForm.earlier}
                   onChange={e => setOutsideForm({ ...outsideForm, earlier: e.target.checked })} />
                 <span>
                   Do the same for the {earlierCount} earlier {earlierCount === 1 ? 'month' : 'months'} with no payment recorded
                   ({monthLabel(outside.earlierMonths[0].period)}{earlierCount > 1 && <> to {monthLabel(outside.earlierMonths[earlierCount - 1].period)}</>}).
-                  <span className="text-muted" style={{ display: 'block', fontSize: 12 }}>
+                  <span className="pr-sub pr-block">
                     Each is marked paid on the last day of its own month. Correct a month's date by undoing it there and marking it again.
                   </span>
                 </span>
               </label>
             )}
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setOutsideForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Mark as Paid'}</button>
+              <Button variant="ghost" onClick={() => setOutsideForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Mark as paid'}</Button>
             </div>
           </form>
         )}
       </Modal>
 
       {/* Mark a batch paid */}
-      <Modal size="lg" title={paidForm ? `Mark Batch #${paidForm.batch.batchNo} Paid` : ''} open={Boolean(paidForm)} onClose={() => setPaidForm(null)}>
+      <Modal size="lg" title={paidForm ? `Mark batch #${paidForm.batch.batchNo} paid` : ''} open={Boolean(paidForm)} onClose={() => setPaidForm(null)}>
         {paidForm && (
           <form onSubmit={handleMarkPaid}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Paid on *</label>
-                <input className="input" type="date" required value={paidForm.payDate}
+                <label htmlFor="paid-date">Paid on *</label>
+                <input id="paid-date" className="input" type="date" required value={paidForm.payDate}
                   onChange={e => setPaidForm({ ...paidForm, payDate: e.target.value })} />
               </div>
               <div className="field">
-                <label>{paidForm.batch.mode === 'BANK' ? 'Bank reference (UTR)' : 'Reference'}</label>
-                <input className="input" value={paidForm.reference}
+                <label htmlFor="paid-ref">{paidForm.batch.mode === 'BANK' ? 'Bank reference (UTR)' : 'Reference'}</label>
+                <input id="paid-ref" className="input" value={paidForm.reference}
                   onChange={e => setPaidForm({ ...paidForm, reference: e.target.value })} />
                 <span className="hint">Used for every salary that has no reference of its own.</span>
               </div>
             </div>
             {paidForm.batch.mode !== 'BANK' && (
-              <div className="table-wrap" style={{ maxHeight: 280, overflowY: 'auto', marginBottom: 14 }}>
+              <div className="table-wrap pr-scroll-280 mb-14">
                 <table className="table">
                   <thead><tr><th>Employee</th><th className="num">Amount</th><th>{paidForm.batch.mode === 'CHEQUE' ? 'Cheque number' : 'Reference'}</th></tr></thead>
                   <tbody>
                     {paidForm.batch.entries.map((x: any) => (
                       <tr key={x.id}>
-                        <td style={{ fontWeight: 600 }}>{x.person.name}</td>
+                        <td className="pr-strong">{x.person.name}</td>
                         <td className="num">{formatINR(x.amount)}</td>
                         <td>
-                          <input className="input" style={{ maxWidth: 200 }} value={paidForm.refs[x.id] || ''}
+                          <input className="input pr-input-200" aria-label={`Reference for ${x.person.name}`} value={paidForm.refs[x.id] || ''}
                             onChange={e => setPaidForm({ ...paidForm, refs: { ...paidForm.refs, [x.id]: e.target.value } })} />
                         </td>
                       </tr>
@@ -464,12 +466,12 @@ export default function Payout() {
                 </table>
               </div>
             )}
-            <p style={{ fontSize: 13.5, marginBottom: 14 }}>
+            <p className="pr-modal-summary">
               {paidForm.batch.count} {paidForm.batch.count === 1 ? 'salary' : 'salaries'}, <strong>{formatINR(paidForm.batch.total)}</strong>, will be marked paid.
             </p>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setPaidForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Mark Paid'}</button>
+              <Button variant="ghost" onClick={() => setPaidForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Mark paid'}</Button>
             </div>
           </form>
         )}

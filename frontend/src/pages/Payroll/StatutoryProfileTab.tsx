@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
+import { Icon } from '../../components/Layout/nav';
 import { payrollAPI } from '../../api/payroll';
 import { LoadingBlock, ErrorAlert, SuccessAlert } from '../../components/ui';
 import ImageUpload from '../../components/ImageUpload';
+import { Button } from '../../components/Button';
 
 type Field = { key: string; label: string; placeholder?: string; upper?: boolean; type?: string; wide?: boolean; states?: boolean; flag?: boolean; digits?: number };
 
@@ -128,22 +130,22 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
   if (!form) return error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading…" />;
 
   const input = (f: Field) => (f.flag ? (
-    <label key={f.key} className="checkbox-field" style={{ gridColumn: '1 / -1' }}>
+    <label key={f.key} className="checkbox-field ps-span-all">
       <input type="checkbox" checked={Boolean(form[f.key])} onChange={e => set(f.key, e.target.checked)} />
       {f.label}
     </label>
   ) : f.states ? (
     <div key={f.key} className="field">
-      <label>{f.label}</label>
-      <select className="select" value={form[f.key] || ''} onChange={e => set(f.key, e.target.value)}>
+      <label htmlFor={`ps-sp-${f.key}`}>{f.label}</label>
+      <select id={`ps-sp-${f.key}`} className="select" value={form[f.key] || ''} onChange={e => set(f.key, e.target.value)}>
         <option value="">—</option>
         {states.map(s => <option key={s} value={s}>{s}</option>)}
       </select>
     </div>
   ) : (
-    <div key={f.key} className="field" style={f.wide ? { gridColumn: '1 / -1' } : undefined}>
-      <label>{f.label}</label>
-      <input className="input" type={f.type || 'text'} placeholder={f.placeholder}
+    <div key={f.key} className={`field${f.wide ? ' ps-span-all' : ''}`}>
+      <label htmlFor={`ps-sp-${f.key}`}>{f.label}</label>
+      <input id={`ps-sp-${f.key}`} className="input" type={f.type || 'text'} placeholder={f.placeholder}
         inputMode={f.digits ? 'numeric' : undefined} maxLength={f.digits}
         value={form[f.key] || ''}
         onChange={e => set(f.key, f.digits ? e.target.value.replace(/\D/g, '') : f.upper ? e.target.value.toUpperCase() : e.target.value)} />
@@ -158,8 +160,8 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <SuccessAlert message={success} />
       {section === 'registrations' && gst?.notes?.length > 0 && (
-        <div className="alert alert-warning" style={{ alignItems: 'flex-start' }}>
-          <span>⚠</span>
+        <div className="alert alert-warning ps-align-start">
+          <Icon name="alert" size={16} className="ps-alert-icon" />
           <span>{gst.notes.join(' ')} Check the GST number, the company PAN and the company's state.</span>
         </div>
       )}
@@ -167,29 +169,29 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
       <form onSubmit={handleSave}>
         {groups.map((g, i) => (
           <div key={g.title} className="card card-pad mb-24">
-            <h3 style={{ fontSize: 15, marginBottom: 4 }}>{g.title}</h3>
-            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>{g.hint}</p>
+            <h3 className="ps-group-title">{g.title}</h3>
+            <p className="ps-group-hint">{g.hint}</p>
             <div className="form-grid">
               {g.fields.map(input)}
               {section === 'registrations' && i === 0 && (
                 <>
                   <div className="field">
-                    <label>Deductor type</label>
-                    <select className="select" value={form.deductorType || ''}
+                    <label htmlFor="ps-sp-deductorType">Deductor type</label>
+                    <select id="ps-sp-deductorType" className="select" value={form.deductorType || ''}
                       onChange={e => set('deductorType', e.target.value)}>
                       <option value="">—</option>
                       {deductorTypes.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
-                  <div className="field" style={{ gridColumn: '1 / -1' }}>
-                    <label>Tax office (TDS circle) address</label>
-                    <input className="input" value={form.tdsCircleAddress || ''}
+                  <div className="field ps-span-all">
+                    <label htmlFor="ps-sp-tdsCircle">Tax office (TDS circle) address</label>
+                    <input id="ps-sp-tdsCircle" className="input" value={form.tdsCircleAddress || ''}
                       onChange={e => set('tdsCircleAddress', e.target.value)} />
                   </div>
                 </>
               )}
               {section === 'signatories' && g.title === 'Form 16 signatory' && (
-                <div className="field" style={{ gridColumn: '1 / -1' }}>
+                <div className="field ps-span-all">
                   <label>Signature</label>
                   <ImageUpload noun="signature" value={form.form16SignatureData || ''}
                     onChange={data => set('form16SignatureData', data)} max={600} maxChars={380000} width={200} height={72} />
@@ -200,8 +202,8 @@ export default function StatutoryProfileTab({ section }: { section: 'registratio
           </div>
         ))}
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start', marginBottom: 24 }}>
-          <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <div className="form-actions ps-actions-start mb-24">
+          <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
         </div>
       </form>
     </>

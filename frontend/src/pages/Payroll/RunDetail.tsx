@@ -7,6 +7,8 @@ import {
 import {
   KpiGrid, KpiTile, TableCard, GroupRow, ChangePills, FactStrip, Notice, SortChip, KitIcon,
 } from '../../components/report';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog, toast } from '../../components/feedback';
 import ListSelect from '../../components/ListSelect';
@@ -40,12 +42,12 @@ const releaseMailNote = (mode?: string) => (mode === 'PAYSLIP' ? 'Their payslips
 
 // Reports drawn up for one payroll month
 const RUN_REPORTS: [string, string][] = [
-  ['register', 'Salary Register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
-  ['pf-statement', 'PF Statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
-  ['tds-statement', 'TDS'], ['nps-statement', 'NPS (Employer)'],
-  ['comparison', 'vs Previous Month'], ['reconciliation', 'Reconciliation'], ['headcount', 'Headcount'],
-  ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input History'],
-  ['payment-register', 'Payment Register'], ['journal-voucher', 'Journal Voucher'],
+  ['register', 'Salary register'], ['summary', 'Summary'], ['pf-esi', 'PF & ESI'],
+  ['pf-statement', 'PF statement'], ['pt-statement', 'Professional Tax'], ['lwf-statement', 'LWF'],
+  ['tds-statement', 'TDS'], ['nps-statement', 'NPS (employer)'],
+  ['comparison', 'vs previous month'], ['reconciliation', 'Reconciliation'], ['headcount', 'Headcount'],
+  ['anomalies', 'Anomalies'], ['overrides', 'Overrides'], ['input-history', 'Input history'],
+  ['payment-register', 'Payment register'], ['journal-voucher', 'Journal voucher'],
 ];
 
 // Save a file from the API, with any refusal shown as a toast
@@ -273,7 +275,7 @@ export default function RunDetail() {
   if (loading) return <LoadingBlock label="Loading run…" />;
   if (!run) {
     return <EmptyState icon="▦" title="Run not found"
-      action={<Link to="/payroll" className="btn btn-secondary">Back to Payroll</Link>} />;
+      action={<ButtonLink to="/payroll">Back to payroll</ButtonLink>} />;
   }
 
   const t = run.totals;
@@ -307,16 +309,17 @@ export default function RunDetail() {
   const compSum = (f: string) => run.entries.reduce((s: number, e: any) => s + (e[f] || 0), 0);
   const otherDeductions = run.entries.reduce((s: number, e: any) =>
     s + (e.lines || []).filter((l: any) => l.type === 'DEDUCTION').reduce((t: number, l: any) => t + l.amount, 0), 0);
+  // tone maps to a .pr-tone-* fill in payroll-runs.css
   const segments = [
-    { label: 'Net pay', value: t.net, color: 'var(--success-dot, #129D61)' },
-    { label: 'PF', value: compSum('pfEmployee'), color: 'var(--primary, #5A5FE0)' },
-    { label: 'ESI', value: compSum('esiEmployee'), color: '#0E9CB8' },
-    { label: 'Advance', value: compSum('salaryAdvance'), color: '#F79009' },
-    { label: 'TDS', value: compSum('tds'), color: '#B42318' },
-    { label: 'Professional Tax', value: compSum('professionalTax'), color: '#7A5AF8' },
-    { label: 'LWF', value: compSum('lwfEmployee'), color: '#15B79E' },
-    { label: 'Loans', value: compSum('loanDeduction'), color: '#DD2590' },
-    { label: 'Other deductions', value: otherDeductions, color: '#667085' },
+    { label: 'Net pay', value: t.net, tone: 'net' },
+    { label: 'PF', value: compSum('pfEmployee'), tone: 'pf' },
+    { label: 'ESI', value: compSum('esiEmployee'), tone: 'esi' },
+    { label: 'Advance', value: compSum('salaryAdvance'), tone: 'advance' },
+    { label: 'TDS', value: compSum('tds'), tone: 'tds' },
+    { label: 'Professional Tax', value: compSum('professionalTax'), tone: 'pt' },
+    { label: 'LWF', value: compSum('lwfEmployee'), tone: 'lwf' },
+    { label: 'Loans', value: compSum('loanDeduction'), tone: 'loans' },
+    { label: 'Other deductions', value: otherDeductions, tone: 'other' },
   ].filter(s => s.value > 0.5);
   const netShare = t.gross > 0 ? (t.net / t.gross) * 100 : 0;
 
@@ -324,7 +327,7 @@ export default function RunDetail() {
     <>
       <PageHeader
         title={monthLabel(run.period)}
-        crumbs={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}><BackButton /><Link to="/payroll">Payroll runs</Link><span className="sep">/</span>{monthLabel(run.period)}</span>}
+        crumbs={<span className="pr-crumbs"><BackButton /><Link to="/payroll">Payroll runs</Link><span className="sep">/</span>{monthLabel(run.period)}</span>}
         badge={<StatusBadge status={run.status === 'FINALIZED' ? 'finalized' : 'draft'} />}
         subtitle={`${t.employees} employee${t.employees === 1 ? '' : 's'} · ${run.totalWorkingDays} working days · FY ${run.financialYear} · ${t.pfCount} PF · ${t.esiCount} ESI${run.notes ? ` · ${run.notes}` : ''}`}
         actions={
@@ -341,45 +344,43 @@ export default function RunDetail() {
                 <Link key={kind} to={`/payroll/runs/${run.id}/reports/${kind}`} className="menu-item" role="menuitem">{label}</Link>
               ))}
               <div className="menu-heading">Downloads</div>
-              <button className="menu-item" role="menuitem" onClick={handleExport}>⤓ Salary register (Excel)</button>
-              <button className="menu-item" role="menuitem" onClick={() => downloadFile('pf-ecr')}>⤓ PF ECR file</button>
-              <button className="menu-item" role="menuitem" onClick={() => downloadFile('esi-upload')}>⤓ ESI sheet</button>
-              <button className="menu-item" role="menuitem" onClick={() => saveFile(`/payroll/runs/${run.id}/journal-voucher/file`, { format: 'xlsx' })}>⤓ Journal voucher (Excel)</button>
-              <button className="menu-item" role="menuitem" onClick={() => saveFile(`/payroll/runs/${run.id}/journal-voucher/file`, { format: 'csv' })}>⤓ Journal voucher (CSV)</button>
+              <button className="menu-item" role="menuitem" onClick={handleExport}>Salary register (Excel)</button>
+              <button className="menu-item" role="menuitem" onClick={() => downloadFile('pf-ecr')}>PF ECR file</button>
+              <button className="menu-item" role="menuitem" onClick={() => downloadFile('esi-upload')}>ESI sheet</button>
+              <button className="menu-item" role="menuitem" onClick={() => saveFile(`/payroll/runs/${run.id}/journal-voucher/file`, { format: 'xlsx' })}>Journal voucher (Excel)</button>
+              <button className="menu-item" role="menuitem" onClick={() => saveFile(`/payroll/runs/${run.id}/journal-voucher/file`, { format: 'csv' })}>Journal voucher (CSV)</button>
               {!isDraft && (
                 <>
                   <div className="menu-heading">Payslips</div>
-                  <Link to={`/payroll/runs/${run.id}/email`} className="menu-item" role="menuitem">✉ Email payslips</Link>
+                  <Link to={`/payroll/runs/${run.id}/email`} className="menu-item" role="menuitem">Email payslips</Link>
                 </>
               )}
             </Menu>
-            <Link to={`/payroll/runs/${run.id}/payslips`} className="btn btn-secondary">
-              🖨 All Payslips
-            </Link>
+            <ButtonLink to={`/payroll/runs/${run.id}/payslips`} icon="receipt">
+              All payslips
+            </ButtonLink>
             {isDraft ? (
               <>
                 {canEdit && (
-                  <button className="btn btn-secondary" onClick={() => setAttModal(true)}>
-                    ⤒ Import Attendance
-                  </button>
+                  <Button icon="calendar" onClick={() => setAttModal(true)}>
+                    Import attendance
+                  </Button>
                 )}
-                <button className="btn btn-secondary"
-                  onClick={() => act(() => payrollAPI.recalculateRun(run.id))}>
-                  ↻ Recalculate
-                </button>
+                <Button onClick={() => act(() => payrollAPI.recalculateRun(run.id))}>
+                  Recalculate
+                </Button>
                 {canEdit ? (
-                  <button className="btn btn-secondary" title="Freeze attendance and one-offs while the month is reviewed"
+                  <Button title="Freeze attendance and one-offs while the month is reviewed"
                     onClick={() => act(() => payrollAPI.lockInputs(run.id), 'Inputs locked. Attendance and one-offs cannot be edited until unlocked.')}>
-                    Lock Inputs
-                  </button>
+                    Lock inputs
+                  </Button>
                 ) : (
-                  <button className="btn btn-secondary"
-                    onClick={() => act(() => payrollAPI.unlockInputs(run.id), 'Inputs unlocked.')}>
-                    Unlock Inputs
-                  </button>
+                  <Button onClick={() => act(() => payrollAPI.unlockInputs(run.id), 'Inputs unlocked.')}>
+                    Unlock inputs
+                  </Button>
                 )}
-                <button className="btn btn-danger" onClick={handleDeleteRun}>Delete</button>
-                <button className="btn btn-primary" disabled={blocking.length > 0}
+                <Button variant="danger" onClick={handleDeleteRun}>Delete</Button>
+                <Button variant="accent" icon="checkCircle" disabled={blocking.length > 0}
                   title={blocking.length ? 'Fix the items marked below first' : undefined}
                   onClick={async () => await confirmDialog('Finalize this run? Entries lock until reopened.')
                     && act(async () => {
@@ -389,34 +390,35 @@ export default function RunDetail() {
                         releaseMailNote(res.data.releaseMail),
                       ].filter(Boolean).join(' ') } };
                     })}>
-                  ✓ Finalize
-                </button>
+                  Finalize
+                </Button>
               </>
             ) : (
               <>
-                <button className="btn btn-secondary"
+                <Button icon="history"
                   onClick={async () => await confirmDialog({
                     title: `Reopen ${monthLabel(run.period)}?`,
                     message: 'The run goes back to draft so its entries can be edited. Payslips are withdrawn from employees and loan instalments posted for the month are reversed until it is finalized again.',
                     confirmLabel: 'Reopen',
                   }) && act(() => payrollAPI.reopenRun(run.id), 'Run reopened for edits.')}>
-                  ↺ Reopen
-                </button>
+                  Reopen
+                </Button>
                 {run.releasedAt ? (
-                  <button className="btn btn-secondary"
-                    onClick={() => act(() => payrollAPI.holdRun(run.id), 'Payslips withdrawn from employees.')}>
-                    Withdraw Payslips
-                  </button>
+                  <Button onClick={() => act(() => payrollAPI.holdRun(run.id), 'Payslips withdrawn from employees.')}>
+                    Withdraw payslips
+                  </Button>
                 ) : (
-                  <button className="btn btn-secondary"
+                  <Button variant="accent"
                     onClick={() => act(async () => {
                       const res = await payrollAPI.releaseRun(run.id);
                       return { data: { message: ['Payslips released. Employees can now see them in My Pay.', releaseMailNote(res.data.releaseMail)].filter(Boolean).join(' ') } };
                     })}>
-                    Release Payslips
-                  </button>
+                    Release payslips
+                  </Button>
                 )}
-                <Link to={`/payroll/runs/${run.id}/payout`} className="btn btn-primary">₹ Payout</Link>
+                {/* One accent per view: release first, then payout */}
+                <ButtonLink to={`/payroll/runs/${run.id}/payout`} icon="banknote"
+                  variant={run.releasedAt ? 'accent' : 'secondary'}>Payout</ButtonLink>
               </>
             )}
           </>
@@ -451,11 +453,11 @@ export default function RunDetail() {
       )}
 
       {blocking.length > 0 && (
-        <div className="alert alert-error" style={{ alignItems: 'flex-start' }}>
-          <span>⛔</span>
-          <div style={{ flex: 1 }}>
+        <div className="alert alert-error pr-alert-top">
+          <Icon name="shield" size={16} className="pr-alert-icon" />
+          <div className="pr-grow">
             <strong>Fix before finalizing</strong>
-            <ul style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+            <ul className="pr-check-list">
               {blocking.map((c: any) => (
                 <li key={`${c.entryId}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
               ))}
@@ -467,12 +469,12 @@ export default function RunDetail() {
       {warnings.length > 0 && (
         <details className="alert alert-warning alert-details" open={isDraft}>
           <summary>
-            <span>⚠</span>
+            <Icon name="alert" size={16} className="pr-alert-icon" />
             <strong>{isDraft ? 'Check before finalizing' : 'Worth checking'}</strong>
             <span className="alert-count">{warnings.length} {warnings.length === 1 ? 'item' : 'items'}</span>
           </summary>
           <div>
-            <ul style={{ margin: '8px 0 0', paddingLeft: 30 }}>
+            <ul className="pr-check-list pr-check-list-indent">
               {warnings.filter((c: any) => !GROUPED_CHECKS[c.code]).map((c: any) => (
                 <li key={`${c.entryId}-${c.personName}-${c.code}`}><strong>{c.personName}</strong> — {c.message}</li>
               ))}
@@ -524,24 +526,25 @@ export default function RunDetail() {
         <div className="card payout-card">
           <div className="payout-head">
             <h3>Where the gross goes</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               {formatINR(t.gross)} gross{run.prev ? ` · compared with ${monthLabel(run.prev.period)}` : ''}
             </span>
           </div>
           <div className="payout-bar" role="img"
             aria-label={segments.map(s => `${s.label} ${formatINR(s.value)}`).join(', ')}>
             {segments.map(s => (
-              <span key={s.label} className="payout-seg"
-                style={{ width: `${(s.value / t.gross) * 100}%`, background: s.color }}
+              <span key={s.label} className={`payout-seg pr-tone-${s.tone}`}
+                // width is the segment's share of gross (data-driven)
+                style={{ width: `${(s.value / t.gross) * 100}%` }}
                 title={`${s.label} — ${formatINR(s.value)} (${((s.value / t.gross) * 100).toFixed(1)}%)`} />
             ))}
           </div>
           <div className="payout-legend">
             {segments.map(s => (
               <span key={s.label} className="payout-key">
-                <span className="payout-dot" style={{ background: s.color }} />
+                <span className={`payout-dot pr-tone-${s.tone}`} />
                 {s.label}
-                <strong>{formatINR(s.value)}</strong>
+                <strong className="num">{formatINR(s.value)}</strong>
                 <span className="text-muted">
                   ({(s.value / t.gross) * 100 < 0.1 ? '<0.1' : ((s.value / t.gross) * 100).toFixed(1)}%)
                 </span>
@@ -556,7 +559,7 @@ export default function RunDetail() {
           <div className="card-header">
             <div>
               <h3>Expense claims</h3>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>
+              <span className="text-sm-muted">
                 {canEdit
                   ? 'Approved claims can be paid with this month\'s salary: untaxed, shown separately on the payslip, and added to the transfer.'
                   : `${formatINR(claims.attachedTotal)} of claims ${isDraft ? 'will be' : 'were'} paid with this month's salary.`}
@@ -569,18 +572,18 @@ export default function RunDetail() {
               <tbody>
                 {claims.claims.filter((c: any) => canEdit || c.attached).map((c: any) => (
                   <tr key={c.id}>
-                    <td><span style={{ fontWeight: 600 }}>{c.reportNumber}</span><div className="text-muted" style={{ fontSize: 11.5 }}>{c.title}</div></td>
+                    <td><span className="pr-strong num">{c.reportNumber}</span><div className="pr-sub">{c.title}</div></td>
                     <td>{c.person.name}</td>
                     <td className="num">{formatINR(c.amount)}</td>
                     <td><span className={`badge ${c.attached ? 'badge-success' : 'badge-neutral'}`}>{c.attached ? 'Yes' : 'No'}</span></td>
                     <td>
                       <div className="row-actions">
                         {canEdit && (
-                          <button className="btn btn-secondary btn-sm"
+                          <Button size="sm"
                             onClick={() => act(() => payrollAPI.setRunClaim(run.id, c.id, !c.attached),
                               c.attached ? `${c.reportNumber} removed from this salary.` : `${c.reportNumber} will be paid with this salary.`)}>
-                            {c.attached ? 'Remove' : 'Pay with Salary'}
-                          </button>
+                            {c.attached ? 'Remove' : 'Pay with salary'}
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -632,7 +635,7 @@ export default function RunDetail() {
         <table className="table">
           <thead>
             <tr>
-              <th style={{ width: '22%' }}>Employee</th>
+              <th className="pr-col-employee">Employee</th>
               <th>Joined</th>
               <th className="num">Pay days</th>
               <th className="num">Package</th>
@@ -655,16 +658,16 @@ export default function RunDetail() {
                 return (
                   <tr key={r.key}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{e.person.name}</span>
+                      <span className="pr-strong">{e.person.name}</span>
                       {e.payStatus === 'HOLD' && (
-                        <span className="badge badge-warning" style={{ marginLeft: 8 }} title={e.holdReason}>On hold</span>
+                        <span className="badge badge-warning pr-badge-gap" title={e.holdReason}>On hold</span>
                       )}
-                      {e.paidOn && <span className="badge badge-success" style={{ marginLeft: 8 }}>Paid</span>}
-                      <div className="text-muted" style={{ fontSize: 12 }}>
+                      {e.paidOn && <span className="badge badge-success pr-badge-gap">Paid</span>}
+                      <div className="pr-sub">
                         {[e.person.employeeNo, grouped ? null : e.person.designation].filter(Boolean).join(' · ') || '—'}
                       </div>
                     </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{e.person.joinDate ? formatDate(e.person.joinDate) : '—'}</td>
+                    <td className="pr-nowrap">{e.person.joinDate ? formatDate(e.person.joinDate) : '—'}</td>
                     <td className={`num${e.lopDays > 0 ? ' pay-days-short' : ''}`}>
                       {e.payDays} / {e.totalWorkingDays}
                     </td>
@@ -675,29 +678,29 @@ export default function RunDetail() {
                     <td className="num text-muted">{e.tds ? formatINR(e.tds) : '—'}</td>
                     <td className={`num${e.salaryAdvance ? ' text-danger' : ' text-muted'}`}>{e.salaryAdvance ? formatINR(e.salaryAdvance) : '—'}</td>
                     <td className="num text-warning">{formatINR(e.totalDeductions)}</td>
-                    <td className={`num ${e.netPayable < 0 ? 'text-danger' : ''}`} style={{ fontWeight: 700 }}>
+                    <td className={`num pr-net${e.netPayable < 0 ? ' text-danger' : ''}`}>
                       {formatINR(e.netPayable)}
                       {e.reimbursement > 0 && (
-                        <div className="text-muted" style={{ fontSize: 11, fontWeight: 400 }}>+ {formatINR(e.reimbursement)} claims</div>
+                        <div className="pr-sub">+ {formatINR(e.reimbursement)} claims</div>
                       )}
                     </td>
                     <td><ChangePills pills={pillsOf(e)} /></td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/payslips/${e.id}`} className="btn btn-secondary btn-sm">Payslip</Link>
+                        <ButtonLink to={`/payroll/payslips/${e.id}`} size="sm">Payslip</ButtonLink>
                         {canEdit && (
-                          <button className="btn btn-secondary btn-sm" onClick={() => openEntry(e)}>Edit</button>
+                          <Button size="sm" onClick={() => openEntry(e)}>Edit</Button>
                         )}
                         {e.payStatus === 'HOLD' ? (
-                          <button className="btn btn-secondary btn-sm"
+                          <Button size="sm"
                             onClick={() => act(() => payrollAPI.releaseSalary(e.id), `${e.person.name}'s salary is released for payment.`)}>
                             Release
-                          </button>
+                          </Button>
                         ) : !e.paidOn && !e.payoutBatchId && (
-                          <button className="btn btn-ghost btn-sm" title="Compute the salary but do not pay it yet"
+                          <Button variant="ghost" size="sm" title="Compute the salary but do not pay it yet"
                             onClick={() => { setHoldReason(''); setHoldModal(e); }}>
                             Hold
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>
@@ -760,18 +763,18 @@ export default function RunDetail() {
               <div className="form-section-title"><span className="step-dot">1</span> Attendance</div>
               <div className="form-grid">
                 <div className="field">
-                  <label>Working days</label>
-                  <input className="input" type="number" min={1} max={31} value={form.totalWorkingDays}
+                  <label htmlFor="ent-working-days">Working days</label>
+                  <input id="ent-working-days" className="input" type="number" min={1} max={31} value={form.totalWorkingDays}
                     onChange={e => setForm({ ...form, totalWorkingDays: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Leave days</label>
-                  <input className="input" type="number" min={0} step="0.5" value={form.empLeaveDays}
+                  <label htmlFor="ent-leave-days">Leave days</label>
+                  <input id="ent-leave-days" className="input" type="number" min={0} step="0.5" value={form.empLeaveDays}
                     onChange={e => setForm({ ...form, empLeaveDays: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>LOP days</label>
-                  <input className="input" type="number" min={0} step="0.5" value={form.lopDays}
+                  <label htmlFor="ent-lop-days">LOP days</label>
+                  <input id="ent-lop-days" className="input" type="number" min={0} step="0.5" value={form.lopDays}
                     onChange={e => setForm({ ...form, lopDays: e.target.value })} />
                   <span className="hint">Loss of pay — reduces the basic proportionally.</span>
                 </div>
@@ -788,9 +791,9 @@ export default function RunDetail() {
                   ['tds', run.tdsAuto ? `TDS — ${entryModal.tdsOverridden ? 'entered by hand' : 'computed'}` : 'TDS (deduct)'],
                 ].map(([k, label]) => (
                   <div key={k} className="field">
-                    <label>{label}</label>
+                    <label htmlFor={`ent-${k}`}>{label}</label>
                     <div className="input-unit"><span className="unit">₹</span>
-                      <input className="input" type="number" min={0} step="0.01" value={form[k]}
+                      <input id={`ent-${k}`} className="input" type="number" min={0} step="0.01" value={form[k]}
                         onChange={e => setForm({ ...form, [k]: e.target.value, ...(k === 'tds' ? { tdsTouched: true } : {}) })} />
                     </div>
                     {k === 'tds' && run.tdsAuto && (
@@ -806,7 +809,7 @@ export default function RunDetail() {
 
             {entryModal.loanDeduction > 0 && (
               <div className="alert alert-warning">
-                <span>₹</span>
+                <Icon name="banknote" size={16} className="pr-alert-icon" />
                 <span>
                   A loan instalment of <strong>{formatINR(entryModal.loanDeduction)}</strong> is deducted this month.
                   To skip or change it, open the loan from the <Link to="/payroll/loans">Loans</Link> page.
@@ -817,11 +820,11 @@ export default function RunDetail() {
             <div className="form-section">
               <div className="form-section-title"><span className="step-dot">3</span> Other earnings &amp; deductions</div>
               {(entryModal.lines || []).filter((l: any) => l.source).map((l: any) => (
-                <div key={l.componentId} className="line-row" style={{ alignItems: 'center', fontSize: 13 }}>
+                <div key={l.componentId} className="line-row pr-line-fixed">
                   <span>{l.name} <span className="text-muted">({l.type === 'DEDUCTION' ? 'deduction' : 'earning'})</span></span>
-                  <strong>{formatINR(l.amount)}</strong>
+                  <strong className="num">{formatINR(l.amount)}</strong>
                   <Link to={l.source === 'ARREAR' ? '/payroll/adjustments' : '/payroll/adjustments?tab=settlements'}
-                    className="text-muted" style={{ fontSize: 12 }}>
+                    className="pr-sub">
                     from {l.source === 'ARREAR' ? 'arrears' : 'the final settlement'}
                   </Link>
                 </div>
@@ -836,7 +839,7 @@ export default function RunDetail() {
                 });
                 return (
                   <div key={i} className="line-row">
-                    <select className="select" value={line.componentId}
+                    <select className="select" aria-label="Component" value={line.componentId}
                       onChange={e => setLine({ componentId: e.target.value })}>
                       <option value="">Pick a component…</option>
                       {['EARNING', 'DEDUCTION'].map(type => (
@@ -849,50 +852,50 @@ export default function RunDetail() {
                       ))}
                     </select>
                     <div className="input-unit"><span className="unit">₹</span>
-                      <input className="input" type="number" min={0} step="0.01" value={line.amount}
+                      <input className="input" type="number" min={0} step="0.01" aria-label="Amount" value={line.amount}
                         onChange={e => setLine({ amount: e.target.value })} />
                     </div>
-                    <button type="button" className="btn btn-ghost btn-sm" aria-label="Remove line"
+                    <Button variant="ghost" size="sm" aria-label="Remove line"
                       onClick={() => setForm({ ...form, lines: form.lines.filter((_: any, j: number) => j !== i) })}>
                       ✕
-                    </button>
+                    </Button>
                   </div>
                 );
               })}
-              <button type="button" className="btn btn-secondary btn-sm"
+              <Button size="sm" icon="plus"
                 onClick={() => setForm({ ...form, lines: [...(form.lines || []), { componentId: '', amount: '' }] })}>
-                + Add line
-              </button>
-              <span className="hint" style={{ display: 'block', marginTop: 8 }}>
+                Add line
+              </Button>
+              <span className="hint pr-hint-block">
                 Bonus, incentive, other deduction and the like. PF and ESI are not calculated on these.
               </span>
             </div>
 
             <div className="form-section">
               <div className="form-section-title"><span className="step-dot">4</span> Overrides</div>
-              <div className="form-grid" style={{ marginBottom: 12 }}>
+              <div className="form-grid pr-mb-12">
                 <div className="field">
-                  <label>Monthly package (snapshot)</label>
+                  <label htmlFor="ent-package">Monthly package (snapshot)</label>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01" value={form.monthlyPackage}
+                    <input id="ent-package" className="input" type="number" min={0} step="0.01" value={form.monthlyPackage}
                       onChange={e => setForm({ ...form, monthlyPackage: e.target.value })} />
                   </div>
                 </div>
                 <div className="field">
-                  <label>Professional Tax{entryModal.ptOverridden ? ' (entered by hand)' : ''}</label>
+                  <label htmlFor="ent-pt">Professional Tax{entryModal.ptOverridden ? ' (entered by hand)' : ''}</label>
                   <div className="input-unit"><span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01" value={form.professionalTax}
+                    <input id="ent-pt" className="input" type="number" min={0} step="0.01" value={form.professionalTax}
                       onChange={e => setForm({ ...form, professionalTax: e.target.value, ptTouched: true })} />
                   </div>
                   <span className="hint">Worked out from the state policy. Type an amount to override it; clear the box to go back.</span>
                 </div>
                 <div className="field">
-                  <label>Remarks</label>
-                  <input className="input" value={form.remarks || ''}
+                  <label htmlFor="ent-remarks">Remarks</label>
+                  <input id="ent-remarks" className="input" value={form.remarks || ''}
                     onChange={e => setForm({ ...form, remarks: e.target.value })} />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 20 }}>
+              <div className="cluster pr-gap-20">
                 <label className="checkbox-field">
                   <input type="checkbox" checked={form.isPfApplicable}
                     onChange={e => setForm({ ...form, isPfApplicable: e.target.checked })} />
@@ -906,17 +909,17 @@ export default function RunDetail() {
               </div>
             </div>
 
-            <div className="form-actions" style={{ justifyContent: 'space-between' }}>
-              <button type="button" className="btn btn-danger"
+            <div className="form-actions pr-actions-between">
+              <Button variant="danger"
                 onClick={async () => await confirmDialog(`Remove ${entryModal.person.name} from this run?`)
                   && act(() => payrollAPI.removeEntry(entryModal.id)).then(() => setEntryModal(null))}>
-                Remove from Run
-              </button>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setEntryModal(null)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Saving…' : 'Save & Recompute'}
-                </button>
+                Remove from run
+              </Button>
+              <div className="cluster pr-gap-10">
+                <Button variant="ghost" onClick={() => setEntryModal(null)}>Cancel</Button>
+                <Button type="submit" variant="primary" loading={saving}>
+                  {saving ? 'Saving…' : 'Save and recompute'}
+                </Button>
               </div>
             </div>
           </form>
@@ -924,68 +927,68 @@ export default function RunDetail() {
       </Modal>
 
       {/* Hold a salary */}
-      <Modal title={holdModal ? `Hold Salary — ${holdModal.person.name}` : ''} open={Boolean(holdModal)}
+      <Modal title={holdModal ? `Hold salary — ${holdModal.person.name}` : ''} open={Boolean(holdModal)}
         onClose={() => setHoldModal(null)}>
         {holdModal && (
           <form onSubmit={handleHold}>
-            <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+            <p className="modal-lede">
               The salary of {formatINR(holdModal.netPayable)} stays on the register and in the statutory returns,
               but is left out of payment batches and hidden from the employee until you release it.
             </p>
-            <div className="field" style={{ marginBottom: 16 }}>
+            <div className="field pr-mb-16">
               <label>Reason *</label>
               <ListSelect listType="HOLD_REASON" required autoFocus value={holdReason} onChange={setHoldReason} placeholder="Pick a reason" />
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setHoldModal(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary">Hold Salary</button>
+              <Button variant="ghost" onClick={() => setHoldModal(null)}>Cancel</Button>
+              <Button type="submit" variant="primary">Hold salary</Button>
             </div>
           </form>
         )}
       </Modal>
 
       {/* Attendance import */}
-      <Modal title={`Import Attendance — ${monthLabel(run.period)}`} open={attModal}
+      <Modal title={`Import attendance — ${monthLabel(run.period)}`} open={attModal}
         onClose={() => { setAttModal(false); setAttResult(null); }}>
-        <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+        <p className="modal-lede">
           Download the template (prefilled with this run's current values), fill in
           <strong> Leave Days, LOP Days, Working Days, Advance, TDS</strong> in Excel,
           then upload it back. Every touched row is recalculated by the salary engine.
         </p>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-          <button type="button" className="btn btn-secondary" onClick={downloadAttTemplate}>
-            ⤓ Download Template
-          </button>
-          <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+        <div className="cluster pr-gap-10 mb-14">
+          <Button onClick={downloadAttTemplate}>
+            Download template
+          </Button>
+          <label className="btn btn-secondary">
             {attFileName || 'Choose filled file…'}
             <input type="file" accept=".xlsx" onChange={handleAttFile} hidden />
           </label>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-          <button type="button" className="btn btn-secondary" disabled={attBusy || !attFile}
+        <div className="cluster pr-gap-10 pr-mb-12">
+          <Button disabled={!attFile} loading={attBusy}
             onClick={() => runAttImport(true)}>
-            {attBusy ? 'Working…' : '👁 Preview'}
-          </button>
-          <button type="button" className="btn btn-primary" disabled={attBusy || !attFile}
+            {attBusy ? 'Working…' : 'Preview'}
+          </Button>
+          <Button variant="primary" disabled={!attFile} loading={attBusy}
             onClick={() => runAttImport(false)}>
-            {attBusy ? 'Working…' : '⤒ Import Now'}
-          </button>
+            {attBusy ? 'Working…' : 'Import now'}
+          </Button>
         </div>
         {attResult && (
           <>
-            <p style={{ fontSize: 12.5, fontWeight: 600, marginBottom: 8 }}>
+            <p className="pr-result-line">
               {attResult.dryRun ? 'Preview' : 'Imported'}: {attResult.summary.updated} to update
               · {attResult.summary.skipped} unchanged · {attResult.summary.errors} errors
             </p>
-            <div className="table-wrap" style={{ maxHeight: 260, overflowY: 'auto' }}>
+            <div className="table-wrap pr-scroll-260">
               <table className="table">
                 <thead>
-                  <tr><th>Employee</th><th>Action</th><th className="num">Leave</th><th className="num">LOP</th><th className="num">New Net</th></tr>
+                  <tr><th>Employee</th><th>Action</th><th className="num">Leave</th><th className="num">LOP</th><th className="num">New net</th></tr>
                 </thead>
                 <tbody>
                   {attResult.results.map((r: any) => (
                     <tr key={r.row}>
-                      <td style={{ fontWeight: 600 }}>{r.name}</td>
+                      <td className="pr-strong">{r.name}</td>
                       <td>
                         <span className={`badge ${String(r.action).startsWith('error') ? 'badge-danger' : String(r.action).startsWith('skip') ? 'badge-neutral' : 'badge-success'}`}>
                           {r.action}

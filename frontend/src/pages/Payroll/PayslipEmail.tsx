@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { PageHeader, EmptyState, LoadingBlock, ErrorAlert, SuccessAlert, BackButton } from '../../components/ui';
 import { confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR } from '../../utils/format';
 
 const monthLabel = (period: string) => {
@@ -100,12 +102,12 @@ export default function PayslipEmail() {
       </div>
 
       <PageHeader
-        title={`Email Payslips — ${monthLabel(run.period)}`}
+        title={`Email payslips — ${monthLabel(run.period)}`}
         subtitle={`${entries.filter((e: any) => e.last?.status === 'SENT').length} of ${entries.length} sent so far${mail.from ? ` · from ${mail.from}` : ''}`}
         actions={
-          <button className="btn btn-primary" disabled={!ready || sending || chosen.length === 0} onClick={send}>
-            {sending ? `Sending ${progress!.done} of ${progress!.total}…` : `✉ Send to ${chosen.length}`}
-          </button>
+          <Button variant="accent" disabled={!ready || chosen.length === 0} loading={sending} onClick={send}>
+            {sending ? `Sending ${progress!.done} of ${progress!.total}…` : `Send to ${chosen.length}`}
+          </Button>
         }
       />
 
@@ -113,29 +115,30 @@ export default function PayslipEmail() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       {run.status !== 'FINALIZED' ? (
-        <div className="alert alert-warning"><span>◷</span><span>This run is still a draft. Finalize it before emailing its payslips.</span></div>
+        <div className="alert alert-warning"><Icon name="clock" size={16} className="pr-alert-icon" /><span>This run is still a draft. Finalize it before emailing its payslips.</span></div>
       ) : !run.releasedAt ? (
         <div className="alert alert-warning">
-          <span>◷</span>
+          <Icon name="clock" size={16} className="pr-alert-icon" />
           <span>The payslips are not released to employees yet. Release them on the <Link to={`/payroll/runs/${run.id}`}>run page</Link>, then email them.</span>
         </div>
       ) : null}
       {(!mail.enabled || mail.problem) && (
         <div className="alert alert-warning">
-          <span>✉</span>
+          <Icon name="alert" size={16} className="pr-alert-icon" />
           <span>
             {mail.problem || 'Email is switched off'}. Set it up in <Link to="/organization?tab=email">Company Settings → Email</Link>.
           </span>
         </div>
       )}
       {!data.engine.pdf && (
-        <div className="alert alert-warning"><span>⚠</span><span>PDF files cannot be made on this server, so payslips cannot be emailed.</span></div>
+        <div className="alert alert-warning"><Icon name="alert" size={16} className="pr-alert-icon" /><span>PDF files cannot be made on this server, so payslips cannot be emailed.</span></div>
       )}
 
       {sending && (
         <div className="card card-pad mb-16">
+          {/* fill width is the share sent so far (data-driven) */}
           <div className="progress-track"><div className="progress-fill" style={{ width: `${(progress!.done / progress!.total) * 100}%` }} /></div>
-          <p className="text-muted" style={{ fontSize: 12.5, marginTop: 8 }}>
+          <p className="text-sm-muted pr-mt-8">
             Sending {progress!.done} of {progress!.total}{progress!.failed ? ` · ${progress!.failed} failed` : ''}. Keep this page open until it finishes.
           </p>
         </div>
@@ -145,7 +148,7 @@ export default function PayslipEmail() {
         <div className="card-header">
           <div>
             <h3>Employees</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               Payslip password: {data.passwordLabel}. An employee with no address at the one chosen is sent to their other address.
             </span>
           </div>
@@ -162,7 +165,7 @@ export default function PayslipEmail() {
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: 36 }}>
+                  <th className="pr-col-check">
                     <input type="checkbox" aria-label="Select all" disabled={sending}
                       checked={sendable.length > 0 && chosen.length === sendable.length}
                       onChange={e => setPicked(e.target.checked ? new Set(sendable.map((x: any) => x.id)) : new Set())} />
@@ -178,18 +181,18 @@ export default function PayslipEmail() {
                         checked={picked.has(e.id) && !e.blocked} onChange={() => toggle(e.id)} />
                     </td>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{e.person.name}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{e.person.employeeNo}</div>
+                      <span className="pr-strong">{e.person.name}</span>
+                      <div className="pr-sub num">{e.person.employeeNo}</div>
                     </td>
                     <td>
                       {e.blocked ? (
-                        <span className="text-warning" style={{ fontSize: 12.5 }}>
+                        <span className="text-warning pr-text-sm">
                           {e.blocked}. <Link to={`/people/${e.person.id}`}>Open profile</Link>
                         </span>
                       ) : (
                         <>
                           {e.address}
-                          {e.fallback && <div className="text-muted" style={{ fontSize: 11.5 }}>their other address</div>}
+                          {e.fallback && <div className="pr-sub">their other address</div>}
                         </>
                       )}
                     </td>
@@ -198,12 +201,12 @@ export default function PayslipEmail() {
                       {!e.last ? <span className="text-muted">—</span> : e.last.status === 'SENT' ? (
                         <>
                           <span className="badge badge-success">Sent</span>
-                          <div className="text-muted" style={{ fontSize: 11.5 }}>{dateTime(e.last.at)} · {e.last.to}</div>
+                          <div className="pr-sub">{dateTime(e.last.at)} · {e.last.to}</div>
                         </>
                       ) : (
                         <>
                           <span className="badge badge-danger">Failed</span>
-                          <div style={{ fontSize: 11.5, color: 'var(--danger)' }}>{e.last.error}</div>
+                          <div className="pr-sub pr-sub-danger">{e.last.error}</div>
                         </>
                       )}
                     </td>

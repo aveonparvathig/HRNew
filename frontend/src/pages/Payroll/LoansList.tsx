@@ -4,6 +4,8 @@ import { payrollAPI } from '../../api/payroll';
 import {
   PageHeader, StatCard, EmptyState, LoadingBlock, ErrorAlert, Modal, StatusBadge, BackButton,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR, formatDate } from '../../utils/format';
 
 const monthLabel = (period: string) => {
@@ -95,21 +97,21 @@ export default function LoansList() {
       </div>
 
       <PageHeader
-        title="Loans & Advances"
+        title="Loans & advances"
         subtitle="Instalments are deducted automatically in each month's payroll run."
         actions={<>
-          <Link to="/payroll/reports/loan-register" className="btn btn-secondary">Loan Register</Link>
-          <button className="btn btn-primary" onClick={() => setForm(emptyForm())}>+ New Loan</button>
+          <ButtonLink to="/payroll/reports/loan-register" icon="receipt">Loan register</ButtonLink>
+          <Button variant="accent" icon="plus" onClick={() => setForm(emptyForm())}>New loan</Button>
         </>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="stat-grid">
-        <StatCard label="Active Loans" value={data.totals.active} icon="▤" tone="primary" />
-        <StatCard label="Outstanding" value={formatINR(data.totals.outstanding)} icon="₹" tone="warning"
+        <StatCard label="Active loans" value={data.totals.active} icon="banknote" tone="primary" />
+        <StatCard label="Outstanding" value={formatINR(data.totals.outstanding)} icon="receipt" tone="warning"
           sub="Principal still to be recovered" />
-        <StatCard label="Closed" value={data.totals.closed} icon="✓" tone="success" />
+        <StatCard label="Closed" value={data.totals.closed} icon="checkCircle" tone="success" />
       </div>
 
       <div className="card">
@@ -130,32 +132,32 @@ export default function LoansList() {
               <thead>
                 <tr>
                   <th>Loan</th><th>Employee</th><th className="num">Lent</th><th className="num">Outstanding</th>
-                  <th className="num">Next instalment</th><th>Ends</th><th>Status</th><th />
+                  <th className="num">Next instalment</th><th>Ends</th><th>Status</th><th><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {loans.map((l: any) => (
                   <tr key={l.id}>
                     <td>
-                      <span style={{ fontWeight: 600 }}>{l.loanNo}</span>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>
+                      <span className="ps-strong num">{l.loanNo}</span>
+                      <div className="ps-sub">
                         {[l.title, l.typeLabel, l.annualRate ? `${l.annualRate}%` : ''].filter(Boolean).join(' · ')}
                       </div>
                     </td>
                     <td>
                       {l.person.name}
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{l.person.employeeNo}</div>
+                      <div className="ps-sub num">{l.person.employeeNo}</div>
                     </td>
                     <td className="num">
                       {formatINR(l.totalLent)}
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{formatDate(l.loanDate)}</div>
+                      <div className="ps-sub">{formatDate(l.loanDate)}</div>
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(l.outstanding)}</td>
+                    <td className="num ps-strong">{formatINR(l.outstanding)}</td>
                     <td className="num">
                       {l.nextInstalment ? (
                         <>
                           {formatINR(l.nextInstalment.amount)}
-                          <div className="text-muted" style={{ fontSize: 11.5 }}>
+                          <div className="ps-sub">
                             {monthLabel(l.nextInstalment.period)} · {l.instalmentsLeft} left
                           </div>
                         </>
@@ -165,7 +167,7 @@ export default function LoansList() {
                     <td><StatusBadge status={l.status === 'ACTIVE' ? 'active' : 'completed'} /></td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/loans/${l.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                        <ButtonLink to={`/payroll/loans/${l.id}`} size="sm">Open</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -176,13 +178,13 @@ export default function LoansList() {
         )}
       </div>
 
-      <Modal size="lg" title="New Loan or Advance" open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal size="lg" title="New loan or advance" open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={handleCreate}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Employee *</label>
-                <select className="select" required value={form.personId}
+                <label htmlFor="ps-newloan-person">Employee *</label>
+                <select id="ps-newloan-person" className="select" required value={form.personId}
                   onChange={e => setForm({ ...form, personId: e.target.value })}>
                   <option value="">Pick an employee…</option>
                   {employees.map(p => (
@@ -191,58 +193,58 @@ export default function LoansList() {
                 </select>
               </div>
               <div className="field">
-                <label>What it is for</label>
-                <input className="input" placeholder="e.g. Salary advance" value={form.title}
+                <label htmlFor="ps-newloan-title">What it is for</label>
+                <input id="ps-newloan-title" className="input" placeholder="e.g. Salary advance" value={form.title}
                   onChange={e => setForm({ ...form, title: e.target.value })} />
               </div>
               <div className="field">
-                <label>Amount *</label>
+                <label htmlFor="ps-newloan-principal">Amount *</label>
                 <div className="input-unit"><span className="unit">₹</span>
-                  <input className="input" type="number" min={1} step="0.01" required value={form.principal}
+                  <input id="ps-newloan-principal" className="input" type="number" min={1} step="0.01" required value={form.principal}
                     onChange={e => setForm({ ...form, principal: e.target.value })} />
                 </div>
               </div>
               <div className="field">
-                <label>Given on *</label>
-                <input className="input" type="date" required value={form.loanDate}
+                <label htmlFor="ps-newloan-date">Given on *</label>
+                <input id="ps-newloan-date" className="input" type="date" required value={form.loanDate}
                   onChange={e => setForm({ ...form, loanDate: e.target.value })} />
               </div>
               <div className="field">
-                <label>Number of instalments *</label>
-                <input className="input" type="number" min={1} max={360} required value={form.instalments}
+                <label htmlFor="ps-newloan-instalments">Number of instalments *</label>
+                <input id="ps-newloan-instalments" className="input" type="number" min={1} max={360} required value={form.instalments}
                   onChange={e => setForm({ ...form, instalments: e.target.value })} />
               </div>
               <div className="field">
-                <label>First deduction in *</label>
-                <input className="input" type="month" required value={form.startPeriod}
+                <label htmlFor="ps-newloan-start">First deduction in *</label>
+                <input id="ps-newloan-start" className="input" type="month" required value={form.startPeriod}
                   onChange={e => setForm({ ...form, startPeriod: e.target.value })} />
               </div>
               <div className="field">
-                <label>Interest rate</label>
+                <label htmlFor="ps-newloan-rate">Interest rate</label>
                 <div className="input-unit"><span className="unit">%</span>
-                  <input className="input" type="number" min={0} max={60} step="0.01" value={form.annualRate}
+                  <input id="ps-newloan-rate" className="input" type="number" min={0} max={60} step="0.01" value={form.annualRate}
                     onChange={e => setForm({ ...form, annualRate: e.target.value })} />
                 </div>
                 <span className="hint">A year. Leave at 0 for an interest-free advance.</span>
               </div>
               <div className="field">
-                <label>Interest method</label>
-                <select className="select" value={form.type} disabled={!(Number(form.annualRate) > 0)}
+                <label htmlFor="ps-newloan-type">Interest method</label>
+                <select id="ps-newloan-type" className="select" value={form.type} disabled={!(Number(form.annualRate) > 0)}
                   onChange={e => setForm({ ...form, type: e.target.value })}>
                   {data.types.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
                 <span className="hint">{Number(form.annualRate) > 0 ? type?.hint : 'Only matters when interest is charged.'}</span>
               </div>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Remarks</label>
-                <input className="input" value={form.remarks}
+              <div className="field ps-span-all">
+                <label htmlFor="ps-newloan-remarks">Remarks</label>
+                <input id="ps-newloan-remarks" className="input" value={form.remarks}
                   onChange={e => setForm({ ...form, remarks: e.target.value })} />
               </div>
             </div>
 
             {preview && preview.lines.length > 0 && (
-              <div className="alert alert-success" style={{ alignItems: 'flex-start' }}>
-                <span>₹</span>
+              <div className="alert alert-success ps-align-start">
+                <Icon name="banknote" size={16} className="ps-alert-icon" />
                 <span>
                   <strong>{formatINR(preview.lines[0].instalment)}</strong> a month
                   {preview.lines[preview.lines.length - 1].instalment !== preview.lines[0].instalment
@@ -256,8 +258,8 @@ export default function LoansList() {
             )}
 
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Create Loan'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Create loan'}</Button>
             </div>
           </form>
         )}

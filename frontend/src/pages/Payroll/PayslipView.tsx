@@ -4,6 +4,8 @@ import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, StatusBadge, BackButton,
 } from '../../components/ui';
 import DownloadButton from '../../components/DownloadButton';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -26,7 +28,7 @@ export default function PayslipView() {
   if (loading) return <LoadingBlock label="Loading payslip…" />;
   if (!doc) {
     return <EmptyState icon="▦" title="Payslip not found"
-      action={<Link to="/payroll" className="btn btn-secondary">Back to Payroll</Link>} />;
+      action={<ButtonLink to="/payroll">Back to payroll</ButtonLink>} />;
   }
 
   return (
@@ -46,17 +48,17 @@ export default function PayslipView() {
           actions={
             <>
               <StatusBadge status={doc.status === 'FINALIZED' ? 'finalized' : 'draft'} />
-              <DownloadButton path={`/payroll/entries/${doc.id}/payslip.pdf`}>⤓ PDF</DownloadButton>
-              <button className="btn btn-primary" onClick={() => window.print()}>
-                🖨 Print
-              </button>
+              <DownloadButton path={`/payroll/entries/${doc.id}/payslip.pdf`}>PDF</DownloadButton>
+              <Button variant="primary" icon="receipt" onClick={() => window.print()}>
+                Print
+              </Button>
             </>
           }
         />
         <ErrorAlert message={error} onDismiss={() => setError('')} />
         {doc.status !== 'FINALIZED' && (
-          <div className="alert" style={{ background: 'var(--warning-soft)', color: 'var(--warning)', borderColor: '#fde68a' }}>
-            <span>◷</span>
+          <div className="alert alert-warning">
+            <Icon name="clock" size={16} className="pr-alert-icon" />
             <span>This run is still a draft — figures may change until it is finalized.</span>
           </div>
         )}

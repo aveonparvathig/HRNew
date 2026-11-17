@@ -4,6 +4,7 @@ import { payrollAPI } from '../../api/payroll';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, BackButton, Modal } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
+import { Button, ButtonLink } from '../../components/Button';
 
 const TYPE_LABELS: Record<string, string> = {
   PF: 'Provident Fund', ESI: 'ESI', PT: 'Professional Tax', LWF: 'Labour Welfare Fund',
@@ -66,14 +67,14 @@ export default function Remittances() {
       <div className="breadcrumb"><BackButton />
         <Link to="/payroll">Payroll</Link>
         <span>/</span>
-        <span>Statutory Payments</span>
+        <span>Statutory payments</span>
       </div>
 
       <PageHeader
-        title="Statutory Payments"
+        title="Statutory payments"
         subtitle="What each month's payroll owes for PF, ESI, Professional Tax and Labour Welfare Fund, and what has been paid."
         actions={data.financialYears.length > 0 && (
-          <select className="select" style={{ width: 'auto' }} value={data.startYear}
+          <select className="select ps-w-auto" aria-label="Financial year" value={data.startYear}
             onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
           </select>
@@ -91,32 +92,32 @@ export default function Remittances() {
           <div className="card-header">
             <div>
               <h3>{monthLabel(m.period)}</h3>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>
+              <span className="text-sm-muted">
                 {m.status === 'FINALIZED' ? 'Finalized' : 'Draft — dues may still change'}
               </span>
             </div>
-            <Link to={`/payroll/runs/${m.runId}`} className="btn btn-secondary btn-sm">Open run →</Link>
+            <ButtonLink to={`/payroll/runs/${m.runId}`} size="sm">Open run</ButtonLink>
           </div>
           <div className="table-wrap">
             <table className="table">
               <thead>
-                <tr><th>Payable to</th><th className="num">Due</th><th className="num">Paid</th><th className="num">Balance</th><th>Payments</th><th /></tr>
+                <tr><th>Payable to</th><th className="num">Due</th><th className="num">Paid</th><th className="num">Balance</th><th>Payments</th><th><span className="sr-only">Actions</span></th></tr>
               </thead>
               <tbody>
                 {data.types.filter((t: string) => m.dues[t] > 0 || m.paid[t] > 0).map((t: string) => {
                   const balance = Math.round((m.dues[t] - m.paid[t]) * 100) / 100;
                   return (
                     <tr key={t}>
-                      <td style={{ fontWeight: 600 }}>{TYPE_LABELS[t]}</td>
+                      <td className="ps-strong">{TYPE_LABELS[t]}</td>
                       <td className="num">{formatINR(m.dues[t])}</td>
                       <td className="num">{m.paid[t] ? formatINR(m.paid[t]) : '—'}</td>
-                      <td className={`num ${balance > 0 ? 'text-warning' : 'text-success'}`} style={{ fontWeight: 600 }}>
+                      <td className={`num ps-strong ${balance > 0 ? 'text-warning' : 'text-success'}`}>
                         {balance > 0 ? formatINR(balance) : balance < 0 ? `${formatINR(-balance)} over` : 'Paid'}
                       </td>
-                      <td style={{ fontSize: 12.5 }}>
+                      <td className="ps-small">
                         {m.payments.filter((p: any) => p.type === t).map((p: any) => (
                           <div key={p.id}>
-                            {formatINR(p.amount)} on {formatDate(p.paidOn)}
+                            <span className="num">{formatINR(p.amount)}</span> on {formatDate(p.paidOn)}
                             {p.reference && <span className="text-muted"> · {p.reference}</span>}
                             <button className="btn-link-danger" onClick={() => handleDelete(p)} aria-label="Remove payment">remove</button>
                           </div>
@@ -124,10 +125,10 @@ export default function Remittances() {
                       </td>
                       <td>
                         <div className="row-actions">
-                          <button className="btn btn-secondary btn-sm" onClick={() => setForm({
+                          <Button size="sm" onClick={() => setForm({
                             period: m.period, type: t, amount: balance > 0 ? balance : '', paidOn: today(),
                             reference: '', bankName: '', remarks: '',
-                          })}>Record Payment</button>
+                          })}>Record payment</Button>
                         </div>
                       </td>
                     </tr>
@@ -146,38 +147,38 @@ export default function Remittances() {
         open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={handleSave}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Amount paid *</label>
+                <label htmlFor="ps-rem-amount">Amount paid *</label>
                 <div className="input-unit"><span className="unit">₹</span>
-                  <input className="input" type="number" min={0.01} step="0.01" required value={form.amount}
+                  <input id="ps-rem-amount" className="input num" type="number" min={0.01} step="0.01" required value={form.amount}
                     onChange={e => setForm({ ...form, amount: e.target.value })} />
                 </div>
               </div>
               <div className="field">
-                <label>Paid on *</label>
-                <input className="input" type="date" required value={form.paidOn}
+                <label htmlFor="ps-rem-date">Paid on *</label>
+                <input id="ps-rem-date" className="input" type="date" required value={form.paidOn}
                   onChange={e => setForm({ ...form, paidOn: e.target.value })} />
               </div>
               <div className="field">
-                <label>Challan / reference no.</label>
-                <input className="input" value={form.reference}
+                <label htmlFor="ps-rem-ref">Challan / reference no.</label>
+                <input id="ps-rem-ref" className="input" value={form.reference}
                   onChange={e => setForm({ ...form, reference: e.target.value })} />
               </div>
               <div className="field">
-                <label>Bank</label>
-                <input className="input" value={form.bankName}
+                <label htmlFor="ps-rem-bank">Bank</label>
+                <input id="ps-rem-bank" className="input" value={form.bankName}
                   onChange={e => setForm({ ...form, bankName: e.target.value })} />
               </div>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Remarks</label>
-                <input className="input" value={form.remarks}
+              <div className="field ps-span-all">
+                <label htmlFor="ps-rem-remarks">Remarks</label>
+                <input id="ps-rem-remarks" className="input" value={form.remarks}
                   onChange={e => setForm({ ...form, remarks: e.target.value })} />
               </div>
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Record Payment'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Record payment'}</Button>
             </div>
           </form>
         )}

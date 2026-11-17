@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { payrollAPI } from '../../api/payroll';
 import { ErrorAlert, SuccessAlert } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 // How payslips leave the system as files: their password, their file
 // name, and the address they are mailed to.
@@ -46,8 +48,8 @@ export default function PayslipFilesCard() {
 
   return (
     <form className="card card-pad mb-24" onSubmit={save}>
-      <h3 style={{ fontSize: 15, marginBottom: 4 }}>Payslip files and email</h3>
-      <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 16 }}>
+      <h3 className="pr-card-title">Payslip files and email</h3>
+      <p className="text-sm-muted pr-mb-16">
         For payslips downloaded as PDF and sent by email. Email itself is set up in{' '}
         <Link to="/organization?tab=email">Company Settings → Email</Link>
         {mail.enabled && !mail.problem ? ' and is on.' : ' and is not on yet.'}
@@ -55,24 +57,24 @@ export default function PayslipFilesCard() {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <SuccessAlert message={success} />
       {!engine.pdf && (
-        <div className="alert alert-warning"><span>⚠</span><span>PDF files cannot be made on this server. Printing to PDF from the browser still works.</span></div>
+        <div className="alert alert-warning"><Icon name="alert" size={16} className="pr-alert-icon" /><span>PDF files cannot be made on this server. Printing to PDF from the browser still works.</span></div>
       )}
 
-      <div className="form-grid" style={{ marginBottom: 14 }}>
+      <div className="form-grid mb-14">
         <div className="field">
-          <label>Password on a payslip file</label>
-          <select className="select" value={form.payslipPdfPassword} onChange={e => setForm({ ...form, payslipPdfPassword: e.target.value })}>
+          <label htmlFor="psf-password">Password on a payslip file</label>
+          <select id="psf-password" className="select" value={form.payslipPdfPassword} onChange={e => setForm({ ...form, payslipPdfPassword: e.target.value })}>
             {data.passwordModes.map((m: any) => <option key={m.value} value={m.value} disabled={m.value !== 'NONE' && !engine.password}>{m.label}</option>)}
           </select>
-          <span className="hint" style={lacking ? { color: 'var(--warning)' } : undefined}>
+          <span className={`hint${lacking ? ' pr-hint-warn' : ''}`}>
             {form.payslipPdfPassword === 'NONE' ? 'Anyone holding the file can open it.'
               : lacking ? `${lacking} of ${employees.total} current employees have no ${form.payslipPdfPassword === 'PAN' ? 'valid PAN' : 'date of birth'} on record. No file is made or mailed for them until it is added.`
               : 'The mail tells the employee how the password is made up, never the password itself.'}
           </span>
         </div>
         <div className="field">
-          <label>Email payslips to</label>
-          <select className="select" value={form.payslipEmailTo} onChange={e => setForm({ ...form, payslipEmailTo: e.target.value })}>
+          <label htmlFor="psf-email-to">Email payslips to</label>
+          <select id="psf-email-to" className="select" value={form.payslipEmailTo} onChange={e => setForm({ ...form, payslipEmailTo: e.target.value })}>
             {data.emailTargets.map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
           <span className="hint">
@@ -81,8 +83,8 @@ export default function PayslipFilesCard() {
           </span>
         </div>
         <div className="field">
-          <label>When payslips are released, mail employees</label>
-          <select className="select" value={form.releaseMail || 'NONE'} onChange={e => setForm({ ...form, releaseMail: e.target.value })}>
+          <label htmlFor="psf-release-mail">When payslips are released, mail employees</label>
+          <select id="psf-release-mail" className="select" value={form.releaseMail || 'NONE'} onChange={e => setForm({ ...form, releaseMail: e.target.value })}>
             {(data.releaseMails || []).map((m: any) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
           <span className="hint">
@@ -90,25 +92,25 @@ export default function PayslipFilesCard() {
           </span>
         </div>
       </div>
-      <div className="form-grid" style={{ marginBottom: 14 }}>
+      <div className="form-grid mb-14">
         <div className="field">
-          <label>Payslip file name starts with</label>
-          <input className="input" maxLength={30} value={form.payslipFilePrefix} onChange={e => setForm({ ...form, payslipFilePrefix: e.target.value })} />
+          <label htmlFor="psf-prefix">Payslip file name starts with</label>
+          <input id="psf-prefix" className="input" maxLength={30} value={form.payslipFilePrefix} onChange={e => setForm({ ...form, payslipFilePrefix: e.target.value })} />
         </div>
         <div className="field">
-          <label>Then the employee's</label>
-          <select className="select" value={form.payslipFileContext} onChange={e => setForm({ ...form, payslipFileContext: e.target.value })}>
+          <label htmlFor="psf-context">Then the employee's</label>
+          <select id="psf-context" className="select" value={form.payslipFileContext} onChange={e => setForm({ ...form, payslipFileContext: e.target.value })}>
             {data.fileContexts.map((c: any) => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
           <span className="hint">For example {example}</span>
         </div>
         <div className="field">
-          <label>Journal voucher file name starts with</label>
-          <input className="input" maxLength={30} value={form.jvFilePrefix} onChange={e => setForm({ ...form, jvFilePrefix: e.target.value })} />
+          <label htmlFor="psf-jv-prefix">Journal voucher file name starts with</label>
+          <input id="psf-jv-prefix" className="input" maxLength={30} value={form.jvFilePrefix} onChange={e => setForm({ ...form, jvFilePrefix: e.target.value })} />
           <span className="hint">For example {form.jvFilePrefix || 'JV'}_2026-06.xlsx</span>
         </div>
       </div>
-      <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+      <Button type="submit" variant="primary" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
     </form>
   );
 }

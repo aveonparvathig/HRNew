@@ -1,0 +1,42 @@
+/* Payroll redesign: settings pages. */
+
+/* Shared settings helpers */
+.ps-group-title { font-size: 15px; margin-bottom: 4px; }
+.ps-group-hint { font-size: 12.5px; color: var(--text-3); margin-bottom: 16px; }
+.ps-note { font-size: 12.5px; color: var(--text-3); margin-top: 6px; }
+.ps-mt-14 { margin-top: 14px; }
+.ps-check-row { --gap: 20px; margin-top: 14px; }
+.ps-actions-start { justify-content: flex-start; }
+.ps-strong { font-weight: 600; }
+.ps-sub { font-size: 11.5px; color: var(--text-3); }
+.ps-muted { font-size: 13px; color: var(--text-3); }
+.ps-ml-6 { margin-left: 6px; }
+.ps-span-all { grid-column: 1 / -1; }
+.ps-select-auto { width: auto; max-width: 240px; }
+.ps-small { font-size: 12.5px; }
+.ps-split-line { font-size: 13px; margin-bottom: 6px; }
+.ps-warn { color: var(--warning); }
+.ps-cursor-default { cursor: default; }
+.ps-jv-split { --gap: 10px; padding: 14px 22px 4px; }
+.ps-label-inline { font-size: 13px; }
+.ps-w-auto { width: auto; }
+.ps-col-40 { width: 40%; }
+.ps-max-360 { max-width: 360px; }
+.ps-card-foot { padding: 14px 22px; }
+.ps-fs-inherit { font-size: inherit; }
+.ps-grow { flex: 1; }
+.ps-mb-10 { margin-bottom: 10px; }
+.ps-mt-10 { margin-top: 10px; }
+.ps-mt-12 { margin-top: 12px; }
+.ps-list { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.8; }
+.ps-total-line { font-size: 13.5px; margin-bottom: 14px; }
+.ps-gap-10 { --gap: 10px; }
+.ps-alert-icon { flex: none; margin-top: 1px; }
+.ps-table-note { font-size: 12px; color: var(--text-3); padding: 10px 22px 16px; }
+.ps-nowrap { white-space: nowrap; }
+.ps-align-start { align-items: flex-start; }
+.ps-hint-block { display: block; margin-top: 8px; }
+.ps-check-row-b { --gap: 20px; margin-bottom: 14px; }
+.ps-mb-12 { margin-bottom: 12px; }
+.ps-perq-scroll { max-height: 52vh; overflow-y: auto; }
+.ps-perq-total { font-size: 13px; margin: 12px 0; }

@@ -6,6 +6,7 @@ import {
 } from '../../components/ui';
 import { formatINR, formatDate } from '../../utils/format';
 import { confirmDialog } from '../../components/feedback';
+import { Button, ButtonLink } from '../../components/Button';
 
 const monthLabel = (period: string) => {
   const [y, m] = period.split('-').map(Number);
@@ -15,7 +16,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 type Action = 'skip' | 'prepay' | 'foreclose' | 'revise';
 const ACTION_TITLES: Record<Action, string> = {
-  skip: 'Skip a Month', prepay: 'Part Payment', foreclose: 'Settle in Full', revise: 'Revise Loan',
+  skip: 'Skip a month', prepay: 'Part payment', foreclose: 'Settle in full', revise: 'Revise loan',
 };
 
 export default function LoanDetail() {
@@ -46,7 +47,7 @@ export default function LoanDetail() {
   if (loading) return <LoadingBlock label="Loading loan…" />;
   if (!loan) {
     return <EmptyState icon="▤" title="Loan not found" message={error}
-      action={<Link to="/payroll/loans" className="btn btn-secondary">Back to Loans</Link>} />;
+      action={<ButtonLink to="/payroll/loans">Back to loans</ButtonLink>} />;
   }
 
   const due = loan.schedule.filter((l: any) => l.status === 'DUE');
@@ -94,15 +95,15 @@ export default function LoanDetail() {
   };
 
   const field = (label: string, key: string, props: any = {}, hint = '') => (
-    <div className="field" style={props.wide ? { gridColumn: '1 / -1' } : undefined}>
-      <label>{label}</label>
+    <div className={`field${props.wide ? ' ps-span-all' : ''}`}>
+      <label htmlFor={`ps-loan-${key}`}>{label}</label>
       {props.unit ? (
         <div className="input-unit"><span className="unit">{props.unit}</span>
-          <input className="input" type="number" min={0} step="0.01" required={props.required}
+          <input id={`ps-loan-${key}`} className="input num" type="number" min={0} step="0.01" required={props.required}
             value={form[key] ?? ''} onChange={e => setForm({ ...form, [key]: e.target.value })} />
         </div>
       ) : (
-        <input className="input" type={props.type || 'text'} required={props.required} min={props.min} max={props.max}
+        <input id={`ps-loan-${key}`} className="input" type={props.type || 'text'} required={props.required} min={props.min} max={props.max}
           value={form[key] ?? ''} onChange={e => setForm({ ...form, [key]: e.target.value })} />
       )}
       {hint && <span className="hint">{hint}</span>}
@@ -126,16 +127,16 @@ export default function LoanDetail() {
         actions={
           <>
             <StatusBadge status={isActive ? 'active' : 'completed'} />
-            <Link to={`/payroll/reports/loan-statement?loanId=${loan.id}`} className="btn btn-secondary">🖨 Statement</Link>
+            <ButtonLink to={`/payroll/reports/loan-statement?loanId=${loan.id}`} icon="receipt">Statement</ButtonLink>
             {isActive && (
               <>
-                <button className="btn btn-secondary" disabled={due.length === 0} onClick={() => open('skip')}>Skip a Month</button>
-                <button className="btn btn-secondary" disabled={due.length === 0} onClick={() => open('prepay')}>Part Payment</button>
-                <button className="btn btn-secondary" onClick={() => open('revise')}>Revise</button>
-                <button className="btn btn-primary" onClick={() => open('foreclose')}>Settle in Full</button>
+                <Button disabled={due.length === 0} onClick={() => open('skip')}>Skip a month</Button>
+                <Button disabled={due.length === 0} onClick={() => open('prepay')}>Part payment</Button>
+                <Button onClick={() => open('revise')}>Revise</Button>
+                <Button variant="accent" onClick={() => open('foreclose')}>Settle in full</Button>
               </>
             )}
-            {loan.canDelete && <button className="btn btn-danger" onClick={handleDelete}>Delete</button>}
+            {loan.canDelete && <Button variant="danger" onClick={handleDelete}>Delete</Button>}
           </>
         }
       />
@@ -144,18 +145,18 @@ export default function LoanDetail() {
       <SuccessAlert message={success} onDismiss={() => setSuccess('')} />
 
       <div className="stat-grid">
-        <StatCard label="Lent" value={formatINR(loan.totalLent)} icon="▤" tone="primary" />
-        <StatCard label="Outstanding" value={formatINR(loan.outstanding)} icon="₹" tone="warning"
+        <StatCard label="Lent" value={formatINR(loan.totalLent)} icon="transfer" tone="primary" />
+        <StatCard label="Outstanding" value={formatINR(loan.outstanding)} icon="banknote" tone="warning"
           sub={`${formatINR(loan.totalLent - loan.outstanding)} principal repaid`} />
-        <StatCard label="Interest Paid" value={formatINR(loan.interestPaid)} icon="%" tone="info" />
-        <StatCard label="Instalments Left" value={loan.instalmentsLeft} icon="◷" tone="success"
+        <StatCard label="Interest paid" value={formatINR(loan.interestPaid)} icon="chart" tone="info" />
+        <StatCard label="Instalments left" value={loan.instalmentsLeft} icon="clock" tone="success"
           sub={loan.nextInstalment ? `Next ${formatINR(loan.nextInstalment.amount)} in ${monthLabel(loan.nextInstalment.period)}` : 'Nothing more due'} />
       </div>
 
       <div className="card mb-24">
         <div className="card-header">
           <h3>Repayment plan</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
+          <span className="text-sm-muted">
             An instalment is marked paid when the payroll run for its month is finalized.
           </span>
         </div>
@@ -166,7 +167,7 @@ export default function LoanDetail() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>#</th><th>Month</th><th className="num">Principal</th><th className="num">Interest</th>
+                  <th className="num">#</th><th>Month</th><th className="num">Principal</th><th className="num">Interest</th>
                   <th className="num">Instalment</th>{showPerquisite && <th className="num">Perquisite</th>}<th>Status</th>
                 </tr>
               </thead>
@@ -175,11 +176,11 @@ export default function LoanDetail() {
                   const overdue = l.status === 'DUE' && l.period < loan.currentPeriod;
                   return (
                     <tr key={l.id}>
-                      <td className="text-muted">{l.seq}</td>
-                      <td style={{ fontWeight: 600 }}>{monthLabel(l.period)}</td>
+                      <td className="num text-muted">{l.seq}</td>
+                      <td className="ps-strong">{monthLabel(l.period)}</td>
                       <td className="num">{formatINR(l.principal)}</td>
                       <td className="num text-muted">{l.interest ? formatINR(l.interest) : '—'}</td>
-                      <td className="num" style={{ fontWeight: 600 }}>{formatINR(l.instalment)}</td>
+                      <td className="num ps-strong">{formatINR(l.instalment)}</td>
                       {showPerquisite && <td className="num text-muted">{l.perquisite ? formatINR(l.perquisite) : '—'}</td>}
                       <td>
                         <span className={`badge ${l.status === 'PAID' ? 'badge-success' : overdue ? 'badge-danger' : 'badge-neutral'}`}>
@@ -194,7 +195,7 @@ export default function LoanDetail() {
           </div>
         )}
         {showPerquisite && (
-          <p className="text-muted" style={{ fontSize: 12, padding: '10px 22px 16px' }}>
+          <p className="ps-table-note">
             Perquisite is the taxable benefit of paying {loan.annualRate}% against the {loan.perquisite.benchmarkRate}% benchmark.
             It will feed the income-tax calculation; it is not deducted from pay.
           </p>
@@ -214,12 +215,12 @@ export default function LoanDetail() {
             <tbody>
               {loan.transactions.map((t: any) => (
                 <tr key={t.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{formatDate(t.date)}</td>
+                  <td className="ps-nowrap">{formatDate(t.date)}</td>
                   <td>{t.label}{t.period && <span className="text-muted"> ({monthLabel(t.period)})</span>}</td>
                   <td className="num">{t.principal > 0 ? formatINR(t.principal) : '—'}</td>
                   <td className="num">{t.principal < 0 ? formatINR(-t.principal) : '—'}</td>
                   <td className="num text-muted">{t.interest ? formatINR(t.interest) : '—'}</td>
-                  <td className="num" style={{ fontWeight: 600 }}>{formatINR(t.balanceAfter)}</td>
+                  <td className="num ps-strong">{formatINR(t.balanceAfter)}</td>
                   <td>{t.remarks || '—'}</td>
                   <td>{t.createdByName || '—'}</td>
                 </tr>
@@ -234,13 +235,13 @@ export default function LoanDetail() {
           <form onSubmit={handleSubmit}>
             {action === 'skip' && (
               <>
-                <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                <p className="ps-muted mb-14">
                   Nothing is deducted in the chosen month. The remaining instalments move one month later.
                 </p>
-                <div className="form-grid" style={{ marginBottom: 14 }}>
+                <div className="form-grid mb-14">
                   <div className="field">
-                    <label>Month to skip *</label>
-                    <select className="select" required value={form.period} onChange={e => setForm({ ...form, period: e.target.value })}>
+                    <label htmlFor="ps-loan-skip">Month to skip *</label>
+                    <select id="ps-loan-skip" className="select" required value={form.period} onChange={e => setForm({ ...form, period: e.target.value })}>
                       {due.map((l: any) => <option key={l.id} value={l.period}>{monthLabel(l.period)} — {formatINR(l.instalment)}</option>)}
                     </select>
                   </div>
@@ -250,11 +251,11 @@ export default function LoanDetail() {
             )}
             {action === 'prepay' && (
               <>
-                <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                <p className="ps-muted mb-14">
                   A payment made outside payroll. {formatINR(loan.outstanding)} is outstanding. The instalments left
                   stay the same in number and become smaller.
                 </p>
-                <div className="form-grid" style={{ marginBottom: 14 }}>
+                <div className="form-grid mb-14">
                   {field('Amount paid *', 'amount', { unit: '₹', required: true })}
                   {field('Paid on *', 'date', { type: 'date', required: true })}
                   {field('Remarks', 'remarks', { wide: true })}
@@ -263,11 +264,11 @@ export default function LoanDetail() {
             )}
             {action === 'foreclose' && (
               <>
-                <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                <p className="ps-muted mb-14">
                   The employee pays the whole balance of <strong>{formatINR(loan.outstanding)}</strong> outside payroll.
                   The remaining instalments are cancelled and the loan closes.
                 </p>
-                <div className="form-grid" style={{ marginBottom: 14 }}>
+                <div className="form-grid mb-14">
                   {field('Settled on *', 'date', { type: 'date', required: true })}
                   {field('Interest collected', 'interest', { unit: '₹' }, 'Any interest paid with the settlement.')}
                   {field('Remarks', 'remarks', { wide: true })}
@@ -276,10 +277,10 @@ export default function LoanDetail() {
             )}
             {action === 'revise' && (
               <>
-                <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>
+                <p className="ps-muted mb-14">
                   {formatINR(loan.outstanding)} is outstanding. Set new terms for it; instalments already paid are not affected.
                 </p>
-                <div className="form-grid" style={{ marginBottom: 14 }}>
+                <div className="form-grid mb-14">
                   {field('Top-up amount', 'topUp', { unit: '₹' }, 'Extra money lent now, added to the balance.')}
                   {field('Interest rate', 'annualRate', { unit: '%' }, 'A year.')}
                   {field('Instalments from here *', 'instalments', { type: 'number', min: 1, max: 360, required: true })}
@@ -289,8 +290,8 @@ export default function LoanDetail() {
               </>
             )}
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setAction(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Confirm'}</button>
+              <Button variant="ghost" onClick={() => setAction(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Confirm'}</Button>
             </div>
           </form>
         )}
