@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { payrollAPI } from '../api/payroll';
 import { formatINR } from '../utils/format';
 
@@ -26,6 +26,7 @@ export default function PackageField({ label, value, onChange, context = {}, req
   const [preview, setPreview] = useState<any>(null);
   const [problem, setProblem] = useState('');
   const latest = useRef(0);
+  const inputId = useId();
   const { personId, isEsiEligible, isPfApplicable, designation, department } = context;
 
   // A yearly figure is worked back by the server, a moment after typing stops
@@ -60,33 +61,33 @@ export default function PackageField({ label, value, onChange, context = {}, req
   };
 
   return (
-    <div className="field" style={wide ? { gridColumn: '1 / -1' } : undefined}>
-      <label>{label}{required ? ' *' : ''}</label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <select className="select" style={{ width: 'auto', flex: '0 0 auto' }} aria-label={`${label}: entered as`} value={mode}
+    <div className={wide ? 'field pp-span-all' : 'field'}>
+      <label htmlFor={inputId}>{label}{required ? ' *' : ''}</label>
+      <div className="pp-package-row">
+        <select className="select pp-package-mode" aria-label={`${label}: entered as`} value={mode}
           onChange={e => pick(e.target.value)}>
           {MODES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
         </select>
-        <div className="input-unit" style={{ flex: 1 }}><span className="unit">₹</span>
+        <div className="input-unit pp-package-amount"><span className="unit">₹</span>
           {mode === 'MONTHLY' ? (
-            <input className="input" type="number" min={required ? 1 : 0} step="0.01" required={required}
+            <input id={inputId} className="input num" type="number" min={required ? 1 : 0} step="0.01" required={required}
               value={value} onChange={e => onChange(e.target.value)} />
           ) : (
-            <input className="input" type="number" min={1} step="1" required={required} aria-label={`${label}: yearly amount`}
+            <input id={inputId} className="input num" type="number" min={1} step="1" required={required} aria-label={`${label}: yearly amount`}
               value={amount} onChange={e => setAmount(e.target.value)} />
           )}
         </div>
       </div>
       {mode !== 'MONTHLY' && preview && (
         <span className="hint">
-          Monthly package <strong>{formatINR(preview.monthlyPackage)}</strong> · gross {formatINR(preview.annual.grossSalary)} a year,
+          Monthly package <strong className="num">{formatINR(preview.monthlyPackage)}</strong> · gross {formatINR(preview.annual.grossSalary)} a year,
           cost to company {formatINR(preview.annualCtc)} a year{preview.structureName ? ` · split by “${preview.structureName}”` : ''}
         </span>
       )}
       {mode === 'ANNUAL_CTC' && !preview && !problem && (
         <span className="hint">The yearly cost with the employer's PF and ESI. The monthly package is worked back from it.</span>
       )}
-      {problem && <span className="hint" style={{ color: 'var(--danger)' }}>{problem}</span>}
+      {problem && <span className="hint pp-hint-danger">{problem}</span>}
       {hint && <span className="hint">{hint}</span>}
     </div>
   );

@@ -1,0 +1,53 @@
+/* People redesign: profile. */
+
+/* Key/value rows on the profile cards */
+.pp-info-row { padding: 8px 0; }
+.pp-info-label { font-size: 12.5px; color: var(--text-3); }
+.pp-info-value { font-weight: 500; text-align: right; color: var(--text); }
+.pp-card-title { font-size: 15px; margin-bottom: 8px; }
+.pp-photo { width: 84px; height: 84px; border-radius: 50%; object-fit: cover; margin-bottom: 10px; border: 1px solid var(--border); }
+.pp-stage-select { width: 150px; }
+.pp-inline { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Tables */
+.pp-strong { font-weight: 600; color: var(--text); }
+.pp-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.pp-cell-sm { font-size: 12.5px; color: var(--text-2); }
+.pp-feedback { max-width: 220px; }
+.pp-date, .pp-fig { font-family: var(--font-num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pp-nowrap { white-space: nowrap; }
+.pp-stars { color: var(--warning-dot); font-size: 12px; }
+.pp-select-sm { width: 110px; padding: 4px 8px; font-size: 12px; }
+.pp-select-auto { width: auto; }
+.pp-check-inline { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.pp-badge-gap { margin-left: 6px; }
+
+/* Card internals */
+.pp-card-alert { padding: 0 22px; }
+.pp-card-body { padding: 0 22px 16px; font-size: 13px; }
+.pp-card-body.pp-card-body-pad { padding: 14px 22px 18px; }
+.pp-card-summary { padding: 12px 22px 4px; font-size: 13px; }
+.pp-alert-icon { flex: none; margin-top: 1px; }
+.pp-text-13 { font-size: 13px; }
+.pp-gap-24 { gap: 24px; }
+.pp-subhead { font-size: 13px; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+.pp-kv { display: flex; gap: 8px; font-size: 13px; padding: 2px 0; }
+.pp-kv-label { min-width: 150px; color: var(--text-3); }
+.pp-check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 3px 0; }
+.pp-divider-row { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+/* Forms */
+.pp-span-all { grid-column: 1 / -1; }
+.pp-field-narrow { max-width: 220px; }
+.pp-label-sm { font-size: 12.5px; }
+.pp-mt-10 { margin-top: 10px; }
+.pp-mb-0 { margin-bottom: 0; }
+.pp-mb-10 { margin-bottom: 10px; }
+.pp-mb-12 { margin-bottom: 12px; }
+.pp-check-top { align-items: flex-start; }
+.pp-check-top input[type="checkbox"] { margin-top: 2px; }
+.pp-check-hint { display: block; font-size: 12px; color: var(--text-3); }
+.pp-hint-danger { color: var(--danger); }
+.pp-package-row { display: flex; gap: 8px; }
+.pp-package-mode { width: auto; flex: 0 0 auto; }
+.pp-package-amount { flex: 1; min-width: 0; }

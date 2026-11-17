@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useId } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { peopleAPI } from '../api/people';
 import { Modal, ErrorAlert, LoadingBlock } from './ui';
+import { Button } from './Button';
 
 export interface LetterFieldDef {
   key: string;
@@ -13,31 +14,35 @@ export interface LetterFieldDef {
 
 // The inputs of a letter form: one for each field its template uses.
 export function LetterFields({ fields, form, set }: { fields: LetterFieldDef[]; form: any; set: (key: string, value: any) => void }) {
+  const base = useId();
   return (
     <div className="form-grid">
-      {fields.map(f => (
-        <div key={f.key} className="field" style={f.type === 'textarea' ? { gridColumn: '1 / -1' } : undefined}>
-          <label>{f.label}</label>
+      {fields.map(f => {
+        const id = `${base}-${f.key}`;
+        return (
+        <div key={f.key} className={f.type === 'textarea' ? 'field pl-span-all' : 'field'}>
+          <label htmlFor={id}>{f.label}</label>
           {f.type === 'textarea' ? (
-            <textarea className="input" rows={2} placeholder={f.placeholder}
+            <textarea id={id} className="input" rows={2} placeholder={f.placeholder}
               value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)} />
           ) : f.type === 'select' ? (
-            <select className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
+            <select id={id} className="select" value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)}>
               <option value="">—</option>
               {(f.options || []).map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           ) : f.type === 'money' ? (
             <div className="input-unit">
               <span className="unit">₹</span>
-              <input className="input" type="number" min={0} placeholder={f.placeholder || '0'}
+              <input id={id} className="input num" type="number" min={0} placeholder={f.placeholder || '0'}
                 value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)} />
             </div>
           ) : (
-            <input className="input" type={f.type === 'number' ? 'number' : f.type} min={f.type === 'number' ? 0 : undefined}
+            <input id={id} className={f.type === 'number' ? 'input num' : 'input'} type={f.type === 'number' ? 'number' : f.type} min={f.type === 'number' ? 0 : undefined}
               placeholder={f.placeholder} value={form[f.key] ?? ''} onChange={e => set(f.key, e.target.value)} />
           )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -94,20 +99,20 @@ export default function DocumentModal({ open, onClose, personId, personName, doc
       {loading ? <LoadingBlock label="Prefilling from record…" /> : (
         <form onSubmit={handleSubmit}>
           <ErrorAlert message={error} />
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 18 }}>
+          <p className="modal-lede">
             Prefilled from {personName}'s record and the last {docLabel.toLowerCase()} issued.
             The generated letter is saved to their document history.
           </p>
           <LetterFields fields={fields} form={form} set={set} />
-          <label className="checkbox" style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '14px 0 0', fontSize: 13.5 }}>
+          <label className="checkbox-field pl-mt-14">
             <input type="checkbox" checked={visible} onChange={e => setVisible(e.target.checked)} />
             Show this letter to {personName} under My Documents
           </label>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || fields.length === 0}>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" variant="accent" icon="pen" loading={saving} disabled={fields.length === 0}>
               {saving ? 'Generating…' : `Generate ${docLabel}`}
-            </button>
+            </Button>
           </div>
         </form>
       )}

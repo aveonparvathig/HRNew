@@ -5,6 +5,8 @@ import ListSelect from './ListSelect';
 import PackageField from './PackageField';
 import { SectionedForm, SectionCard, FieldGrid, Field, CheckCard, FormFootBar } from './form';
 import { Segmented } from './report';
+import { Button } from './Button';
+import { Icon } from './Layout/nav';
 
 interface Props {
   open: boolean;
@@ -220,7 +222,7 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
         <ErrorAlert message={error} />
 
         {!isEdit && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16 }}>
+          <div className="cluster pd-kind-row">
             <Segmented label="Kind of person" value={form.kind}
               options={(meta.kinds || []).map((k: any) => ({ value: k.value, label: k.value === 'INTERN' ? 'Intern' : 'Employee' }))}
               onChange={v => set('kind', v)} />
@@ -236,26 +238,20 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
           {/* 1 — Basics */}
           <SectionCard id="sec-basics" title="Basics" description="Who this person is and how they appear on payslips and letters.">
             {!isIntern && (
-              <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-                <span aria-hidden="true" style={{
-                  width: 76, height: 76, borderRadius: 14, overflow: 'hidden', flex: '0 0 76px',
-                  background: form.photoData ? 'transparent' : 'var(--surface-2)', border: form.photoData ? 'none' : '1px dashed var(--border-strong)',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-3)', fontSize: 26, fontWeight: 700,
-                }}>
+              <div className="cluster pd-photo-row">
+                <span aria-hidden="true" className={`pd-photo${form.photoData ? ' has-photo' : ''}`}>
                   {form.photoData
-                    ? <img src={form.photoData} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : (form.name?.[0]?.toUpperCase() || (
-                      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
-                    ))}
+                    ? <img src={form.photoData} alt="" />
+                    : (form.name?.[0]?.toUpperCase() || <Icon name="user" size={30} className="pd-photo-icon" />)}
                 </span>
-                <div className="f" style={{ flex: '1 1 220px' }}>
+                <div className="f grow pd-photo-field">
                   <span className="lbl">Photo</span>
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>
+                  <div className="cluster">
+                    <Button size="sm" onClick={() => fileRef.current?.click()}>
                       {form.photoData ? 'Change photo' : 'Upload photo'}
-                    </button>
+                    </Button>
                     {form.photoData && (
-                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => set('photoData', '')}>Remove</button>
+                      <Button variant="ghost" size="sm" onClick={() => set('photoData', '')}>Remove</Button>
                     )}
                     <input ref={fileRef} type="file" accept="image/*" hidden onChange={handlePhoto} />
                   </div>
@@ -264,7 +260,7 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
               </div>
             )}
             <FieldGrid>
-              <div className="f" style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'minmax(90px, 110px) minmax(0, 1fr)', gap: '16px 20px' }}>
+              <div className="f pd-name-row">
                 <Field label="Title" htmlFor="pf-title">
                   <select id="pf-title" className="select" value={form.title} onChange={e => set('title', e.target.value)}>
                     <option value="">—</option>
@@ -297,7 +293,7 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
             {!isIntern && (
               <details className="pipeline-toggle" open={Boolean(form.stage)}>
                 <summary>{form.stage ? 'Tracked as a hiring candidate' : 'Track as a hiring candidate instead (optional)'}</summary>
-                <p className="help" style={{ marginBottom: 12 }}>
+                <p className="help pd-help-gap">
                   Pick a stage to track this person through hiring. They become an employee automatically once the stage reaches <strong>Selected</strong>.
                 </p>
                 <FieldGrid>
@@ -459,7 +455,7 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
               {!isIntern && (
                 <Field label="Permanent address" htmlFor="pf-permanentAddress" full
                   right={(
-                    <label className="checkbox-field" style={{ fontSize: 12.5, fontWeight: 400 }}>
+                    <label className="checkbox-field pd-inline-check">
                       <input type="checkbox" checked={Boolean(form.permanentAddress) && form.permanentAddress === form.address}
                         onChange={e => set('permanentAddress', e.target.checked ? form.address : '')} />
                       Same as present
@@ -540,8 +536,8 @@ export default function PersonFormModal({ open, onClose, person, defaultKind, me
           )}
 
           <FormFootBar blocking={blocking} missing={missing}>
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saveLabel}</button>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" variant="accent" disabled={saving}>{saveLabel}</Button>
           </FormFootBar>
         </SectionedForm>
       </form>

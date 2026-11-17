@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useId, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { peopleAPI } from '../../api/people';
 import { readFileAsDataUri, openDataFile } from '../../api/files';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
 import { confirmDialog, toast } from '../../components/feedback';
+import { Button } from '../../components/Button';
+import { Tabs, type TabItem } from '../../components/Tabs';
+import { Icon } from '../../components/Layout/nav';
 import { formatDate } from '../../utils/format';
 
-const TABS = [
-  { key: 'requests', label: 'Change Requests' },
+const TABS: TabItem<string>[] = [
+  { key: 'requests', label: 'Change requests' },
   { key: 'mail', label: 'Mail' },
   { key: 'bulletins', label: 'Bulletins' },
   { key: 'policies', label: 'Policies' },
@@ -16,6 +19,7 @@ const dateTime = (v: string) => new Date(v).toLocaleString('en-IN', { day: 'nume
 
 // Scope picker shared by mail, bulletins and policies.
 function AudiencePicker({ meta, value, onChange, allowChosen }: any) {
+  const id = useId();
   const [people, setPeople] = useState<any[] | null>(null);
   useEffect(() => {
     if (value.scope === 'CHOSEN' && !people) peopleAPI.getPeople().then(r => setPeople(r.data.employees || []));
@@ -23,33 +27,33 @@ function AudiencePicker({ meta, value, onChange, allowChosen }: any) {
   const scopes = (allowChosen ? meta.audienceScopes : meta.groupScopes) || [];
   return (
     <div>
-      <div className="form-grid" style={{ marginBottom: 10 }}>
+      <div className="form-grid pl-mb-10">
         <div className="field">
-          <label>Who is this for?</label>
-          <select className="select" value={value.scope} onChange={e => onChange({ ...value, scope: e.target.value, scopeValue: '' })}>
+          <label htmlFor={`${id}-scope`}>Who is this for?</label>
+          <select id={`${id}-scope`} className="select" value={value.scope} onChange={e => onChange({ ...value, scope: e.target.value, scopeValue: '' })}>
             {scopes.map((s: any) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
         {value.scope === 'DEPARTMENT' && (
-          <div className="field"><label>Department</label>
-            <select className="select" value={value.scopeValue} onChange={e => onChange({ ...value, scopeValue: e.target.value })}>
+          <div className="field"><label htmlFor={`${id}-dept`}>Department</label>
+            <select id={`${id}-dept`} className="select" value={value.scopeValue} onChange={e => onChange({ ...value, scopeValue: e.target.value })}>
               <option value="">—</option>{(meta.departments || []).map((d: string) => <option key={d}>{d}</option>)}
             </select></div>
         )}
         {value.scope === 'LOCATION' && (
-          <div className="field"><label>Work location</label>
-            <select className="select" value={value.scopeValue} onChange={e => onChange({ ...value, scopeValue: e.target.value })}>
+          <div className="field"><label htmlFor={`${id}-loc`}>Work location</label>
+            <select id={`${id}-loc`} className="select" value={value.scopeValue} onChange={e => onChange({ ...value, scopeValue: e.target.value })}>
               <option value="">—</option>{(meta.locations || []).map((l: any) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select></div>
         )}
       </div>
       {value.scope === 'CHOSEN' && (
-        <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 10, marginBottom: 10 }}>
+        <div className="pl-picker">
           {!people ? <LoadingBlock label="Loading…" /> : people.map(p => (
-            <label key={p.id} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, padding: '2px 0' }}>
+            <label key={p.id} className="checkbox-field pl-picker-row">
               <input type="checkbox" checked={value.personIds.includes(p.id)}
                 onChange={e => onChange({ ...value, personIds: e.target.checked ? [...value.personIds, p.id] : value.personIds.filter((x: string) => x !== p.id) })} />
-              {p.name} <span className="text-muted">· {p.employeeNo}</span>
+              {p.name} <span className="text-muted num">· {p.employeeNo}</span>
             </label>
           ))}
         </div>
@@ -88,32 +92,32 @@ function RequestsTab({ meta }: any) {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       {drive && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 4 }}>Details confirmation (data drive)</h3>
-          <p className="text-muted" style={{ fontSize: 13, margin: 0 }}>
-            {drive.confirmed} of {drive.total} employees have confirmed their details are up to date.
-            {drive.total - drive.confirmed > 0 && ` ${drive.total - drive.confirmed} have not yet.`}
+          <h3 className="pl-card-title pl-tight">Details confirmation (data drive)</h3>
+          <p className="pl-note">
+            <span className="num">{drive.confirmed}</span> of <span className="num">{drive.total}</span> employees have confirmed their details are up to date.
+            {drive.total - drive.confirmed > 0 && <> <span className="num">{drive.total - drive.confirmed}</span> have not yet.</>}
           </p>
         </div>
       )}
       <div className="card mb-24">
-        <div className="card-header"><h3>Pending changes ({data.requests.length})</h3></div>
+        <div className="card-header"><h3>Pending changes <span className="num">({data.requests.length})</span></h3></div>
         {data.requests.length === 0 ? <EmptyState icon="✓" title="Nothing waiting" message="Changes employees propose show up here for approval." /> : (
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Employee</th><th>Section</th><th>Proposed change</th><th>Proof</th><th /></tr></thead>
             <tbody>{data.requests.map((r: any) => (
               <tr key={r.id}>
-                <td><Link to={`/people/${r.person.id}`} style={{ fontWeight: 600 }}>{r.person.name}</Link>
-                  <div className="text-muted" style={{ fontSize: 11.5 }}>{r.person.employeeNo} · {dateTime(r.createdAt)}</div></td>
+                <td><Link to={`/people/${r.person.id}`} className="pl-strong">{r.person.name}</Link>
+                  <div className="pl-sub num">{r.person.employeeNo} · {dateTime(r.createdAt)}</div></td>
                 <td>{(meta.changeSections.find((s: any) => s.value === r.section) || {}).label || r.section}</td>
-                <td style={{ fontSize: 12.5 }}>
+                <td className="pl-cell-sm">
                   {r.section === 'FAMILY'
                     ? <span>{r.changes.name} — {r.changes.relation}{r.changes.nomineeShare ? `, nominee ${r.changes.nomineeShare}%` : ''}</span>
                     : Object.values(r.changes).map((c: any) => <div key={c.label}>{c.label}: <span className="text-muted">{c.from || '—'}</span> → <strong>{c.to}</strong></div>)}
                 </td>
-                <td>{r.hasFile ? <button className="btn btn-secondary btn-sm" onClick={() => openProof(r)}>Open</button> : '—'}</td>
+                <td>{r.hasFile ? <Button size="sm" onClick={() => openProof(r)}>Open</Button> : '—'}</td>
                 <td><div className="row-actions">
-                  <button className="btn btn-primary btn-sm" onClick={() => review(r, true)}>Approve</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => review(r, false)}>Reject</button>
+                  <Button variant="primary" size="sm" onClick={() => review(r, true)}>Approve</Button>
+                  <Button variant="danger" size="sm" onClick={() => review(r, false)}>Reject</Button>
                 </div></td>
               </tr>))}</tbody>
           </table></div>
@@ -152,31 +156,32 @@ function MailTab({ meta }: any) {
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 10 }}>Mail to a group</h3>
-        <div className="field" style={{ marginBottom: 10 }}><label>Subject *</label>
-          <input className="input" maxLength={200} value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
-        <div className="field" style={{ marginBottom: 10 }}><label>Message *</label>
-          <textarea className="input" rows={5} maxLength={10000} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} /></div>
+        <h3 className="pl-card-title">Mail to a group</h3>
+        <div className="field pl-mb-10"><label htmlFor="pl-mail-subject">Subject *</label>
+          <input id="pl-mail-subject" className="input" maxLength={200} value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
+        <div className="field pl-mb-10"><label htmlFor="pl-mail-body">Message *</label>
+          <textarea id="pl-mail-body" className="input" rows={5} maxLength={10000} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} /></div>
         <AudiencePicker meta={meta} value={form} onChange={(v: any) => { setForm({ ...form, ...v }); setCount(null); }} allowChosen />
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={check}>Check recipients</button>
-          {count && <span className="text-muted" style={{ fontSize: 13 }}>{count.recipients} will get it{count.withoutEmail ? `, ${count.withoutEmail} have no email` : ''}.</span>}
-          <button className="btn btn-primary" disabled={sending || !form.subject || !form.body || !count?.recipients} onClick={send} style={{ marginLeft: 'auto' }}>Send</button>
+        <div className="cluster">
+          <Button icon="users" onClick={check}>Check recipients</Button>
+          {count && <span className="text-sm-muted"><span className="num">{count.recipients}</span> will get it{count.withoutEmail ? <>, <span className="num">{count.withoutEmail}</span> have no email</> : ''}.</span>}
+          <Button variant="accent" icon="mail" className="pl-push" loading={sending}
+            disabled={!form.subject || !form.body || !count?.recipients} onClick={send}>Send</Button>
         </div>
       </div>
       <div className="card mb-24">
-        <div className="card-header"><h3>Recent mail ({campaigns.length})</h3></div>
+        <div className="card-header"><h3>Recent mail <span className="num">({campaigns.length})</span></h3></div>
         {campaigns.length === 0 ? <EmptyState icon="✉" title="No mail sent yet" message="" /> : (
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Subject</th><th>To</th><th>When</th><th>Result</th></tr></thead>
             <tbody>{campaigns.map(c => (
               <tr key={c.id}>
-                <td style={{ fontWeight: 600 }}>{c.subject}</td>
+                <td className="pl-strong">{c.subject}</td>
                 <td className="text-muted">{c.scopeLabel}</td>
-                <td className="text-muted">{dateTime(c.createdAt)}</td>
+                <td className="text-muted num">{dateTime(c.createdAt)}</td>
                 <td>{c.status === 'SENDING'
-                  ? <span className="badge badge-info">Sending… {c.sent + c.failed}/{c.total}</span>
-                  : <span>{c.sent} sent{c.failed ? <span className="text-danger">, {c.failed} failed</span> : ''}</span>}</td>
+                  ? <span className="badge badge-info">Sending… <span className="num">{c.sent + c.failed}/{c.total}</span></span>
+                  : <span><span className="num">{c.sent}</span> sent{c.failed ? <span className="text-danger">, <span className="num">{c.failed}</span> failed</span> : ''}</span>}</td>
               </tr>))}</tbody>
           </table></div>
         )}
@@ -210,42 +215,42 @@ function BulletinsTab({ meta }: any) {
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <div className="card mb-24">
-        <div className="card-header"><h3>Bulletins ({rows.length})</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => setForm({ title: '', body: '', scope: 'EVERYONE', scopeValue: '', expiresOn: '', isActive: true, file: null })}>+ New Notice</button></div>
+        <div className="card-header"><h3>Bulletins <span className="num">({rows.length})</span></h3>
+          <Button variant="accent" size="sm" icon="plus" onClick={() => setForm({ title: '', body: '', scope: 'EVERYONE', scopeValue: '', expiresOn: '', isActive: true, file: null })}>New notice</Button></div>
         {rows.length === 0 ? <EmptyState icon="▦" title="No notices" message="" /> : (
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Title</th><th>Audience</th><th>Expires</th><th>Active</th><th /></tr></thead>
             <tbody>{rows.map(b => (
               <tr key={b.id}>
-                <td style={{ fontWeight: 600 }}>{b.title}{b.hasFile && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>File</span>}</td>
+                <td className="pl-strong">{b.title}{b.hasFile && <span className="badge badge-neutral pl-badge-gap">File</span>}</td>
                 <td className="text-muted">{b.scopeLabel}</td>
-                <td className="text-muted">{b.expiresOn ? formatDate(b.expiresOn) : '—'}</td>
+                <td className="text-muted num">{b.expiresOn ? formatDate(b.expiresOn) : '—'}</td>
                 <td>{b.isActive ? 'Yes' : 'No'}</td>
                 <td><div className="row-actions">
-                  <button className="btn btn-secondary btn-sm" onClick={() => setForm({ ...b, expiresOn: b.expiresOn || '', file: null })}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => remove(b)}>Remove</button>
+                  <Button size="sm" onClick={() => setForm({ ...b, expiresOn: b.expiresOn || '', file: null })}>Edit</Button>
+                  <Button variant="danger" size="sm" onClick={() => remove(b)}>Remove</Button>
                 </div></td>
               </tr>))}</tbody>
           </table></div>
         )}
       </div>
-      <Modal title={form?.id ? 'Edit Notice' : 'New Notice'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit notice' : 'New notice'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && <form onSubmit={save}>
-          <div className="field" style={{ marginBottom: 10 }}><label>Title *</label>
-            <input className="input" required maxLength={200} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-          <div className="field" style={{ marginBottom: 10 }}><label>Text</label>
-            <textarea className="input" rows={4} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} /></div>
+          <div className="field pl-mb-10"><label htmlFor="pl-bul-title">Title *</label>
+            <input id="pl-bul-title" className="input" required maxLength={200} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
+          <div className="field pl-mb-10"><label htmlFor="pl-bul-body">Text</label>
+            <textarea id="pl-bul-body" className="input" rows={4} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} /></div>
           <AudiencePicker meta={meta} value={{ ...form, personIds: [] }} onChange={(v: any) => setForm({ ...form, scope: v.scope, scopeValue: v.scopeValue })} />
-          <div className="form-grid" style={{ marginBottom: 10 }}>
-            <div className="field"><label>Expires on</label>
-              <input className="input" type="date" value={form.expiresOn} onChange={e => setForm({ ...form, expiresOn: e.target.value })} /></div>
-            {!form.id && <div className="field"><label>Attachment</label>
-              <input className="input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setForm({ ...form, file: e.target.files?.[0] || null })} /></div>}
+          <div className="form-grid pl-mb-10">
+            <div className="field"><label htmlFor="pl-bul-expires">Expires on</label>
+              <input id="pl-bul-expires" className="input" type="date" value={form.expiresOn} onChange={e => setForm({ ...form, expiresOn: e.target.value })} /></div>
+            {!form.id && <div className="field"><label htmlFor="pl-bul-file">Attachment</label>
+              <input id="pl-bul-file" className="input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setForm({ ...form, file: e.target.files?.[0] || null })} /></div>}
           </div>
           <label className="checkbox-field"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} /> Active</label>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>}
       </Modal>
@@ -280,46 +285,56 @@ function PoliciesTab({ meta }: any) {
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <div className="card mb-24">
-        <div className="card-header"><h3>Policies ({rows.length})</h3>
-          <button className="btn btn-primary btn-sm" onClick={() => setForm({ title: '', body: '', scope: 'EVERYONE', scopeValue: '', isActive: true, file: null })}>+ New Policy</button></div>
+        <div className="card-header"><h3>Policies <span className="num">({rows.length})</span></h3>
+          <Button variant="accent" size="sm" icon="plus" onClick={() => setForm({ title: '', body: '', scope: 'EVERYONE', scopeValue: '', isActive: true, file: null })}>New policy</Button></div>
         {rows.length === 0 ? <EmptyState icon="▤" title="No policies" message="" /> : (
           <div className="table-wrap"><table className="table">
             <thead><tr><th>Title</th><th>Audience</th><th>Read by</th><th /></tr></thead>
             <tbody>{rows.map(p => (
               <tr key={p.id}>
-                <td style={{ fontWeight: 600 }}>{p.title}{p.hasFile && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>File</span>}</td>
+                <td className="pl-strong">{p.title}{p.hasFile && <span className="badge badge-neutral pl-badge-gap">File</span>}</td>
                 <td className="text-muted">{p.scopeLabel}</td>
-                <td><button className="link-button" onClick={() => showCoverage(p)}>{p.acknowledged} read →</button></td>
+                <td><button type="button" className="link-button" onClick={() => showCoverage(p)}><span className="num">{p.acknowledged}</span> read →</button></td>
                 <td><div className="row-actions">
-                  <button className="btn btn-secondary btn-sm" onClick={() => setForm({ ...p, file: null })}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => remove(p)}>Remove</button>
+                  <Button size="sm" onClick={() => setForm({ ...p, file: null })}>Edit</Button>
+                  <Button variant="danger" size="sm" onClick={() => remove(p)}>Remove</Button>
                 </div></td>
               </tr>))}</tbody>
           </table></div>
         )}
       </div>
-      <Modal title={form?.id ? 'Edit Policy' : 'New Policy'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit policy' : 'New policy'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && <form onSubmit={save}>
-          <div className="field" style={{ marginBottom: 10 }}><label>Title *</label>
-            <input className="input" required maxLength={200} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
-          <div className="field" style={{ marginBottom: 10 }}><label>Text</label>
-            <textarea className="input" rows={5} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} /></div>
+          <div className="field pl-mb-10"><label htmlFor="pl-pol-title">Title *</label>
+            <input id="pl-pol-title" className="input" required maxLength={200} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
+          <div className="field pl-mb-10"><label htmlFor="pl-pol-body">Text</label>
+            <textarea id="pl-pol-body" className="input" rows={5} value={form.body} onChange={e => setForm({ ...form, body: e.target.value })} /></div>
           <AudiencePicker meta={meta} value={{ ...form, personIds: [] }} onChange={(v: any) => setForm({ ...form, scope: v.scope, scopeValue: v.scopeValue })} />
-          {!form.id && <div className="field" style={{ marginBottom: 10 }}><label>Document (optional)</label>
-            <input className="input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setForm({ ...form, file: e.target.files?.[0] || null })} /></div>}
+          {!form.id && <div className="field pl-mb-10"><label htmlFor="pl-pol-file">Document (optional)</label>
+            <input id="pl-pol-file" className="input" type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e => setForm({ ...form, file: e.target.files?.[0] || null })} /></div>}
           <label className="checkbox-field"><input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} /> Published</label>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>}
       </Modal>
       <Modal title={coverage ? `Who has read "${coverage.title}"` : ''} open={Boolean(coverage)} onClose={() => setCoverage(null)}>
         {coverage && <div>
-          <p className="text-muted" style={{ fontSize: 13 }}>{coverage.read.length} read · {coverage.notRead.length} not yet</p>
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-            {coverage.read.map((e: any) => <div key={e.id} style={{ fontSize: 13, padding: '2px 0' }}>✓ {e.name} <span className="text-muted">· {formatDate(e.acknowledgedAt)}</span></div>)}
-            {coverage.notRead.map((e: any) => <div key={e.id} style={{ fontSize: 13, padding: '2px 0' }} className="text-muted">○ {e.name} · {e.employeeNo}</div>)}
+          <p className="modal-lede"><span className="num">{coverage.read.length}</span> read · <span className="num">{coverage.notRead.length}</span> not yet</p>
+          <div className="pl-scroll-320">
+            {coverage.read.map((e: any) => (
+              <div key={e.id} className="pl-cov-row">
+                <Icon name="checkCircle" size={14} className="pl-cov-icon" />
+                <span>{e.name} <span className="text-muted num">· {formatDate(e.acknowledgedAt)}</span></span>
+              </div>
+            ))}
+            {coverage.notRead.map((e: any) => (
+              <div key={e.id} className="pl-cov-row pl-cov-pending">
+                <Icon name="clock" size={14} className="pl-cov-icon" />
+                <span>{e.name} <span className="num">· {e.employeeNo}</span></span>
+              </div>
+            ))}
           </div>
         </div>}
       </Modal>
@@ -340,9 +355,7 @@ export default function Communication() {
   return (
     <>
       <PageHeader title="Communication" subtitle={<>Approve detail changes, mail a group, post notices and publish policies. <Link to="/people">Back to People</Link></>} />
-      <div className="tabs" role="tablist">
-        {TABS.map(t => <button key={t.key} role="tab" aria-selected={tab === t.key} className={`tab ${tab === t.key ? 'active' : ''}`} onClick={() => setParams({ tab: t.key })}>{t.label}</button>)}
-      </div>
+      <Tabs label="Communication sections" items={TABS} value={tab} onChange={key => setParams({ tab: key })} />
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       {meta ? content : !error && <LoadingBlock label="Loading…" />}
     </>

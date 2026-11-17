@@ -1,16 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, cloneElement, isValidElement } from 'react';
 import { peopleAPI } from '../api/people';
 import { openDataFile, readFileAsDataUri } from '../api/files';
 import { Modal, ErrorAlert, EmptyState } from './ui';
+import { Button } from './Button';
 import { confirmDialog, toast } from './feedback';
 import { formatDate, formatINR } from '../utils/format';
 
 const FAMILY_RELATIONS = ['Spouse', 'Son', 'Daughter', 'Father', 'Mother', 'Brother', 'Sister', 'Other'];
 const MAX_FILE = 5 * 1024 * 1024;
 const sizeLabel = (b: number) => (b >= 1024 * 1024 ? `${(b / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
-const field = (label: string, node: any, span = false) => (
-  <div className="field" style={span ? { gridColumn: '1 / -1' } : undefined}><label>{label}</label>{node}</div>
-);
+const field = (label: string, node: any, span = false) => {
+  const id = `pp-f-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}`;
+  return (
+    <div className={span ? 'field pp-span-all' : 'field'}>
+      <label htmlFor={id}>{label}</label>{isValidElement(node) ? cloneElement(node as any, { id }) : node}
+    </div>
+  );
+};
 const input = (value: any, onChange: (v: string) => void, props: any = {}) => (
   <input className="input" value={value ?? ''} onChange={e => onChange(e.target.value)} {...props} />
 );
@@ -49,30 +55,30 @@ export function FamilyCard({ person }: { person: any }) {
     <div className="card mb-24">
       <div className="card-header">
         <div><h3>Family ({members.length})</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>For insurance and PF/gratuity nomination. Nominee shares total {data.nomineeTotal}%.</span></div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setFormError(''); setForm({ name: '', relation: '', dateOfBirth: '', isDependant: false, nomineeShare: '' }); }}>+ Add Member</button>
+          <span className="text-sm-muted">For insurance and PF/gratuity nomination. Nominee shares total {data.nomineeTotal}%.</span></div>
+        <Button size="sm" icon="plus" onClick={() => { setFormError(''); setForm({ name: '', relation: '', dateOfBirth: '', isDependant: false, nomineeShare: '' }); }}>Add member</Button>
       </div>
-      <div style={{ padding: '0 22px' }}><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
+      <div className="pp-card-alert"><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
       {members.length === 0 ? <EmptyState icon="☺" title="No family members yet" message="" /> : (
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>Name</th><th>Relationship</th><th>Date of birth</th><th>Dependant</th><th>Nominee</th><th /></tr></thead>
+          <thead><tr><th>Name</th><th>Relationship</th><th>Date of birth</th><th>Dependant</th><th className="num">Nominee</th><th /></tr></thead>
           <tbody>{members.map(m => (
             <tr key={m.id}>
-              <td style={{ fontWeight: 600 }}>{m.name}</td><td>{m.relation}</td>
-              <td className="text-muted">{m.dateOfBirth ? formatDate(m.dateOfBirth) : '—'}</td>
+              <td className="pp-strong">{m.name}</td><td>{m.relation}</td>
+              <td className="pp-date text-muted">{m.dateOfBirth ? formatDate(m.dateOfBirth) : '—'}</td>
               <td>{m.isDependant ? 'Yes' : 'No'}</td>
-              <td>{m.nomineeShare ? `${m.nomineeShare}%` : '—'}</td>
+              <td className="num">{m.nomineeShare ? `${m.nomineeShare}%` : '—'}</td>
               <td><div className="row-actions">
-                <button className="btn btn-secondary btn-sm" onClick={() => { setFormError(''); setForm({ ...m, dateOfBirth: m.dateOfBirth || '', nomineeShare: m.nomineeShare || '' }); }}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(m)}>Remove</button>
+                <Button size="sm" onClick={() => { setFormError(''); setForm({ ...m, dateOfBirth: m.dateOfBirth || '', nomineeShare: m.nomineeShare || '' }); }}>Edit</Button>
+                <Button variant="danger" size="sm" onClick={() => remove(m)}>Remove</Button>
               </div></td>
             </tr>))}</tbody>
         </table></div>
       )}
-      <Modal title={form?.id ? 'Edit Family Member' : 'Add Family Member'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit family member' : 'Add family member'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && <form onSubmit={save}>
           <ErrorAlert message={formError} />
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {field('Name *', input(form.name, v => setForm({ ...form, name: v }), { required: true, maxLength: 120 }))}
             {field('Relationship *', (
               <select className="select" required value={form.relation} onChange={e => setForm({ ...form, relation: e.target.value })}>
@@ -83,8 +89,8 @@ export function FamilyCard({ person }: { person: any }) {
           </div>
           <label className="checkbox-field"><input type="checkbox" checked={form.isDependant} onChange={e => setForm({ ...form, isDependant: e.target.checked })} /> Dependant</label>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>}
       </Modal>
@@ -125,29 +131,29 @@ export function EducationCard({ person }: { person: any }) {
     <div className="card mb-24">
       <div className="card-header">
         <div><h3>Education ({rows.length})</h3></div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setFormError(''); setForm({ qualification: '', institute: '', fromYear: '', toYear: '', grade: '', isHighest: false }); }}>+ Add Qualification</button>
+        <Button size="sm" icon="plus" onClick={() => { setFormError(''); setForm({ qualification: '', institute: '', fromYear: '', toYear: '', grade: '', isHighest: false }); }}>Add qualification</Button>
       </div>
-      <div style={{ padding: '0 22px' }}><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
+      <div className="pp-card-alert"><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
       {rows.length === 0 ? <EmptyState icon="▦" title="No qualifications yet" message="" /> : (
         <div className="table-wrap"><table className="table">
           <thead><tr><th>Qualification</th><th>Institute</th><th>Years</th><th>Grade</th><th /></tr></thead>
           <tbody>{rows.map(r => (
             <tr key={r.id}>
-              <td style={{ fontWeight: 600 }}>{r.qualification}{r.isHighest && <span className="badge badge-success" style={{ marginLeft: 6 }}>Highest</span>}</td>
+              <td className="pp-strong">{r.qualification}{r.isHighest && <span className="badge badge-success pp-badge-gap">Highest</span>}</td>
               <td>{r.institute || '—'}</td>
-              <td className="text-muted">{[r.fromYear, r.toYear].filter(Boolean).join(' – ') || '—'}</td>
+              <td className="pp-date text-muted">{[r.fromYear, r.toYear].filter(Boolean).join(' – ') || '—'}</td>
               <td>{r.grade || '—'}</td>
               <td><div className="row-actions">
-                <button className="btn btn-secondary btn-sm" onClick={() => { setFormError(''); setForm({ ...r, fromYear: r.fromYear || '', toYear: r.toYear || '' }); }}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(r)}>Remove</button>
+                <Button size="sm" onClick={() => { setFormError(''); setForm({ ...r, fromYear: r.fromYear || '', toYear: r.toYear || '' }); }}>Edit</Button>
+                <Button variant="danger" size="sm" onClick={() => remove(r)}>Remove</Button>
               </div></td>
             </tr>))}</tbody>
         </table></div>
       )}
-      <Modal title={form?.id ? 'Edit Qualification' : 'Add Qualification'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit qualification' : 'Add qualification'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && <form onSubmit={save}>
           <ErrorAlert message={formError} />
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {field('Qualification *', input(form.qualification, v => setForm({ ...form, qualification: v }), { required: true, placeholder: 'e.g. B.E. CSE' }), true)}
             {field('Institute', input(form.institute, v => setForm({ ...form, institute: v })), true)}
             {field('Start year', input(form.fromYear, v => setForm({ ...form, fromYear: v }), { type: 'number', min: 1950, max: 2100, placeholder: '2014' }))}
@@ -156,8 +162,8 @@ export function EducationCard({ person }: { person: any }) {
           </div>
           <label className="checkbox-field"><input type="checkbox" checked={form.isHighest} onChange={e => setForm({ ...form, isHighest: e.target.checked })} /> Highest qualification</label>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>}
       </Modal>
@@ -199,30 +205,30 @@ export function PreviousEmploymentCard({ person }: { person: any }) {
     <div className="card mb-24">
       <div className="card-header">
         <div><h3>Previous employment ({rows.length})</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>Total prior experience: {data.totalExperience.label}.</span></div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setFormError(''); setForm({ employer: '', designation: '', fromDate: '', toDate: '', lastSalary: '', reasonForLeaving: '' }); }}>+ Add</button>
+          <span className="text-sm-muted">Total prior experience: {data.totalExperience.label}.</span></div>
+        <Button size="sm" icon="plus" onClick={() => { setFormError(''); setForm({ employer: '', designation: '', fromDate: '', toDate: '', lastSalary: '', reasonForLeaving: '' }); }}>Add</Button>
       </div>
-      <div style={{ padding: '0 22px' }}><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
+      <div className="pp-card-alert"><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
       {rows.length === 0 ? <EmptyState icon="▣" title="No previous employment recorded" message="" /> : (
         <div className="table-wrap"><table className="table">
-          <thead><tr><th>Employer</th><th>Designation</th><th>Period</th><th>Last salary</th><th>Reason</th><th /></tr></thead>
+          <thead><tr><th>Employer</th><th>Designation</th><th>Period</th><th className="num">Last salary</th><th>Reason</th><th /></tr></thead>
           <tbody>{rows.map(r => (
             <tr key={r.id}>
-              <td style={{ fontWeight: 600 }}>{r.employer}</td><td>{r.designation || '—'}</td>
-              <td className="text-muted">{[r.fromDate, r.toDate].filter(Boolean).join(' – ') || '—'}</td>
-              <td>{r.lastSalary ? formatINR(r.lastSalary) : '—'}</td>
+              <td className="pp-strong">{r.employer}</td><td>{r.designation || '—'}</td>
+              <td className="pp-date text-muted">{[r.fromDate, r.toDate].filter(Boolean).join(' – ') || '—'}</td>
+              <td className="num">{r.lastSalary ? formatINR(r.lastSalary) : '—'}</td>
               <td className="text-muted">{r.reasonForLeaving || '—'}</td>
               <td><div className="row-actions">
-                <button className="btn btn-secondary btn-sm" onClick={() => { setFormError(''); setForm({ ...r, fromDate: r.fromDate || '', toDate: r.toDate || '', lastSalary: r.lastSalary || '' }); }}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(r)}>Remove</button>
+                <Button size="sm" onClick={() => { setFormError(''); setForm({ ...r, fromDate: r.fromDate || '', toDate: r.toDate || '', lastSalary: r.lastSalary || '' }); }}>Edit</Button>
+                <Button variant="danger" size="sm" onClick={() => remove(r)}>Remove</Button>
               </div></td>
             </tr>))}</tbody>
         </table></div>
       )}
-      <Modal title={form?.id ? 'Edit Previous Employment' : 'Add Previous Employment'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit previous employment' : 'Add previous employment'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && <form onSubmit={save}>
           <ErrorAlert message={formError} />
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {field('Employer *', input(form.employer, v => setForm({ ...form, employer: v }), { required: true }), true)}
             {field('Designation', input(form.designation, v => setForm({ ...form, designation: v })))}
             {field('Last salary', input(form.lastSalary, v => setForm({ ...form, lastSalary: v }), { type: 'number', min: 0, step: '0.01', placeholder: 'Monthly' }))}
@@ -231,8 +237,8 @@ export function PreviousEmploymentCard({ person }: { person: any }) {
             {field('Reason for leaving', input(form.reasonForLeaving, v => setForm({ ...form, reasonForLeaving: v })), true)}
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>}
       </Modal>
@@ -287,39 +293,39 @@ export function IdentityDocumentsCard({ person }: { person: any }) {
     <div className="card mb-24">
       <div className="card-header">
         <div><h3>Identity documents ({docs.length})</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>PAN, Aadhaar, passport, driving licence, voter ID. Attach a copy and mark it verified.</span></div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setFormError(''); setForm({ docType: '', number: '', nameOnDocument: person.name, expiryDate: '', file: null }); }}>+ Add Document</button>
+          <span className="text-sm-muted">PAN, Aadhaar, passport, driving licence, voter ID. Attach a copy and mark it verified.</span></div>
+        <Button size="sm" icon="plus" onClick={() => { setFormError(''); setForm({ docType: '', number: '', nameOnDocument: person.name, expiryDate: '', file: null }); }}>Add document</Button>
       </div>
-      <div style={{ padding: '0 22px' }}><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
+      <div className="pp-card-alert"><ErrorAlert message={error} onDismiss={() => setError('')} /></div>
       <div className="table-wrap"><table className="table">
         <thead><tr><th>Type</th><th>Number</th><th>Name on document</th><th>Expiry</th><th>Verified</th><th /></tr></thead>
         <tbody>{docs.map((d, i) => (
           <tr key={d.id || `p${i}`}>
-            <td style={{ fontWeight: 600 }}>{typeLabel(d.docType)}{d.hasFile && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>File</span>}</td>
-            <td>{d.number}</td>
+            <td className="pp-strong">{typeLabel(d.docType)}{d.hasFile && <span className="badge badge-neutral pp-badge-gap">File</span>}</td>
+            <td className="pp-fig">{d.number}</td>
             <td className="text-muted">{d.nameOnDocument || '—'}</td>
-            <td>{d.expiryDate ? <span className={d.expired ? 'text-danger' : ''}>{formatDate(d.expiryDate)}{d.expired && ' (expired)'}</span> : '—'}</td>
+            <td className="pp-date">{d.expiryDate ? <span className={d.expired ? 'text-danger' : ''}>{formatDate(d.expiryDate)}{d.expired && ' (expired)'}</span> : '—'}</td>
             <td>{d.fromProfile ? <span className="text-muted">—</span> : (
-              <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
-                <input type="checkbox" checked={d.verified} onChange={() => verify(d)} />
+              <label className="pp-check-inline">
+                <input type="checkbox" checked={d.verified} aria-label={`Verified: ${typeLabel(d.docType)}`} onChange={() => verify(d)} />
                 {d.verified ? `Yes${d.verifiedByName ? ` · ${d.verifiedByName}` : ''}` : 'No'}
               </label>)}</td>
             <td>{d.fromProfile ? (
-              <span className="text-muted" style={{ fontSize: 11.5 }}>From the profile — add it to attach a file or verify</span>
+              <span className="pp-sub">From the profile — add it to attach a file or verify</span>
             ) : (
               <div className="row-actions">
-                {d.hasFile && <button className="btn btn-secondary btn-sm" onClick={() => openFile(d)}>Open</button>}
-                <button className="btn btn-secondary btn-sm" onClick={() => { setFormError(''); setForm({ ...d, expiryDate: d.expiryDate || '', nameOnDocument: d.nameOnDocument || '', file: null }); }}>Edit</button>
-                <button className="btn btn-danger btn-sm" onClick={() => remove(d)}>Remove</button>
+                {d.hasFile && <Button size="sm" onClick={() => openFile(d)}>Open</Button>}
+                <Button size="sm" onClick={() => { setFormError(''); setForm({ ...d, expiryDate: d.expiryDate || '', nameOnDocument: d.nameOnDocument || '', file: null }); }}>Edit</Button>
+                <Button variant="danger" size="sm" onClick={() => remove(d)}>Remove</Button>
               </div>)}</td>
           </tr>))}
           {docs.length === 0 && <tr><td colSpan={6}><EmptyState icon="▤" title="No identity documents yet" message="" /></td></tr>}
         </tbody>
       </table></div>
-      <Modal title={form?.id ? 'Edit Identity Document' : 'Add Identity Document'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit identity document' : 'Add identity document'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && <form onSubmit={save}>
           <ErrorAlert message={formError} />
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             {field('Type *', (
               <select className="select" required value={form.docType} onChange={e => setForm({ ...form, docType: e.target.value })} disabled={Boolean(form.id)}>
                 <option value="">—</option>{(data.types || []).map((t: any) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -332,8 +338,8 @@ export function IdentityDocumentsCard({ person }: { person: any }) {
                 onChange={e => setForm({ ...form, file: e.target.files?.[0] || null })} />), true)}
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+            <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save'}</Button>
           </div>
         </form>}
       </Modal>

@@ -1,0 +1,85 @@
+/* People redesign: directory. */
+
+/* Shared text helpers */
+.pd-strong { font-weight: 600; }
+.pd-medium { font-weight: 500; }
+.pd-sub { font-size: 11.5px; color: var(--text-3); }
+.pd-meta { font-size: 12px; color: var(--text-3); }
+.pd-detail { font-size: 12.5px; }
+.pd-nowrap { white-space: nowrap; }
+.pd-date { white-space: nowrap; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.pd-center, .table th.pd-center, .table td.pd-center { text-align: center; }
+.pd-min0 { min-width: 0; }
+.pd-grow-min { min-width: 0; flex: 1; }
+.pd-full { grid-column: 1 / -1; }
+.pd-error-text { font-size: 12.5px; color: var(--danger); }
+.pd-badge-gap { margin-left: 6px; }
+
+/* Alerts with an svg glyph */
+.pd-alert-icon { flex: none; }
+.alert.pd-alert-top { align-items: flex-start; }
+.alert.pd-alert-top .pd-alert-icon { margin-top: 2px; }
+
+/* Checkbox labels */
+.pd-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.pd-check-strong { display: flex; gap: 8px; margin-top: 8px; font-weight: 600; }
+.pd-check-field { display: flex; gap: 8px; font-size: 13.5px; font-weight: 400; }
+.pd-checks { display: flex; flex-wrap: wrap; gap: 14px; }
+
+/* Import */
+.pd-steps { font-size: 13px; margin: 0 0 16px; padding-left: 18px; line-height: 1.7; }
+.pd-card-title { font-size: 15px; margin-bottom: 8px; }
+.pd-card-body { padding: 0 22px 6px; }
+.pd-scroll { max-height: 460px; overflow-y: auto; }
+.pd-col-row { width: 54px; }
+.pd-summary { font-size: 13px; }
+.pd-summary-item { margin-right: 10px; }
+.pd-columns { margin-bottom: 12px; }
+.pd-label { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+
+/* Identity documents filters */
+.pd-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+.pd-filter-type { min-width: 180px; }
+.pd-filter-verified { min-width: 160px; }
+.pd-filter-check { margin-bottom: 6px; }
+
+/* Person form: photo and title + name row */
+.pd-kind-row { --gap: 14px; margin-bottom: 16px; }
+.pd-photo-row { --gap: 18px; }
+.pd-photo {
+  width: 76px; height: 76px; flex: 0 0 76px; overflow: hidden;
+  border-radius: var(--radius-lg); background: var(--surface-2); border: 1px dashed var(--border-strong);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-3); font-size: 26px; font-weight: 700;
+}
+.pd-photo.has-photo { background: transparent; border: 0; }
+.pd-photo img { width: 100%; height: 100%; object-fit: cover; }
+.pd-photo-icon { display: block; }
+.pd-photo-field { flex: 1 1 220px; }
+.pd-name-row { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(90px, 110px) minmax(0, 1fr); gap: 16px 20px; }
+.pd-help-gap { margin-bottom: 12px; }
+.pd-inline-check { font-size: 12.5px; font-weight: 400; }
+
+/* Image upload (logos, signatures) */
+.pd-image-upload { --gap: 16px; }
+.pd-image-frame {
+  display: grid; place-items: center; overflow: hidden;
+  border: 1px dashed var(--border); border-radius: var(--radius-sm); background: var(--surface-2);
+}
+.pd-image-frame img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+/* Org chart */
+.pd-search-input { width: 220px; }
+.pd-reports-to { font-size: 12px; color: var(--text-3); margin: 2px 0 10px 8px; }
+.pd-chevron { display: block; transition: transform 0.15s ease; }
+.pd-chevron.is-open { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .pd-chevron { transition: none; } }
+@media (max-width: 640px) { .pd-search-input { width: 100%; } }
+
+/* HR panel */
+.pd-list-row { padding: 8px 0; }
+.pd-block-title { font-size: 15px; margin-bottom: 6px; }
+.pd-block-count { color: var(--text-3); font-weight: 500; }
+.pd-block-empty { font-size: 13px; color: var(--text-3); margin: 6px 0 0; }
+.pd-chart-title { font-size: 15px; margin-bottom: 2px; }
+.pd-trend-icon { vertical-align: -1px; }

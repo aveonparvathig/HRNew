@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { peopleAPI } from '../api/people';
 import { StatCard } from './ui';
+import { Icon } from './Layout/nav';
 
 const dayLabel = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
@@ -21,14 +22,14 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 
 function PersonRow({ p, right }: { p: any; right: ReactNode }) {
   return (
-    <div className="list-row" style={{ padding: '8px 0' }}>
-      <span style={{ minWidth: 0 }}>
-        <Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link>
+    <div className="list-row pd-list-row">
+      <span className="pd-min0">
+        <Link to={`/people/${p.id}`} className="pd-strong">{p.name}</Link>
         {(p.designation || p.department) && (
-          <span className="text-muted" style={{ fontSize: 12 }}> · {[p.designation, p.department].filter(Boolean).join(', ')}</span>
+          <span className="pd-meta"> · {[p.designation, p.department].filter(Boolean).join(', ')}</span>
         )}
       </span>
-      <span className="text-muted" style={{ fontSize: 12.5, whiteSpace: 'nowrap' }}>{right}</span>
+      <span className="text-sm-muted pd-nowrap">{right}</span>
     </div>
   );
 }
@@ -36,8 +37,8 @@ function PersonRow({ p, right }: { p: any; right: ReactNode }) {
 function Block({ title, count, empty, children }: { title: string; count: number; empty: string; children: ReactNode }) {
   return (
     <div className="card card-pad">
-      <h3 style={{ fontSize: 15, marginBottom: 6 }}>{title}{count > 0 && <span className="text-muted" style={{ fontWeight: 500 }}> ({count})</span>}</h3>
-      {count > 0 ? children : <p className="text-muted" style={{ fontSize: 13, margin: '6px 0 0' }}>{empty}</p>}
+      <h3 className="pd-block-title">{title}{count > 0 && <span className="pd-block-count"> (<span className="num">{count}</span>)</span>}</h3>
+      {count > 0 ? children : <p className="pd-block-empty">{empty}</p>}
     </div>
   );
 }
@@ -64,12 +65,12 @@ export default function HrPanel() {
 
   return (
     <>
-      <h2 className="section-title" style={{ marginTop: 0 }}>People</h2>
+      <h2 className="section-title flush">People</h2>
       <div className="stat-grid">
         <StatCard label="Employees" value={data.headcount.current} icon="users" tone="indigo"
           trend={change !== 0 && (
             <span className={`trend-chip ${change > 0 ? 'trend-good' : 'trend-bad'}`}>
-              {change > 0 ? '▲' : '▼'} {Math.abs(change)}
+              <Icon name={change > 0 ? 'trendingUp' : 'trendingDown'} size={12} className="pd-trend-icon" /> <span className="num">{Math.abs(change)}</span>
             </span>
           )}
           sub={`vs ${monthLong(yearAgo.period)}`}
@@ -88,34 +89,30 @@ export default function HrPanel() {
       <div className="card card-pad mb-24">
         <div className="card-head-row">
           <div>
-            <h3 style={{ fontSize: 15, marginBottom: 2 }}>Headcount</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <h3 className="pd-chart-title">Headcount</h3>
+            <span className="text-sm-muted">
               Employees on the rolls at each month end.
             </span>
           </div>
-          <div className="segmented">
-            <button className={months === 6 ? 'active' : ''} onClick={() => setMonths(6)}>6M</button>
-            <button className={months === 12 ? 'active' : ''} onClick={() => setMonths(12)}>12M</button>
+          <div className="segmented" role="group" aria-label="Months shown">
+            <button type="button" className={months === 6 ? 'active' : ''} aria-pressed={months === 6} onClick={() => setMonths(6)}>6M</button>
+            <button type="button" className={months === 12 ? 'active' : ''} aria-pressed={months === 12} onClick={() => setMonths(12)}>12M</button>
           </div>
         </div>
         <div className="chart-box" role="img"
           aria-label={`Headcount by month: ${shown.map((t: any) => `${monthLong(t.period)} ${t.headcount}`).join(', ')}`}>
           <ResponsiveContainer width="100%" height={240}>
             <AreaChart data={shown} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
-              <defs>
-                <linearGradient id="hcFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--m-indigo)" stopOpacity={0.12} />
-                  <stop offset="100%" stopColor="var(--m-indigo)" stopOpacity={0.12} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="period" tickFormatter={monthShort} tickLine={false} axisLine={false} dy={6} />
-              <YAxis width={44} tickLine={false} axisLine={false} allowDecimals={false} domain={[0, Math.ceil(top * 1.15)]} />
+              <CartesianGrid vertical={false} strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="period" tickFormatter={monthShort} tickLine={false} axisLine={false} dy={6}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11.5 }} />
+              <YAxis width={44} tickLine={false} axisLine={false} allowDecimals={false} domain={[0, Math.ceil(top * 1.15)]}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 11.5, fontFamily: 'var(--font-num)' }} />
               <Tooltip
                 labelFormatter={(p) => monthLong(String(p))}
                 formatter={(v: number) => [plural(Number(v), 'employee'), 'Headcount']} />
               <Area type="monotone" dataKey="headcount" stroke="var(--m-indigo)" strokeWidth={2}
-                fill="url(#hcFill)" dot={false} activeDot={{ r: 4 }} />
+                fill="var(--m-indigo)" fillOpacity={0.12} dot={false} activeDot={{ r: 4 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -150,9 +147,9 @@ export default function HrPanel() {
 
         <Block title="Records to complete" count={gaps.length} empty="Every employee has a PAN, a bank account, a work location and a joining date.">
           {gaps.map(g => (
-            <div key={g.key} className="list-row" style={{ padding: '8px 0' }}>
+            <div key={g.key} className="list-row pd-list-row">
               <span>{g.label}</span>
-              <Link to={`/people?missing=${g.key}`} style={{ fontWeight: 600 }}>{plural(g.count, 'employee')} →</Link>
+              <Link to={`/people?missing=${g.key}`} className="pd-strong">{plural(g.count, 'employee')} →</Link>
             </div>
           ))}
         </Block>

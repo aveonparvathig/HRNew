@@ -8,6 +8,8 @@ import {
   KpiGrid, KpiTile, SortChip, ChipRow, Segmented, TableCard, SortableTh, GroupRow, YesNoPill, KitIcon,
 } from '../../components/report';
 import PersonFormModal from '../../components/PersonFormModal';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import apiClient from '../../api/client';
 import { formatDate, formatINR } from '../../utils/format';
 import { useRole } from '../../store/authStore';
@@ -160,7 +162,7 @@ export default function PeopleList() {
         subtitle="The payroll master. Every active employee is picked up by the next run; candidates and interns are listed below."
         actions={canManagePeople && (
           <>
-            <button className="btn btn-secondary" onClick={async () => {
+            <Button icon="download" onClick={async () => {
               const res = await apiClient.get('/people/export/employees.xlsx', { responseType: 'blob' });
               const url = URL.createObjectURL(new Blob([res.data],
                 { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
@@ -170,14 +172,14 @@ export default function PeopleList() {
               a.click();
               URL.revokeObjectURL(url);
             }}>
-              {KitIcon.download} Export Excel
-            </button>
-            <button className="btn btn-secondary" onClick={() => openAdd('INTERN')}>
-              {KitIcon.plus} Add Intern
-            </button>
-            <button className="btn btn-primary" onClick={() => openAdd('CANDIDATE')}>
-              {KitIcon.plus} Add Employee
-            </button>
+              Export Excel
+            </Button>
+            <Button icon="plus" onClick={() => openAdd('INTERN')}>
+              Add intern
+            </Button>
+            <Button variant="accent" icon="userPlus" onClick={() => openAdd('CANDIDATE')}>
+              Add employee
+            </Button>
           </>
         )}
       />
@@ -185,8 +187,8 @@ export default function PeopleList() {
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {confirmations && confirmations.due.length > 0 && (
-        <div className={`alert ${confirmations.overdue ? 'alert-warning' : 'alert-success'}`} style={{ alignItems: 'flex-start' }}>
-          <span>◷</span>
+        <div className={`alert ${confirmations.overdue ? 'alert-warning' : 'alert-success'} pd-alert-top`}>
+          <Icon name="clock" size={16} className="pd-alert-icon" />
           <span>
             <strong>
               {confirmations.due.length} confirmation{confirmations.due.length === 1 ? '' : 's'} due
@@ -204,11 +206,11 @@ export default function PeopleList() {
 
       {missing && (
         <div className="alert alert-warning">
-          <span>⚑</span>
+          <Icon name="alert" size={16} className="pd-alert-icon" />
           <span>
             <strong>{employees.length} employee{employees.length === 1 ? '' : 's'} with {missing.label}.</strong>{' '}
             Open each one to complete the record.{' '}
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setParams({})}>Show everyone</button>
+            <Button variant="ghost" size="sm" onClick={() => setParams({})}>Show everyone</Button>
           </span>
         </div>
       )}
@@ -235,9 +237,9 @@ export default function PeopleList() {
             title="No people yet"
             message="Add your first employee or intern."
             action={canManagePeople && (
-              <button className="btn btn-primary" onClick={() => openAdd('CANDIDATE')}>
-                {KitIcon.plus} Add Employee
-              </button>
+              <Button icon="userPlus" onClick={() => openAdd('CANDIDATE')}>
+                Add employee
+              </Button>
             )} />
         </div>
       ) : (
@@ -287,8 +289,8 @@ export default function PeopleList() {
                     onClick={() => setView({ sort: sort === 'doj_desc' ? 'doj_asc' : null })}>Date of joining</SortableTh>
                   <th>Tenure</th>
                   {canManagePeople && <th className="num">Monthly package</th>}
-                  <th style={{ textAlign: 'center' }}>ESI</th>
-                  <th style={{ textAlign: 'center' }}>PF</th>
+                  <th className="pd-center">ESI</th>
+                  <th className="pd-center">PF</th>
                   <th>Status</th>
                   {canManagePeople && <th><span className="sr-only">Actions</span></th>}
                 </tr>
@@ -307,10 +309,10 @@ export default function PeopleList() {
                           </span>
                         </div>
                       </td>
-                      <td style={{ fontWeight: 500 }}>{r.row.designation || <span className="text-muted">—</span>}</td>
+                      <td className="pd-medium">{r.row.designation || <span className="text-muted">—</span>}</td>
                       <td className="text-muted">{r.row.department || '—'}</td>
-                      <td style={{ whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>{r.row.joinDate ? formatDate(r.row.joinDate) : '—'}</td>
-                      <td className="text-muted" style={{ whiteSpace: 'nowrap' }}>{tenureLabel(r.row.joinDate, today)}</td>
+                      <td className="pd-date">{r.row.joinDate ? formatDate(r.row.joinDate) : '—'}</td>
+                      <td className="text-muted pd-nowrap">{tenureLabel(r.row.joinDate, today)}</td>
                       {canManagePeople && (
                         <td className="num">
                           {r.row.currentMonthlyPackage
@@ -318,8 +320,8 @@ export default function PeopleList() {
                             : '—'}
                         </td>
                       )}
-                      <td style={{ textAlign: 'center' }}><YesNoPill yes={Boolean(r.row.isEsiEligible)} /></td>
-                      <td style={{ textAlign: 'center' }}><YesNoPill yes={Boolean(r.row.isPfApplicable)} /></td>
+                      <td className="pd-center"><YesNoPill yes={Boolean(r.row.isEsiEligible)} /></td>
+                      <td className="pd-center"><YesNoPill yes={Boolean(r.row.isPfApplicable)} /></td>
                       <td>
                         <span className={`status-inline ${EMP_STATUS_INLINE[r.row.employmentStatus] || 'is-active'}`}>
                           <span className="dot" />
@@ -329,8 +331,8 @@ export default function PeopleList() {
                       {canManagePeople && (
                         <td>
                           <div className="row-actions">
-                            <Link to={`/people/${r.row.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                            <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r.row)}>Delete</button>
+                            <ButtonLink to={`/people/${r.row.id}`} size="sm">Open</ButtonLink>
+                            <Button variant="danger" size="sm" onClick={() => handleDelete(r.row)}>Delete</Button>
                           </div>
                         </td>
                       )}
@@ -362,8 +364,8 @@ export default function PeopleList() {
                   {candidates.map((p: any) => (
                     <tr key={p.id}>
                       <td>
-                        <Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link>
-                        {p.email && <div className="text-muted" style={{ fontSize: 11.5 }}>{p.email}</div>}
+                        <Link to={`/people/${p.id}`} className="pd-strong">{p.name}</Link>
+                        {p.email && <div className="pd-sub">{p.email}</div>}
                       </td>
                       <td className="text-muted">{p.designation || '—'}</td>
                       <td>
@@ -377,8 +379,8 @@ export default function PeopleList() {
                       <td className="num">{p.interviewCount || '—'}</td>
                       <td>
                         <div className="row-actions">
-                          <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                          {canManagePeople && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>}
+                          <ButtonLink to={`/people/${p.id}`} size="sm">Open</ButtonLink>
+                          {canManagePeople && <Button variant="danger" size="sm" onClick={() => handleDelete(p)}>Delete</Button>}
                         </div>
                       </td>
                     </tr>
@@ -400,18 +402,18 @@ export default function PeopleList() {
                 <tbody>
                   {interns.map((p: any) => (
                     <tr key={p.id}>
-                      <td><Link to={`/people/${p.id}`} style={{ fontWeight: 600 }}>{p.name}</Link></td>
+                      <td><Link to={`/people/${p.id}`} className="pd-strong">{p.name}</Link></td>
                       <td className="text-muted">{p.collegeName || '—'}</td>
                       <td className="text-muted">{p.course || '—'}</td>
                       <td className="text-muted">{p.internshipRole || '—'}</td>
-                      <td className="text-muted" style={{ fontSize: 12.5 }}>
+                      <td className="text-muted pd-detail pd-date">
                         {p.startDate ? formatDate(p.startDate) : '—'}
                         {p.endDate && <> → {formatDate(p.endDate)}</>}
                       </td>
                       <td>
                         <div className="row-actions">
-                          <Link to={`/people/${p.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                          {canManagePeople && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p)}>Delete</button>}
+                          <ButtonLink to={`/people/${p.id}`} size="sm">Open</ButtonLink>
+                          {canManagePeople && <Button variant="danger" size="sm" onClick={() => handleDelete(p)}>Delete</Button>}
                         </div>
                       </td>
                     </tr>

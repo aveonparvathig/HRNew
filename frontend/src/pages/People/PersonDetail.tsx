@@ -5,6 +5,8 @@ import { useRole } from '../../store/authStore';
 import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Stack } from '../../components/layout';
 import PersonFormModal from '../../components/PersonFormModal';
 import DocumentModal from '../../components/DocumentModal';
 import { formatINR, formatDate } from '../../utils/format';
@@ -48,9 +50,9 @@ const periodLabel = (period: string) => {
 
 function InfoRow({ label, value }: { label: string; value: any }) {
   return (
-    <div className="list-row" style={{ padding: '8px 0' }}>
-      <span className="text-muted" style={{ fontSize: 12.5 }}>{label}</span>
-      <span style={{ fontWeight: 500, textAlign: 'right' }}>{value || '—'}</span>
+    <div className="list-row pp-info-row">
+      <span className="pp-info-label">{label}</span>
+      <span className="pp-info-value">{value || '—'}</span>
     </div>
   );
 }
@@ -154,7 +156,7 @@ export default function PersonDetail() {
   if (loading) return <LoadingBlock label="Loading person…" />;
   if (!person) {
     return <EmptyState icon="☰" title="Person not found"
-      action={<Link to="/people" className="btn btn-secondary">Back to People</Link>} />;
+      action={<ButtonLink to="/people">Back to people</ButtonLink>} />;
   }
 
   const isIntern = person.kind === 'INTERN';
@@ -179,7 +181,7 @@ export default function PersonDetail() {
               {isIntern ? 'Intern' : person.isEmployee ? <><span className="dot" />Employee</> : 'Candidate'}
             </span>
             {!isIntern && canManagePeople && (
-              <select className="select" style={{ width: 150 }}
+              <select className="select pp-stage-select" aria-label="Pipeline stage"
                 value={person.stage || ''}
                 onChange={e => handleStageChange(e.target.value)}>
                 <option value="">No stage</option>
@@ -189,8 +191,8 @@ export default function PersonDetail() {
               </select>
             )}
             {canManagePeople && (<>
-            <button className="btn btn-secondary" onClick={() => setEditModal(true)}>Edit</button>
-            <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
+            <Button icon="pen" onClick={() => setEditModal(true)}>Edit</Button>
+            <Button variant="danger" onClick={handleDelete}>Delete</Button>
             </>)}
           </>
         }
@@ -200,12 +202,11 @@ export default function PersonDetail() {
 
       <div className="grid-2 mb-24">
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 8 }}>
+          <h3 className="pp-card-title">
             {isIntern ? 'Contact' : 'Personal'}
           </h3>
           {!isIntern && person.photoData && (
-            <img src={person.photoData} alt={person.name}
-              style={{ width: 84, height: 84, borderRadius: '50%', objectFit: 'cover', marginBottom: 10 }} />
+            <img src={person.photoData} alt={person.name} className="pp-photo" />
           )}
           <InfoRow label="Personal email" value={person.email} />
           {!isIntern && <InfoRow label="Official email" value={person.officialEmail} />}
@@ -233,7 +234,7 @@ export default function PersonDetail() {
 
         {isIntern ? (
           <div className="card card-pad">
-            <h3 style={{ fontSize: 15, marginBottom: 8 }}>Internship</h3>
+            <h3 className="pp-card-title">Internship</h3>
             <InfoRow label="College" value={person.collegeName} />
             <InfoRow label="Course" value={person.course} />
             <InfoRow label="Roll number" value={person.rollNumber} />
@@ -245,9 +246,9 @@ export default function PersonDetail() {
             } />
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <Stack gap={16}>
             <div className="card card-pad">
-              <h3 style={{ fontSize: 15, marginBottom: 8 }}>Employment</h3>
+              <h3 className="pp-card-title">Employment</h3>
               <InfoRow label="Employee code" value={person.employeeNo} />
               <InfoRow label="Designation" value={person.designation} />
               <InfoRow label="Department" value={person.department} />
@@ -289,12 +290,12 @@ export default function PersonDetail() {
               {person.probationMonths > 0 && <InfoRow label="Probation" value={`${person.probationMonths} month${person.probationMonths === 1 ? '' : 's'}`} />}
               {(person.confirmationDate || person.confirmation) && (
                 <InfoRow label="Confirmation" value={person.confirmationDate ? formatDate(person.confirmationDate) : (
-                  <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span className="pp-inline">
                     <span className={`badge ${person.confirmation.overdue ? 'badge-danger' : 'badge-warning'}`}>
                       {person.confirmation.overdue ? 'Overdue since' : 'Due'} {formatDate(person.confirmation.dueOn)}
                     </span>
                     {canManagePeople && (
-                      <button className="btn btn-primary btn-sm" onClick={() => setConfirming(new Date().toISOString().slice(0, 10))}>Confirm</button>
+                      <Button size="sm" onClick={() => setConfirming(new Date().toISOString().slice(0, 10))}>Confirm</Button>
                     )}
                   </span>
                 )} />
@@ -313,7 +314,7 @@ export default function PersonDetail() {
               {person.reasonForLeaving && <InfoRow label="Reason for leaving" value={person.reasonForLeaving} />}
             </div>
             <div className="card card-pad">
-              <h3 style={{ fontSize: 15, marginBottom: 8 }}>Bank &amp; statutory</h3>
+              <h3 className="pp-card-title">Bank &amp; statutory</h3>
               <InfoRow label="Bank" value={person.bankName} />
               {person.bankAccountName && <InfoRow label="Name as per bank" value={person.bankAccountName} />}
               <InfoRow label="Account no." value={person.bankAccountNumber} />
@@ -332,7 +333,7 @@ export default function PersonDetail() {
             </div>
             {person.stage && (
               <div className="card card-pad">
-                <h3 style={{ fontSize: 15, marginBottom: 8 }}>Pipeline</h3>
+                <h3 className="pp-card-title">Pipeline</h3>
                 <InfoRow label="Stage" value={
                   <span className={`badge ${PEOPLE_STAGE_TONES[person.stage]}`}>
                     {stageLabel(meta?.stages || [], person.stage)}
@@ -345,7 +346,7 @@ export default function PersonDetail() {
                 <InfoRow label="Expected CTC" value={person.expectedCtc && formatINR(person.expectedCtc)} />
               </div>
             )}
-          </div>
+          </Stack>
         )}
       </div>
 
@@ -353,14 +354,14 @@ export default function PersonDetail() {
       <div className="card mb-24">
         <div className="card-header">
           <h3>Letters ({(person.documents || []).length})</h3>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="cluster">
             {canManagePeople && (meta?.docTypes || [])
               .filter((t: any) => t.kinds.includes(person.kind))
               .map((t: any) => (
-                <button key={t.value} className="btn btn-secondary btn-sm"
+                <Button key={t.value} size="sm" icon="pen"
                   onClick={() => setDocModal({ open: true, docType: t.value, docLabel: t.label })}>
-                  ✎ {t.label}
-                </button>
+                  {t.label}
+                </Button>
               ))}
           </div>
         </div>
@@ -377,17 +378,17 @@ export default function PersonDetail() {
                 {person.documents.map((d: any) => (
                   <tr key={d.id}>
                     <td>
-                      <Link to={letterPath(d)} style={{ fontWeight: 600 }}>{d.title}</Link>
+                      <Link to={letterPath(d)} className="pp-strong">{d.title}</Link>
                     </td>
                     <td>
                       <span className={`badge ${DOC_BADGES[d.docType] || 'badge-neutral'}`}>
                         {(meta?.docTypes || []).find((t: any) => t.value === d.docType)?.label || d.title.split(' — ')[0]}
                       </span>
                     </td>
-                    <td className="text-muted">{formatDate(d.createdAt)}</td>
+                    <td className="pp-date text-muted">{formatDate(d.createdAt)}</td>
                     {canManagePeople && (
                       <td>
-                        <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                        <label className="pp-check-inline">
                           <input type="checkbox" checked={Boolean(d.visibleToEmployee)} aria-label={`Show ${d.title} to the employee`}
                             onChange={async () => {
                               try {
@@ -403,7 +404,7 @@ export default function PersonDetail() {
                     )}
                     <td>
                       <div className="row-actions">
-                        <Link to={letterPath(d)} className="btn btn-secondary btn-sm">View</Link>
+                        <ButtonLink to={letterPath(d)} size="sm">View</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -425,7 +426,7 @@ export default function PersonDetail() {
         <div className="card mb-24">
           <div className="card-header">
             <h3>Expense reports ({expenseReports.length})</h3>
-            <Link to="/expenses" className="btn btn-secondary btn-sm">All expenses →</Link>
+            <ButtonLink to="/expenses" size="sm" variant="ghost">All expenses →</ButtonLink>
           </div>
           <div className="table-wrap">
             <table className="table">
@@ -436,14 +437,14 @@ export default function PersonDetail() {
                 {expenseReports.map((r: any) => (
                   <tr key={r.id}>
                     <td>
-                      <Link to={`/expenses/${r.id}`} style={{ fontWeight: 600 }}>{r.title}</Link>
-                      <div className="text-muted" style={{ fontSize: 11.5 }}>{r.reportNumber}</div>
+                      <Link to={`/expenses/${r.id}`} className="pp-strong">{r.title}</Link>
+                      <div className="pp-sub num">{r.reportNumber}</div>
                     </td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>
+                    <td className="pp-date pp-cell-sm">
                       {r.periodStart ? `${formatDate(r.periodStart)} – ${r.periodEnd ? formatDate(r.periodEnd) : '…'}` : '—'}
                     </td>
                     <td className="num">{r.lineCount}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.total)}</td>
+                    <td className="num pp-strong">{formatINR(r.total)}</td>
                     <td>
                       <span className={`badge ${EXPENSE_STATUS_TONES[r.status] || 'badge-neutral'}`}>
                         {r.status.toLowerCase()}
@@ -451,7 +452,7 @@ export default function PersonDetail() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/expenses/${r.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                        <ButtonLink to={`/expenses/${r.id}`} size="sm">Open</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -478,24 +479,24 @@ export default function PersonDetail() {
         <div className="card mb-24">
           <div className="card-header">
             <h3>Payslip history ({payslips.length})</h3>
-            <Link to="/payroll" className="btn btn-secondary btn-sm">Payroll →</Link>
+            <ButtonLink to="/payroll" size="sm" variant="ghost">Payroll →</ButtonLink>
           </div>
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Period</th><th className="num">Pay Days</th><th className="num">Gross</th>
-                  <th className="num">Deductions</th><th className="num">Net Pay</th><th>Run</th><th />
+                  <th>Period</th><th className="num">Pay days</th><th className="num">Gross</th>
+                  <th className="num">Deductions</th><th className="num">Net pay</th><th>Run</th><th />
                 </tr>
               </thead>
               <tbody>
                 {payslips.map((p: any) => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{periodLabel(p.period)}</td>
+                    <td className="pp-strong">{periodLabel(p.period)}</td>
                     <td className="num">{p.payDays}/{p.totalWorkingDays}</td>
                     <td className="num">{formatINR(p.grossSalary)}</td>
                     <td className="num text-muted">{formatINR(p.totalDeductions)}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(p.netPayable)}</td>
+                    <td className="num pp-strong">{formatINR(p.netPayable)}</td>
                     <td>
                       <span className={`badge ${p.runStatus === 'FINALIZED' ? 'badge-success' : 'badge-neutral'}`}>
                         {p.runStatus === 'FINALIZED' ? 'finalized' : 'draft'}
@@ -503,7 +504,7 @@ export default function PersonDetail() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/payroll/payslips/${p.id}`} className="btn btn-secondary btn-sm">Payslip</Link>
+                        <ButtonLink to={`/payroll/payslips/${p.id}`} size="sm">Payslip</ButtonLink>
                       </div>
                     </td>
                   </tr>
@@ -518,7 +519,7 @@ export default function PersonDetail() {
       <div className="card">
         <div className="card-header">
           <h3>Interview rounds ({person.interviews.length})</h3>
-          {canManagePeople && (<button className="btn btn-primary btn-sm" onClick={() => { setInterviewForm(EMPTY_INTERVIEW); setInterviewModal(true); }}>+ Add Round</button>)}
+          {canManagePeople && (<Button size="sm" icon="plus" onClick={() => { setInterviewForm(EMPTY_INTERVIEW); setInterviewModal(true); }}>Add round</Button>)}
         </div>
         {person.interviews.length === 0 ? (
           <EmptyState icon="◔" title="No interview rounds yet"
@@ -535,15 +536,15 @@ export default function PersonDetail() {
               <tbody>
                 {person.interviews.map((iv: any) => (
                   <tr key={iv.id}>
-                    <td style={{ fontWeight: 600 }}>{iv.roundName}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>
+                    <td className="pp-strong">{iv.roundName}</td>
+                    <td className="pp-date pp-cell-sm">
                       {iv.scheduledAt ? iv.scheduledAt.replace('T', ' ') : '—'}
                     </td>
                     <td className="text-muted">{iv.interviewer || '—'}</td>
-                    <td><span className="stars" style={{ color: '#f59e0b', fontSize: 12 }}>{stars(iv.rating) || '—'}</span></td>
-                    <td className="text-muted" style={{ fontSize: 12.5, maxWidth: 220 }}>{iv.feedback || '—'}</td>
+                    <td><span className="stars pp-stars">{stars(iv.rating) || '—'}</span></td>
+                    <td className="pp-cell-sm pp-feedback">{iv.feedback || '—'}</td>
                     <td>
-                      <select className="select" style={{ width: 110, padding: '4px 8px', fontSize: 12 }}
+                      <select className="select pp-select-sm" aria-label={`Result of ${iv.roundName}`}
                         value={iv.result}
                         onChange={e => handleInterviewResult(iv, e.target.value)}>
                         {(meta?.interviewResults || []).map((r: any) => (
@@ -553,7 +554,7 @@ export default function PersonDetail() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-danger btn-sm" onClick={() => handleDeleteInterview(iv)}>✕</button>
+                        <Button variant="danger" size="sm" aria-label={`Remove ${iv.roundName}`} onClick={() => handleDeleteInterview(iv)}>✕</Button>
                       </div>
                     </td>
                   </tr>
@@ -577,9 +578,9 @@ export default function PersonDetail() {
             setConfirming('');
           }
         }}>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label>Confirmed from *</label>
-            <input className="input" type="date" required value={confirming} min={person.joinDate || undefined}
+          <div className="field mb-14">
+            <label htmlFor="pp-confirm-date">Confirmed from *</label>
+            <input id="pp-confirm-date" className="input" type="date" required value={confirming} min={person.joinDate || undefined}
               onChange={e => setConfirming(e.target.value)} />
             <span className="hint">
               Probation ends{person.confirmation ? ` on ${formatDate(person.confirmation.dueOn)}` : ''}. Confirming records the date
@@ -587,8 +588,8 @@ export default function PersonDetail() {
             </span>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setConfirming('')}>Cancel</button>
-            <button type="submit" className="btn btn-primary">Confirm</button>
+            <Button variant="ghost" onClick={() => setConfirming('')}>Cancel</Button>
+            <Button type="submit" variant="accent">Confirm</Button>
           </div>
         </form>
       </Modal>
@@ -613,31 +614,31 @@ export default function PersonDetail() {
       />
 
       {/* Add interview round */}
-      <Modal title={`Add Interview Round — ${person.name}`} open={interviewModal}
+      <Modal title={`Add interview round — ${person.name}`} open={interviewModal}
         onClose={() => setInterviewModal(false)}>
         <form onSubmit={handleAddInterview}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Round name *</label>
-              <input className="input" required autoFocus placeholder="e.g. Technical Round 1"
+              <label htmlFor="pp-iv-round">Round name *</label>
+              <input id="pp-iv-round" className="input" required autoFocus placeholder="e.g. Technical round 1"
                 value={interviewForm.roundName}
                 onChange={e => setInterviewForm({ ...interviewForm, roundName: e.target.value })} />
             </div>
             <div className="field">
-              <label>Scheduled at</label>
-              <input className="input" type="datetime-local" value={interviewForm.scheduledAt}
+              <label htmlFor="pp-iv-at">Scheduled at</label>
+              <input id="pp-iv-at" className="input" type="datetime-local" value={interviewForm.scheduledAt}
                 onChange={e => setInterviewForm({ ...interviewForm, scheduledAt: e.target.value })} />
             </div>
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Interviewer</label>
-              <input className="input" value={interviewForm.interviewer}
+              <label htmlFor="pp-iv-who">Interviewer</label>
+              <input id="pp-iv-who" className="input" value={interviewForm.interviewer}
                 onChange={e => setInterviewForm({ ...interviewForm, interviewer: e.target.value })} />
             </div>
             <div className="field">
-              <label>Result</label>
-              <select className="select" value={interviewForm.result}
+              <label htmlFor="pp-iv-result">Result</label>
+              <select id="pp-iv-result" className="select" value={interviewForm.result}
                 onChange={e => setInterviewForm({ ...interviewForm, result: e.target.value })}>
                 {(meta?.interviewResults || []).map((r: any) => (
                   <option key={r.value} value={r.value}>{r.label}</option>
@@ -645,7 +646,7 @@ export default function PersonDetail() {
               </select>
             </div>
           </div>
-          <div className="field" style={{ marginBottom: 14 }}>
+          <div className="field mb-14">
             <label>Rating</label>
             <div className="star-input">
               {[1, 2, 3, 4, 5].map(n => (
@@ -661,16 +662,16 @@ export default function PersonDetail() {
             </div>
           </div>
           <div className="field">
-            <label>Feedback</label>
-            <textarea className="input" rows={3} placeholder="Interview notes and outcome"
+            <label htmlFor="pp-iv-feedback">Feedback</label>
+            <textarea id="pp-iv-feedback" className="input" rows={3} placeholder="Interview notes and outcome"
               value={interviewForm.feedback}
               onChange={e => setInterviewForm({ ...interviewForm, feedback: e.target.value })} />
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setInterviewModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Adding…' : 'Add Round'}
-            </button>
+            <Button variant="ghost" onClick={() => setInterviewModal(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Adding…' : 'Add round'}
+            </Button>
           </div>
         </form>
       </Modal>

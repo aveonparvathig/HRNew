@@ -1,0 +1,52 @@
+/* People redesign: letters. */
+
+/* Screen chrome only. The letter document (.letter-sheet content, print rules)
+   stays in 10-letters.css and is not restyled here. */
+
+/* A letter sheet shown inside a modal or panel sits flush, not centred. */
+.letter-sheet.pl-sheet-flush { margin: 0; }
+
+/* Text */
+.pl-strong { font-weight: 600; }
+.pl-sub { font-size: 11.5px; color: var(--text-3); margin-top: 2px; }
+.pl-small { font-size: 12.5px; }
+.pl-cell-sm { font-size: 12.5px; }
+.pl-card-title { font-size: 15px; margin-bottom: 8px; }
+.pl-card-title.pl-tight { margin-bottom: 4px; }
+.pl-subhead { font-size: 14px; margin: 14px 0 4px; }
+.pl-note { font-size: 13px; color: var(--text-3); margin: 0; }
+
+/* Spacing */
+.pl-mb-6 { margin-bottom: 6px; }
+.pl-mb-8 { margin-bottom: 8px; }
+.pl-mb-10 { margin-bottom: 10px; }
+.pl-mt-14 { margin-top: 14px; }
+.pl-mt-16 { margin-top: 16px; }
+.pl-push { margin-left: auto; }
+.pl-badge-gap { margin-left: 6px; }
+.pl-min0 { min-width: 0; }
+.pl-span-all { grid-column: 1 / -1; }
+
+/* Issue tab */
+.pl-result-row { padding: 7px 0; }
+.pl-check-sm { font-size: 13px; }
+.pl-search { width: 220px; max-width: 100%; }
+.pl-scroll-420 { max-height: 420px; overflow-y: auto; }
+.table th.pl-col-check { width: 36px; }
+.form-actions.pl-actions-pad { padding: 14px 22px; }
+
+/* Templates list: switched-off letters recede. */
+.table tr.pl-row-off td { opacity: 0.6; }
+
+/* Communication: audience picker and policy coverage */
+.pl-picker {
+  max-height: 200px; overflow-y: auto;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px; margin-bottom: 10px;
+}
+.pl-picker-row { font-size: 13px; padding: 2px 0; }
+.pl-scroll-320 { max-height: 320px; overflow-y: auto; }
+.pl-cov-row { display: flex; align-items: center; gap: 6px; font-size: 13px; padding: 2px 0; }
+.pl-cov-row.pl-cov-pending { color: var(--text-3); }
+.pl-cov-icon { flex: none; }
+.pl-cov-row:not(.pl-cov-pending) .pl-cov-icon { color: var(--accent-text); }
