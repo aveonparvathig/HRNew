@@ -30,8 +30,15 @@ app.use(express.json({ limit: '12mb' }));
 app.use(express.urlencoded({ limit: '12mb', extended: true }));
 
 // CORS Configuration
+// CORS_ORIGIN may list several origins separated by commas, e.g. the custom
+// domain plus the host's default URL. The first one is the app's own address
+// (notifications use it for links), so put the main domain first.
+const allowedOrigins = getEnv().CORS_ORIGIN
+  .split(',')
+  .map(o => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
 const corsOptions = {
-  origin: getEnv().CORS_ORIGIN,
+  origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
