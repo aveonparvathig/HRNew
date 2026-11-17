@@ -10,9 +10,9 @@
 .bar-fill.amber { background: var(--warning-dot); }
 .bar-fill.red   { background: var(--danger-dot); }
 
-.pct-label { font-size: 11.5px; font-weight: 700; }
+.pct-label { font-size: 11.5px; font-weight: 600; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .pct-label.green { color: var(--success); }
-.pct-label.teal  { color: #0E5A70; }
+.pct-label.teal  { color: var(--m-teal); }
 .pct-label.amber { color: var(--warning); }
 .pct-label.red   { color: var(--danger); }
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, LoadingBlock, EmptyState, StatusBadge } from '../../components/ui';
+import { Button } from '../../components/Button';
 
 export default function AcademicYears() {
   const [years, setYears] = useState<any[]>([]);
@@ -51,22 +52,22 @@ export default function AcademicYears() {
   return (
     <>
       <PageHeader
-        title="Academic Years"
+        title="Academic years"
         subtitle="Years available when adding billing rows. Inactive years stay on old rows but are hidden from new ones."
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       <div className="card card-pad mb-24">
-        <form onSubmit={handleAdd} style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-          <div className="field" style={{ flex: 1, minWidth: 200 }}>
-            <label>New academic year</label>
-            <input className="input" placeholder="2026-2027" value={label}
+        <form onSubmit={handleAdd} className="io-add-form">
+          <div className="field">
+            <label htmlFor="io-year-label">New academic year</label>
+            <input id="io-year-label" className="input" placeholder="2026-2027" value={label}
               onChange={e => setLabel(e.target.value)} />
           </div>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Adding…' : '+ Add Year'}
-          </button>
+          <Button type="submit" variant="accent" icon="plus" loading={saving}>
+            {saving ? 'Adding…' : 'Add year'}
+          </Button>
         </form>
       </div>
 
@@ -85,14 +86,14 @@ export default function AcademicYears() {
               <tbody>
                 {years.map(y => (
                   <tr key={y.id}>
-                    <td style={{ fontWeight: 600 }}>{y.label}</td>
+                    <td className="io-strong">{y.label}</td>
                     <td><StatusBadge status={y.isActive ? 'active' : 'inactive'} /></td>
                     <td className="num text-muted">{y.usageCount}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-secondary btn-sm" onClick={() => handleToggle(y)}>
+                        <Button size="sm" onClick={() => handleToggle(y)}>
                           {y.isActive ? 'Deactivate' : 'Activate'}
-                        </button>
+                        </Button>
                       </div>
                     </td>
                   </tr>

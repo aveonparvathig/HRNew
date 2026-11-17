@@ -1,0 +1,41 @@
+/* Income redesign: implementation. */
+
+/* Tables */
+.im-client-name { font-weight: 600; }
+.im-strong { font-weight: 600; white-space: nowrap; }
+.im-badge-gap { margin-left: 6px; }
+.im-col-delivery { width: 160px; }
+.im-cell-sm { font-size: 12.5px; }
+td.im-cell-sm.num { text-align: left; }
+.im-cell-work { max-width: 260px; }
+.im-cell-met { max-width: 180px; }
+td.num.im-strong { text-align: left; }
+.im-cell-input.input, .im-cell-input.select { width: 130px; padding: 5px 8px; font-size: 12.5px; }
+.im-cell-input.im-cell-remarks { width: auto; min-width: 160px; }
+
+/* Progress bar with a count beside it */
+.im-progress { display: flex; align-items: center; gap: 8px; }
+.im-progress .bar-track { flex: 1; }
+.im-progress-wide { gap: 10px; min-width: 200px; }
+.im-progress-count { font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.im-progress-wide strong { font-size: 13px; }
+
+/* Visits toolbar */
+.im-month { width: 160px; }
+.im-client-filter { max-width: 260px; }
+
+/* Visit modal */
+.im-span-2 { grid-column: span 2; }
+
+/* Onboarding form */
+.im-section-title { font-size: 15px; margin-bottom: 16px; }
+.im-mt-16 { margin-top: 16px; }
+.im-doc { margin-top: 14px; }
+.im-doc-badge { display: inline-flex; align-items: center; gap: 4px; }
+.im-actions-start { justify-content: flex-start; }
+.im-section { margin-top: 28px; }
+.im-empty-note { padding: 14px 20px; font-size: 13px; color: var(--text-3); }
+.im-empty-pad { padding: 32px 24px; }
+.im-feature-bar { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 22px; border-bottom: 1px solid var(--border); }
+.im-feature-form { display: flex; gap: 10px; flex: 1; min-width: 260px; }
+.im-grow { flex: 1; min-width: 0; }

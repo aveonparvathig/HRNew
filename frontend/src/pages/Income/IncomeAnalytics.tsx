@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, LoadingBlock, StatCard } from '../../components/ui';
+import { ButtonLink } from '../../components/Button';
 import { formatINR, formatINRCompact, collectionTone } from '../../utils/format';
 
 const monthShort = (ym: string) => {
@@ -31,9 +32,9 @@ export default function IncomeAnalytics() {
   return (
     <>
       <PageHeader
-        title="Income Analytics"
+        title="Income analytics"
         subtitle="Trends, rankings and next-year revenue forecast."
-        actions={<Link to="/income" className="btn btn-secondary">← Dashboard</Link>}
+        actions={<ButtonLink to="/income">Back to dashboard</ButtonLink>}
       />
 
       <ErrorAlert message={error} />
@@ -42,14 +43,14 @@ export default function IncomeAnalytics() {
       {forecast.targetYear && (
         <div className="stat-grid">
           <StatCard label={`Billed ${forecast.currentYear}`} value={formatINR(forecast.currentBilled)}
-            sub="Current year net" icon="▤" tone="primary" />
+            sub="Current year net" icon="receipt" tone="primary" />
           <StatCard label={`Forecast ${forecast.targetYear} (conservative)`} value={formatINR(forecast.conservativeTotal)}
-            sub="Every active client renews as-is" icon="→" tone="info" />
+            sub="Every active client renews as-is" icon="analytics" tone="info" />
           <StatCard label={`Forecast ${forecast.targetYear} (growth)`} value={formatINR(forecast.growthTotal)}
-            sub="Student counts projected by YoY trend" icon="↗" tone="success" />
-          <StatCard label="Grand Outstanding" value={formatINR(data.grandOutstanding)}
+            sub="Student counts projected by YoY trend" icon="trendingUp" tone="success" />
+          <StatCard label="Grand outstanding" value={formatINR(data.grandOutstanding)}
             sub={undatedReceived > 0 ? `${formatINR(undatedReceived)} received undated` : 'Across all years'}
-            icon="◷" tone="warning" />
+            icon="clock" tone="warning" />
         </div>
       )}
 
@@ -61,23 +62,24 @@ export default function IncomeAnalytics() {
             <thead>
               <tr>
                 <th>Year</th><th className="num">Billed</th><th className="num">Received</th>
-                <th className="num">Outstanding</th><th style={{ width: 180 }}>Collection</th>
+                <th className="num">Outstanding</th><th className="io-col-collection">Collection</th>
               </tr>
             </thead>
             <tbody>
               {fyRows.map((r: any) => (
                 <tr key={r.year}>
-                  <td style={{ fontWeight: 600 }}>{r.year}</td>
+                  <td className="io-strong">{r.year}</td>
                   <td className="num">{formatINR(r.billed)}</td>
                   <td className="num text-success">{formatINR(r.received)}</td>
                   <td className="num text-warning">{formatINR(r.outstanding)}</td>
                   <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div className="bar-track" style={{ flex: 1 }}>
+                    <div className="io-collect">
+                      <div className="bar-track">
+                        {/* Width is the collection percentage (data-driven) */}
                         <div className={`bar-fill ${collectionTone(r.collectionPct)}`}
                           style={{ width: `${Math.max(r.collectionPct, 3)}%` }} />
                       </div>
-                      <span className={`pct-label ${collectionTone(r.collectionPct)}`}>{r.collectionPct}%</span>
+                      <span className={`pct-label num ${collectionTone(r.collectionPct)}`}>{r.collectionPct}%</span>
                     </div>
                   </td>
                 </tr>
@@ -91,7 +93,7 @@ export default function IncomeAnalytics() {
         {/* Client outstanding ranking */}
         <div className="card">
           <div className="card-header"><h3>Outstanding by client</h3></div>
-          <div className="table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+          <div className="table-wrap io-scroll-420">
             <table className="table">
               <thead>
                 <tr><th>Client</th><th className="num">Balance</th><th className="num">Share</th></tr>
@@ -102,17 +104,18 @@ export default function IncomeAnalytics() {
                 ) : owing.map((r: any) => (
                   <tr key={r.clientId}>
                     <td>
-                      <Link to={`/income/clients/${r.clientId}`} style={{ fontWeight: 600 }}>{r.name}</Link>
-                      {r.engineer && <span className="text-muted" style={{ fontSize: 11.5 }}> · {r.engineer}</span>}
-                      {!r.isActive && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>inactive</span>}
+                      <Link to={`/income/clients/${r.clientId}`} className="io-strong">{r.name}</Link>
+                      {r.engineer && <span className="io-meta"> · {r.engineer}</span>}
+                      {!r.isActive && <span className="badge badge-neutral io-badge-gap">inactive</span>}
                     </td>
-                    <td className="num text-warning" style={{ fontWeight: 600 }}>{formatINR(r.balance)}</td>
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                        <div className="bar-track" style={{ width: 64, height: 6 }}>
+                    <td className="num text-warning io-strong">{formatINR(r.balance)}</td>
+                    <td className="num">
+                      <div className="io-share">
+                        <div className="bar-track">
+                          {/* Width is the client's share of the total outstanding (data-driven) */}
                           <div className="bar-fill amber" style={{ width: `${Math.min(Math.max(r.sharePct, 2), 100)}%` }} />
                         </div>
-                        <span className="text-muted" style={{ fontSize: 12, minWidth: 34, textAlign: 'right' }}>{r.sharePct}%</span>
+                        <span className="io-share-pct">{r.sharePct}%</span>
                       </div>
                     </td>
                   </tr>
@@ -124,14 +127,14 @@ export default function IncomeAnalytics() {
 
         {/* Monthly trend */}
         <div className="card card-pad">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
-            <h3 style={{ fontSize: 15 }}>Monthly collections</h3>
+          <div className="io-chart-head">
+            <h3>Monthly collections</h3>
             {monthlyTrend.length > 0 && (
-              <span className="text-muted" style={{ fontSize: 12 }}>
-                last 12 months · avg {formatINRCompact(
+              <span className="text-sm-muted">
+                last 12 months · avg <span className="num">{formatINRCompact(
                   monthlyTrend.slice(-12).reduce((s: number, m: any) => s + m.amount, 0) /
                   Math.max(1, monthlyTrend.slice(-12).length)
-                )}/mo
+                )}</span>/mo
               </span>
             )}
           </div>
@@ -141,7 +144,8 @@ export default function IncomeAnalytics() {
             <div className="col-chart">
               {monthlyTrend.slice(-12).map((m: any) => (
                 <div key={m.month} className="col-item" title={`${monthShort(m.month)} — ${formatINR(m.amount)}`}>
-                  <span className="col-val">{formatINRCompact(m.amount)}</span>
+                  <span className="col-val num">{formatINRCompact(m.amount)}</span>
+                  {/* Column height scales with the month's collections (data-driven) */}
                   <div className="col-bar" style={{ height: Math.max((m.amount / maxMonthly) * 150, 4) }} />
                   <span className="col-label">{monthShort(m.month)}</span>
                 </div>
@@ -149,7 +153,7 @@ export default function IncomeAnalytics() {
             </div>
           )}
           {undatedReceived > 0 && (
-            <p className="text-muted" style={{ marginTop: 12, fontSize: 12 }}>
+            <p className="text-sm-muted io-mt-12">
               + {formatINR(undatedReceived)} received without a date (imported opening figures).
             </p>
           )}
@@ -166,7 +170,7 @@ export default function IncomeAnalytics() {
                 <tr>
                   <th>Engineer</th><th className="num">Clients</th><th className="num">Billed</th>
                   <th className="num">Received</th><th className="num">Outstanding</th>
-                  <th style={{ width: 170 }}>Collection</th>
+                  <th className="io-col-collection">Collection</th>
                 </tr>
               </thead>
               <tbody>
@@ -174,17 +178,18 @@ export default function IncomeAnalytics() {
                   const pct = r.billed > 0 ? Math.round((r.received / r.billed) * 100) : 0;
                   return (
                     <tr key={r.engineer}>
-                      <td style={{ fontWeight: 600 }}>{r.engineer}</td>
+                      <td className="io-strong">{r.engineer}</td>
                       <td className="num">{r.clientCount}</td>
                       <td className="num">{formatINR(r.billed)}</td>
                       <td className="num text-success">{formatINR(r.received)}</td>
                       <td className="num text-warning">{formatINR(r.outstanding)}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div className="bar-track" style={{ flex: 1 }}>
+                        <div className="io-collect">
+                          <div className="bar-track">
+                            {/* Width is the collection percentage (data-driven) */}
                             <div className={`bar-fill ${collectionTone(pct)}`} style={{ width: `${Math.min(Math.max(pct, 3), 100)}%` }} />
                           </div>
-                          <span className={`pct-label ${collectionTone(pct)}`}>{pct}%</span>
+                          <span className={`pct-label num ${collectionTone(pct)}`}>{pct}%</span>
                         </div>
                       </td>
                     </tr>
@@ -201,7 +206,7 @@ export default function IncomeAnalytics() {
         <div className="card">
           <div className="card-header">
             <h3>Revenue forecast — {forecast.targetYear}</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               Growth scenario re-prices projected student counts at the latest rate + 18% GST
             </span>
           </div>
@@ -209,7 +214,7 @@ export default function IncomeAnalytics() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Client</th><th>Engineer</th><th className="num">Current Net</th>
+                  <th>Client</th><th>Engineer</th><th className="num">Current net</th>
                   <th className="num">Students</th><th className="num">Projected</th>
                   <th className="num">Conservative</th><th className="num">Growth</th><th>Note</th>
                 </tr>
@@ -217,14 +222,14 @@ export default function IncomeAnalytics() {
               <tbody>
                 {forecast.rows.map((r: any) => (
                   <tr key={r.clientId}>
-                    <td><Link to={`/income/clients/${r.clientId}`} style={{ fontWeight: 600 }}>{r.name}</Link></td>
+                    <td><Link to={`/income/clients/${r.clientId}`} className="io-strong">{r.name}</Link></td>
                     <td className="text-muted">{r.engineer || '—'}</td>
                     <td className="num">{formatINR(r.currentNet)}</td>
                     <td className="num">{r.currentCount ?? '—'}</td>
                     <td className="num">{r.projectedCount ?? '—'}</td>
                     <td className="num">{formatINR(r.conservative)}</td>
-                    <td className="num text-success" style={{ fontWeight: 600 }}>{formatINR(r.growth)}</td>
-                    <td className="text-muted" style={{ fontSize: 12 }}>{r.note || ''}</td>
+                    <td className="num text-success io-strong">{formatINR(r.growth)}</td>
+                    <td className="text-sm-muted">{r.note || ''}</td>
                   </tr>
                 ))}
                 <tr className="totals-row">

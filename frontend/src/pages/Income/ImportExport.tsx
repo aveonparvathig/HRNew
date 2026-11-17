@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, SuccessAlert } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Cluster } from '../../components/layout';
 import { confirmDialog } from '../../components/feedback';
 
 export default function ImportExport() {
@@ -86,7 +88,7 @@ export default function ImportExport() {
   return (
     <>
       <PageHeader
-        title="Import / Export"
+        title="Import / export"
         subtitle="Move the full billing sheet in and out as Excel (.xlsx) or CSV."
       />
 
@@ -95,48 +97,46 @@ export default function ImportExport() {
 
       <div className="grid-2 mb-24">
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 8 }}>Export</h3>
-          <p className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          <h3 className="io-card-title">Export</h3>
+          <p className="modal-lede">
             Downloads every billing row — client, year, engineer, amounts, received,
             balance, invoice status and follow-ups.
           </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button className="btn btn-primary" onClick={() => handleExport('xlsx')} disabled={busy}>
-              ⤓ Excel (.xlsx)
-            </button>
-            <button className="btn btn-secondary" onClick={() => handleExport('csv')} disabled={busy}>
-              ⤓ CSV
-            </button>
-          </div>
+          <Cluster>
+            <Button icon="download" onClick={() => handleExport('xlsx')} disabled={busy}>
+              Excel (.xlsx)
+            </Button>
+            <Button icon="download" onClick={() => handleExport('csv')} disabled={busy}>
+              CSV
+            </Button>
+          </Cluster>
         </div>
 
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 8 }}>Import</h3>
-          <p className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+          <h3 className="io-card-title">Import</h3>
+          <p className="modal-lede">
             Needs at least <strong>Client</strong> and <strong>Academic Year</strong> columns.
             Optional: Students, Rate, Engineer, Previous Pending, Received (creates an opening
             payment). Existing client + year rows are skipped, never overwritten.
           </p>
-          <div className="field" style={{ marginBottom: 14 }}>
-            <label className="btn btn-secondary" style={{ cursor: 'pointer' }}>
+          <div className="field mb-14">
+            <label className="btn btn-secondary">
               {fileName || 'Choose .xlsx or .csv file…'}
               <input type="file"
                 accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
                 onChange={handleFile} hidden />
             </label>
           </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button type="button" className="btn btn-secondary" disabled={busy || !fileContent}
-              onClick={() => runImport(true)}>
-              {busy ? 'Working…' : '👁 Preview'}
-            </button>
-            <button type="button" className="btn btn-primary" disabled={busy || !fileContent}
-              onClick={() => runImport(false)}>
-              {busy ? 'Working…' : '⤒ Import Now'}
-            </button>
-          </div>
-          <p className="text-muted" style={{ fontSize: 12, marginTop: 10 }}>
-            Preview only shows what will happen — nothing is saved. Import Now writes to the billing sheet after a confirmation.
+          <Cluster>
+            <Button icon="search" disabled={busy || !fileContent} onClick={() => runImport(true)}>
+              {busy ? 'Working…' : 'Preview'}
+            </Button>
+            <Button variant="accent" icon="transfer" disabled={busy || !fileContent} onClick={() => runImport(false)}>
+              {busy ? 'Working…' : 'Import now'}
+            </Button>
+          </Cluster>
+          <p className="text-sm-muted io-mt-12">
+            Preview only shows what will happen — nothing is saved. Import now writes to the billing sheet after a confirmation.
           </p>
         </div>
       </div>
@@ -145,21 +145,21 @@ export default function ImportExport() {
         <div className="card">
           <div className="card-header">
             <h3>{result.dryRun ? 'Preview' : 'Import result'}</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
-              {result.summary.clientsCreated} clients · {result.summary.billingsCreated} billings
-              · {result.summary.skipped} skipped · {result.summary.errors} errors
+            <span className="text-sm-muted">
+              <span className="num">{result.summary.clientsCreated}</span> clients · <span className="num">{result.summary.billingsCreated}</span> billings
+              · <span className="num">{result.summary.skipped}</span> skipped · <span className="num">{result.summary.errors}</span> errors
             </span>
           </div>
-          <div className="table-wrap" style={{ maxHeight: 400, overflowY: 'auto' }}>
+          <div className="table-wrap io-scroll-400">
             <table className="table">
               <thead>
-                <tr><th>Row</th><th>Client</th><th>Year</th><th>Action</th></tr>
+                <tr><th className="num">Row</th><th>Client</th><th>Year</th><th>Action</th></tr>
               </thead>
               <tbody>
                 {result.preview.map((r: any) => (
                   <tr key={r.row}>
-                    <td className="text-muted">{r.row}</td>
-                    <td style={{ fontWeight: 600 }}>{r.client}</td>
+                    <td className="num text-muted">{r.row}</td>
+                    <td className="io-strong">{r.client}</td>
                     <td>{r.year}</td>
                     <td>
                       <span className={`badge ${r.action.startsWith('error') ? 'badge-danger' : r.action.startsWith('skip') ? 'badge-neutral' : 'badge-success'}`}>

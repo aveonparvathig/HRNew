@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { mastersAPI, loadLists, forgetLists } from '../api/masters';
+import { Button } from './Button';
 
 // A picker over one of the company's value lists (department, designation,
 // bank, reasons…). Staff can add a value without leaving the form; the
@@ -58,17 +59,17 @@ export default function ListSelect({ listType, value, onChange, required, autoFo
   if (adding) {
     return (
       <>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input className="input" autoFocus value={draft} placeholder="New value"
+        <div className="io-ls-add">
+          <input className="input" autoFocus value={draft} placeholder="New value" aria-label="New value"
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => {
               if (e.key === 'Enter') { e.preventDefault(); add(); }
               if (e.key === 'Escape') { e.stopPropagation(); setAdding(false); setError(''); }
             }} />
-          <button type="button" className="btn btn-secondary btn-sm" disabled={saving || !draft.trim()} onClick={add}>Add</button>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => { setAdding(false); setError(''); }}>Cancel</button>
+          <Button size="sm" loading={saving} disabled={!draft.trim()} onClick={add}>Add</Button>
+          <Button variant="ghost" size="sm" onClick={() => { setAdding(false); setError(''); }}>Cancel</Button>
         </div>
-        {error && <span className="hint" style={{ color: 'var(--danger)' }}>{error}</span>}
+        {error && <span className="hint io-ls-error" role="alert">{error}</span>}
       </>
     );
   }
