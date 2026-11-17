@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { useAuthStore, useEnabledModules } from '../store/authStore';
 import { payrollAPI } from '../api/payroll';
 import { Icon } from '../components/Layout/nav';
-import { formatINR } from '../utils/format';
 import HrPanel from '../components/HrPanel';
 
 const MODULES = [
@@ -95,7 +94,6 @@ function PayrollStatus() {
         </p>
       </div>
       <div className="status-figures">
-        <div><span>Net payable</span><strong>{formatINR(latest.totals?.net)}</strong></div>
         <div><span>Employees</span><strong>{latest.totals?.employees ?? '—'}</strong></div>
       </div>
       <div className="status-actions">
