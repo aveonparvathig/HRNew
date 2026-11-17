@@ -119,7 +119,8 @@ export default function RunsList() {
         actions={
           <>
             <ButtonLink to="/payroll/settings" icon="sliders">Settings</ButtonLink>
-            {newRun}
+            {/* One accent per view: the empty state carries the CTA when there are no runs. */}
+            {runs.length > 0 && newRun}
           </>
         }
       />
