@@ -7,12 +7,16 @@ import { PageHeader, LoadingBlock, ErrorAlert, SuccessAlert, EmptyState } from '
 import { confirmDialog } from '../../components/feedback';
 import DownloadButton from '../../components/DownloadButton';
 import ListSelect from '../../components/ListSelect';
+import { Button } from '../../components/Button';
+import { Tabs, type TabItem } from '../../components/Tabs';
+import { Cluster } from '../../components/layout';
+import { Icon } from '../../components/Layout/nav';
 import { formatINR } from '../../utils/format';
 
-const TABS = [
-  { key: 'add', label: 'Add Employees' },
-  { key: 'update', label: 'Update Employees' },
-  { key: 'revisions', label: 'Salary Revisions' },
+const TABS: TabItem<string>[] = [
+  { key: 'add', label: 'Add employees' },
+  { key: 'update', label: 'Update employees' },
+  { key: 'revisions', label: 'Salary revisions' },
   { key: 'photos', label: 'Photos' },
   { key: 'documents', label: 'Documents' },
   { key: 'history', label: 'History' },
@@ -36,25 +40,25 @@ const monthWords = (month: string) => {
 };
 
 function Steps({ children }: { children: ReactNode }) {
-  return <ol className="text-muted" style={{ fontSize: 13, margin: '0 0 16px', paddingLeft: 18, lineHeight: 1.7 }}>{children}</ol>;
+  return <ol className="text-muted pd-steps">{children}</ol>;
 }
 
 // The rows of a check or of a finished import
 function RowsTable({ rows, extra }: { rows: any[]; extra?: (r: any) => ReactNode }) {
   return (
-    <div className="table-wrap" style={{ maxHeight: 460, overflowY: 'auto' }}>
+    <div className="table-wrap pd-scroll">
       <table className="table">
-        <thead><tr><th style={{ width: 54 }}>Row</th><th>Employee</th><th>Result</th><th>What will change, and why not</th></tr></thead>
+        <thead><tr><th className="num pd-col-row">Row</th><th>Employee</th><th>Result</th><th>What will change, and why not</th></tr></thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={`${r.row}-${i}`}>
-              <td className="text-muted">{r.file ? i + 1 : r.row}</td>
+              <td className="text-muted num">{r.file ? i + 1 : r.row}</td>
               <td>
-                <span style={{ fontWeight: 600 }}>{r.name || '—'}</span>
-                <div className="text-muted" style={{ fontSize: 11.5 }}>{[r.employeeNo, r.file].filter(Boolean).join(' · ')}</div>
+                <span className="pd-strong">{r.name || '—'}</span>
+                <div className="pd-sub">{[r.employeeNo, r.file].filter(Boolean).join(' · ')}</div>
               </td>
               <td>{badge(r.result)}</td>
-              <td style={{ fontSize: 12.5 }}>
+              <td className="pd-detail">
                 {extra?.(r)}
                 {(r.changes || []).map((c: any) => <div key={c.field}>{c.field}: <span className="text-muted">{c.from}</span> → {c.to}</div>)}
                 {(r.fields || []).length > 0 && <div className="text-muted">Changed: {r.fields.join(', ')}</div>}
@@ -72,7 +76,7 @@ function RowsTable({ rows, extra }: { rows: any[]; extra?: (r: any) => ReactNode
 }
 
 function Summary({ summary }: { summary: Record<string, number> }) {
-  return <>{Object.entries(summary).filter(([, n]) => n > 0).map(([k, n]) => <span key={k} style={{ marginRight: 10 }}>{badge(k)} {n}</span>)}</>;
+  return <>{Object.entries(summary).filter(([, n]) => n > 0).map(([k, n]) => <span key={k} className="pd-summary-item">{badge(k)} <span className="num">{n}</span></span>)}</>;
 }
 
 // ---- Employees from a workbook: add, or update ---------------------------------------------------
@@ -119,7 +123,7 @@ function EmployeeSheet({ mode }: { mode: 'ADD' | 'UPDATE' }) {
       title: mode === 'ADD' ? `Add ${plural(ready, 'employee')}?` : `Update ${plural(ready, 'employee')}?`,
       message: `${check.counts.ERROR ? `${plural(check.counts.ERROR, 'row')} with something wrong will be left out. ` : ''}${
         mode === 'UPDATE' ? 'Only the changes listed are made; nothing else on the records is touched.' : 'Each row becomes an employee on record.'}`,
-      confirmLabel: mode === 'ADD' ? 'Add Employees' : 'Update Employees',
+      confirmLabel: mode === 'ADD' ? 'Add employees' : 'Update employees',
     })) return;
     run(file!, false, columns);
   };
@@ -137,7 +141,7 @@ function EmployeeSheet({ mode }: { mode: 'ADD' | 'UPDATE' }) {
       )}
 
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 8 }}>{mode === 'ADD' ? 'Add new employees from a workbook' : 'Update employees from a workbook'}</h3>
+        <h3 className="pd-card-title">{mode === 'ADD' ? 'Add new employees from a workbook' : 'Update employees from a workbook'}</h3>
         <Steps>
           {mode === 'ADD' ? <>
             <li>Download the template and fill one row for each new employee. Only the code and the name are needed.</li>
@@ -149,17 +153,17 @@ function EmployeeSheet({ mode }: { mode: 'ADD' | 'UPDATE' }) {
             <li>Upload it, pick the columns to take, check the changes listed, then update.</li>
           </>}
         </Steps>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Cluster gap={12}>
           <DownloadButton path="/people/import/employees/template.xlsx" params={{ mode }} busyLabel="Making the workbook…">
-            ⤓ {mode === 'ADD' ? 'Template' : 'Workbook of Employees'}
+            <Icon name="download" size={16} className="btn-icon" />{mode === 'ADD' ? 'Template' : 'Workbook of employees'}
           </DownloadButton>
-          <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-            {busy === 'check' ? 'Checking…' : file ? 'Upload Another File' : 'Upload the Filled File'}
+          <label className="btn btn-primary">
+            {busy === 'check' ? 'Checking…' : file ? 'Upload another file' : 'Upload the filled file'}
             <input type="file" accept=".xlsx" hidden disabled={busy !== ''}
               onChange={e => { pick(e.target.files?.[0] || null); e.target.value = ''; }} />
           </label>
-          {file && <span className="text-muted" style={{ fontSize: 12.5 }}>{file.name}</span>}
-        </div>
+          {file && <span className="text-sm-muted">{file.name}</span>}
+        </Cluster>
       </div>
 
       {check?.problem && <ErrorAlert message={check.problem} />}
@@ -169,19 +173,19 @@ function EmployeeSheet({ mode }: { mode: 'ADD' | 'UPDATE' }) {
           <div className="card-header">
             <div>
               <h3>Check of {file?.name}</h3>
-              <span style={{ fontSize: 13 }}><Summary summary={check.counts} /></span>
+              <span className="pd-summary"><Summary summary={check.counts} /></span>
             </div>
-            <button className="btn btn-primary" disabled={busy !== '' || ready === 0 || blockedByLists || Boolean(check.problem)} onClick={save}>
-              {busy === 'save' ? 'Saving…' : mode === 'ADD' ? `Add ${plural(ready, 'Employee')}` : `Update ${plural(ready, 'Employee')}`}
-            </button>
+            <Button variant="accent" disabled={busy !== '' || ready === 0 || blockedByLists || Boolean(check.problem)} onClick={save}>
+              {busy === 'save' ? 'Saving…' : mode === 'ADD' ? `Add ${plural(ready, 'employee')}` : `Update ${plural(ready, 'employee')}`}
+            </Button>
           </div>
-          <div style={{ padding: '0 22px 6px' }}>
+          <div className="pd-card-body">
             {mode === 'UPDATE' && (
-              <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Columns to take from the sheet</div>
-                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+              <div className="pd-columns">
+                <div className="pd-label">Columns to take from the sheet</div>
+                <div className="pd-checks">
                   {check.sheetColumns.map((c: any) => (
-                    <label key={c.key} style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                    <label key={c.key} className="pd-check">
                       <input type="checkbox" checked={(columns || check.sheetColumns.map((x: any) => x.key)).includes(c.key)} onChange={() => toggleColumn(c.key)} />
                       {c.header}
                     </label>
@@ -191,17 +195,17 @@ function EmployeeSheet({ mode }: { mode: 'ADD' | 'UPDATE' }) {
             )}
             {check.unknownHeaders.length > 0 && (
               <div className="alert alert-warning">
-                <span>⚑</span><span>Not read, as no such column is known: {check.unknownHeaders.join(', ')}.</span>
+                <Icon name="alert" size={16} className="pd-alert-icon" /><span>Not read, as no such column is known: {check.unknownHeaders.join(', ')}.</span>
               </div>
             )}
             {check.newValues.length > 0 && (
-              <div className="alert alert-warning" style={{ alignItems: 'flex-start' }}>
-                <span>⚑</span>
+              <div className="alert alert-warning pd-alert-top">
+                <Icon name="alert" size={16} className="pd-alert-icon" />
                 <span>
                   <strong>Not in your lists yet:</strong>{' '}
                   {check.newValues.map((v: any) => `${v.label} (${v.listLabel}, ${plural(v.rows, 'row')})`).join('; ')}.
                   Check they are not misspellings of values you already have.
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, fontWeight: 600 }}>
+                  <label className="pd-check pd-check-strong">
                     <input type="checkbox" checked={addNewValues} onChange={e => setAddNewValues(e.target.checked)} />
                     Add these values to the lists
                   </label>
@@ -243,7 +247,7 @@ function RevisionSheet() {
     if (!await confirmDialog({
       title: `Revise ${plural(check.counts.REVISE, 'salary', 'salaries')}?`,
       message: 'Each is recorded as on the Revise Salary screen: draft payslips from that month are recalculated, and months already finalized bring arrears.',
-      confirmLabel: 'Revise Salaries',
+      confirmLabel: 'Revise salaries',
     })) return;
     run(file!, false);
   };
@@ -257,35 +261,37 @@ function RevisionSheet() {
         </SuccessAlert>
       )}
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 8 }}>Salary revisions from a workbook</h3>
+        <h3 className="pd-card-title">Salary revisions from a workbook</h3>
         <Steps>
           <li>Download the workbook: it lists the employees. Keep the rows whose package changes and delete the rest.</li>
           <li>Type the new monthly package, the month it applies from (as Oct 2026) and the reason.</li>
           <li>Upload it. Each row is checked and shown with the old and new package; nothing is saved until you confirm.</li>
         </Steps>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <DownloadButton path="/people/import/revisions/template.xlsx" busyLabel="Making the workbook…">⤓ Workbook</DownloadButton>
-          <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-            {busy === 'check' ? 'Checking…' : file ? 'Upload Another File' : 'Upload the Filled File'}
+        <Cluster gap={12}>
+          <DownloadButton path="/people/import/revisions/template.xlsx" busyLabel="Making the workbook…">
+            <Icon name="download" size={16} className="btn-icon" />Workbook
+          </DownloadButton>
+          <label className="btn btn-primary">
+            {busy === 'check' ? 'Checking…' : file ? 'Upload another file' : 'Upload the filled file'}
             <input type="file" accept=".xlsx" hidden disabled={busy !== ''}
               onChange={e => { const f = e.target.files?.[0] || null; e.target.value = ''; setFile(f); setCheck(null); setDone(null); if (f) run(f, true); }} />
           </label>
-          {file && <span className="text-muted" style={{ fontSize: 12.5 }}>{file.name}</span>}
-        </div>
+          {file && <span className="text-sm-muted">{file.name}</span>}
+        </Cluster>
       </div>
 
       {check?.problem && <ErrorAlert message={check.problem} />}
       {check && !check.problem && (
         <div className="card mb-24">
           <div className="card-header">
-            <div><h3>Check of {file?.name}</h3><span style={{ fontSize: 13 }}><Summary summary={check.counts} /></span></div>
-            <button className="btn btn-primary" disabled={busy !== '' || check.counts.REVISE === 0} onClick={save}>
-              {busy === 'save' ? 'Saving…' : `Revise ${plural(check.counts.REVISE, 'Salary', 'Salaries')}`}
-            </button>
+            <div><h3>Check of {file?.name}</h3><span className="pd-summary"><Summary summary={check.counts} /></span></div>
+            <Button variant="accent" disabled={busy !== '' || check.counts.REVISE === 0} onClick={save}>
+              {busy === 'save' ? 'Saving…' : `Revise ${plural(check.counts.REVISE, 'salary', 'salaries')}`}
+            </Button>
           </div>
           <RowsTable rows={check.results} extra={r => r.result === 'REVISE' && (
             <div>
-              {formatINR(r.oldMonthlyPackage)} → <strong>{formatINR(r.newMonthlyPackage)}</strong> from {monthWords(r.effectiveMonth)}
+              <span className="num">{formatINR(r.oldMonthlyPackage)}</span> → <strong className="num">{formatINR(r.newMonthlyPackage)}</strong> from {monthWords(r.effectiveMonth)}
               {r.reason && <span className="text-muted"> · {r.reason}</span>}
             </div>
           )} />
@@ -370,7 +376,7 @@ function ZipUpload({ kind }: { kind: 'PHOTOS' | 'DOCUMENTS' }) {
       title: photos ? `Set ${plural(ready.length, 'photo')}?` : `Add ${plural(ready.length, 'document')}?`,
       message: photos ? 'Each replaces the photo the employee has now.'
         : `They go under ${category}${visible ? ' and are shown to the employees under My Documents' : ''}.`,
-      confirmLabel: photos ? 'Set Photos' : 'Add Documents',
+      confirmLabel: photos ? 'Set photos' : 'Add documents',
     })) return;
     setBusy('upload');
     const all: any[] = [];
@@ -429,35 +435,35 @@ function ZipUpload({ kind }: { kind: 'PHOTOS' | 'DOCUMENTS' }) {
     <>
       <ErrorAlert message={error} onDismiss={() => setError('')} />
       <div className="card card-pad mb-24">
-        <h3 style={{ fontSize: 15, marginBottom: 8 }}>{photos ? 'Employee photos from a zip' : 'Employee documents from a zip'}</h3>
+        <h3 className="pd-card-title">{photos ? 'Employee photos from a zip' : 'Employee documents from a zip'}</h3>
         <Steps>
           <li>Name each file by the employee's code{photos ? ': EMP-0042.jpg.' : ', then anything you like: EMP-0042.pdf or EMP-0042 - PAN card.pdf. What follows the code becomes the title.'}</li>
           <li>Put the files in one zip and pick it here. Each file is matched to its employee and listed before anything is uploaded.</li>
           <li>{photos ? 'Photos are made small before they are sent. A photo replaces the one the employee has.' : 'All the files go under one category. PDF, JPG or PNG, up to 5 MB each.'}</li>
         </Steps>
         {!photos && (
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
               <label>Category *</label>
               <ListSelect listType="DOCUMENT_CATEGORY" value={category} onChange={setCategory} />
             </div>
             <div className="field">
               <label>&nbsp;</label>
-              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, fontWeight: 400 }}>
+              <label className="pd-check pd-check-field">
                 <input type="checkbox" checked={visible} onChange={e => setVisible(e.target.checked)} />
                 Show these to the employees under My Documents
               </label>
             </div>
           </div>
         )}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-            {busy === 'read' ? 'Reading…' : zipName ? 'Pick Another Zip' : 'Pick the Zip'}
+        <Cluster gap={12}>
+          <label className="btn btn-primary">
+            {busy === 'read' ? 'Reading…' : zipName ? 'Pick another zip' : 'Pick the zip'}
             <input type="file" accept=".zip,application/zip" hidden disabled={busy !== ''}
               onChange={e => { pick(e.target.files?.[0] || null); e.target.value = ''; }} />
           </label>
-          {zipName && <span className="text-muted" style={{ fontSize: 12.5 }}>{zipName}</span>}
-        </div>
+          {zipName && <span className="text-sm-muted">{zipName}</span>}
+        </Cluster>
       </div>
 
       {matches && (
@@ -465,26 +471,26 @@ function ZipUpload({ kind }: { kind: 'PHOTOS' | 'DOCUMENTS' }) {
           <div className="card-header">
             <div>
               <h3>{plural(matches.length, 'file')} in {zipName}</h3>
-              <span style={{ fontSize: 13 }}>
-                <span className="badge badge-success">Matched</span> {ready.length}{' '}
-                {matches.length - ready.length > 0 && <><span className="badge badge-danger">Not taken</span> {matches.length - ready.length}</>}
+              <span className="pd-summary">
+                <span className="badge badge-success">Matched</span> <span className="num">{ready.length}</span>{' '}
+                {matches.length - ready.length > 0 && <><span className="badge badge-danger">Not taken</span> <span className="num">{matches.length - ready.length}</span></>}
               </span>
             </div>
-            <button className="btn btn-primary" disabled={busy !== '' || ready.length === 0 || (!photos && !category)} onClick={upload}
+            <Button variant="accent" disabled={busy !== '' || ready.length === 0 || (!photos && !category)} onClick={upload}
               title={!photos && !category ? 'Pick a category first' : undefined}>
-              {busy === 'upload' ? progress || 'Uploading…' : photos ? `Set ${plural(ready.length, 'Photo')}` : `Add ${plural(ready.length, 'Document')}`}
-            </button>
+              {busy === 'upload' ? progress || 'Uploading…' : photos ? `Set ${plural(ready.length, 'photo')}` : `Add ${plural(ready.length, 'document')}`}
+            </Button>
           </div>
-          <div className="table-wrap" style={{ maxHeight: 460, overflowY: 'auto' }}>
+          <div className="table-wrap pd-scroll">
             <table className="table">
               <thead><tr><th>File</th><th>Employee</th>{!photos && <th>Title</th>}<th /></tr></thead>
               <tbody>
                 {matches.map((m, i) => (
                   <tr key={`${m.fileName}-${i}`}>
                     <td>{m.fileName}</td>
-                    <td>{m.name ? <><span style={{ fontWeight: 600 }}>{m.name}</span> <span className="text-muted">· {m.employeeNo}</span></> : '—'}</td>
+                    <td>{m.name ? <><span className="pd-strong">{m.name}</span> <span className="text-muted">· {m.employeeNo}</span></> : '—'}</td>
                     {!photos && <td className="text-muted">{m.problem ? '' : m.title || category || 'The category'}</td>}
-                    <td>{m.problem ? <span className="text-danger" style={{ fontSize: 12.5 }}>{m.problem}</span> : <span className="badge badge-success">Matched</span>}</td>
+                    <td>{m.problem ? <span className="text-danger pd-detail">{m.problem}</span> : <span className="badge badge-success">Matched</span>}</td>
                   </tr>
                 ))}
               </tbody>
@@ -496,7 +502,7 @@ function ZipUpload({ kind }: { kind: 'PHOTOS' | 'DOCUMENTS' }) {
       {results && (
         <div className="card mb-24">
           <div className="card-header">
-            <div><h3>What was done</h3>{summary && <span style={{ fontSize: 13 }}><Summary summary={summary} /></span>}</div>
+            <div><h3>What was done</h3>{summary && <span className="pd-summary"><Summary summary={summary} /></span>}</div>
           </div>
           <RowsTable rows={results} />
         </div>
@@ -542,12 +548,12 @@ function History() {
             <tbody>
               {logs.map(l => (
                 <tr key={l.id}>
-                  <td className="text-muted" style={{ whiteSpace: 'nowrap' }}>{dateTime(l.createdAt)}</td>
-                  <td style={{ fontWeight: 600 }}>{l.kindLabel}</td>
+                  <td className="text-muted pd-nowrap">{dateTime(l.createdAt)}</td>
+                  <td className="pd-strong">{l.kindLabel}</td>
                   <td className="text-muted">{l.fileName}</td>
                   <td className="text-muted">{l.ranByName || '—'}</td>
-                  <td style={{ fontSize: 13 }}><Summary summary={l.summary} /></td>
-                  <td><div className="row-actions"><button className="btn btn-secondary btn-sm" onClick={() => show(l.id)}>{open?.id === l.id ? 'Hide Rows' : 'Rows'}</button></div></td>
+                  <td className="pd-summary"><Summary summary={l.summary} /></td>
+                  <td><div className="row-actions"><Button size="sm" onClick={() => show(l.id)}>{open?.id === l.id ? 'Hide rows' : 'Rows'}</Button></div></td>
                 </tr>
               ))}
             </tbody>
@@ -573,12 +579,7 @@ export default function Import() {
     <>
       <PageHeader title="Import"
         subtitle={<>Employees and salary revisions from Excel, photos and documents from a zip. Everything is checked and shown before it is saved. <Link to="/people">Back to People</Link></>} />
-      <div className="tabs" role="tablist">
-        {TABS.map(t => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} className={`tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setParams({ tab: t.key })}>{t.label}</button>
-        ))}
-      </div>
+      <Tabs label="Import sections" items={TABS} value={tab} onChange={key => setParams({ tab: key })} />
       {tab === 'add' && <EmployeeSheet key="add" mode="ADD" />}
       {tab === 'update' && <EmployeeSheet key="update" mode="UPDATE" />}
       {tab === 'revisions' && <RevisionSheet />}

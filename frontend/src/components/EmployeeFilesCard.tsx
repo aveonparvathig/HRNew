@@ -5,6 +5,7 @@ import { Modal, ErrorAlert, EmptyState } from './ui';
 import { formatDate } from '../utils/format';
 import { confirmDialog, toast } from './feedback';
 import ListSelect from './ListSelect';
+import { Button } from './Button';
 
 export const sizeLabel = (bytes: number) =>
   (bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1).replace(/\.0$/, '')} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
@@ -89,14 +90,14 @@ export default function EmployeeFilesCard({ person }: { person: any }) {
     <div className="card mb-24">
       <div className="card-header">
         <div>
-          <h3>Files ({files.length})</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
+          <h3>Files (<span className="num">{files.length}</span>)</h3>
+          <span className="text-sm-muted">
             Identity proofs, certificates and signed letters. PDF or image, up to {data.limits.maxLabel} each.
           </span>
         </div>
-        <button className="btn btn-primary btn-sm" onClick={() => { setFormError(''); setForm({ ...EMPTY }); }}>+ Add File</button>
+        <Button size="sm" icon="plus" onClick={() => { setFormError(''); setForm({ ...EMPTY }); }}>Add file</Button>
       </div>
-      <div style={{ padding: '0 22px' }}>
+      <div className="pd-card-body">
         <ErrorAlert message={error} onDismiss={() => setError('')} />
       </div>
       {files.length === 0 ? (
@@ -111,14 +112,14 @@ export default function EmployeeFilesCard({ person }: { person: any }) {
               {files.map(f => (
                 <tr key={f.id}>
                   <td>
-                    <button type="button" className="link-button" style={{ fontWeight: 600 }} onClick={() => open(f)}>{f.title}</button>
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>{f.fileName} · {sizeLabel(f.sizeBytes)}</div>
+                    <button type="button" className="link-button pd-strong" onClick={() => open(f)}>{f.title}</button>
+                    <div className="pd-sub">{f.fileName} · {sizeLabel(f.sizeBytes)}</div>
                   </td>
                   <td><span className="badge badge-neutral">{f.category}</span></td>
-                  <td className="text-muted">{f.documentDate ? formatDate(f.documentDate) : '—'}</td>
-                  <td className="text-muted">{formatDate(f.createdAt)}{f.uploadedByName && <div style={{ fontSize: 11.5 }}>{f.uploadedByName}</div>}</td>
+                  <td className="text-muted pd-date">{f.documentDate ? formatDate(f.documentDate) : '—'}</td>
+                  <td className="text-muted"><span className="pd-date">{formatDate(f.createdAt)}</span>{f.uploadedByName && <div className="pd-sub">{f.uploadedByName}</div>}</td>
                   <td>
-                    <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+                    <label className="pd-check">
                       <input type="checkbox" checked={f.visibleToEmployee} onChange={() => toggleVisible(f)}
                         aria-label={`Show ${f.title} to the employee`} />
                       {f.visibleToEmployee ? 'Yes' : 'No'}
@@ -126,12 +127,12 @@ export default function EmployeeFilesCard({ person }: { person: any }) {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <button className="btn btn-secondary btn-sm" onClick={() => open(f)}>Open</button>
-                      <button className="btn btn-secondary btn-sm" onClick={() => {
+                      <Button size="sm" onClick={() => open(f)}>Open</Button>
+                      <Button size="sm" onClick={() => {
                         setFormError('');
                         setForm({ id: f.id, category: f.category, title: f.title, documentDate: f.documentDate || '', visibleToEmployee: f.visibleToEmployee, file: null });
-                      }}>Edit</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => remove(f)}>Remove</button>
+                      }}>Edit</Button>
+                      <Button variant="danger" size="sm" onClick={() => remove(f)}>Remove</Button>
                     </div>
                   </td>
                 </tr>
@@ -141,15 +142,15 @@ export default function EmployeeFilesCard({ person }: { person: any }) {
         </div>
       )}
 
-      <Modal title={form?.id ? 'Edit File Details' : `Add File — ${person.name}`} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={form?.id ? 'Edit file details' : `Add file — ${person.name}`} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={save}>
             <ErrorAlert message={formError} />
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               {!form.id && (
-                <div className="field" style={{ gridColumn: '1 / -1' }}>
-                  <label>File *</label>
-                  <input className="input" type="file" accept={`${data.limits.accept},application/pdf,image/jpeg,image/png,image/webp`}
+                <div className="field pd-full">
+                  <label htmlFor="efc-file">File *</label>
+                  <input id="efc-file" className="input" type="file" accept={`${data.limits.accept},application/pdf,image/jpeg,image/png,image/webp`}
                     onChange={e => {
                       const file = e.target.files?.[0] || null;
                       setForm(f => f && ({ ...f, file, title: f.title || (file ? file.name.replace(/\.[A-Za-z0-9]{1,5}$/, '') : '') }));
@@ -162,24 +163,24 @@ export default function EmployeeFilesCard({ person }: { person: any }) {
                 <ListSelect listType="DOCUMENT_CATEGORY" required value={form.category} onChange={v => setForm(f => f && ({ ...f, category: v }))} />
               </div>
               <div className="field">
-                <label>Date on the document</label>
-                <input className="input" type="date" value={form.documentDate}
+                <label htmlFor="efc-date">Date on the document</label>
+                <input id="efc-date" className="input" type="date" value={form.documentDate}
                   onChange={e => setForm(f => f && ({ ...f, documentDate: e.target.value }))} />
               </div>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Title *</label>
-                <input className="input" required maxLength={150} placeholder="e.g. PAN card, Degree certificate"
+              <div className="field pd-full">
+                <label htmlFor="efc-title">Title *</label>
+                <input id="efc-title" className="input" required maxLength={150} placeholder="e.g. PAN card, Degree certificate"
                   value={form.title} onChange={e => setForm(f => f && ({ ...f, title: e.target.value }))} />
               </div>
             </div>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
+            <label className="pd-check pd-check-field">
               <input type="checkbox" checked={form.visibleToEmployee}
                 onChange={e => setForm(f => f && ({ ...f, visibleToEmployee: e.target.checked }))} />
               Show this file to {person.name} under My Documents
             </label>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : form.id ? 'Save' : 'Add File'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" disabled={saving}>{saving ? 'Saving…' : form.id ? 'Save' : 'Add file'}</Button>
             </div>
           </form>
         )}

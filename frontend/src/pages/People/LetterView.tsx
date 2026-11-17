@@ -6,6 +6,8 @@ import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 import { formatDate } from '../../utils/format';
 import { confirmDialog, toast } from '../../components/feedback';
 import DownloadButton from '../../components/DownloadButton';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 export default function LetterView() {
   const { docId } = useParams<{ docId: string }>();
@@ -61,7 +63,7 @@ export default function LetterView() {
   if (loading) return <LoadingBlock label="Loading letter…" />;
   if (!doc) {
     return <EmptyState icon="▤" title="Letter not found"
-      action={<Link to="/people" className="btn btn-secondary">Back to People</Link>} />;
+      action={<ButtonLink to="/people">Back to People</ButtonLink>} />;
   }
 
   return (
@@ -86,16 +88,18 @@ export default function LetterView() {
           </>}
           actions={
             <>
-              <button className="btn btn-danger" onClick={handleDelete}>Delete</button>
-              <button className="btn btn-secondary" onClick={toggleVisible}>
-                {doc.visibleToEmployee ? 'Hide from Employee' : 'Show to Employee'}
-              </button>
-              <button className="btn btn-secondary" disabled={sending || !doc.emailTo} onClick={handleEmail}
+              <Button variant="danger" onClick={handleDelete}>Delete</Button>
+              <Button onClick={toggleVisible}>
+                {doc.visibleToEmployee ? 'Hide from employee' : 'Show to employee'}
+              </Button>
+              <Button icon="mail" loading={sending} disabled={!doc.emailTo} onClick={handleEmail}
                 title={doc.emailTo ? `Send to ${doc.emailTo}` : 'No email address on record'}>
-                {sending ? 'Sending…' : '✉ Email'}
-              </button>
-              <DownloadButton path={`/people/documents/${doc.id}/file`} busyLabel="Making the PDF…">⤓ PDF</DownloadButton>
-              <button className="btn btn-primary" onClick={() => window.print()}>🖨 Print</button>
+                {sending ? 'Sending…' : 'Email'}
+              </Button>
+              <DownloadButton path={`/people/documents/${doc.id}/file`} busyLabel="Making the PDF…">
+                <Icon name="download" size={16} className="btn-icon" />PDF
+              </DownloadButton>
+              <Button variant="accent" icon="printer" onClick={() => window.print()}>Print</Button>
             </>
           }
         />

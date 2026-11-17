@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Button, ButtonLink } from './Button';
+import { Icon } from './Layout/nav';
 import { payrollAPI } from '../api/payroll';
 import { Modal, ErrorAlert } from './ui';
 import { formatINR } from '../utils/format';
@@ -100,18 +101,18 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
       <div className="card-header">
         <div>
           <h3>Salary revisions ({revisions.length})</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
-            Current package {formatINR(data.currentMonthlyPackage)} a month
+          <span className="text-sm-muted">
+            Current package <span className="num">{formatINR(data.currentMonthlyPackage)}</span> a month
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link to={`/payroll/reports/ctc-breakup?personId=${person.id}`} className="btn btn-secondary btn-sm">CTC Breakup</Link>
-          <button className="btn btn-primary btn-sm" onClick={() => setOpen(true)}>Revise Salary</button>
+        <div className="cluster">
+          <ButtonLink to={`/payroll/reports/ctc-breakup?personId=${person.id}`} size="sm" variant="ghost" icon="analytics">CTC breakup</ButtonLink>
+          <Button size="sm" icon="banknote" onClick={() => setOpen(true)}>Revise salary</Button>
         </div>
       </div>
-      <div style={{ padding: '0 22px' }}>
+      <div className="pp-card-alert">
         <ErrorAlert message={error} onDismiss={() => setError('')} />
-        {notice && <div className="alert alert-warning"><span>⚠</span>{notice}</div>}
+        {notice && <div className="alert alert-warning"><Icon name="alert" size={16} className="pp-alert-icon" /><span>{notice}</span></div>}
       </div>
       {revisions.length > 0 && (
         <div className="table-wrap">
@@ -127,10 +128,10 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
                 const diff = r.newMonthlyPackage - r.oldMonthlyPackage;
                 return (
                   <tr key={r.id}>
-                    <td style={{ fontWeight: 600 }}>{monthLabel(r.effectiveFrom)}</td>
+                    <td className="pp-date pp-strong">{monthLabel(r.effectiveFrom)}</td>
                     <td className="num text-muted">{formatINR(r.oldMonthlyPackage)}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.newMonthlyPackage)}</td>
-                    <td className={`num ${diff >= 0 ? 'text-success' : 'text-warning'}`}>
+                    <td className="num pp-strong">{formatINR(r.newMonthlyPackage)}</td>
+                    <td className={`num ${diff >= 0 ? 'num-pos' : 'text-warning'}`}>
                       {diff >= 0 ? '+' : '−'}{formatINR(Math.abs(diff))}
                       {r.oldMonthlyPackage > 0 && ` (${((diff / r.oldMonthlyPackage) * 100).toFixed(1)}%)`}
                     </td>
@@ -139,7 +140,7 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
                     <td>
                       {i === 0 && (
                         <div className="row-actions">
-                          <button className="btn btn-danger btn-sm" onClick={() => handleRemove(r)}>Remove</button>
+                          <Button size="sm" variant="danger" onClick={() => handleRemove(r)}>Remove</Button>
                         </div>
                       )}
                     </td>
@@ -151,30 +152,30 @@ export default function SalaryRevisionsCard({ person, onChanged }: { person: any
         </div>
       )}
 
-      <Modal title={`Revise Salary — ${person.name}`} open={open} onClose={() => setOpen(false)}>
+      <Modal title={`Revise salary — ${person.name}`} open={open} onClose={() => setOpen(false)}>
         <form onSubmit={handleSave}>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <PackageField wide required label="New package" value={form.newMonthlyPackage}
               onChange={v => setForm(f => ({ ...f, newMonthlyPackage: v }))}
               context={{ personId: person.id }}
               hint={`Currently ${formatINR(data.currentMonthlyPackage)} a month`} />
             <div className="field">
-              <label>Applies from *</label>
-              <input className="input" type="month" required value={form.effectiveMonth}
+              <label htmlFor="pp-rev-month">Applies from *</label>
+              <input id="pp-rev-month" className="input" type="month" required value={form.effectiveMonth}
                 onChange={e => setForm({ ...form, effectiveMonth: e.target.value })} />
               <span className="hint">Payroll for this month and later uses the new package. Draft runs update now; finalized runs do not change.</span>
             </div>
-            <div className="field" style={{ gridColumn: '1 / -1' }}>
-              <label>Reason</label>
-              <input className="input" placeholder="e.g. Annual increment" value={form.reason}
+            <div className="field pp-span-all">
+              <label htmlFor="pp-rev-reason">Reason</label>
+              <input id="pp-rev-reason" className="input" placeholder="e.g. Annual increment" value={form.reason}
                 onChange={e => setForm({ ...form, reason: e.target.value })} />
             </div>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || !(Number(form.newMonthlyPackage) > 0)}>
-              {saving ? 'Saving…' : 'Save Revision'}
-            </button>
+            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving} disabled={!(Number(form.newMonthlyPackage) > 0)}>
+              {saving ? 'Saving…' : 'Save revision'}
+            </Button>
           </div>
         </form>
       </Modal>

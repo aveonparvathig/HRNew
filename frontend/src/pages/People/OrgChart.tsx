@@ -4,6 +4,8 @@ import { peopleAPI } from '../../api/people';
 import { useAuthStore } from '../../store/authStore';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
 import { toast, confirmDialog } from '../../components/feedback';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 type Node = { person: any; reports: Node[]; directCount: number; teamCount: number };
 
@@ -113,21 +115,21 @@ export default function OrgChart() {
         {...dragProps(node)} {...dropProps(p.id)} title={canManage ? 'Drag onto another person to set their manager' : undefined}>
         <div className="org-card-head">
           <span className="org-avatar" aria-hidden="true">{p.photoData ? <img src={p.photoData} alt="" /> : initials(p.name)}</span>
-          <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="pd-grow-min">
             <Link to={`/people/${p.id}`} className="org-name">{p.name}</Link>
             <div className="org-meta">{[p.designation, p.department].filter(Boolean).join(' · ') || '—'}{p.employeeNo ? ` · ${p.employeeNo}` : ''}</div>
           </div>
           {node.directCount > 0 && (
             <button type="button" className="org-toggle" aria-expanded={!closed.has(p.id)}
               aria-label={`${closed.has(p.id) ? 'Show' : 'Hide'} the team of ${p.name}`} onClick={() => toggle(p.id)}>
-              {closed.has(p.id) ? '▸' : '▾'}
+              <Icon name="chevron" size={14} className={`pd-chevron${closed.has(p.id) ? '' : ' is-open'}`} />
             </button>
           )}
         </div>
         <div className="org-card-foot">
           {depth === 0 && <span className="badge badge-neutral">Top</span>}
           {node.directCount > 0 && (
-            <span className="text-muted" style={{ fontSize: 11.5 }} title={`${node.teamCount} in the whole team`}>
+            <span className="pd-sub num" title={`${node.teamCount} in the whole team`}>
               {node.directCount} direct{node.teamCount > node.directCount ? ` · ${node.teamCount} in all` : ''}
             </span>
           )}
@@ -160,15 +162,15 @@ export default function OrgChart() {
   return (
     <>
       <PageHeader
-        title="Organization Chart"
+        title="Organization chart"
         subtitle={`${data.people.length} employee${data.people.length === 1 ? '' : 's'}${data.withoutManager ? ` · ${data.withoutManager} with no manager, shown at the top` : ''}${canManage ? ' · drag a card onto a manager to set reporting' : ''}`}
         actions={<>
-          <input className="input" style={{ width: 220 }} placeholder="Search name, code or designation…" aria-label="Search the chart"
+          <input className="input pd-search-input" type="search" placeholder="Search name, code or designation…" aria-label="Search the chart"
             value={search} onChange={e => setSearch(e.target.value)} />
-          <button className="btn btn-secondary" onClick={() => setClosed(new Set(closed.size ? [] : all.filter(n => n.reports.length).map(n => n.person.id)))}>
-            {closed.size ? 'Expand All' : 'Collapse All'}
-          </button>
-          <button className="btn btn-secondary" onClick={() => window.print()}>🖨 Print</button>
+          <Button onClick={() => setClosed(new Set(closed.size ? [] : all.filter(n => n.reports.length).map(n => n.person.id)))}>
+            {closed.size ? 'Expand all' : 'Collapse all'}
+          </Button>
+          <Button icon="printer" onClick={() => window.print()}>Print</Button>
         </>}
       />
 
@@ -183,7 +185,7 @@ export default function OrgChart() {
               {matches.map(node => (
                 <div key={node.person.id}>
                   {card(node, node.person.managerId && nameOf.has(node.person.managerId) ? 1 : 0)}
-                  <div className="text-muted" style={{ fontSize: 12, margin: '2px 0 10px 8px' }}>
+                  <div className="pd-reports-to">
                     {node.person.managerId && nameOf.has(node.person.managerId) ? `Reports to ${nameOf.get(node.person.managerId)}` : 'No manager'}
                   </div>
                 </div>
@@ -204,13 +206,13 @@ export default function OrgChart() {
         </>
       )}
 
-      <Modal title={move ? (move.mode === 'team' ? `Move the Team of ${move.node.person.name}` : `Manager of ${move.node.person.name}`) : ''}
+      <Modal title={move ? (move.mode === 'team' ? `Move the team of ${move.node.person.name}` : `Manager of ${move.node.person.name}`) : ''}
         open={Boolean(move)} onClose={() => setMove(null)}>
         {move && (
           <form onSubmit={save}>
-            <div className="field" style={{ marginBottom: 14 }}>
-              <label>{move.mode === 'team' ? 'New manager for the team' : 'Reports to'}</label>
-              <select className="select" value={move.target} onChange={e => setMove({ ...move, target: e.target.value })}>
+            <div className="field mb-14">
+              <label htmlFor="org-move-target">{move.mode === 'team' ? 'New manager for the team' : 'Reports to'}</label>
+              <select id="org-move-target" className="select" value={move.target} onChange={e => setMove({ ...move, target: e.target.value })}>
                 <option value="">No manager (top of the chart)</option>
                 {options.map((p: any) => <option key={p.id} value={p.id}>{p.name}{p.designation ? ` — ${p.designation}` : ''}</option>)}
               </select>
@@ -221,8 +223,8 @@ export default function OrgChart() {
               </span>
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setMove(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+              <Button variant="ghost" onClick={() => setMove(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" disabled={saving}>{saving ? 'Saving…' : 'Save'}</Button>
             </div>
           </form>
         )}

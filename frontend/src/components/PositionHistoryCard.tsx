@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { peopleAPI } from '../api/people';
 import { Modal, ErrorAlert } from './ui';
+import { Button } from './Button';
 import { formatDate } from '../utils/format';
 import { confirmDialog, toast } from './feedback';
 import ListSelect from './ListSelect';
@@ -107,13 +108,13 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
       <div className="card-header">
         <div>
           <h3>Position history ({history.length})</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
+          <span className="text-sm-muted">
             Payslips and reports of a month print the designation and department held in that month.
           </span>
         </div>
-        {canManage && <button className="btn btn-primary btn-sm" onClick={openForm}>Change Position</button>}
+        {canManage && <Button size="sm" icon="briefcase" onClick={openForm}>Change position</Button>}
       </div>
-      <div style={{ padding: '0 22px' }}>
+      <div className="pp-card-alert">
         <ErrorAlert message={error} onDismiss={() => setError('')} />
       </div>
       {history.length > 0 && (
@@ -128,10 +129,10 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
             <tbody>
               {history.map(r => (
                 <tr key={r.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 600 }}>{formatDate(r.effectiveFrom)}</span>
+                  <td className="pp-nowrap">
+                    <span className="num pp-strong">{formatDate(r.effectiveFrom)}</span>
                     {STATE_BADGES[r.state] && <> <span className={`badge ${STATE_BADGES[r.state][0]}`}>{STATE_BADGES[r.state][1]}</span></>}
-                    {r.until && <div className="text-muted" style={{ fontSize: 12 }}>to {formatDate(r.until)}</div>}
+                    {r.until && <div className="pp-sub num">to {formatDate(r.until)}</div>}
                   </td>
                   <td>{r.designation || '—'}</td>
                   <td>{r.department || '—'}</td>
@@ -139,15 +140,15 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
                   <td>{r.grade || '—'}</td>
                   <td>
                     {r.reasonLabel}
-                    {r.changes.length > 0 && <div className="text-muted" style={{ fontSize: 12 }}>{r.changes.join(' · ')}</div>}
-                    {r.remarks && <div className="text-muted" style={{ fontSize: 12 }}>{r.remarks}</div>}
+                    {r.changes.length > 0 && <div className="pp-sub">{r.changes.join(' · ')}</div>}
+                    {r.remarks && <div className="pp-sub">{r.remarks}</div>}
                   </td>
                   {canManage && <td>{r.enteredByName || '—'}</td>}
                   {canManage && (
                     <td>
                       {!r.first && (
                         <div className="row-actions">
-                          <button className="btn btn-danger btn-sm" onClick={() => remove(r)}>Remove</button>
+                          <Button size="sm" variant="danger" onClick={() => remove(r)}>Remove</Button>
                         </div>
                       )}
                     </td>
@@ -159,13 +160,13 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
         </div>
       )}
 
-      <Modal title={`Change Position — ${person.name}`} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal title={`Change position — ${person.name}`} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={save}>
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Effective from *</label>
-                <input className="input" type="date" required value={form.effectiveFrom}
+                <label htmlFor="pp-pos-from">Effective from *</label>
+                <input id="pp-pos-from" className="input" type="date" required value={form.effectiveFrom}
                   min={history.length ? history[history.length - 1].effectiveFrom : undefined}
                   onChange={e => setDate(e.target.value)} />
                 <span className="hint">
@@ -179,8 +180,8 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
                 </span>
               </div>
               <div className="field">
-                <label>Reason *</label>
-                <select className="select" required value={form.reason} onChange={e => set('reason', e.target.value)}>
+                <label htmlFor="pp-pos-reason">Reason *</label>
+                <select id="pp-pos-reason" className="select" required value={form.reason} onChange={e => set('reason', e.target.value)}>
                   <option value="">—</option>
                   {reasons.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
@@ -194,8 +195,8 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
                 <ListSelect listType="DEPARTMENT" value={form.department} onChange={v => set('department', v)} />
               </div>
               <div className="field">
-                <label>Work location</label>
-                <select className="select" value={form.workLocationId} onChange={e => set('workLocationId', e.target.value)}>
+                <label htmlFor="pp-pos-location">Work location</label>
+                <select id="pp-pos-location" className="select" value={form.workLocationId} onChange={e => set('workLocationId', e.target.value)}>
                   <option value="">—</option>
                   {(meta?.workLocations || []).map((l: any) => <option key={l.id} value={l.id}>{l.name} — {l.state}</option>)}
                 </select>
@@ -204,15 +205,15 @@ export default function PositionHistoryCard({ person, meta, canManage, onChanged
                 <label>Grade</label>
                 <ListSelect listType="GRADE" value={form.grade} onChange={v => set('grade', v)} />
               </div>
-              <div className="field" style={{ gridColumn: '1 / -1' }}>
-                <label>Remarks</label>
-                <input className="input" maxLength={500} placeholder="e.g. Annual review, moved to the Chennai office"
+              <div className="field pp-span-all">
+                <label htmlFor="pp-pos-remarks">Remarks</label>
+                <input id="pp-pos-remarks" className="input" maxLength={500} placeholder="e.g. Annual review, moved to the Chennai office"
                   value={form.remarks} onChange={e => set('remarks', e.target.value)} />
               </div>
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : replacing ? 'Correct Record' : 'Save Change'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : replacing ? 'Correct record' : 'Save change'}</Button>
             </div>
           </form>
         )}

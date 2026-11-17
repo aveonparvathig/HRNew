@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Button } from './Button';
 
 // Shrink a picture in the browser before it is stored: longest side at
 // most `max` pixels. PNG keeps a transparent background; a picture still
@@ -55,21 +56,19 @@ export default function ImageUpload({ value, onChange, noun, max = 512, maxChars
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-      <div style={{
-        width, height, border: '1px dashed var(--border)', borderRadius: 8,
-        display: 'grid', placeItems: 'center', background: 'var(--surface-2)', overflow: 'hidden',
-      }}>
+    <div className="cluster pd-image-upload">
+      {/* Frame size comes from the caller's width/height props. */}
+      <div className="pd-image-frame" style={{ width, height }}>
         {value
-          ? <img src={value} alt={noun} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-          : <span className="text-muted" style={{ fontSize: 12 }}>No {noun}</span>}
+          ? <img src={value} alt={noun} />
+          : <span className="text-sm-muted">No {noun}</span>}
       </div>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button type="button" className="btn btn-secondary btn-sm" onClick={() => fileRef.current?.click()}>
+      <div className="cluster">
+        <Button size="sm" onClick={() => fileRef.current?.click()}>
           {value ? `Change ${noun}` : `Upload ${noun}`}
-        </button>
-        {value && <button type="button" className="btn btn-ghost btn-sm" onClick={() => onChange('')}>Remove</button>}
-        {error && <span style={{ fontSize: 12.5, color: 'var(--danger)' }}>{error}</span>}
+        </Button>
+        {value && <Button variant="ghost" size="sm" onClick={() => onChange('')}>Remove</Button>}
+        {error && <span className="pd-error-text">{error}</span>}
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={pick} />
       </div>
     </div>

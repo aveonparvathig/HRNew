@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { ButtonLink } from './Button';
 import { payrollAPI } from '../api/payroll';
 import { formatINR } from '../utils/format';
 
@@ -27,10 +27,10 @@ export default function PersonLoansCard({ person }: { person: any }) {
         <div>
           <h3>Loans &amp; advances ({loans.length})</h3>
           {loans.length > 0 && (
-            <span className="text-muted" style={{ fontSize: 12.5 }}>{formatINR(outstanding)} outstanding</span>
+            <span className="text-sm-muted"><span className="num">{formatINR(outstanding)}</span> outstanding</span>
           )}
         </div>
-        <Link to={`/payroll/loans?new=${person.id}`} className="btn btn-primary btn-sm">New Loan</Link>
+        <ButtonLink to={`/payroll/loans?new=${person.id}`} size="sm" icon="plus">New loan</ButtonLink>
       </div>
       {loans.length > 0 && (
         <div className="table-wrap">
@@ -42,11 +42,11 @@ export default function PersonLoansCard({ person }: { person: any }) {
               {loans.map(l => (
                 <tr key={l.id}>
                   <td>
-                    <span style={{ fontWeight: 600 }}>{l.loanNo}</span>
-                    {l.title && <div className="text-muted" style={{ fontSize: 11.5 }}>{l.title}</div>}
+                    <span className="num pp-strong">{l.loanNo}</span>
+                    {l.title && <div className="pp-sub">{l.title}</div>}
                   </td>
                   <td className="num">{formatINR(l.totalLent)}</td>
-                  <td className="num" style={{ fontWeight: 600 }}>{formatINR(l.outstanding)}</td>
+                  <td className="num pp-strong">{formatINR(l.outstanding)}</td>
                   <td className="num">
                     {l.nextInstalment ? `${formatINR(l.nextInstalment.amount)} in ${monthLabel(l.nextInstalment.period)}` : '—'}
                   </td>
@@ -57,7 +57,7 @@ export default function PersonLoansCard({ person }: { person: any }) {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <Link to={`/payroll/loans/${l.id}`} className="btn btn-secondary btn-sm">Open</Link>
+                      <ButtonLink to={`/payroll/loans/${l.id}`} size="sm">Open</ButtonLink>
                     </div>
                   </td>
                 </tr>

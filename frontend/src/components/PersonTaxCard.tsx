@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Button, ButtonLink } from './Button';
 import { payrollAPI } from '../api/payroll';
 import { ErrorAlert } from './ui';
 import { formatINR } from '../utils/format';
@@ -39,35 +39,35 @@ export default function PersonTaxCard({ person }: { person: any }) {
       <div className="card-header">
         <div>
           <h3>Income tax</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>
+          <span className="text-sm-muted">
             {regimeName(regime)}{data.regime ? '' : ' (organization default)'}
             {' · '}{data.poiConsidered ? 'tax uses approved proofs' : 'tax uses declared amounts'}
             {!data.hasValidPan && ' · no valid PAN on record'}
           </span>
         </div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <select className="select" style={{ width: 'auto' }} value={data.fyStart} onChange={e => setFy(e.target.value)}>
+        <div className="cluster">
+          <select className="select pp-select-auto" aria-label="Financial year" value={data.fyStart} onChange={e => setFy(e.target.value)}>
             {data.financialYears.map((y: any) => <option key={y.startYear} value={y.startYear}>FY {y.label}</option>)}
           </select>
           {data.summary && (
-            <Link to={`/payroll/reports/tax-statement?fy=${data.fyStart}&personId=${person.id}`} className="btn btn-secondary btn-sm">Tax Statement</Link>
+            <ButtonLink to={`/payroll/reports/tax-statement?fy=${data.fyStart}&personId=${person.id}`} size="sm" variant="ghost" icon="receipt">Tax statement</ButtonLink>
           )}
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPerquisites(true)}>Perquisites</button>
-          <Link to={`/payroll/declarations/${person.id}?fy=${data.fyStart}`} className="btn btn-primary btn-sm">Declaration</Link>
+          <Button size="sm" onClick={() => setPerquisites(true)}>Perquisites</Button>
+          <ButtonLink to={`/payroll/declarations/${person.id}?fy=${data.fyStart}`} size="sm" icon="pen">Declaration</ButtonLink>
         </div>
       </div>
-      <div style={{ padding: '14px 22px 18px', fontSize: 13 }}>
+      <div className="pp-card-body pp-card-body-pad">
         {data.summary ? (
           <p>
-            As of {monthLabel(data.summary.period)}: taxable income <strong>{formatINR(data.summary.taxableIncome)}</strong>,
-            tax for the year <strong>{formatINR(data.summary.totalTax)}</strong>,
-            TDS that month <strong>{formatINR(data.summary.tdsThisMonth)}</strong>.
+            As of {monthLabel(data.summary.period)}: taxable income <strong className="num">{formatINR(data.summary.taxableIncome)}</strong>,
+            tax for the year <strong className="num">{formatINR(data.summary.totalTax)}</strong>,
+            TDS that month <strong className="num">{formatINR(data.summary.tdsThisMonth)}</strong>.
           </p>
         ) : (
           <p className="text-muted">
             {data.tdsAutoFrom
               ? `No tax computed yet for FY ${data.financialYear}. It appears after the first payroll run from ${monthLabel(data.tdsAutoFrom)}.`
-              : 'TDS is typed by hand on each payslip. To have it computed, set a starting month in Payroll Settings → Income Tax.'}
+              : 'TDS is typed by hand on each payslip. To have it computed, set a starting month in Payroll settings → Income tax.'}
           </p>
         )}
       </div>

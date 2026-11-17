@@ -4,10 +4,12 @@ import { peopleAPI } from '../../api/people';
 import { PageHeader, LoadingBlock, ErrorAlert, EmptyState, Modal } from '../../components/ui';
 import { confirmDialog, toast } from '../../components/feedback';
 import { LetterFields } from '../../components/DocumentModal';
+import { Button } from '../../components/Button';
+import { Tabs, type TabItem } from '../../components/Tabs';
 import { formatDate } from '../../utils/format';
 
-const TABS = [
-  { key: 'issue', label: 'Issue Letters' },
+const TABS: TabItem<string>[] = [
+  { key: 'issue', label: 'Issue letters' },
   { key: 'templates', label: 'Templates' },
 ];
 
@@ -20,7 +22,7 @@ const OWN = [
 const BLANK_TEMPLATE = { id: '', name: '', audience: 'CANDIDATE', subject: '', salutation: 'Dear {{recipientName}},', body: '', builtIn: false };
 
 function Sheet({ html }: { html: string }) {
-  return <div className="letter-sheet" style={{ margin: 0 }}><div dangerouslySetInnerHTML={{ __html: html }} /></div>;
+  return <div className="letter-sheet pl-sheet-flush"><div dangerouslySetInnerHTML={{ __html: html }} /></div>;
 }
 
 // ---- The same letter for several people ----------------------------------------------------
@@ -82,7 +84,7 @@ function IssueTab({ templates }: { templates: any[] }) {
     if (!await confirmDialog({
       title: `Write ${chosen.length} ${chosen.length === 1 ? 'letter' : 'letters'}?`,
       message: `${template.name} for ${chosen.length === 1 ? chosen[0].name : `${chosen.length} people`}. Each is saved on the person's record${visible ? ' and shown to them under My Documents' : ''}.`,
-      confirmLabel: 'Write Letters',
+      confirmLabel: 'Write letters',
     })) return;
     setBusy('generate');
     try {
@@ -107,38 +109,38 @@ function IssueTab({ templates }: { templates: any[] }) {
 
       {result && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 8 }}>{result.message}</h3>
+          <h3 className="pl-card-title">{result.message}</h3>
           {result.issued.map((l: any) => (
-            <div key={l.id} className="list-row" style={{ padding: '7px 0' }}>
-              <Link to={`/people/documents/${l.id}`} style={{ fontWeight: 600 }}>{l.title}</Link>
-              <span className="text-muted" style={{ fontSize: 12.5 }}>{l.refNo ? `Ref ${l.refNo}` : ''}</span>
+            <div key={l.id} className="list-row pl-result-row">
+              <Link to={`/people/documents/${l.id}`} className="pl-strong">{l.title}</Link>
+              <span className="text-sm-muted num">{l.refNo ? `Ref ${l.refNo}` : ''}</span>
             </div>
           ))}
           {result.skipped.map((s: any) => (
-            <div key={s.id} className="list-row" style={{ padding: '7px 0' }}>
-              <span>{s.name || 'Unknown'}</span><span className="text-warning" style={{ fontSize: 12.5 }}>Skipped: {s.reason}</span>
+            <div key={s.id} className="list-row pl-result-row">
+              <span>{s.name || 'Unknown'}</span><span className="text-warning pl-small">Skipped: {s.reason}</span>
             </div>
           ))}
         </div>
       )}
 
       <div className="card card-pad mb-24">
-        <div className="form-grid" style={{ marginBottom: 6 }}>
+        <div className="form-grid pl-mb-6">
           <div className="field">
-            <label>Letter</label>
-            <select className="select" value={code} onChange={e => pickTemplate(e.target.value)}>
+            <label htmlFor="pl-issue-letter">Letter</label>
+            <select id="pl-issue-letter" className="select" value={code} onChange={e => pickTemplate(e.target.value)}>
               {active.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
             </select>
             <span className="hint">For {template.audience === 'INTERN' ? 'internship students' : 'employees and candidates'}.</span>
           </div>
         </div>
-        <h3 style={{ fontSize: 14, margin: '14px 0 4px' }}>Common to every letter</h3>
-        <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 12 }}>
+        <h3 className="pl-subhead">Common to every letter</h3>
+        <p className="text-sm-muted mb-14">
           Each letter takes the name, address, designation, dates and the rest from the person's own record, and its reference from the letter series.
           What you type here is used on all of them; leave a field blank to keep each person's own value.
         </p>
         <LetterFields fields={template.fields.filter((f: any) => !OWN.includes(f.key))} form={form} set={(k, v) => setForm((f: any) => ({ ...f, [k]: v }))} />
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: '14px 0 0', fontSize: 13.5 }}>
+        <label className="checkbox-field pl-mt-14">
           <input type="checkbox" checked={visible} onChange={e => setVisible(e.target.checked)} />
           Show these letters to the employees under My Documents
         </label>
@@ -148,24 +150,24 @@ function IssueTab({ templates }: { templates: any[] }) {
         <div className="card-header">
           <div>
             <h3>Who gets it ({chosen.length} picked)</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>{audience.length} {template.audience === 'INTERN' ? 'interns' : 'people'} listed</span>
+            <span className="text-sm-muted">{audience.length} {template.audience === 'INTERN' ? 'interns' : 'people'} listed</span>
           </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="cluster">
             {template.audience !== 'INTERN' && (
-              <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 13 }}>
+              <label className="checkbox-field pl-check-sm">
                 <input type="checkbox" checked={showLeft} onChange={e => setShowLeft(e.target.checked)} /> Include those who have left
               </label>
             )}
-            <input className="input" style={{ width: 220 }} placeholder="Search name, code, designation…" aria-label="Search people"
+            <input className="input pl-search" type="search" placeholder="Search name, code, designation…" aria-label="Search people"
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
         </div>
         {shown.length === 0 ? <EmptyState icon="☰" title="Nobody to list" message={q ? 'Try a different search.' : ''} /> : (
-          <div className="table-wrap" style={{ maxHeight: 420, overflowY: 'auto' }}>
+          <div className="table-wrap pl-scroll-420">
             <table className="table">
               <thead>
                 <tr>
-                  <th style={{ width: 36 }}><input type="checkbox" checked={allShown} onChange={toggleAll} aria-label="Pick everyone listed" /></th>
+                  <th className="pl-col-check"><input type="checkbox" checked={allShown} onChange={toggleAll} aria-label="Pick everyone listed" /></th>
                   <th>Name</th><th>Designation</th><th>Department</th><th>Joined</th><th />
                 </tr>
               </thead>
@@ -173,13 +175,13 @@ function IssueTab({ templates }: { templates: any[] }) {
                 {shown.map(p => (
                   <tr key={p.id}>
                     <td><input type="checkbox" checked={picked.has(p.id)} onChange={() => toggle(p.id)} aria-label={`Pick ${p.name}`} /></td>
-                    <td><span style={{ fontWeight: 600 }}>{p.name}</span>{p.employeeNo && <span className="text-muted"> · {p.employeeNo}</span>}</td>
+                    <td><span className="pl-strong">{p.name}</span>{p.employeeNo && <span className="text-muted num"> · {p.employeeNo}</span>}</td>
                     <td className="text-muted">{p.designation || p.internshipRole || '—'}</td>
                     <td className="text-muted">{p.department || p.collegeName || '—'}</td>
-                    <td className="text-muted">{p.joinDate || p.startDate ? formatDate(p.joinDate || p.startDate) : '—'}</td>
+                    <td className="text-muted num">{p.joinDate || p.startDate ? formatDate(p.joinDate || p.startDate) : '—'}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-secondary btn-sm" disabled={busy === 'preview'} onClick={() => showPreview(p)}>Preview</button>
+                        <Button size="sm" disabled={busy === 'preview'} onClick={() => showPreview(p)}>Preview</Button>
                       </div>
                     </td>
                   </tr>
@@ -188,19 +190,19 @@ function IssueTab({ templates }: { templates: any[] }) {
             </table>
           </div>
         )}
-        <div className="form-actions" style={{ padding: '14px 22px' }}>
-          <button className="btn btn-secondary" disabled={chosen.length === 0 || busy !== ''} onClick={() => showPreview(chosen[0])}>
-            Preview the First
-          </button>
-          <button className="btn btn-primary" disabled={chosen.length === 0 || busy !== ''} onClick={generate}>
-            {busy === 'generate' ? 'Writing…' : `Write ${chosen.length || ''} ${chosen.length === 1 ? 'Letter' : 'Letters'}`}
-          </button>
+        <div className="form-actions pl-actions-pad">
+          <Button disabled={chosen.length === 0 || busy !== ''} onClick={() => showPreview(chosen[0])}>
+            Preview the first
+          </Button>
+          <Button variant="accent" icon="pen" loading={busy === 'generate'} disabled={chosen.length === 0 || busy !== ''} onClick={generate}>
+            {busy === 'generate' ? 'Writing…' : `Write ${chosen.length || ''} ${chosen.length === 1 ? 'letter' : 'letters'}`}
+          </Button>
         </div>
       </div>
 
       <Modal size="lg" title={preview ? `${template.name} — ${preview.name}` : ''} open={Boolean(preview)} onClose={() => setPreview(null)}>
         {preview && <>
-          <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 12 }}>A preview: nothing is saved and no reference is taken.</p>
+          <p className="modal-lede">A preview: nothing is saved and no reference is taken.</p>
           <Sheet html={preview.html} />
         </>}
       </Modal>
@@ -286,7 +288,7 @@ function TemplatesTab({ data, reload }: { data: any; reload: () => void }) {
     act(() => peopleAPI.deleteLetterTemplate(t.id), 'Letter deleted');
   };
   const reset = async (t: any) => {
-    if (!await confirmDialog({ title: `Put ${t.name} back?`, message: 'Your wording is replaced by the wording the letter came with.', confirmLabel: 'Put Back' })) return;
+    if (!await confirmDialog({ title: `Put ${t.name} back?`, message: 'Your wording is replaced by the wording the letter came with.', confirmLabel: 'Put back' })) return;
     act(() => peopleAPI.resetLetterTemplate(t.id), 'Back to the original wording');
   };
 
@@ -297,21 +299,21 @@ function TemplatesTab({ data, reload }: { data: any; reload: () => void }) {
         <div className="card-header">
           <div>
             <h3>Letters ({templates.length})</h3>
-            <span className="text-muted" style={{ fontSize: 12.5 }}>
+            <span className="text-sm-muted">
               The wording of each letter. A letter already issued keeps the wording it was issued with.
             </span>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={() => edit(BLANK_TEMPLATE)}>+ New Letter</button>
+          <Button variant="accent" size="sm" icon="plus" onClick={() => edit(BLANK_TEMPLATE)}>New letter</Button>
         </div>
         <div className="table-wrap">
           <table className="table">
             <thead><tr><th>Letter</th><th>For</th><th>Status</th><th>Last changed</th><th /></tr></thead>
             <tbody>
               {templates.map(t => (
-                <tr key={t.id} style={t.isActive ? undefined : { opacity: 0.6 }}>
+                <tr key={t.id} className={t.isActive ? undefined : 'pl-row-off'}>
                   <td>
-                    <span style={{ fontWeight: 600 }}>{t.name}</span>
-                    <div className="text-muted" style={{ fontSize: 11.5 }}>
+                    <span className="pl-strong">{t.name}</span>
+                    <div className="pl-sub">
                       {t.builtIn ? (t.reworded ? 'Came with the program · reworded' : 'Came with the program') : 'Added by you'}
                     </div>
                   </td>
@@ -320,13 +322,13 @@ function TemplatesTab({ data, reload }: { data: any; reload: () => void }) {
                   <td className="text-muted">{t.updatedByName ? `${formatDate(t.updatedAt)} · ${t.updatedByName}` : '—'}</td>
                   <td>
                     <div className="row-actions">
-                      <button className="btn btn-secondary btn-sm" onClick={() => edit(t)}>Edit</button>
-                      <button className="btn btn-secondary btn-sm"
+                      <Button size="sm" onClick={() => edit(t)}>Edit</Button>
+                      <Button size="sm"
                         onClick={() => act(() => peopleAPI.updateLetterTemplate(t.id, { isActive: !t.isActive }), t.isActive ? 'Switched off' : 'Switched on')}>
-                        {t.isActive ? 'Switch Off' : 'Switch On'}
-                      </button>
-                      {t.builtIn && t.reworded && <button className="btn btn-secondary btn-sm" onClick={() => reset(t)}>Put Back</button>}
-                      {!t.builtIn && <button className="btn btn-danger btn-sm" onClick={() => remove(t)}>Delete</button>}
+                        {t.isActive ? 'Switch off' : 'Switch on'}
+                      </Button>
+                      {t.builtIn && t.reworded && <Button size="sm" onClick={() => reset(t)}>Put back</Button>}
+                      {!t.builtIn && <Button variant="danger" size="sm" onClick={() => remove(t)}>Delete</Button>}
                     </div>
                   </td>
                 </tr>
@@ -336,34 +338,34 @@ function TemplatesTab({ data, reload }: { data: any; reload: () => void }) {
         </div>
       </div>
 
-      <Modal size="lg" title={form?.id ? `Edit — ${form.name}` : 'New Letter'} open={Boolean(form)} onClose={() => setForm(null)}>
+      <Modal size="lg" title={form?.id ? `Edit — ${form.name}` : 'New letter'} open={Boolean(form)} onClose={() => setForm(null)}>
         {form && (
           <form onSubmit={save}>
             <ErrorAlert message={formError} />
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Name *</label>
-                <input className="input" required maxLength={80} placeholder="e.g. Salary Revision Letter" value={form.name} onChange={e => set('name', e.target.value)} />
+                <label htmlFor="pl-tpl-name">Name *</label>
+                <input id="pl-tpl-name" className="input" required maxLength={80} placeholder="e.g. Salary revision letter" value={form.name} onChange={e => set('name', e.target.value)} />
               </div>
               <div className="field">
-                <label>For</label>
-                <select className="select" disabled={form.builtIn} value={form.audience} onChange={e => set('audience', e.target.value)}>
+                <label htmlFor="pl-tpl-audience">For</label>
+                <select id="pl-tpl-audience" className="select" disabled={form.builtIn} value={form.audience} onChange={e => set('audience', e.target.value)}>
                   {data.audiences.map((a: any) => <option key={a.value} value={a.value}>{a.label}</option>)}
                 </select>
               </div>
               <div className="field">
-                <label>Subject line</label>
-                <input className="input" maxLength={200} placeholder="e.g. REVISION OF SALARY" value={form.subject} onChange={e => set('subject', e.target.value)} />
+                <label htmlFor="pl-tpl-subject">Subject line</label>
+                <input id="pl-tpl-subject" className="input" maxLength={200} placeholder="e.g. REVISION OF SALARY" value={form.subject} onChange={e => set('subject', e.target.value)} />
               </div>
               <div className="field">
-                <label>Greeting</label>
-                <input className="input" placeholder="Dear {{recipientName}}," value={form.salutation} onChange={e => set('salutation', e.target.value)} />
+                <label htmlFor="pl-tpl-greeting">Greeting</label>
+                <input id="pl-tpl-greeting" className="input" placeholder="Dear {{recipientName}}," value={form.salutation} onChange={e => set('salutation', e.target.value)} />
               </div>
             </div>
             <div className="template-editor">
-              <div className="field" style={{ minWidth: 0 }}>
-                <label>Text of the letter *</label>
-                <textarea ref={bodyRef} className="input template-body" rows={16} required spellCheck
+              <div className="field pl-min0">
+                <label htmlFor="pl-tpl-body">Text of the letter *</label>
+                <textarea id="pl-tpl-body" ref={bodyRef} className="input template-body" rows={16} required spellCheck
                   value={form.body} onChange={e => set('body', e.target.value)} />
                 <span className="hint">
                   The letterhead, reference, date, the person's name and address, and the signature are added around this text.
@@ -385,15 +387,15 @@ function TemplatesTab({ data, reload }: { data: any; reload: () => void }) {
               </div>
             </div>
             {preview && (
-              <div style={{ marginTop: 16 }}>
-                <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 8 }}>Preview with sample values:</p>
+              <div className="pl-mt-16">
+                <p className="text-sm-muted pl-mb-8">Preview with sample values:</p>
                 <Sheet html={preview} />
               </div>
             )}
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setForm(null)}>Cancel</button>
-              <button type="button" className="btn btn-secondary" onClick={showPreview}>Preview</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Saving…' : 'Save Letter'}</button>
+              <Button variant="ghost" onClick={() => setForm(null)}>Cancel</Button>
+              <Button onClick={showPreview}>Preview</Button>
+              <Button type="submit" variant="accent" loading={saving}>{saving ? 'Saving…' : 'Save letter'}</Button>
             </div>
           </form>
         )}
@@ -423,12 +425,7 @@ export default function Letters() {
   return (
     <>
       <PageHeader title="Letters" subtitle="Offer, appointment, confirmation, experience and relieving letters, in your own wording." />
-      <div className="tabs" role="tablist">
-        {TABS.map(t => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} className={`tab ${tab === t.key ? 'active' : ''}`}
-            onClick={() => setParams({ tab: t.key })}>{t.label}</button>
-        ))}
-      </div>
+      <Tabs label="Letters sections" items={TABS} value={tab} onChange={key => setParams({ tab: key })} />
       {!data ? (error ? <ErrorAlert message={error} /> : <LoadingBlock label="Loading letters…" />)
         : tab === 'templates' ? <TemplatesTab data={data} reload={fetchData} /> : <IssueTab templates={data.templates} />}
     </>
