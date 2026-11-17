@@ -30,3 +30,5 @@
 @import './styles/pages/income-overview.css';
 @import './styles/pages/income-clients.css';
 @import './styles/pages/income-implementation.css';
+@import './styles/pages/leave-requests.css';
+@import './styles/pages/leave-attendance.css';

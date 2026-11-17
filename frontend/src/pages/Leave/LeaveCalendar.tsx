@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { leaveAPI } from '../../api/leave';
 import { PageHeader, LoadingBlock, ErrorAlert } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -57,17 +59,21 @@ export default function LeaveCalendar() {
     <>
       <PageHeader title="Leave calendar" subtitle="Who's on approved leave, with holidays marked."
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setMonth(addMonth(month, -1))}>←</button>
-            <strong style={{ minWidth: 150, textAlign: 'center' }}>{monthLabel(month)}</strong>
-            <button className="btn btn-secondary btn-sm" onClick={() => setMonth(addMonth(month, 1))}>→</button>
+          <div className="cluster la-month-nav">
+            <Button size="sm" aria-label="Previous month" onClick={() => setMonth(addMonth(month, -1))}>
+              <Icon name="chevron" size={16} className="btn-icon la-flip" />
+            </Button>
+            <strong className="la-month-label">{monthLabel(month)}</strong>
+            <Button size="sm" aria-label="Next month" onClick={() => setMonth(addMonth(month, 1))}>
+              <Icon name="chevron" size={16} className="btn-icon" />
+            </Button>
           </div>
         } />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {!grid ? <LoadingBlock label="Loading calendar…" /> : (
-        <div className="card card-pad">
+        <div className="card card-pad la-cal">
           <div className="leave-cal-head">{DOW.map(d => <div key={d}>{d}</div>)}</div>
           <div className="leave-cal-grid">
             {grid.map((c, i) => (
@@ -86,10 +92,10 @@ export default function LeaveCalendar() {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 16, marginTop: 12, fontSize: 12 }} className="text-muted">
-            <span><span className="leave-cal-chip" style={{ display: 'inline-block' }}>CL</span> approved leave</span>
-            <span><span className="leave-cal-chip lop" style={{ display: 'inline-block' }}>LOP</span> unpaid</span>
-            <span><span className="leave-cal-hol" style={{ display: 'inline-block' }}>Holiday</span> holiday / RH</span>
+          <div className="cluster la-legend">
+            <span><span className="leave-cal-chip la-inline">CL</span> approved leave</span>
+            <span><span className="leave-cal-chip lop la-inline">LOP</span> unpaid</span>
+            <span><span className="leave-cal-hol la-inline">Holiday</span> holiday / RH</span>
           </div>
         </div>
       )}

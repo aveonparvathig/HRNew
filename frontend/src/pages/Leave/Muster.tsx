@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { attendanceAPI } from '../../api/attendance';
 import { PageHeader, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { toast, confirmDialog } from '../../components/feedback';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -36,15 +38,15 @@ export default function Muster() {
     finally { setBusy(false); }
   };
 
-  const doProcess = () => act(() => attendanceAPI.process(month), 'Attendance processed.');
+  const doProcess = () => act(() => attendanceAPI.process(month), 'Attendance processed');
   const doFinalise = async () => {
     if (!await confirmDialog({ title: `Finalise ${monthLabel(month)}?`, message: 'Locks the month and pushes present/LOP days into its draft payroll run.', confirmLabel: 'Finalise' })) return;
-    act(() => attendanceAPI.finalise(month), (d: any) => d.hasDraftRun ? `Finalised — ${d.payrollEntriesUpdated} payslip(s) updated.` : 'Finalised (no draft payroll run for this month yet).');
+    act(() => attendanceAPI.finalise(month), (d: any) => d.hasDraftRun ? `Finalised — ${d.payrollEntriesUpdated} payslip(s) updated` : 'Finalised (no draft payroll run for this month yet)');
   };
-  const doReopen = () => act(() => attendanceAPI.reopen(month), 'Reopened.');
+  const doReopen = () => act(() => attendanceAPI.reopen(month), 'Reopened');
 
   const saveOverride = async (status: string) => {
-    try { await attendanceAPI.override({ personId: cell.personId, date: cell.date, status }); setCell(null); load(); toast.success('Day updated.'); }
+    try { await attendanceAPI.override({ personId: cell.personId, date: cell.date, status }); setCell(null); load(); toast.success('Day updated'); }
     catch (err: any) { toast.error(err.response?.data?.error || 'Could not override'); }
   };
 
@@ -52,23 +54,32 @@ export default function Muster() {
     <>
       <PageHeader title="Attendance muster" subtitle="Daily attendance from the roster, swipes, holidays and leave."
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setMonth(addMonth(month, -1))}>←</button>
-            <strong style={{ minWidth: 130, textAlign: 'center' }}>{monthLabel(month)}</strong>
-            <button className="btn btn-secondary btn-sm" onClick={() => setMonth(addMonth(month, 1))}>→</button>
+          <div className="cluster la-month-nav">
+            <Button size="sm" aria-label="Previous month" onClick={() => setMonth(addMonth(month, -1))}>
+              <Icon name="chevron" size={16} className="btn-icon la-flip" />
+            </Button>
+            <strong className="la-month-label">{monthLabel(month)}</strong>
+            <Button size="sm" aria-label="Next month" onClick={() => setMonth(addMonth(month, 1))}>
+              <Icon name="chevron" size={16} className="btn-icon" />
+            </Button>
             {data && <span className={`badge ${finalised ? 'badge-success' : 'badge-info'}`}>{finalised ? 'finalised' : 'open'}</span>}
-            {!finalised && <button className="btn btn-secondary" disabled={busy} onClick={doProcess}>Process</button>}
-            {!finalised ? <button className="btn btn-primary" disabled={busy} onClick={doFinalise}>Finalise</button>
-              : <button className="btn btn-danger" disabled={busy} onClick={doReopen}>Reopen</button>}
+            {!finalised && <Button disabled={busy} onClick={doProcess}>Process</Button>}
+            {!finalised ? <Button variant="accent" icon="checkCircle" disabled={busy} onClick={doFinalise}>Finalise</Button>
+              : <Button variant="danger" disabled={busy} onClick={doReopen}>Reopen</Button>}
           </div>
         } />
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {!data ? <LoadingBlock label="Loading muster…" /> : (
         <>
-          {!data.processed && <div className="alert alert-info" style={{ marginBottom: 16 }}>Not processed yet — click <strong>Process</strong> to compute attendance for {monthLabel(month)}.</div>}
-          <div className="card" style={{ overflowX: 'auto' }}>
-            <table className="roster-table muster-table">
+          {!data.processed && (
+            <div className="alert alert-info mb-16">
+              <Icon name="info" size={16} className="la-alert-icon" />
+              <span>Not processed yet — click <strong>Process</strong> to compute attendance for {monthLabel(month)}.</span>
+            </div>
+          )}
+          <div className="card la-grid-scroll">
+            <table className="roster-table muster-table la-grid">
               <thead>
                 <tr>
                   <th className="roster-emp">Employee</th>
@@ -79,13 +90,13 @@ export default function Muster() {
               <tbody>
                 {data.rows.map((r: any) => (
                   <tr key={r.personId}>
-                    <td className="roster-emp"><span style={{ fontWeight: 600 }}>{r.name}</span></td>
+                    <td className="roster-emp"><span className="la-strong">{r.name}</span></td>
                     {days.map(d => {
                       const date = `${month}-${pad(d)}`;
                       const c = r.cells[date];
                       const st = c?.status;
                       return (
-                        <td key={d} className={`muster-cell${st ? ' st-' + st : ''}${c?.source === 'OVERRIDE' ? ' ovr' : ''}`}
+                        <td key={d} className={`muster-cell${st ? ' st-' + st : ''}${c?.source === 'OVERRIDE' ? ' ovr' : ''}${finalised ? ' la-locked' : ''}`}
                           onClick={finalised ? undefined : () => setCell({ personId: r.personId, name: r.name, date, status: st })}
                           title={st ? `${st}${c.source === 'OVERRIDE' ? ' (override)' : ''}` : ''}>
                           {st ? CODE[st] : ''}
@@ -93,13 +104,13 @@ export default function Muster() {
                       );
                     })}
                     <td className="muster-tot">{r.totals.presentDays || 0}</td>
-                    <td className="muster-tot" style={{ fontWeight: 700, color: r.totals.attendanceLop ? 'var(--danger)' : undefined }}>{r.totals.attendanceLop || 0}</td>
+                    <td className={`muster-tot la-tot-lop${r.totals.attendanceLop ? ' num-neg' : ''}`}>{r.totals.attendanceLop || 0}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, marginTop: 10, fontSize: 12 }} className="text-muted">
+          <div className="cluster la-legend">
             <span><b className="muster-swatch st-PRESENT">P</b> present</span>
             <span><b className="muster-swatch st-HALF_DAY">½</b> half day</span>
             <span><b className="muster-swatch st-ABSENT">A</b> absent (LOP)</span>
@@ -115,10 +126,12 @@ export default function Muster() {
       <Modal title={cell ? `${cell.name} — ${cell.date}` : ''} open={!!cell} onClose={() => setCell(null)}>
         {cell && (
           <>
-            <p className="text-muted" style={{ fontSize: 13, marginBottom: 14 }}>Set this day's status (a manual override is kept when you re-process).</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <p className="modal-lede">Set this day's status (a manual override is kept when you re-process).</p>
+            <div className="cluster">
               {STATUSES.map(s => (
-                <button key={s} className={`btn btn-sm ${cell.status === s ? 'btn-primary' : 'btn-secondary'}`} onClick={() => saveOverride(s)}>{CODE[s]} {s.replace('_', ' ').toLowerCase()}</button>
+                <Button key={s} size="sm" variant={cell.status === s ? 'primary' : 'secondary'} aria-pressed={cell.status === s} onClick={() => saveOverride(s)}>
+                  <span className="la-code">{CODE[s]}</span> {s.replace('_', ' ').toLowerCase()}
+                </Button>
               ))}
             </div>
           </>

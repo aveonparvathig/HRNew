@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { attendanceAPI } from '../../api/attendance';
 import { PageHeader, LoadingBlock, ErrorAlert, Modal } from '../../components/ui';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { toast, confirmDialog } from '../../components/feedback';
 import { type WeekOffRule, isWeekOff, offSummary, ORDINAL, WEEK_NUMBERS, WEEK_PRESETS } from '../../utils/weekOff';
 
@@ -61,7 +63,7 @@ export default function Roster() {
     try {
       await attendanceAPI.setProfile({ personId: profile.personId, defaultShiftId: profile.defaultShiftId || null, weekOffDays: profile.weekOffDays, weekOffRules: profile.weekOffRules || [] });
       setProfile(null); load();
-      toast.success('Profile saved.');
+      toast.success('Profile saved');
     } catch (err: any) { toast.error(err.response?.data?.error || 'Could not save'); }
   };
 
@@ -95,36 +97,49 @@ export default function Roster() {
     <>
       <PageHeader title="Shift roster" subtitle="Each employee's default shift, week-offs, and day-by-day overrides."
         actions={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <button className="btn btn-secondary btn-sm" onClick={() => setMonth(addMonth(month, -1))}>←</button>
-            <strong style={{ minWidth: 140, textAlign: 'center' }}>{monthLabel(month)}</strong>
-            <button className="btn btn-secondary btn-sm" onClick={() => setMonth(addMonth(month, 1))}>→</button>
+          <div className="cluster la-month-nav">
+            <Button size="sm" aria-label="Previous month" onClick={() => setMonth(addMonth(month, -1))}>
+              <Icon name="chevron" size={16} className="btn-icon la-flip" />
+            </Button>
+            <strong className="la-month-label">{monthLabel(month)}</strong>
+            <Button size="sm" aria-label="Next month" onClick={() => setMonth(addMonth(month, 1))}>
+              <Icon name="chevron" size={16} className="btn-icon" />
+            </Button>
           </div>
         } />
       <ErrorAlert message={error} onDismiss={() => setError('')} />
 
       {data && (
         <>
-          <form className="card card-pad" style={{ marginBottom: 16 }} onSubmit={doAssign}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-              <div className="field" style={{ margin: 0 }}><label>Assign shift to selected ({sel.size})</label>
-                <select className="select" required value={assign.shiftId} onChange={e => setAssign({ ...assign, shiftId: e.target.value })} style={{ minWidth: 160 }}>
+          <form className="card card-pad mb-16" onSubmit={doAssign}>
+            <div className="cluster la-assign">
+              <div className="field la-field-flush">
+                <label htmlFor="la-roster-shift">Assign shift to selected (<span className="num">{sel.size}</span>)</label>
+                <select id="la-roster-shift" className="select la-select-shift" required value={assign.shiftId} onChange={e => setAssign({ ...assign, shiftId: e.target.value })}>
                   <option value="">Shift…</option>
                   {data.shifts.filter((s: any) => s.active).map((s: any) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
                 </select>
               </div>
-              <div className="field" style={{ margin: 0 }}><label>From</label><input className="input" type="date" required value={assign.startDate} onChange={e => setAssign({ ...assign, startDate: e.target.value, endDate: assign.endDate || e.target.value })} /></div>
-              <div className="field" style={{ margin: 0 }}><label>To</label><input className="input" type="date" required min={assign.startDate} value={assign.endDate} onChange={e => setAssign({ ...assign, endDate: e.target.value })} /></div>
-              <button type="submit" className="btn btn-primary">Assign</button>
+              <div className="field la-field-flush">
+                <label htmlFor="la-roster-from">From</label>
+                <input id="la-roster-from" className="input" type="date" required value={assign.startDate} onChange={e => setAssign({ ...assign, startDate: e.target.value, endDate: assign.endDate || e.target.value })} />
+              </div>
+              <div className="field la-field-flush">
+                <label htmlFor="la-roster-to">To</label>
+                <input id="la-roster-to" className="input" type="date" required min={assign.startDate} value={assign.endDate} onChange={e => setAssign({ ...assign, endDate: e.target.value })} />
+              </div>
+              <Button type="submit" variant="accent">Assign</Button>
             </div>
           </form>
 
-          <div className="card" style={{ overflowX: 'auto' }}>
-            <table className="roster-table">
+          <div className="card la-grid-scroll">
+            <table className="roster-table la-grid">
               <thead>
                 <tr>
                   <th className="roster-emp">
-                    <input type="checkbox" checked={!!allSelected} onChange={e => setSel(e.target.checked ? new Set(data.rows.map((r: any) => r.personId)) : new Set())} /> Employee
+                    <label className="la-check-label">
+                      <input type="checkbox" aria-label="Select all employees" checked={!!allSelected} onChange={e => setSel(e.target.checked ? new Set(data.rows.map((r: any) => r.personId)) : new Set())} /> Employee
+                    </label>
                   </th>
                   {days.map(d => {
                     const date = `${month}-${pad(d)}`;
@@ -136,11 +151,13 @@ export default function Roster() {
                 {data.rows.map((r: any) => (
                   <tr key={r.personId}>
                     <td className="roster-emp">
-                      <input type="checkbox" checked={sel.has(r.personId)} onChange={() => toggle(r.personId)} />
-                      <button className="roster-empname" onClick={() => setProfile({ personId: r.personId, name: r.name, defaultShiftId: r.defaultShiftId || '', weekOffDays: [...r.weekOffDays], weekOffRules: [...(r.weekOffRules || [])] })} title="Edit default shift & week-off">
-                        {r.name}
-                        <span className="roster-empsub">{r.defaultShiftCode || 'no default'} · off {offSummary(r.weekOffDays, r.weekOffRules, DOW)}</span>
-                      </button>
+                      <div className="la-emp-cell">
+                        <input type="checkbox" aria-label={`Select ${r.name}`} checked={sel.has(r.personId)} onChange={() => toggle(r.personId)} />
+                        <button className="roster-empname" onClick={() => setProfile({ personId: r.personId, name: r.name, defaultShiftId: r.defaultShiftId || '', weekOffDays: [...r.weekOffDays], weekOffRules: [...(r.weekOffRules || [])] })} title="Edit default shift & week-off">
+                          {r.name}
+                          <span className="roster-empsub">{r.defaultShiftCode || 'no default'} · off {offSummary(r.weekOffDays, r.weekOffRules, DOW)}</span>
+                        </button>
+                      </div>
                     </td>
                     {days.map(d => {
                       const date = `${month}-${pad(d)}`;
@@ -159,48 +176,49 @@ export default function Roster() {
               </tbody>
             </table>
           </div>
-          <p className="text-muted" style={{ fontSize: 12, marginTop: 8 }}>Tick employees, pick a shift and dates, then Assign. Bold cells are overrides — click one to clear it. “·” is a week-off.</p>
+          <p className="text-sm-muted la-grid-note">Tick employees, pick a shift and dates, then assign. Bold cells are overrides — click one to clear it. “·” is a week-off.</p>
         </>
       )}
 
       {profile && (
         <Modal title={`${profile.name} — shift & week-off`} open={!!profile} onClose={() => setProfile(null)}>
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label>Default shift</label>
-            <select className="select" value={profile.defaultShiftId} onChange={e => setProfile({ ...profile, defaultShiftId: e.target.value })}>
+          <div className="field mb-16">
+            <label htmlFor="la-profile-shift">Default shift</label>
+            <select id="la-profile-shift" className="select" value={profile.defaultShiftId} onChange={e => setProfile({ ...profile, defaultShiftId: e.target.value })}>
               <option value="">None</option>
               {data.shifts.filter((s: any) => s.active).map((s: any) => <option key={s.id} value={s.id}>{s.code} — {s.name}</option>)}
             </select>
           </div>
-          <div className="field" style={{ marginBottom: 18 }}>
+          <div className="field la-weekoff-field">
             <label>Week-off days (overrides the org default)</label>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 6 }}>
+            <div className="stack la-weekoff-list">
               {DOW.map((d, i) => {
                 const mode = pMode(i);
                 const rule = pRules().find(r => r.day === i);
                 return (
-                  <div key={i} style={{ paddingBottom: 6, borderBottom: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 13, minWidth: 64 }}>
+                  <div key={i} className="la-weekoff-row">
+                    <div className="cluster la-weekoff-head">
+                      <label className="la-check-label la-weekoff-day">
                         <input type="checkbox" checked={mode !== 'none'} onChange={e => enablePDay(i, e.target.checked)} /> {d}
                       </label>
                       {mode !== 'none' && (
-                        <div style={{ display: 'flex', gap: 6 }}>
-                          <button type="button" className={`btn btn-sm ${mode === 'every' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPMode(i, 'every')}>Every week</button>
-                          <button type="button" className={`btn btn-sm ${mode === 'weeks' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setPMode(i, 'weeks')}>Specific weeks</button>
+                        <div className="cluster la-gap-6">
+                          <Button size="sm" variant={mode === 'every' ? 'primary' : 'secondary'} aria-pressed={mode === 'every'} onClick={() => setPMode(i, 'every')}>Every week</Button>
+                          <Button size="sm" variant={mode === 'weeks' ? 'primary' : 'secondary'} aria-pressed={mode === 'weeks'} onClick={() => setPMode(i, 'weeks')}>Specific weeks</Button>
                         </div>
                       )}
                     </div>
                     {mode === 'weeks' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginTop: 6, marginLeft: 22 }}>
+                      <div className="cluster la-gap-6 la-weekoff-weeks">
                         {WEEK_NUMBERS.map(w => (
-                          <button type="button" key={w} style={{ minWidth: 40, padding: '2px 6px' }}
-                            className={`btn btn-sm ${rule?.weeks.includes(w) ? 'btn-primary' : 'btn-secondary'}`}
-                            onClick={() => togglePWeek(i, w)}>{ORDINAL[w - 1]}</button>
+                          <Button key={w} size="sm" className="la-week-btn"
+                            variant={rule?.weeks.includes(w) ? 'primary' : 'secondary'}
+                            aria-pressed={!!rule?.weeks.includes(w)}
+                            onClick={() => togglePWeek(i, w)}>{ORDINAL[w - 1]}</Button>
                         ))}
-                        <span className="text-muted" style={{ margin: '0 2px' }}>·</span>
+                        <span className="text-muted la-sep" aria-hidden="true">·</span>
                         {WEEK_PRESETS.map(p => (
-                          <button type="button" key={p.label} className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => applyPPreset(i, p.weeks)}>{p.label}</button>
+                          <Button key={p.label} size="sm" variant="ghost" className="la-preset-btn" onClick={() => applyPPreset(i, p.weeks)}>{p.label}</Button>
                         ))}
                       </div>
                     )}
@@ -210,8 +228,8 @@ export default function Roster() {
             </div>
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setProfile(null)}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={saveProfile}>Save</button>
+            <Button variant="ghost" onClick={() => setProfile(null)}>Cancel</Button>
+            <Button variant="accent" onClick={saveProfile}>Save</Button>
           </div>
         </Modal>
       )}
