@@ -5,6 +5,8 @@ import { useRole } from '../../store/authStore';
 import { formatDate } from '../../utils/format';
 import { PageHeader, ErrorAlert, LoadingBlock, BackButton, SuccessAlert } from '../../components/ui';
 import { confirmDialog } from '../../components/feedback';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 
 const EMPTY = {
   stage: 'ONBOARDING',
@@ -45,31 +47,32 @@ function DocUpload({ label, doc, onChange, onDownload }: {
   };
   const current = doc.pending?.name || (doc.has && !doc.remove ? doc.filename || 'document' : '');
   return (
-    <div className="field" style={{ marginTop: 14 }}>
+    <div className="field im-doc">
       <label>{label}</label>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+      <div className="cluster">
         {current ? (
-          <span className="badge badge-info" title={current}>
-            📎 {current.length > 28 ? current.slice(0, 26) + '…' : current}
+          <span className="badge badge-info im-doc-badge" title={current}>
+            <Icon name="layers" size={13} className="" />{current.length > 28 ? current.slice(0, 26) + '…' : current}
             {doc.pending && ' (not saved yet)'}
           </span>
         ) : (
-          <span className="text-muted" style={{ fontSize: 12.5 }}>No document</span>
+          <span className="text-sm-muted">No document</span>
         )}
-        <label className="btn btn-secondary btn-sm" style={{ cursor: 'pointer' }}>
+        {/* A label (not <Button>) so the click opens the hidden file input. */}
+        <label className="btn btn-secondary btn-sm">
           {current ? 'Replace' : 'Upload'}
           <input type="file" accept="application/pdf,image/*" hidden onChange={pick} />
         </label>
         {doc.has && !doc.pending && !doc.remove && (
-          <button type="button" className="btn btn-secondary btn-sm" onClick={onDownload}>
-            ⤓ Download
-          </button>
+          <Button size="sm" icon="download" onClick={onDownload}>
+            Download
+          </Button>
         )}
         {current && (
-          <button type="button" className="btn btn-ghost btn-sm"
+          <Button variant="ghost" size="sm"
             onClick={() => onChange({ ...doc, pending: undefined, remove: doc.has })}>
             Remove
-          </button>
+          </Button>
         )}
       </div>
       <span className="hint">PDF or image, up to 8 MB. Saved with the form below.</span>
@@ -261,19 +264,19 @@ export default function ClientOnboarding() {
 
       <form onSubmit={handleSave}>
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Stage &amp; contact</h3>
+          <h3 className="im-section-title">Stage &amp; contact</h3>
           <div className="form-grid mb-16">
             <div className="field">
-              <label>Stage</label>
-              <select className="select" value={form.stage} onChange={e => set('stage', e.target.value)}>
+              <label htmlFor="ob-stage">Stage</label>
+              <select id="ob-stage" className="select" value={form.stage} onChange={e => set('stage', e.target.value)}>
                 {meta.onboardingStages.map((s: string) => (
                   <option key={s} value={s}>{stageLabels[s] || s}</option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>Institution type</label>
-              <select className="select" value={form.institutionType} onChange={e => set('institutionType', e.target.value)}>
+              <label htmlFor="ob-institutionType">Institution type</label>
+              <select id="ob-institutionType" className="select" value={form.institutionType} onChange={e => set('institutionType', e.target.value)}>
                 <option value="">—</option>
                 {meta.institutionTypes.map((t: string) => (
                   <option key={t} value={t}>{typeLabels[t] || t}</option>
@@ -281,8 +284,8 @@ export default function ClientOnboarding() {
               </select>
             </div>
             <div className="field">
-              <label>Assigned engineer</label>
-              <input className="input" list="ob-engineers" value={form.engineer}
+              <label htmlFor="ob-engineer">Assigned engineer</label>
+              <input id="ob-engineer" className="input" list="ob-engineers" value={form.engineer}
                 onChange={e => set('engineer', e.target.value)} />
               <span className="hint">Also updates the client's engineer on the Clients page.</span>
               <datalist id="ob-engineers">
@@ -290,8 +293,8 @@ export default function ClientOnboarding() {
               </datalist>
             </div>
             <div className="field">
-              <label>Additional engineer</label>
-              <input className="input" list="ob-engineers" value={form.supportEngineer}
+              <label htmlFor="ob-supportEngineer">Additional engineer</label>
+              <input id="ob-supportEngineer" className="input" list="ob-engineers" value={form.supportEngineer}
                 placeholder="Optional — second engineer"
                 onChange={e => set('supportEngineer', e.target.value)} />
               <span className="hint">For institutions handled by two engineers.</span>
@@ -299,70 +302,70 @@ export default function ClientOnboarding() {
           </div>
           <div className="form-grid mb-16">
             <div className="field">
-              <label>Contact person</label>
-              <input className="input" value={form.contactPerson}
+              <label htmlFor="ob-contactPerson">Contact person</label>
+              <input id="ob-contactPerson" className="input" value={form.contactPerson}
                 onChange={e => set('contactPerson', e.target.value)} />
             </div>
             <div className="field">
-              <label>Designation</label>
-              <input className="input" value={form.contactDesignation}
+              <label htmlFor="ob-contactDesignation">Designation</label>
+              <input id="ob-contactDesignation" className="input" value={form.contactDesignation}
                 onChange={e => set('contactDesignation', e.target.value)} />
             </div>
             <div className="field">
-              <label>Phone</label>
-              <input className="input" value={form.contactPhone}
+              <label htmlFor="ob-contactPhone">Phone</label>
+              <input id="ob-contactPhone" className="input" value={form.contactPhone}
                 onChange={e => set('contactPhone', e.target.value)} />
             </div>
             <div className="field">
-              <label>Email</label>
-              <input className="input" type="email" value={form.contactEmail}
+              <label htmlFor="ob-contactEmail">Email</label>
+              <input id="ob-contactEmail" className="input" type="email" value={form.contactEmail}
                 onChange={e => set('contactEmail', e.target.value)} />
             </div>
           </div>
           <div className="form-grid">
             <div className="field">
-              <label>City</label>
-              <input className="input" value={form.city} onChange={e => set('city', e.target.value)} />
+              <label htmlFor="ob-city">City</label>
+              <input id="ob-city" className="input" value={form.city} onChange={e => set('city', e.target.value)} />
             </div>
             <div className="field">
-              <label>Student strength</label>
-              <input className="input" type="number" min={0} value={form.studentStrength}
+              <label htmlFor="ob-studentStrength">Student strength</label>
+              <input id="ob-studentStrength" className="input" type="number" min={0} value={form.studentStrength}
                 onChange={e => set('studentStrength', e.target.value)} />
             </div>
             <div className="field">
-              <label>Onboarded on</label>
-              <input className="input" type="date" value={form.onboardedOn || ''}
+              <label htmlFor="ob-onboardedOn">Onboarded on</label>
+              <input id="ob-onboardedOn" className="input" type="date" value={form.onboardedOn || ''}
                 onChange={e => set('onboardedOn', e.target.value)} />
             </div>
             <div className="field">
-              <label>Go-live date</label>
-              <input className="input" type="date" value={form.goLiveDate || ''}
+              <label htmlFor="ob-goLiveDate">Go-live date</label>
+              <input id="ob-goLiveDate" className="input" type="date" value={form.goLiveDate || ''}
                 onChange={e => set('goLiveDate', e.target.value)} />
             </div>
           </div>
-          <div className="field" style={{ marginTop: 16 }}>
-            <label>Address</label>
-            <textarea className="input" rows={2} value={form.address}
+          <div className="field im-mt-16">
+            <label htmlFor="ob-address">Address</label>
+            <textarea id="ob-address" className="input" rows={2} value={form.address}
               placeholder="One line per row — printed as-is on proforma invoices"
               onChange={e => set('address', e.target.value)} />
           </div>
-          <div className="form-grid" style={{ marginTop: 16 }}>
+          <div className="form-grid im-mt-16">
             <div className="field">
-              <label>State</label>
-              <select className="select" value={form.state} onChange={e => set('state', e.target.value)}>
+              <label htmlFor="ob-state">State</label>
+              <select id="ob-state" className="select" value={form.state} onChange={e => set('state', e.target.value)}>
                 <option value="">—</option>
                 {(meta.states || []).map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
               <span className="hint">Place of supply on proforma invoices.</span>
             </div>
             <div className="field">
-              <label>PIN code</label>
-              <input className="input" inputMode="numeric" maxLength={6} value={form.pincode}
+              <label htmlFor="ob-pincode">PIN code</label>
+              <input id="ob-pincode" className="input" inputMode="numeric" maxLength={6} value={form.pincode}
                 onChange={e => set('pincode', e.target.value.replace(/\D/g, ''))} />
             </div>
             <div className="field">
-              <label>GSTIN</label>
-              <input className="input" maxLength={15} placeholder="Optional" value={form.gstin}
+              <label htmlFor="ob-gstin">GSTIN</label>
+              <input id="ob-gstin" className="input" maxLength={15} placeholder="Optional" value={form.gstin}
                 onChange={e => set('gstin', e.target.value.toUpperCase())} />
             </div>
           </div>
@@ -370,21 +373,21 @@ export default function ClientOnboarding() {
 
         <div className="grid-2 mb-24">
           <div className="card card-pad">
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Purchase order</h3>
-            <label className="checkbox-field" style={{ marginBottom: 14 }}>
+            <h3 className="im-section-title">Purchase order</h3>
+            <label className="checkbox-field mb-14">
               <input type="checkbox" checked={form.poReceived}
                 onChange={e => set('poReceived', e.target.checked)} />
               PO received
             </label>
             <div className="form-grid">
               <div className="field">
-                <label>PO number</label>
-                <input className="input" value={form.poNumber}
+                <label htmlFor="ob-poNumber">PO number</label>
+                <input id="ob-poNumber" className="input" value={form.poNumber}
                   onChange={e => set('poNumber', e.target.value)} />
               </div>
               <div className="field">
-                <label>PO date</label>
-                <input className="input" type="date" value={form.poDate || ''}
+                <label htmlFor="ob-poDate">PO date</label>
+                <input id="ob-poDate" className="input" type="date" value={form.poDate || ''}
                   onChange={e => set('poDate', e.target.value)} />
               </div>
             </div>
@@ -393,34 +396,34 @@ export default function ClientOnboarding() {
           </div>
 
           <div className="card card-pad">
-            <h3 style={{ fontSize: 15, marginBottom: 16 }}>Agreement</h3>
-            <label className="checkbox-field" style={{ marginBottom: 14 }}>
+            <h3 className="im-section-title">Agreement</h3>
+            <label className="checkbox-field mb-14">
               <input type="checkbox" checked={form.agreementSigned}
                 onChange={e => set('agreementSigned', e.target.checked)} />
               Agreement signed
             </label>
             <div className="form-grid mb-16">
               <div className="field">
-                <label>Start date</label>
-                <input className="input" type="date" value={form.agreementStart || ''}
+                <label htmlFor="ob-agreementStart">Start date</label>
+                <input id="ob-agreementStart" className="input" type="date" value={form.agreementStart || ''}
                   onChange={e => set('agreementStart', e.target.value)} />
               </div>
               <div className="field">
-                <label>Duration (years)</label>
-                <input className="input" type="number" min={0} value={form.agreementYears}
+                <label htmlFor="ob-agreementYears">Duration (years)</label>
+                <input id="ob-agreementYears" className="input" type="number" min={0} value={form.agreementYears}
                   onChange={e => set('agreementYears', e.target.value)} />
               </div>
             </div>
             <div className="form-grid">
               <div className="field">
-                <label>End date</label>
-                <input className="input" type="date" value={form.agreementEnd || ''}
+                <label htmlFor="ob-agreementEnd">End date</label>
+                <input id="ob-agreementEnd" className="input" type="date" value={form.agreementEnd || ''}
                   onChange={e => set('agreementEnd', e.target.value)} />
                 <span className="hint">Leave blank to auto-compute from start + years.</span>
               </div>
               <div className="field">
-                <label>Reminder (days before)</label>
-                <input className="input" type="number" min={0} value={form.reminderDays}
+                <label htmlFor="ob-reminderDays">Reminder (days before)</label>
+                <input id="ob-reminderDays" className="input" type="number" min={0} value={form.reminderDays}
                   onChange={e => set('reminderDays', e.target.value)} />
               </div>
             </div>
@@ -431,29 +434,29 @@ export default function ClientOnboarding() {
 
         <div className="card card-pad mb-24">
           <div className="field">
-            <label>Notes</label>
-            <textarea className="input" rows={3} value={form.notes}
+            <label htmlFor="ob-notes">Notes</label>
+            <textarea id="ob-notes" className="input" rows={3} value={form.notes}
               onChange={e => set('notes', e.target.value)} />
           </div>
         </div>
 
-        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : 'Save Implementation Details'}
-          </button>
+        <div className="form-actions im-actions-start">
+          <Button type="submit" variant="accent" loading={saving}>
+            {saving ? 'Saving…' : 'Save implementation details'}
+          </Button>
         </div>
       </form>
 
       {/* Recent site visits */}
-      <div className="card" style={{ marginTop: 28 }}>
+      <div className="card im-section">
         <div className="card-header">
           <h3>Recent visits</h3>
-          <Link to={`/income/implementation/visits?client=${clientId}`} className="btn btn-secondary btn-sm">
-            ⇗ Log / view all
-          </Link>
+          <ButtonLink to={`/income/implementation/visits?client=${clientId}`} size="sm" icon="pin">
+            Log / view all
+          </ButtonLink>
         </div>
         {visits.length === 0 ? (
-          <p className="text-muted" style={{ padding: '14px 20px', fontSize: 13 }}>
+          <p className="im-empty-note">
             No site visits logged for this client yet.
           </p>
         ) : (
@@ -465,13 +468,13 @@ export default function ClientOnboarding() {
               <tbody>
                 {visits.map((v: any) => (
                   <tr key={v.id}>
-                    <td style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{formatDate(v.visitDate)}</td>
+                    <td className="num im-strong">{formatDate(v.visitDate)}</td>
                     <td>{v.engineerName || '—'}</td>
-                    <td className="text-muted" style={{ whiteSpace: 'nowrap', fontSize: 12.5 }}>
+                    <td className="text-muted num im-cell-sm">
                       {v.timeIn || v.timeOut ? `${v.timeIn || '?'} – ${v.timeOut || '?'}` : '—'}
                     </td>
-                    <td style={{ fontSize: 12.5 }}>{v.workDone || '—'}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{v.metPersons || '—'}</td>
+                    <td className="im-cell-sm">{v.workDone || '—'}</td>
+                    <td className="text-muted im-cell-sm">{v.metPersons || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -481,30 +484,31 @@ export default function ClientOnboarding() {
       </div>
 
       {/* Feature delivery status */}
-      <div className="card" style={{ marginTop: 28 }}>
+      <div className="card im-section">
         <div className="card-header">
-          <h3>Feature delivery ({progress.live}/{progress.applicable} live)</h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 }}>
-            <div className="bar-track" style={{ flex: 1 }}>
+          <h3>Feature delivery (<span className="num">{progress.live}/{progress.applicable}</span> live)</h3>
+          <div className="im-progress im-progress-wide">
+            <div className="bar-track">
+              {/* Width is data-driven, so it stays inline. */}
               <div className="bar-fill green" style={{ width: `${progress.pct}%` }} />
             </div>
-            <strong style={{ fontSize: 13 }}>{progress.pct}%</strong>
+            <strong className="num">{progress.pct}%</strong>
           </div>
         </div>
 
-        <div style={{ padding: '14px 22px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <form onSubmit={handleAddFeature} style={{ display: 'flex', gap: 10, flex: 1, minWidth: 260 }}>
-            <input className="input" placeholder="Feature / module name" value={newFeature}
-              onChange={e => setNewFeature(e.target.value)} style={{ flex: 1 }} />
-            <button type="submit" className="btn btn-secondary">+ Add</button>
+        <div className="im-feature-bar">
+          <form onSubmit={handleAddFeature} className="im-feature-form">
+            <input className="input im-grow" placeholder="Feature / module name" aria-label="Feature or module name"
+              value={newFeature} onChange={e => setNewFeature(e.target.value)} />
+            <Button type="submit" icon="plus">Add</Button>
           </form>
-          <button type="button" className="btn btn-secondary" onClick={handleSeedFeatures}>
+          <Button onClick={handleSeedFeatures}>
             Seed 25 CMS modules
-          </button>
+          </Button>
         </div>
 
         {features.length === 0 ? (
-          <div className="empty-state" style={{ padding: '32px 24px' }}>
+          <div className="empty-state im-empty-pad">
             <p>No features tracked yet — add one or seed the standard CMS module list.</p>
           </div>
         ) : (
@@ -519,9 +523,9 @@ export default function ClientOnboarding() {
               <tbody>
                 {features.map(f => (
                   <tr key={f.id}>
-                    <td style={{ fontWeight: 600 }}>{f.name}</td>
+                    <td className="im-strong">{f.name}</td>
                     <td>
-                      <select className="select" style={{ width: 130, padding: '5px 8px', fontSize: 12.5 }}
+                      <select className="select im-cell-input" aria-label={`${f.name} status`}
                         value={f.status}
                         onChange={e => handleFeatureChange(f.id, { status: e.target.value })}>
                         {meta.featureStatuses.map((s: any) => (
@@ -530,20 +534,20 @@ export default function ClientOnboarding() {
                       </select>
                     </td>
                     <td>
-                      <input className="input" style={{ width: 130, padding: '5px 8px', fontSize: 12.5 }}
+                      <input className="input im-cell-input" aria-label={`${f.name} engineer`}
                         list="ob-engineers" defaultValue={f.engineer}
                         onBlur={e => e.target.value !== f.engineer && handleFeatureChange(f.id, { engineer: e.target.value })} />
                     </td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{f.startedOn || '—'}</td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>{f.completedOn || '—'}</td>
+                    <td className="text-muted num im-cell-sm">{f.startedOn || '—'}</td>
+                    <td className="text-muted num im-cell-sm">{f.completedOn || '—'}</td>
                     <td>
-                      <input className="input" style={{ minWidth: 160, padding: '5px 8px', fontSize: 12.5 }}
+                      <input className="input im-cell-input im-cell-remarks" aria-label={`${f.name} remarks`}
                         defaultValue={f.remarks} placeholder="—"
                         onBlur={e => e.target.value !== f.remarks && handleFeatureChange(f.id, { remarks: e.target.value })} />
                     </td>
                     <td>
                       <div className="row-actions">
-                        {isSA && <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDeleteFeature(f)}>✕</button>}
+                        {isSA && <Button variant="danger" size="sm" aria-label={`Remove ${f.name}`} onClick={() => handleDeleteFeature(f)}>✕</Button>}
                       </div>
                     </td>
                   </tr>

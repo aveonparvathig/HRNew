@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { incomeAPI } from '../api/income';
 import type { ClientAddress } from '../utils/clientAddress';
 
@@ -10,6 +10,7 @@ export function ClientAddressFields({ value, onChange, states }: {
   states?: string[]; // pass when the page already has meta.states
 }) {
   const [list, setList] = useState<string[]>(states || statesCache || []);
+  const id = useId();
 
   useEffect(() => {
     if (states?.length) { setList(states); return; }
@@ -23,32 +24,32 @@ export function ClientAddressFields({ value, onChange, states }: {
 
   return (
     <>
-      <div className="field" style={{ marginBottom: 12 }}>
-        <label>Address <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(optional)</span></label>
-        <textarea className="input" rows={2} value={value.address}
+      <div className="field ic-mb-12">
+        <label htmlFor={`${id}-address`}>Address <span className="ic-optional">(optional)</span></label>
+        <textarea id={`${id}-address`} className="input" rows={2} value={value.address}
           placeholder="Door no, street, area — one line per row, printed on proforma invoices"
           onChange={e => set('address', e.target.value)} />
       </div>
-      <div className="form-grid" style={{ marginBottom: 16 }}>
+      <div className="form-grid mb-16">
         <div className="field">
-          <label>City</label>
-          <input className="input" value={value.city} onChange={e => set('city', e.target.value)} />
+          <label htmlFor={`${id}-city`}>City</label>
+          <input id={`${id}-city`} className="input" value={value.city} onChange={e => set('city', e.target.value)} />
         </div>
         <div className="field">
-          <label>State</label>
-          <select className="select" value={value.state} onChange={e => set('state', e.target.value)}>
+          <label htmlFor={`${id}-state`}>State</label>
+          <select id={`${id}-state`} className="select" value={value.state} onChange={e => set('state', e.target.value)}>
             <option value="">—</option>
             {list.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div className="field">
-          <label>PIN code</label>
-          <input className="input" inputMode="numeric" maxLength={6} value={value.pincode}
+          <label htmlFor={`${id}-pincode`}>PIN code</label>
+          <input id={`${id}-pincode`} className="input" inputMode="numeric" maxLength={6} value={value.pincode}
             onChange={e => set('pincode', e.target.value.replace(/\D/g, ''))} />
         </div>
         <div className="field">
-          <label>GSTIN</label>
-          <input className="input" maxLength={15} placeholder="Optional" value={value.gstin}
+          <label htmlFor={`${id}-gstin`}>GSTIN</label>
+          <input id={`${id}-gstin`} className="input" maxLength={15} placeholder="Optional" value={value.gstin}
             onChange={e => set('gstin', e.target.value.toUpperCase())} />
         </div>
       </div>

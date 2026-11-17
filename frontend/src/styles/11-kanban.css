@@ -42,7 +42,7 @@
 .app-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary-border); }
 .app-card .name { font-weight: 600; font-size: 13.5px; margin-bottom: 3px; }
 .app-card .meta { font-size: 11.5px; color: var(--text-3); display: flex; justify-content: space-between; gap: 8px; }
-.app-card .stars { color: #DE8F0D; font-size: 11px; letter-spacing: 1px; }
+.app-card .stars { color: var(--warning-dot); font-size: 11px; letter-spacing: 1px; }
 .app-card .quick-move {
   margin-top: 8px;
   width: 100%;
@@ -72,6 +72,6 @@
   transition: color 0.1s, transform 0.1s;
   font-family: inherit;
 }
-.star-input button.lit { color: #DE8F0D; }
+.star-input button.lit { color: var(--warning-dot); }
 .star-input button:hover { transform: scale(1.15); }
 

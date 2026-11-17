@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { incomeAPI } from '../api/income';
 import { Modal, ErrorAlert } from './ui';
+import { Button } from './Button';
 import { formatINR } from '../utils/format';
 
 const GST_RATE = 0.18;
@@ -162,14 +163,14 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
   };
 
   return (
-    <Modal size="lg" title={isEdit ? `Edit ${billing?.periodLabel || billing?.academicYear}` : 'Add Billing Period'} open={open} onClose={onClose}>
+    <Modal size="lg" title={isEdit ? `Edit ${billing?.periodLabel || billing?.academicYear}` : 'Add billing period'} open={open} onClose={onClose}>
       <form onSubmit={handleSubmit}>
         <ErrorAlert message={error} />
 
         {/* 1 — Billing period & engineer */}
         <div className="form-section">
           <div className="form-section-title"><span className="step-dot">1</span> Billing period &amp; engineer</div>
-          <div className="segmented" style={{ marginBottom: 12 }}>
+          <div className="segmented ic-mb-12">
             <button type="button" className={form.periodType !== 'CUSTOM' ? 'active' : ''}
               onClick={() => set('periodType', 'ACADEMIC')}>
               Academic year
@@ -182,7 +183,7 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
 
           {form.periodType !== 'CUSTOM' ? (
             <>
-              <div className="chip-row" style={{ marginBottom: 10 }}>
+              <div className="chip-row ic-mb-10">
                 {yearChips.map(y => (
                   <button key={y} type="button"
                     className={`chip ${form.academicYear === y ? 'active' : ''}`}
@@ -193,13 +194,13 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
               </div>
               <div className="form-grid">
                 <div className="field">
-                  <label>Year *</label>
-                  <input className="input" required placeholder="e.g. 2026-2027"
+                  <label htmlFor="billing-year">Year *</label>
+                  <input id="billing-year" className="input" required placeholder="e.g. 2026-2027"
                     value={form.academicYear} onChange={e => set('academicYear', e.target.value)} />
                 </div>
                 <div className="field">
-                  <label>Engineer</label>
-                  <input className="input" list="engineer-options" placeholder="Pick or type a name"
+                  <label htmlFor="billing-engineer">Engineer</label>
+                  <input id="billing-engineer" className="input" list="engineer-options" placeholder="Pick or type a name"
                     value={form.engineer} onChange={e => set('engineer', e.target.value)} />
                   <datalist id="engineer-options">
                     {meta.engineers.map(e => <option key={e} value={e} />)}
@@ -211,8 +212,8 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
             <>
               <div className="form-grid">
                 <div className="field">
-                  <label>Period start *</label>
-                  <input className="input" type="date" required
+                  <label htmlFor="billing-period-start">Period start *</label>
+                  <input id="billing-period-start" className="input" type="date" required
                     value={form.periodStart}
                     onChange={e => {
                       const start = e.target.value;
@@ -225,23 +226,23 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
                     }} />
                 </div>
                 <div className="field">
-                  <label>Period end *</label>
-                  <input className="input" type="date" required min={form.periodStart || undefined}
+                  <label htmlFor="billing-period-end">Period end *</label>
+                  <input id="billing-period-end" className="input" type="date" required min={form.periodStart || undefined}
                     value={form.periodEnd}
                     onChange={e => set('periodEnd', e.target.value)} />
                   {form.periodStart && (
                     <span className="hint">
                       12-month cycle: {cycleEnd(form.periodStart)}
                       {form.periodEnd !== cycleEnd(form.periodStart) && (
-                        <> · <a style={{ cursor: 'pointer' }}
-                          onClick={() => set('periodEnd', cycleEnd(form.periodStart))}>apply</a></>
+                        <> · <button type="button" className="ic-link-btn"
+                          onClick={() => set('periodEnd', cycleEnd(form.periodStart))}>apply</button></>
                       )}
                     </span>
                   )}
                 </div>
                 <div className="field">
-                  <label>Engineer</label>
-                  <input className="input" list="engineer-options" placeholder="Pick or type a name"
+                  <label htmlFor="billing-engineer">Engineer</label>
+                  <input id="billing-engineer" className="input" list="engineer-options" placeholder="Pick or type a name"
                     value={form.engineer} onChange={e => set('engineer', e.target.value)} />
                   <datalist id="engineer-options">
                     {meta.engineers.map(e => <option key={e} value={e} />)}
@@ -255,7 +256,7 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
         {/* 2 — Pricing */}
         <div className="form-section">
           <div className="form-section-title"><span className="step-dot">2</span> Pricing</div>
-          <div className="segmented" style={{ marginBottom: 14 }}>
+          <div className="segmented mb-14">
             <button type="button" className={!isFixed ? 'active' : ''} onClick={() => switchMode(false)}>
               Per student
             </button>
@@ -265,53 +266,53 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
           </div>
 
           {!isFixed ? (
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Students</label>
-                <input className="input" type="number" min={0} placeholder="0"
+                <label htmlFor="billing-students">Students</label>
+                <input id="billing-students" className="input" type="number" min={0} placeholder="0"
                   value={form.studentCount} onChange={e => set('studentCount', e.target.value)} />
               </div>
               <div className="field">
-                <label>Rate / student</label>
+                <label htmlFor="billing-rate">Rate / student</label>
                 <div className="input-unit">
                   <span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" placeholder="0"
+                  <input id="billing-rate" className="input" type="number" min={0} step="0.01" placeholder="0"
                     value={form.rate} onChange={e => set('rate', e.target.value)} />
                 </div>
               </div>
               <div className="field">
-                <label>One-time fee</label>
+                <label htmlFor="billing-one-time">One-time fee</label>
                 <div className="input-unit">
                   <span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" placeholder="0"
+                  <input id="billing-one-time" className="input" type="number" min={0} step="0.01" placeholder="0"
                     value={form.oneTimePayment} onChange={e => set('oneTimePayment', e.target.value)} />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="form-grid" style={{ marginBottom: 14 }}>
+            <div className="form-grid mb-14">
               <div className="field">
-                <label>Taxable value</label>
+                <label htmlFor="billing-taxable">Taxable value</label>
                 <div className="input-unit">
                   <span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" placeholder="0"
+                  <input id="billing-taxable" className="input" type="number" min={0} step="0.01" placeholder="0"
                     value={form.taxableValue} onChange={e => handleFixedTaxable(e.target.value)} />
                 </div>
                 <span className="hint">GST &amp; net auto-fill at 18% — adjust freely.</span>
               </div>
               <div className="field">
-                <label>GST</label>
+                <label htmlFor="billing-gst">GST</label>
                 <div className="input-unit">
                   <span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" placeholder="0"
+                  <input id="billing-gst" className="input" type="number" min={0} step="0.01" placeholder="0"
                     value={form.gstAmount} onChange={e => set('gstAmount', e.target.value)} />
                 </div>
               </div>
               <div className="field">
-                <label>Net amount *</label>
+                <label htmlFor="billing-net">Net amount *</label>
                 <div className="input-unit">
                   <span className="unit">₹</span>
-                  <input className="input" type="number" min={0} step="0.01" placeholder="0" required
+                  <input id="billing-net" className="input" type="number" min={0} step="0.01" placeholder="0" required
                     value={form.netAmount} onChange={e => set('netAmount', e.target.value)} />
                 </div>
               </div>
@@ -322,38 +323,38 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
             {!isFixed && (
               <div className="calc-row">
                 <span>Taxable ({students || 0} × {formatINR(rate)})</span>
-                <span className="amount">{formatINR(taxable)}</span>
+                <span className="amount num">{formatINR(taxable)}</span>
               </div>
             )}
             {isFixed && (
               <div className="calc-row">
                 <span>Taxable value</span>
-                <span className="amount">{formatINR(taxable)}</span>
+                <span className="amount num">{formatINR(taxable)}</span>
               </div>
             )}
             <div className="calc-row">
               <span>GST {isFixed ? '' : '(18%)'}</span>
-              <span className="amount">{formatINR(gst)}</span>
+              <span className="amount num">{formatINR(gst)}</span>
             </div>
             {!isFixed && oneTime > 0 && (
               <div className="calc-row">
                 <span>One-time fee</span>
-                <span className="amount">{formatINR(oneTime)}</span>
+                <span className="amount num">{formatINR(oneTime)}</span>
               </div>
             )}
             <div className="calc-row total">
               <span>Net amount</span>
-              <span className="amount">{formatINR(net)}</span>
+              <span className="amount num">{formatINR(net)}</span>
             </div>
             {prevPending !== 0 && (
               <>
                 <div className="calc-row">
                   <span>Previous pending (carry-forward)</span>
-                  <span className="amount">{formatINR(prevPending)}</span>
+                  <span className="amount num">{formatINR(prevPending)}</span>
                 </div>
                 <div className="calc-row total grand">
                   <span>Total due this year</span>
-                  <span className="amount">{formatINR(totalDue)}</span>
+                  <span className="amount num">{formatINR(totalDue)}</span>
                 </div>
               </>
             )}
@@ -365,17 +366,17 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
           <div className="form-section-title"><span className="step-dot">3</span> Carry-forward &amp; invoice</div>
           <div className="form-grid">
             <div className="field">
-              <label>Previous pending</label>
+              <label htmlFor="billing-prev-pending">Previous pending</label>
               <div className="input-unit">
                 <span className="unit">₹</span>
-                <input className="input" type="number" step="0.01" placeholder="0"
+                <input id="billing-prev-pending" className="input" type="number" step="0.01" placeholder="0"
                   value={form.previousPending} onChange={e => set('previousPending', e.target.value)} />
               </div>
               <span className="hint">Balance carried from earlier years — stays editable.</span>
             </div>
             <div className="field">
-              <label>Invoice status</label>
-              <select className="select" value={form.invoiceStatus}
+              <label htmlFor="billing-invoice-status">Invoice status</label>
+              <select id="billing-invoice-status" className="select" value={form.invoiceStatus}
                 onChange={e => set('invoiceStatus', e.target.value)}>
                 <option value="">Not set</option>
                 {meta.invoiceStatuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -386,8 +387,8 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
 
         {/* 4 — Follow-up & remarks */}
         <div className="form-section">
-          <div className="form-section-title"><span className="step-dot">4</span> Follow-up &amp; remarks <span style={{ textTransform: 'none', fontWeight: 500 }}>(optional)</span></div>
-          <div className="chip-row" style={{ marginBottom: 10 }}>
+          <div className="form-section-title"><span className="step-dot">4</span> Follow-up &amp; remarks <span className="ic-section-optional">(optional)</span></div>
+          <div className="chip-row ic-mb-10">
             {FOLLOWUP_PRESETS.map(p => (
               <button key={p.label} type="button"
                 className={`chip ${form.nextFollowupDate === p.value() ? 'active' : ''}`}
@@ -401,30 +402,30 @@ export default function BillingFormModal({ open, onClose, clientId, billing, met
               </button>
             )}
           </div>
-          <div className="form-grid" style={{ marginBottom: 14 }}>
+          <div className="form-grid mb-14">
             <div className="field">
-              <label>Follow-up date</label>
-              <input className="input" type="date" value={form.nextFollowupDate}
+              <label htmlFor="billing-followup-date">Follow-up date</label>
+              <input id="billing-followup-date" className="input" type="date" value={form.nextFollowupDate}
                 onChange={e => set('nextFollowupDate', e.target.value)} />
             </div>
             <div className="field">
-              <label>Follow-up note</label>
-              <input className="input" placeholder="e.g. call accounts after 15th"
+              <label htmlFor="billing-followup-note">Follow-up note</label>
+              <input id="billing-followup-note" className="input" placeholder="e.g. call accounts after 15th"
                 value={form.followupNote} onChange={e => set('followupNote', e.target.value)} />
             </div>
           </div>
           <div className="field">
-            <label>Remarks</label>
-            <textarea className="input" rows={2} placeholder="Anything worth remembering about this year"
+            <label htmlFor="billing-remarks">Remarks</label>
+            <textarea id="billing-remarks" className="input" rows={2} placeholder="Anything worth remembering about this year"
               value={form.remarks} onChange={e => set('remarks', e.target.value)} />
           </div>
         </div>
 
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
-            {saving ? 'Saving…' : isEdit ? 'Save Changes' : `Add Year — ${formatINR(totalDue)}`}
-          </button>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="accent" loading={saving}>
+            {saving ? 'Saving…' : isEdit ? 'Save changes' : `Add year — ${formatINR(totalDue)}`}
+          </Button>
         </div>
       </form>
     </Modal>

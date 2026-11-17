@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, LoadingBlock, EmptyState, StatCard } from '../../components/ui';
+import { ButtonLink } from '../../components/Button';
 
 const STAGE_TONES: Record<string, string> = {
   ONBOARDING: 'badge-info',
@@ -45,29 +46,29 @@ export default function Implementation() {
       <PageHeader
         title="Implementation"
         subtitle="Onboarding stages, purchase orders and agreement renewals."
-        actions={<Link to="/income/implementation/visits" className="btn btn-secondary">⇗ Client Visits</Link>}
+        actions={<ButtonLink to="/income/implementation/visits" icon="pin">Client visits</ButtonLink>}
       />
 
       <ErrorAlert message={error} />
 
       <div className="stat-grid">
-        <StatCard label="Live Clients" value={data.stageCounts.LIVE || 0} icon="✓" tone="success" />
-        <StatCard label="PO Pending" value={data.alerts.poPending} sub="Active clients without a PO"
-          icon="▤" tone={data.alerts.poPending ? 'warning' : 'success'} />
-        <StatCard label="Agreement Pending" value={data.alerts.agreementPending}
-          sub="Active clients unsigned" icon="✎" tone={data.alerts.agreementPending ? 'warning' : 'success'} />
-        <StatCard label="Expiring / Expired" value={data.alerts.expiring}
-          sub="Agreements needing renewal" icon="⚑" tone={data.alerts.expiring ? 'danger' : 'success'} />
+        <StatCard label="Live clients" value={data.stageCounts.LIVE || 0} icon="checkCircle" tone="success" />
+        <StatCard label="PO pending" value={data.alerts.poPending} sub="Active clients without a PO"
+          icon="layers" tone={data.alerts.poPending ? 'warning' : 'success'} />
+        <StatCard label="Agreement pending" value={data.alerts.agreementPending}
+          sub="Active clients unsigned" icon="pen" tone={data.alerts.agreementPending ? 'warning' : 'success'} />
+        <StatCard label="Expiring / expired" value={data.alerts.expiring}
+          sub="Agreements needing renewal" icon="alert" tone={data.alerts.expiring ? 'danger' : 'success'} />
       </div>
 
       <div className="toolbar">
-        <select className="select" value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
+        <select className="select" aria-label="Filter by stage" value={stageFilter} onChange={e => setStageFilter(e.target.value)}>
           <option value="">All stages</option>
           {Object.entries(STAGE_LABELS).map(([v, l]) => (
             <option key={v} value={v}>{l} ({data.stageCounts[v] || 0})</option>
           ))}
         </select>
-        <span className="toolbar-count">{rows.length} client{rows.length !== 1 ? 's' : ''}</span>
+        <span className="toolbar-count"><span className="num">{rows.length}</span> client{rows.length !== 1 ? 's' : ''}</span>
       </div>
 
       <div className="card">
@@ -78,16 +79,16 @@ export default function Implementation() {
             <table className="table">
               <thead>
                 <tr>
-                  <th>Client</th><th>Stage</th><th style={{ width: 160 }}>Delivery</th>
-                  <th>Engineer</th><th>Go-live</th><th>PO</th><th>Agreement</th><th />
+                  <th>Client</th><th>Stage</th><th className="im-col-delivery">Delivery</th>
+                  <th>Engineer</th><th className="num">Go-live</th><th>PO</th><th>Agreement</th><th />
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r: any) => (
                   <tr key={r.clientId}>
                     <td>
-                      <Link to={`/income/clients/${r.clientId}`} style={{ fontWeight: 600 }}>{r.name}</Link>
-                      {!r.isActive && <span className="badge badge-neutral" style={{ marginLeft: 6 }}>inactive</span>}
+                      <Link to={`/income/clients/${r.clientId}`} className="im-client-name">{r.name}</Link>
+                      {!r.isActive && <span className="badge badge-neutral im-badge-gap">inactive</span>}
                     </td>
                     <td>
                       <span className={`badge ${STAGE_TONES[r.stage] || 'badge-neutral'}`}>
@@ -96,20 +97,21 @@ export default function Implementation() {
                     </td>
                     <td>
                       {r.progress.total === 0 ? (
-                        <span className="text-muted" style={{ fontSize: 12 }}>not tracked</span>
+                        <span className="text-sm-muted">not tracked</span>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div className="bar-track" style={{ flex: 1 }}>
+                        <div className="im-progress">
+                          <div className="bar-track">
+                            {/* Width is data-driven, so it stays inline. */}
                             <div className="bar-fill green" style={{ width: `${r.progress.pct}%` }} />
                           </div>
-                          <span style={{ fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          <span className="im-progress-count num">
                             {r.progress.live}/{r.progress.applicable}
                           </span>
                         </div>
                       )}
                     </td>
                     <td className="text-muted">{r.engineer || '—'}</td>
-                    <td className="text-muted">{r.goLiveDate || '—'}</td>
+                    <td className="text-muted num">{r.goLiveDate || '—'}</td>
                     <td>
                       {r.poReceived
                         ? <span className="badge badge-success"><span className="dot" />{r.poNumber || 'Received'}</span>
@@ -122,9 +124,9 @@ export default function Implementation() {
                     </td>
                     <td>
                       <div className="row-actions">
-                        <Link to={`/income/clients/${r.clientId}/implementation`} className="btn btn-secondary btn-sm">
+                        <ButtonLink to={`/income/clients/${r.clientId}/implementation`} size="sm">
                           Manage
-                        </Link>
+                        </ButtonLink>
                       </div>
                     </td>
                   </tr>

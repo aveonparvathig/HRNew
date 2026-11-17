@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, ErrorAlert, SuccessAlert, LoadingBlock, EmptyState, Modal } from '../../components/ui';
 import ProformaFormModal from '../../components/ProformaFormModal';
+import { Button } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import { fiscalYearOf } from '../../utils/fiscalYear';
 import { formatINR, formatDate } from '../../utils/format';
 import { downloadHtmlAsPdf } from '../../utils/htmlToPdf';
@@ -125,9 +127,9 @@ export default function Proforma() {
   return (
     <>
       <PageHeader
-        title="Proforma Invoices"
+        title="Proforma invoices"
         subtitle={numbering ? `FY ${numbering.fiscalYear} · next number ${numbering.nextNumber}` : 'Numbered proforma invoices for client billing'}
-        actions={<button className="btn btn-primary" onClick={openPicker}>+ New Proforma</button>}
+        actions={<Button variant="accent" icon="plus" onClick={openPicker}>New proforma</Button>}
       />
 
       <ErrorAlert message={error} onDismiss={() => setError('')} />
@@ -135,19 +137,20 @@ export default function Proforma() {
 
       {isSA && numbering && (
         <div className="card card-pad mb-24">
-          <form onSubmit={saveNumbering} style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-            <div className="field" style={{ maxWidth: 260 }}>
-              <label>Last number already used in FY {fy}</label>
-              <input className="input" type="number" min={0} step={1} value={lastNumber}
+          <form onSubmit={saveNumbering} className="ic-numbering-form">
+            <div className="field ic-field-narrow">
+              <label htmlFor="proforma-last-number">Last number already used in FY {fy}</label>
+              <input id="proforma-last-number" className="input" type="number" min={0} step={1} value={lastNumber}
                 onChange={e => setLastNumber(e.target.value)} />
               <span className="hint">Continue an existing sequence: 22 makes the next one PRO/{fy}/023.</span>
             </div>
-            <button type="submit" className="btn btn-secondary" disabled={savingNumbering}>
+            <Button type="submit" loading={savingNumbering}>
               {savingNumbering ? 'Saving…' : 'Save numbering'}
-            </button>
+            </Button>
             {!numbering.supplier?.gstin && (
-              <span className="text-muted" style={{ fontSize: 12.5 }}>
-                ⚠ Company GSTIN not set — add it in <Link to="/organization">Organization</Link>.
+              <span className="ic-warn-note">
+                <Icon name="alert" size={14} className="ic-alert-icon" />
+                <span>Company GSTIN not set — add it in <Link to="/organization">Organization</Link>.</span>
               </span>
             )}
           </form>
@@ -157,12 +160,12 @@ export default function Proforma() {
       <div className="card">
         <div className="card-header">
           <h3>Issued ({records.length})</h3>
-          <input className="input" style={{ maxWidth: 260 }} placeholder="Search number or client…"
-            value={q} onChange={e => setQ(e.target.value)} />
+          <input className="input ic-search" type="search" placeholder="Search number or client…"
+            aria-label="Search proforma invoices" value={q} onChange={e => setQ(e.target.value)} />
         </div>
         {filtered.length === 0 ? (
           <EmptyState icon="▤" title={records.length ? 'No matches' : 'No proforma invoices yet'}
-            message={records.length ? 'Try a different search.' : 'Generate one from a client billing row or with + New Proforma.'} />
+            message={records.length ? 'Try a different search.' : 'Generate one from a client billing row or with New proforma.'} />
         ) : (
           <div className="table-wrap">
             <table className="table table-sticky-actions">
@@ -170,33 +173,34 @@ export default function Proforma() {
                 <tr>
                   <th>Number</th><th>Client</th><th>Periods</th><th>Date</th>
                   <th className="num">Taxable</th><th className="num">GST</th><th className="num">Total</th>
-                  <th className="num">Received</th><th className="num">Balance due</th><th />
+                  <th className="num">Received</th><th className="num">Balance due</th>
+                  <th><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(r => (
                   <tr key={r.id}>
-                    <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{r.number}</td>
+                    <td className="mono ic-strong ic-nowrap">{r.number}</td>
                     <td><Link to={`/income/clients/${r.clientId}`}>{r.clientName}</Link></td>
-                    <td className="text-muted" style={{ fontSize: 12.5 }}>
+                    <td className="text-muted ic-detail">
                       {r.periods.length ? r.periods.join(', ') : '—'}
                     </td>
-                    <td>{formatDate(r.invoiceDate)}</td>
+                    <td className="ic-nowrap">{formatDate(r.invoiceDate)}</td>
                     <td className="num">{formatINR(r.subtotal)}</td>
                     <td className="num">
                       {formatINR(r.gstAmount)}
-                      <div className="text-muted" style={{ fontSize: 11 }}>{r.taxType === 'IGST' ? 'IGST' : 'CGST+SGST'}</div>
+                      <div className="ic-sub">{r.taxType === 'IGST' ? 'IGST' : 'CGST+SGST'}</div>
                     </td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.totalAmount)}</td>
+                    <td className="num ic-strong">{formatINR(r.totalAmount)}</td>
                     <td className="num text-success">{r.advanceReceived > 0 ? formatINR(r.advanceReceived) : '—'}</td>
-                    <td className="num" style={{ fontWeight: 600 }}>{formatINR(r.balanceDue)}</td>
+                    <td className="num ic-strong">{formatINR(r.balanceDue)}</td>
                     <td>
                       <div className="row-actions">
-                        <button className="btn btn-secondary btn-sm" disabled={busy === r.id}
+                        <Button size="sm" icon="download" loading={busy === r.id}
                           onClick={() => handleDownload(r)}>
-                          {busy === r.id ? '…' : '⤓ PDF'}
-                        </button>
-                        {isSA && <button className="btn btn-danger btn-sm" onClick={() => handleDelete(r)}>Del</button>}
+                          PDF
+                        </Button>
+                        {isSA && <Button variant="danger" size="sm" onClick={() => handleDelete(r)}>Delete</Button>}
                       </div>
                     </td>
                   </tr>
@@ -207,20 +211,20 @@ export default function Proforma() {
         )}
       </div>
 
-      <Modal title="New Proforma Invoice" open={picker} onClose={() => setPicker(false)}>
-        <div className="field" style={{ marginBottom: 16 }}>
-          <label>Client</label>
-          <select className="select" value={clientId} onChange={e => setClientId(e.target.value)}>
+      <Modal title="New proforma invoice" open={picker} onClose={() => setPicker(false)}>
+        <div className="field mb-16">
+          <label htmlFor="proforma-client">Client</label>
+          <select id="proforma-client" className="select" value={clientId} onChange={e => setClientId(e.target.value)}>
             <option value="">Pick a client…</option>
             {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <span className="hint">Next you'll tick one or more billing periods for this client.</span>
         </div>
         <div className="form-actions">
-          <button type="button" className="btn btn-ghost" onClick={() => setPicker(false)}>Cancel</button>
-          <button type="button" className="btn btn-primary" disabled={!clientId || loadingClient} onClick={startFor}>
+          <Button variant="ghost" onClick={() => setPicker(false)}>Cancel</Button>
+          <Button variant="accent" loading={loadingClient} disabled={!clientId} onClick={startFor}>
             {loadingClient ? 'Loading…' : 'Continue'}
-          </button>
+          </Button>
         </div>
       </Modal>
 

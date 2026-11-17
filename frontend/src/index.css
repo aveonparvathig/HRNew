@@ -27,3 +27,6 @@
 @import './styles/pages/people-profile.css';
 @import './styles/pages/people-directory.css';
 @import './styles/pages/people-letters.css';
+@import './styles/pages/income-overview.css';
+@import './styles/pages/income-clients.css';
+@import './styles/pages/income-implementation.css';

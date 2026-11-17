@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { incomeAPI } from '../api/income';
 import { Modal, ErrorAlert } from './ui';
+import { Button } from './Button';
+import { Icon } from './Layout/nav';
 import { formatINR } from '../utils/format';
 import { downloadHtmlAsPdf } from '../utils/htmlToPdf';
 import { fiscalYearOf } from '../utils/fiscalYear';
@@ -127,33 +129,33 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
   const lineEditor = (l: DraftLine, removable: boolean) => {
     const a = lineAmounts(l);
     return (
-      <div key={l.key} style={{ display: 'grid', gap: 6, paddingTop: 8, borderTop: '1px dashed var(--border)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1.6fr) minmax(0,1fr) auto', gap: 8, alignItems: 'center' }}>
-          <input className="input" placeholder="Description" value={l.description}
+      <div key={l.key} className="ic-line">
+        <div className="ic-line-top">
+          <input className="input" placeholder="Description" aria-label="Description" value={l.description}
             onChange={e => update(l.key, { description: e.target.value })} />
-          <input className="input" placeholder="Second line (optional)" value={l.detail}
+          <input className="input" placeholder="Second line (optional)" aria-label="Second line" value={l.detail}
             onChange={e => update(l.key, { detail: e.target.value })} />
           {removable ? (
-            <button type="button" className="btn btn-ghost btn-sm"
-              onClick={() => setLines(ls => ls.filter(x => x.key !== l.key))}>Remove</button>
+            <Button variant="ghost" size="sm"
+              onClick={() => setLines(ls => ls.filter(x => x.key !== l.key))}>Remove</Button>
           ) : <span />}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr) auto minmax(0,1.1fr)', gap: 8, alignItems: 'center' }}>
+        <div className="ic-line-bottom">
           <div className="input-unit">
             <span className="unit">Qty</span>
-            <input className="input" type="number" min={0.01} step="any" placeholder="Students"
+            <input className="input" type="number" min={0.01} step="any" placeholder="Students" aria-label="Quantity"
               value={l.qty} onChange={e => update(l.key, { qty: e.target.value })} />
           </div>
           <div className="input-unit">
             <span className="unit">₹</span>
-            <input className="input" type="number" min={0.01} step="0.01" placeholder="Rate"
+            <input className="input" type="number" min={0.01} step="0.01" placeholder="Rate" aria-label="Rate"
               value={l.rate} onChange={e => update(l.key, { rate: e.target.value })} />
           </div>
-          <label className="checkbox-field" style={{ whiteSpace: 'nowrap' }}>
+          <label className="checkbox-field ic-nowrap">
             <input type="checkbox" checked={l.gst} onChange={e => update(l.key, { gst: e.target.checked })} />
             GST 18%
           </label>
-          <span className="text-muted" style={{ fontSize: 12.5, textAlign: 'right' }}>
+          <span className="ic-line-amount num">
             {formatINR(a.taxable)}{l.gst ? ` + ${formatINR(a.gst)}` : ''} = <strong>{formatINR(a.total)}</strong>
           </span>
         </div>
@@ -164,54 +166,51 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
   const extras = lines.filter(l => !l.billingId);
 
   return (
-    <Modal size="lg" title={client ? `Proforma Invoice — ${client.name}` : ''} open={open && Boolean(client)} onClose={onClose}>
+    <Modal size="lg" title={client ? `Proforma invoice — ${client.name}` : ''} open={open && Boolean(client)} onClose={onClose}>
       {client && (
         <form onSubmit={handleSubmit}>
           <ErrorAlert message={error} />
 
           {settings && !settings.supplier?.gstin && (
-            <div className="alert alert-error" style={{ marginBottom: 12 }}>
-              <span>⚠</span>
+            <div className="alert alert-error ic-mb-12">
+              <Icon name="alert" size={16} className="ic-alert-icon" />
               <span>Your company GSTIN is not set, so it won't print. Add it under <Link to="/organization">Organization</Link> settings.</span>
             </div>
           )}
 
-          <div className="form-grid" style={{ marginBottom: 16 }}>
+          <div className="form-grid mb-16">
             <div className="field">
-              <label>Invoice date *</label>
-              <input className="input" type="date" required value={invoiceDate}
+              <label htmlFor="proforma-date">Invoice date *</label>
+              <input id="proforma-date" className="input" type="date" required value={invoiceDate}
                 onChange={e => setInvoiceDate(e.target.value)} />
-              {settings?.nextNumber && <span className="hint">Next number: {settings.nextNumber}</span>}
+              {settings?.nextNumber && <span className="hint">Next number: <span className="num">{settings.nextNumber}</span></span>}
             </div>
             <div className="field">
-              <label>Place of supply</label>
-              <select className="select" value={placeOfSupply} onChange={e => setPlaceOfSupply(e.target.value)}>
+              <label htmlFor="proforma-place">Place of supply</label>
+              <select id="proforma-place" className="select" value={placeOfSupply} onChange={e => setPlaceOfSupply(e.target.value)}>
                 <option value="">—</option>
                 {(settings?.states || []).map((s: string) => <option key={s} value={s}>{s}</option>)}
               </select>
               <span className="hint">{intra ? 'Same state: CGST + SGST' : 'Other state: IGST'} · not printed</span>
             </div>
             <div className="field">
-              <label>HSN / SAC</label>
-              <input className="input" value={hsn} maxLength={20} onChange={e => setHsn(e.target.value)} />
+              <label htmlFor="proforma-hsn">HSN / SAC</label>
+              <input id="proforma-hsn" className="input" value={hsn} maxLength={20} onChange={e => setHsn(e.target.value)} />
             </div>
           </div>
 
-          <div className="field" style={{ marginBottom: 16 }}>
+          <div className="field mb-16">
             <label>Billing periods — tick one or more</label>
-            <div style={{ display: 'grid', gap: 8 }}>
+            <div className="ic-periods">
               {billings.length === 0 && <p className="text-muted">This client has no billing periods yet — add a line.</p>}
               {billings.map(b => {
                 const on = ticked.has(b.id);
                 return (
-                  <div key={b.id} style={{
-                    border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px',
-                    opacity: on ? 1 : 0.65, display: 'grid', gap: 8,
-                  }}>
-                    <label className="checkbox-field" style={{ fontWeight: 600 }}>
+                  <div key={b.id} className={`ic-period${on ? '' : ' is-off'}`}>
+                    <label className="checkbox-field ic-strong">
                       <input type="checkbox" checked={on} onChange={e => toggle(b.id, e.target.checked)} />
                       {b.periodLabel || b.academicYear}
-                      <span className="text-muted" style={{ fontWeight: 400, marginLeft: 6 }}>
+                      <span className="ic-period-meta">
                         · {b.studentCount && !b.overrideAmounts ? `${b.studentCount} × ${formatINR(b.rate)}` : 'fixed fee'}
                         {' '}· received {formatINR(b.received)}
                       </span>
@@ -221,78 +220,78 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
                 );
               })}
               {extras.length > 0 && (
-                <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', display: 'grid', gap: 8 }}>
-                  <span style={{ fontWeight: 600 }}>Extra lines</span>
+                <div className="ic-period">
+                  <span className="ic-strong">Extra lines</span>
                   {extras.map(l => lineEditor(l, true))}
                 </div>
               )}
             </div>
-            <div style={{ marginTop: 8 }}>
-              <button type="button" className="btn btn-secondary btn-sm" onClick={addExtra}>+ Add line</button>
+            <div className="ic-mt-8">
+              <Button size="sm" icon="plus" onClick={addExtra}>Add line</Button>
             </div>
           </div>
 
-          <div className="form-grid" style={{ marginBottom: 16 }}>
+          <div className="form-grid mb-16">
             <div className="field">
-              <label>Received amount</label>
+              <label htmlFor="proforma-received">Received amount</label>
               <div className="input-unit">
                 <span className="unit">₹</span>
-                <input className="input" type="number" min={0} step="0.01" placeholder="0" value={advance}
+                <input id="proforma-received" className="input" type="number" min={0} step="0.01" placeholder="0" value={advance}
                   onChange={e => { setAdvance(e.target.value); setAdvanceEdited(true); }} />
               </div>
               <span className="hint">
                 Payments already recorded on the ticked periods: {formatINR(advanceFor(billings, ticked))}.
                 {advanceEdited && (
-                  <> · <a style={{ cursor: 'pointer' }} onClick={() => { setAdvance(String(advanceFor(billings, ticked) || '')); setAdvanceEdited(false); }}>use that</a></>
+                  <> · <button type="button" className="ic-link-btn" onClick={() => { setAdvance(String(advanceFor(billings, ticked) || '')); setAdvanceEdited(false); }}>use that</button></>
                 )}
               </span>
             </div>
             <div className="field">
-              <label>Previous pending (carry-forward)</label>
+              <label htmlFor="proforma-pending">Previous pending (carry-forward)</label>
               <div className="input-unit">
                 <span className="unit">₹</span>
-                <input className="input" type="number" min={0} step="0.01" placeholder="0" value={pending}
+                <input id="proforma-pending" className="input" type="number" min={0} step="0.01" placeholder="0" value={pending}
                   onChange={e => { setPending(e.target.value); setPendingEdited(true); }} />
               </div>
               <span className="hint">
                 On the ticked periods: {formatINR(previousPendingFor(billings, ticked))}. Added after the grand total, no GST.
                 {pendingEdited && (
-                  <> · <a style={{ cursor: 'pointer' }} onClick={() => { setPending(String(previousPendingFor(billings, ticked) || '')); setPendingEdited(false); }}>use that</a></>
+                  <> · <button type="button" className="ic-link-btn" onClick={() => { setPending(String(previousPendingFor(billings, ticked) || '')); setPendingEdited(false); }}>use that</button></>
                 )}
               </span>
             </div>
           </div>
 
           <div className="calc-card">
-            <div className="calc-row"><span>Subtotal</span><span className="amount">{formatINR(t.subtotal)}</span></div>
+            <div className="calc-row"><span>Subtotal</span><span className="amount num">{formatINR(t.subtotal)}</span></div>
             {intra ? (
               <>
-                <div className="calc-row"><span>CGST</span><span className="amount">{formatINR(t.cgst)}</span></div>
-                <div className="calc-row"><span>SGST</span><span className="amount">{formatINR(t.sgst)}</span></div>
+                <div className="calc-row"><span>CGST</span><span className="amount num">{formatINR(t.cgst)}</span></div>
+                <div className="calc-row"><span>SGST</span><span className="amount num">{formatINR(t.sgst)}</span></div>
               </>
             ) : (
-              <div className="calc-row"><span>IGST</span><span className="amount">{formatINR(t.igst)}</span></div>
+              <div className="calc-row"><span>IGST</span><span className="amount num">{formatINR(t.igst)}</span></div>
             )}
-            <div className="calc-row total"><span>Grand total</span><span className="amount">{formatINR(t.total)}</span></div>
+            <div className="calc-row total"><span>Grand total</span><span className="amount num">{formatINR(t.total)}</span></div>
             {t.previousPending > 0 && (
-              <div className="calc-row"><span>Previous pending</span><span className="amount">{formatINR(t.previousPending)}</span></div>
+              <div className="calc-row"><span>Previous pending</span><span className="amount num">{formatINR(t.previousPending)}</span></div>
             )}
             {t.previousPending > 0 && t.advance > 0 && (
-              <div className="calc-row total"><span>Total due</span><span className="amount">{formatINR(t.totalDue)}</span></div>
+              <div className="calc-row total"><span>Total due</span><span className="amount num">{formatINR(t.totalDue)}</span></div>
             )}
             {t.advance > 0 && (
-              <div className="calc-row"><span>Received amount</span><span className="amount">−{formatINR(t.advance)}</span></div>
+              <div className="calc-row"><span>Received amount</span><span className="amount num">−{formatINR(t.advance)}</span></div>
             )}
             {(t.advance > 0 || t.previousPending > 0) && (
-              <div className="calc-row total grand"><span>Balance due</span><span className="amount">{formatINR(t.balanceDue)}</span></div>
+              <div className="calc-row total grand"><span>Balance due</span><span className="amount num">{formatINR(t.balanceDue)}</span></div>
             )}
           </div>
 
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving || !chosen.length}>
-              {saving ? 'Generating…' : `Generate & Download — ${formatINR(t.total)}`}
-            </button>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" variant="accent" icon="download" loading={saving} disabled={!chosen.length}>
+              {saving ? 'Generating…' : `Generate & download — ${formatINR(t.total)}`}
+            </Button>
           </div>
         </form>
       )}

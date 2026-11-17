@@ -1,0 +1,43 @@
+/* Income redesign: overview. */
+
+/* ---- Dashboard, analytics, import/export, academic years (io-) ---- */
+.io-card-title { font-size: 15px; margin-bottom: 10px; }
+.io-card-title.io-spaced { margin-bottom: 16px; }
+.io-strong { font-weight: 600; }
+.io-meta { font-size: 11.5px; color: var(--text-3); }
+.io-min0 { min-width: 0; }
+.io-nowrap { white-space: nowrap; }
+.io-mt-12 { margin-top: 12px; }
+.io-mt-24 { margin-top: 24px; }
+.io-badge-gap { margin-left: 6px; }
+.io-scroll-400 { max-height: 400px; overflow-y: auto; }
+.io-scroll-420 { max-height: 420px; overflow-y: auto; }
+.io-col-collection { width: 176px; }
+
+/* FY stacked bars: received vs outstanding, flat token fills */
+.io-key-received { background: var(--success-dot); }
+.io-key-outstanding { background: var(--warning-dot); }
+.io-fy-bar { height: 12px; margin-bottom: 0; }
+
+/* Ranked list rows (top outstanding clients) */
+.list-row.io-rank-row { display: block; }
+.io-rank-head { display: flex; justify-content: space-between; gap: 12px; min-width: 0; }
+
+/* Collection % cell: track + label */
+.io-collect { display: flex; align-items: center; gap: 8px; }
+.io-collect .bar-track { flex: 1; }
+.io-share { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.io-share .bar-track { width: 64px; height: 6px; flex: none; }
+.io-share-pct { font-size: 12px; min-width: 34px; text-align: right; color: var(--text-3); }
+
+/* Monthly collections header */
+.io-chart-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.io-chart-head h3 { font-size: 15px; }
+
+/* Academic years add form */
+.io-add-form { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.io-add-form .field { flex: 1; min-width: 200px; }
+
+/* ListSelect (shared picker): inline add row */
+.io-ls-add { display: flex; gap: 6px; }
+.io-ls-error { color: var(--danger); }

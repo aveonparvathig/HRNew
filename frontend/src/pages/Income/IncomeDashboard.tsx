@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { incomeAPI } from '../../api/income';
 import { PageHeader, StatCard, ErrorAlert, LoadingBlock, StatusBadge } from '../../components/ui';
+import { ButtonLink } from '../../components/Button';
 import { formatINR, formatDate, collectionTone } from '../../utils/format';
 
 export default function IncomeDashboard() {
@@ -28,12 +29,12 @@ export default function IncomeDashboard() {
   return (
     <>
       <PageHeader
-        title="Income Dashboard"
+        title="Income dashboard"
         subtitle="Client payment follow-up sheet — org-wide ledger."
         actions={
           <>
-            <Link to="/income/analytics" className="btn btn-secondary">Analytics</Link>
-            <Link to="/income/clients" className="btn btn-primary">Clients</Link>
+            <ButtonLink to="/income/analytics" icon="analytics">Analytics</ButtonLink>
+            <ButtonLink to="/income/clients" variant="primary" icon="building">Clients</ButtonLink>
           </>
         }
       />
@@ -47,26 +48,26 @@ export default function IncomeDashboard() {
               {allPct}% collected overall
             </span>
           )}
-          sub={`${data.clientCount} active clients`} icon="◷" tone="warning" />
-        <StatCard label="Follow-ups Due" value={data.followups.length}
-          sub="Due today or overdue" icon="⚑" tone={data.followups.length ? 'danger' : 'success'} />
-        <StatCard label="Waiting on Invoice" value={data.waiting.length}
-          sub="Invoice status: waiting" icon="▤" tone="info" />
-        <StatCard label="Agreements Expiring" value={data.expiringCount}
-          sub={`${data.poPendingCount} clients missing PO`} icon="✎" tone={data.expiringCount ? 'danger' : 'success'} />
+          sub={`${data.clientCount} active clients`} icon="clock" tone="warning" />
+        <StatCard label="Follow-ups due" value={data.followups.length}
+          sub="Due today or overdue" icon="alert" tone={data.followups.length ? 'danger' : 'success'} />
+        <StatCard label="Waiting on invoice" value={data.waiting.length}
+          sub="Invoice status: waiting" icon="receipt" tone="info" />
+        <StatCard label="Agreements expiring" value={data.expiringCount}
+          sub={`${data.poPendingCount} clients missing PO`} icon="calendar" tone={data.expiringCount ? 'danger' : 'success'} />
       </div>
 
       <div className="grid-2 mb-24">
         {/* FY summary */}
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 16 }}>Billed by financial year</h3>
+          <h3 className="io-card-title io-spaced">Billed by financial year</h3>
           {data.fyRows.length === 0 ? (
             <p className="text-muted">No billing data yet.</p>
           ) : (
             <>
               <div className="chart-legend">
-                <span className="chart-key"><span className="payout-dot" style={{ background: 'var(--success-dot)' }} />Received</span>
-                <span className="chart-key"><span className="payout-dot" style={{ background: '#F79009' }} />Outstanding</span>
+                <span className="chart-key"><span className="payout-dot io-key-received" />Received</span>
+                <span className="chart-key"><span className="payout-dot io-key-outstanding" />Outstanding</span>
               </div>
               {data.fyRows.map((r: any) => {
                 const pct = r.billed > 0 ? Math.round((r.received / r.billed) * 100) : 0;
@@ -74,18 +75,20 @@ export default function IncomeDashboard() {
                 return (
                   <div key={r.year} className="fy-row">
                     <div className="fy-head">
-                      <span style={{ fontWeight: 600 }}>{r.year}</span>
-                      <span className="text-muted">
+                      <span className="io-strong">{r.year}</span>
+                      <span className="text-muted num">
                         {formatINR(r.received)} of {formatINR(r.billed)}
                         {' · '}<span className={`pct-label ${collectionTone(pct)}`}>{pct}%</span>
                       </span>
                     </div>
+                    {/* Bar length scales with this year's billing (data-driven) */}
                     <div style={{ width: `${Math.max((r.billed / maxFy) * 100, 6)}%` }}>
-                      <div className="payout-bar" style={{ height: 12, marginBottom: 0 }}>
-                        <span className="payout-seg" style={{ width: `${r.billed > 0 ? (r.received / r.billed) * 100 : 0}%`, background: 'var(--success-dot)' }}
+                      <div className="payout-bar io-fy-bar">
+                        {/* Segment widths are the received / outstanding split (data-driven) */}
+                        <span className="payout-seg io-key-received" style={{ width: `${r.billed > 0 ? (r.received / r.billed) * 100 : 0}%` }}
                           title={`Received ${formatINR(r.received)}`} />
                         {outstanding > 0.5 && (
-                          <span className="payout-seg" style={{ width: `${(outstanding / r.billed) * 100}%`, background: '#F79009' }}
+                          <span className="payout-seg io-key-outstanding" style={{ width: `${(outstanding / r.billed) * 100}%` }}
                             title={`Outstanding ${formatINR(outstanding)}`} />
                         )}
                       </div>
@@ -99,20 +102,21 @@ export default function IncomeDashboard() {
 
         {/* Top outstanding clients */}
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 10 }}>Top outstanding clients</h3>
+          <h3 className="io-card-title">Top outstanding clients</h3>
           {data.topClients.length === 0 ? (
-            <p className="text-muted">Nothing outstanding. 🎉</p>
+            <p className="text-muted">Nothing outstanding.</p>
           ) : (
             data.topClients.map((c: any) => (
-              <div key={c.clientId} className="list-row" style={{ display: 'block' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, minWidth: 0 }}>
-                  <div style={{ minWidth: 0 }}>
-                    <Link to={`/income/clients/${c.clientId}`} style={{ fontWeight: 600 }}>{c.name}</Link>
-                    {c.engineer && <span className="text-muted" style={{ fontSize: 11.5 }}> · {c.engineer}</span>}
+              <div key={c.clientId} className="list-row io-rank-row">
+                <div className="io-rank-head">
+                  <div className="io-min0">
+                    <Link to={`/income/clients/${c.clientId}`} className="io-strong">{c.name}</Link>
+                    {c.engineer && <span className="io-meta"> · {c.engineer}</span>}
                   </div>
-                  <strong className="text-warning" style={{ whiteSpace: 'nowrap' }}>{formatINR(c.balance)}</strong>
+                  <strong className="text-warning num io-nowrap">{formatINR(c.balance)}</strong>
                 </div>
                 <div className="rank-track">
+                  {/* Width is this client's share of the largest balance (data-driven) */}
                   <div className="rank-fill" style={{ width: `${(c.balance / maxTopBalance) * 100}%` }} />
                 </div>
               </div>
@@ -124,20 +128,20 @@ export default function IncomeDashboard() {
       <div className="grid-2 mb-24">
         {/* Follow-ups */}
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 10 }}>Follow-ups due</h3>
+          <h3 className="io-card-title">Follow-ups due</h3>
           {data.followups.length === 0 ? (
             <p className="text-muted">No pending follow-ups.</p>
           ) : (
             data.followups.slice(0, 8).map((b: any) => (
               <div key={b.id} className="list-row">
-                <div style={{ minWidth: 0 }}>
-                  <Link to={`/income/clients/${b.clientId}`} style={{ fontWeight: 600 }}>{b.clientName}</Link>
-                  <div className="text-muted" style={{ fontSize: 11.5 }}>
+                <div className="io-min0">
+                  <Link to={`/income/clients/${b.clientId}`} className="io-strong">{b.clientName}</Link>
+                  <div className="io-meta">
                     {b.periodLabel || b.academicYear} · {formatDate(b.nextFollowupDate)}
                     {b.followupNote && ` — ${b.followupNote}`}
                   </div>
                 </div>
-                <span className="badge badge-danger"><span className="dot" />{formatINR(b.balance)}</span>
+                <span className="badge badge-danger num"><span className="dot" />{formatINR(b.balance)}</span>
               </div>
             ))
           )}
@@ -145,20 +149,20 @@ export default function IncomeDashboard() {
 
         {/* Recent payments */}
         <div className="card card-pad">
-          <h3 style={{ fontSize: 15, marginBottom: 10 }}>Recent payments</h3>
+          <h3 className="io-card-title">Recent payments</h3>
           {data.recentPayments.length === 0 ? (
             <p className="text-muted">No payments recorded yet.</p>
           ) : (
             data.recentPayments.map((p: any) => (
               <div key={p.id} className="list-row">
-                <div style={{ minWidth: 0 }}>
-                  <Link to={`/income/clients/${p.clientId}`} style={{ fontWeight: 600 }}>{p.clientName}</Link>
-                  <div className="text-muted" style={{ fontSize: 11.5 }}>
+                <div className="io-min0">
+                  <Link to={`/income/clients/${p.clientId}`} className="io-strong">{p.clientName}</Link>
+                  <div className="io-meta">
                     {p.academicYear} · {p.receivedOn ? formatDate(p.receivedOn) : 'opening figure'}
                     {p.mode && ` · ${p.mode}`}
                   </div>
                 </div>
-                <strong className="text-success">+{formatINR(p.amount)}</strong>
+                <strong className="num num-pos io-nowrap">+{formatINR(p.amount)}</strong>
               </div>
             ))
           )}
@@ -174,13 +178,13 @@ export default function IncomeDashboard() {
               <thead>
                 <tr>
                   <th>Client</th><th>Year</th><th>Engineer</th>
-                  <th className="num">Total Due</th><th className="num">Balance</th><th>Status</th>
+                  <th className="num">Total due</th><th className="num">Balance</th><th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {data.waiting.map((b: any) => (
                   <tr key={b.id}>
-                    <td><Link to={`/income/clients/${b.clientId}`} style={{ fontWeight: 600 }}>{b.clientName}</Link></td>
+                    <td><Link to={`/income/clients/${b.clientId}`} className="io-strong">{b.clientName}</Link></td>
                     <td>{b.periodLabel || b.academicYear}</td>
                     <td className="text-muted">{b.engineer || '—'}</td>
                     <td className="num">{formatINR(b.totalDue)}</td>
@@ -196,7 +200,7 @@ export default function IncomeDashboard() {
 
       {/* Engineer summary */}
       {data.engineerRows.length > 0 && (
-        <div className="card" style={{ marginTop: 24 }}>
+        <div className="card io-mt-24">
           <div className="card-header"><h3>By engineer</h3></div>
           <div className="table-wrap">
             <table className="table">
@@ -204,7 +208,7 @@ export default function IncomeDashboard() {
                 <tr>
                   <th>Engineer</th><th className="num">Clients</th>
                   <th className="num">Billed</th><th className="num">Received</th><th className="num">Outstanding</th>
-                  <th style={{ width: 170 }}>Collection</th>
+                  <th className="io-col-collection">Collection</th>
                 </tr>
               </thead>
               <tbody>
@@ -212,17 +216,18 @@ export default function IncomeDashboard() {
                   const pct = r.billed > 0 ? Math.round((r.received / r.billed) * 100) : 0;
                   return (
                     <tr key={r.engineer}>
-                      <td style={{ fontWeight: 600 }}>{r.engineer}</td>
+                      <td className="io-strong">{r.engineer}</td>
                       <td className="num">{r.clientCount}</td>
                       <td className="num">{formatINR(r.billed)}</td>
                       <td className="num text-success">{formatINR(r.received)}</td>
                       <td className="num text-warning">{formatINR(r.outstanding)}</td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div className="bar-track" style={{ flex: 1 }}>
+                        <div className="io-collect">
+                          <div className="bar-track">
+                            {/* Width is the collection percentage (data-driven) */}
                             <div className={`bar-fill ${collectionTone(pct)}`} style={{ width: `${Math.min(Math.max(pct, 3), 100)}%` }} />
                           </div>
-                          <span className={`pct-label ${collectionTone(pct)}`}>{pct}%</span>
+                          <span className={`pct-label num ${collectionTone(pct)}`}>{pct}%</span>
                         </div>
                       </td>
                     </tr>

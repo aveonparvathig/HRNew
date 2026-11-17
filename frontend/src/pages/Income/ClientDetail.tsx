@@ -1,9 +1,11 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import { incomeAPI } from '../../api/income';
 import {
   PageHeader, StatCard, StatusBadge, EmptyState, LoadingBlock, ErrorAlert, Modal, BackButton,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
+import { Icon } from '../../components/Layout/nav';
 import BillingFormModal from '../../components/BillingFormModal';
 import ProformaFormModal from '../../components/ProformaFormModal';
 import { ClientAddressFields } from '../../components/ClientAddressFields';
@@ -171,12 +173,13 @@ export default function ClientDetail() {
   if (!client) {
     return (
       <EmptyState icon="◉" title="Client not found" message="This client may have been deleted."
-        action={<button className="btn btn-secondary" onClick={() => navigate('/income/clients')}>Back to Clients</button>} />
+        action={<Button onClick={() => navigate('/income/clients')}>Back to clients</Button>} />
     );
   }
 
   const totals = client.totals;
   const ob = client.onboarding;
+  const openAddYear = () => setBillingModal({ open: true, billing: null });
 
   return (
     <>
@@ -195,14 +198,14 @@ export default function ClientDetail() {
         actions={
           <>
             <StatusBadge status={client.isActive ? 'active' : 'inactive'} />
-            <button className="btn btn-secondary" onClick={() => setExportModal(true)}>⤓ Export</button>
-            <Link to={`/income/clients/${client.id}/implementation`} className="btn btn-secondary">
+            <Button icon="download" onClick={() => setExportModal(true)}>Export</Button>
+            <ButtonLink to={`/income/clients/${client.id}/implementation`} icon="layers">
               Implementation
-            </Link>
-            <button className="btn btn-secondary" onClick={() => setEditModal(true)}>Edit</button>
-            <button className="btn btn-primary" onClick={() => setBillingModal({ open: true, billing: null })}>
-              + Add Year
-            </button>
+            </ButtonLink>
+            <Button icon="pen" onClick={() => setEditModal(true)}>Edit</Button>
+            <Button variant="accent" icon="plus" onClick={openAddYear}>
+              Add year
+            </Button>
           </>
         }
       />
@@ -211,24 +214,24 @@ export default function ClientDetail() {
 
       {ob && (ob.agreement.expired || ob.agreement.expiring) && (
         <div className="alert alert-error">
-          <span>⚠</span>
+          <Icon name="alert" size={16} className="ic-alert-icon" />
           <span>Agreement: {ob.agreement.label}. <Link to={`/income/clients/${client.id}/implementation`}>Review implementation →</Link></span>
         </div>
       )}
 
       <div className="stat-grid">
-        <StatCard label="Total Billed" value={formatINR(totals.billed)} icon="▤" tone="primary" />
-        <StatCard label="Received" value={formatINR(totals.received)} icon="✓" tone="success" />
-        <StatCard label="Balance" value={formatINR(totals.balance)} icon="◷"
+        <StatCard label="Total billed" value={formatINR(totals.billed)} icon="receipt" tone="primary" />
+        <StatCard label="Received" value={formatINR(totals.received)} icon="checkCircle" tone="success" />
+        <StatCard label="Balance" value={formatINR(totals.balance)} icon="clock"
           tone={totals.balance > 0 ? 'warning' : 'success'} />
-        <StatCard label="Collection" value={`${totals.collectionPct}%`} icon="◔" tone="info"
+        <StatCard label="Collection" value={`${totals.collectionPct}%`} icon="chart" tone="info"
           sub={ob ? `Stage: ${ob.stage?.toLowerCase() || '—'}` : undefined} />
       </div>
 
       {client.notes && (
         <div className="card card-pad mb-24">
-          <h3 style={{ fontSize: 14, marginBottom: 6 }}>Notes</h3>
-          <p className="text-muted" style={{ whiteSpace: 'pre-wrap' }}>{client.notes}</p>
+          <h3 className="ic-notes-title">Notes</h3>
+          <p className="text-muted ic-notes">{client.notes}</p>
         </div>
       )}
 
@@ -236,12 +239,12 @@ export default function ClientDetail() {
       <div className="card">
         <div className="card-header">
           <h3>Billing by academic year</h3>
-          <span className="text-muted" style={{ fontSize: 12.5 }}>Click a row to see payments</span>
+          <span className="text-sm-muted">Click a row to see payments</span>
         </div>
         {client.billings.length === 0 ? (
           <EmptyState icon="▤" title="No billing years yet"
             message="Add the client's first academic year to start tracking."
-            action={<button className="btn btn-primary" onClick={() => setBillingModal({ open: true, billing: null })}>+ Add Year</button>} />
+            action={<Button icon="plus" onClick={openAddYear}>Add year</Button>} />
         ) : (
           <div className="table-wrap">
             <table className="table table-sticky-actions">
@@ -249,18 +252,19 @@ export default function ClientDetail() {
                 <tr>
                   <th>Period</th><th>Engineer</th><th className="num">Students</th>
                   <th className="num">Rate</th><th className="num">Net</th>
-                  <th className="num">Prev Pending</th><th className="num">Total Due</th>
+                  <th className="num">Prev pending</th><th className="num">Total due</th>
                   <th className="num">Received</th><th className="num">Balance</th>
-                  <th>Invoice</th><th>Follow-up</th><th />
+                  <th>Invoice</th><th>Follow-up</th><th><span className="sr-only">Actions</span></th>
                 </tr>
               </thead>
               <tbody>
                 {client.billings.map((b: any) => (
-                  <>
-                    <tr key={b.id} onClick={() => setExpanded(expanded === b.id ? null : b.id)}
-                      style={{ cursor: 'pointer' }}>
-                      <td style={{ fontWeight: 600 }}>
-                        {expanded === b.id ? '▾ ' : '▸ '}{b.periodLabel || b.academicYear}
+                  <Fragment key={b.id}>
+                    <tr className="clickable" onClick={() => setExpanded(expanded === b.id ? null : b.id)}
+                      aria-expanded={expanded === b.id}>
+                      <td className="ic-strong ic-nowrap">
+                        <Icon name="chevron" size={14} className={`ic-caret${expanded === b.id ? ' is-open' : ''}`} />
+                        {b.periodLabel || b.academicYear}
                       </td>
                       <td className="text-muted">{b.engineer || '—'}</td>
                       <td className="num">{b.studentCount ?? '—'}</td>
@@ -269,15 +273,15 @@ export default function ClientDetail() {
                       <td className="num">
                         {formatINR(b.previousPending)}
                         {b.mismatch && (
-                          <span className="mismatch-flag" style={{ marginLeft: 6 }}
+                          <span className="mismatch-flag ic-flag-gap"
                             title={`Prior year closed at ${formatINR(b.priorBalance)} — carry-forward doesn't match`}>
                             ≠ {formatINR(b.priorBalance)}
                           </span>
                         )}
                       </td>
-                      <td className="num" style={{ fontWeight: 600 }}>{formatINR(b.totalDue)}</td>
+                      <td className="num ic-strong">{formatINR(b.totalDue)}</td>
                       <td className="num text-success">{formatINR(b.received)}</td>
-                      <td className={`num ${b.balance > 0 ? 'text-warning' : 'text-success'}`} style={{ fontWeight: 600 }}>
+                      <td className={`num ic-strong ${b.balance > 0 ? 'text-warning' : 'text-success'}`}>
                         {formatINR(b.balance)}
                       </td>
                       <td>
@@ -298,49 +302,48 @@ export default function ClientDetail() {
                       </td>
                       <td onClick={e => e.stopPropagation()}>
                         <div className="row-actions">
-                          <button className="btn btn-primary btn-sm"
+                          <Button size="sm" icon="banknote"
                             onClick={() => { setPaymentForm(EMPTY_PAYMENT); setPaymentModal(b); }}>
-                            + Payment
-                          </button>
-                          <button className="btn btn-secondary btn-sm" onClick={() => setProformaModal(b)}>
+                            Payment
+                          </Button>
+                          <Button size="sm" icon="receipt" onClick={() => setProformaModal(b)}>
                             Proforma
-                          </button>
-                          <button className="btn btn-secondary btn-sm"
-                            onClick={() => setBillingModal({ open: true, billing: b })}>
+                          </Button>
+                          <Button size="sm" onClick={() => setBillingModal({ open: true, billing: b })}>
                             Edit
-                          </button>
-                          {isSA && (<button className='btn btn-danger btn-sm' onClick={() => handleDeleteBilling(b)}>Del</button>)}
+                          </Button>
+                          {isSA && <Button variant="danger" size="sm" onClick={() => handleDeleteBilling(b)}>Delete</Button>}
                         </div>
                       </td>
                     </tr>
                     {expanded === b.id && (
-                      <tr key={`${b.id}-payments`}>
-                        <td colSpan={12} style={{ background: 'var(--surface-2)', padding: '14px 24px' }}>
+                      <tr>
+                        <td colSpan={12} className="ic-expand-cell">
                           {b.remarks && (
-                            <p className="text-muted" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                            <p className="text-muted ic-remarks">
                               <strong>Remarks:</strong> {b.remarks}
                             </p>
                           )}
                           {b.payments.length === 0 ? (
-                            <p className="text-muted" style={{ fontSize: 13 }}>No payments recorded for {b.periodLabel || b.academicYear}.</p>
+                            <p className="text-muted ic-empty-note">No payments recorded for {b.periodLabel || b.academicYear}.</p>
                           ) : (
-                            <table className="table" style={{ background: 'var(--surface)' }}>
+                            <table className="table ic-subtable">
                               <thead>
                                 <tr>
                                   <th>Date</th><th className="num">Amount</th>
-                                  <th>Mode</th><th>Note</th><th />
+                                  <th>Mode</th><th>Note</th><th><span className="sr-only">Actions</span></th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {b.payments.map((p: any) => (
                                   <tr key={p.id}>
                                     <td>{p.receivedOn ? formatDate(p.receivedOn) : <span className="text-muted">opening figure</span>}</td>
-                                    <td className="num text-success" style={{ fontWeight: 600 }}>+{formatINR(p.amount)}</td>
+                                    <td className="num num-pos ic-strong">+{formatINR(p.amount)}</td>
                                     <td className="text-muted">{p.mode || '—'}</td>
                                     <td className="text-muted">{p.note || '—'}</td>
                                     <td>
                                       <div className="row-actions">
-                                        {isSA && (<button className='btn btn-danger btn-sm' onClick={() => handleDeletePayment(p)}>Delete</button>)}
+                                        {isSA && <Button variant="danger" size="sm" onClick={() => handleDeletePayment(p)}>Delete</Button>}
                                       </div>
                                     </td>
                                   </tr>
@@ -351,7 +354,7 @@ export default function ClientDetail() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
                 <tr className="totals-row">
                   <td colSpan={6}>Totals</td>
@@ -386,24 +389,24 @@ export default function ClientDetail() {
       />
 
       {/* Edit client */}
-      <Modal title="Edit Client" open={editModal} onClose={() => setEditModal(false)}>
+      <Modal title="Edit client" open={editModal} onClose={() => setEditModal(false)}>
         <form onSubmit={handleUpdateClient}>
-          <div className="field" style={{ marginBottom: 16 }}>
-            <label>Client name *</label>
-            <input className="input" value={editForm.name} required
+          <div className="field mb-16">
+            <label htmlFor="edit-client-name">Client name *</label>
+            <input id="edit-client-name" className="input" value={editForm.name} required
               onChange={e => setEditForm({ ...editForm, name: e.target.value })} />
           </div>
           <ClientAddressFields value={editForm} states={meta?.states}
             onChange={addr => setEditForm({ ...editForm, ...addr })} />
-          <div className="form-grid" style={{ marginBottom: 16 }}>
+          <div className="form-grid mb-16">
             <div className="field">
-              <label>Agreement status</label>
-              <input className="input" value={editForm.agreementStatus}
+              <label htmlFor="edit-client-agreement">Agreement status</label>
+              <input id="edit-client-agreement" className="input" value={editForm.agreementStatus}
                 onChange={e => setEditForm({ ...editForm, agreementStatus: e.target.value })} />
             </div>
             <div className="field">
-              <label>State</label>
-              <select className="select" value={editForm.isActive ? 'active' : 'inactive'}
+              <label htmlFor="edit-client-state">State</label>
+              <select id="edit-client-state" className="select" value={editForm.isActive ? 'active' : 'inactive'}
                 onChange={e => setEditForm({ ...editForm, isActive: e.target.value === 'active' })}>
                 <option value="active">Active</option>
                 <option value="inactive">Discontinued</option>
@@ -411,50 +414,50 @@ export default function ClientDetail() {
             </div>
           </div>
           <div className="field">
-            <label>Notes</label>
-            <textarea className="input" rows={3} value={editForm.notes}
+            <label htmlFor="edit-client-notes">Notes</label>
+            <textarea id="edit-client-notes" className="input" rows={3} value={editForm.notes}
               onChange={e => setEditForm({ ...editForm, notes: e.target.value })} />
           </div>
           <div className="form-actions">
-            <button type="button" className="btn btn-ghost" onClick={() => setEditModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Saving…' : 'Save Changes'}
-            </button>
+            <Button variant="ghost" onClick={() => setEditModal(false)}>Cancel</Button>
+            <Button type="submit" variant="accent" loading={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
           </div>
         </form>
       </Modal>
 
       {/* Add payment */}
-      <Modal title={paymentModal ? `Record Payment — ${paymentModal.periodLabel || paymentModal.academicYear}` : ''}
+      <Modal title={paymentModal ? `Record payment — ${paymentModal.periodLabel || paymentModal.academicYear}` : ''}
         open={Boolean(paymentModal)} onClose={() => setPaymentModal(null)}>
         {paymentModal && (
           <form onSubmit={handleAddPayment}>
-            <div className="calc-card" style={{ marginBottom: 16 }}>
+            <div className="calc-card mb-16">
               <div className="calc-row">
                 <span>Total due {paymentModal.periodLabel || paymentModal.academicYear}</span>
-                <span className="amount">{formatINR(paymentModal.totalDue)}</span>
+                <span className="amount num">{formatINR(paymentModal.totalDue)}</span>
               </div>
               <div className="calc-row">
                 <span>Already received</span>
-                <span className="amount text-success">{formatINR(paymentModal.received)}</span>
+                <span className="amount num text-success">{formatINR(paymentModal.received)}</span>
               </div>
               <div className="calc-row total grand">
                 <span>Balance</span>
-                <span className="amount">{formatINR(paymentModal.balance)}</span>
+                <span className="amount num">{formatINR(paymentModal.balance)}</span>
               </div>
             </div>
-            <div className="form-grid" style={{ marginBottom: 16 }}>
+            <div className="form-grid mb-16">
               <div className="field">
-                <label>Amount *</label>
+                <label htmlFor="payment-amount">Amount *</label>
                 <div className="input-unit">
                   <span className="unit">₹</span>
-                  <input className="input" type="number" min={0.01} step="0.01" autoFocus required
+                  <input id="payment-amount" className="input" type="number" min={0.01} step="0.01" autoFocus required
                     placeholder="0"
                     value={paymentForm.amount}
                     onChange={e => setPaymentForm({ ...paymentForm, amount: e.target.value })} />
                 </div>
                 {paymentModal.balance > 0 && (
-                  <div className="chip-row" style={{ marginTop: 8 }}>
+                  <div className="chip-row ic-mt-8">
                     <button type="button" className="chip"
                       onClick={() => setPaymentForm({ ...paymentForm, amount: String(paymentModal.balance) })}>
                       Full balance — {formatINR(paymentModal.balance)}
@@ -467,14 +470,14 @@ export default function ClientDetail() {
                 )}
               </div>
               <div className="field">
-                <label>Received on</label>
-                <input className="input" type="date" value={paymentForm.receivedOn}
+                <label htmlFor="payment-received-on">Received on</label>
+                <input id="payment-received-on" className="input" type="date" value={paymentForm.receivedOn}
                   onChange={e => setPaymentForm({ ...paymentForm, receivedOn: e.target.value })} />
               </div>
             </div>
-            <div className="field" style={{ marginBottom: 16 }}>
-              <label>Payment mode</label>
-              <div className="chip-row" style={{ marginBottom: 8 }}>
+            <div className="field mb-16">
+              <label htmlFor="payment-mode">Payment mode</label>
+              <div className="chip-row ic-mb-8">
                 {['NEFT', 'UPI', 'Cheque', 'Cash'].map(m => (
                   <button key={m} type="button"
                     className={`chip ${paymentForm.mode === m ? 'active' : ''}`}
@@ -483,34 +486,31 @@ export default function ClientDetail() {
                   </button>
                 ))}
               </div>
-              <input className="input" placeholder="Or type another mode…" value={paymentForm.mode}
+              <input id="payment-mode" className="input" placeholder="Or type another mode…" value={paymentForm.mode}
                 onChange={e => setPaymentForm({ ...paymentForm, mode: e.target.value })} />
             </div>
             <div className="field">
-              <label>Note</label>
-              <input className="input" placeholder="e.g. UTR number, instalment 2 of 3" value={paymentForm.note}
+              <label htmlFor="payment-note">Note</label>
+              <input id="payment-note" className="input" placeholder="e.g. UTR number, instalment 2 of 3" value={paymentForm.note}
                 onChange={e => setPaymentForm({ ...paymentForm, note: e.target.value })} />
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setPaymentModal(null)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
-                {saving ? 'Recording…' : `Record ${paymentForm.amount ? formatINR(Number(paymentForm.amount)) : 'Payment'}`}
-              </button>
+              <Button variant="ghost" onClick={() => setPaymentModal(null)}>Cancel</Button>
+              <Button type="submit" variant="accent" loading={saving}>
+                {saving ? 'Recording…' : `Record ${paymentForm.amount ? formatINR(Number(paymentForm.amount)) : 'payment'}`}
+              </Button>
             </div>
           </form>
         )}
       </Modal>
 
       {/* Statement export: pick the period + format */}
-      <Modal title={`Export Statement — ${client.name}`} open={exportModal}
+      <Modal title={`Export statement — ${client.name}`} open={exportModal}
         onClose={() => setExportModal(false)}>
-        <div className="field" style={{ marginBottom: 16 }}>
+        <div className="field mb-16">
           <label>Periods — pick one or more</label>
-          <div style={{
-            border: '1px solid var(--border)', borderRadius: 10, padding: '8px 12px',
-            maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 4,
-          }}>
-            <label className="checkbox-field" style={{ fontWeight: 600 }}>
+          <div className="ic-period-list">
+            <label className="checkbox-field ic-strong">
               <input type="checkbox" checked={exportYears.length === 0}
                 onChange={() => setExportYears([])} />
               All periods ({client.billings.length})
@@ -520,7 +520,7 @@ export default function ClientDetail() {
                 <input type="checkbox" checked={exportYears.includes(b.academicYear)}
                   onChange={() => toggleExportYear(b.academicYear)} />
                 {b.periodLabel || b.academicYear}
-                <span className="text-muted" style={{ fontSize: 11.5, marginLeft: 'auto' }}>
+                <span className="ic-sub num ic-push-right">
                   {formatINR(b.totalDue)}
                 </span>
               </label>
@@ -532,13 +532,15 @@ export default function ClientDetail() {
               : 'Everything: all billing rows and every payment.'}
           </span>
         </div>
-        <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
-          <button className="btn btn-primary" disabled={exporting !== null} onClick={handleExportPdf}>
-            {exporting === 'pdf' ? 'Exporting…' : '⤓ Download PDF'}
-          </button>
-          <button className="btn btn-secondary" disabled={exporting !== null} onClick={handleExportXlsx}>
-            {exporting === 'xlsx' ? 'Exporting…' : '⤓ Download Excel'}
-          </button>
+        <div className="form-actions ic-actions-start">
+          <Button variant="accent" icon="download" loading={exporting === 'pdf'} disabled={exporting !== null}
+            onClick={handleExportPdf}>
+            {exporting === 'pdf' ? 'Exporting…' : 'Download PDF'}
+          </Button>
+          <Button icon="download" loading={exporting === 'xlsx'} disabled={exporting !== null}
+            onClick={handleExportXlsx}>
+            {exporting === 'xlsx' ? 'Exporting…' : 'Download Excel'}
+          </Button>
         </div>
       </Modal>
     </>

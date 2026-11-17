@@ -1,0 +1,82 @@
+/* Income redesign: clients. */
+
+/* Shared text helpers */
+.ic-strong { font-weight: 600; }
+.ic-sub { font-size: 11.5px; color: var(--text-3); }
+.ic-sub-gap { margin-top: 3px; }
+.ic-detail { font-size: 12.5px; }
+.ic-nowrap { white-space: nowrap; }
+.ic-optional { font-weight: 400; color: var(--text-3); }
+.ic-push-right { margin-left: auto; }
+
+/* Spacing */
+.ic-mb-8 { margin-bottom: 8px; }
+.ic-mb-10 { margin-bottom: 10px; }
+.ic-mb-12 { margin-bottom: 12px; }
+.ic-mt-8 { margin-top: 8px; }
+
+/* Alerts with an svg glyph */
+.ic-alert-icon { flex: none; margin-top: 1px; }
+
+/* Text-styled inline action (was an <a> without href) */
+.ic-link-btn {
+  appearance: none; background: none; border: 0; padding: 0;
+  font: inherit; color: var(--primary); cursor: pointer; text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.ic-link-btn:hover { color: var(--text); }
+
+/* Form action rows */
+.form-actions.ic-actions-between { justify-content: space-between; }
+.form-actions.ic-actions-start { justify-content: flex-start; }
+.ic-actions-group { display: flex; gap: 10px; }
+
+/* Clients list */
+.table th.ic-th-collection { width: 150px; }
+.select.ic-engineer-select { width: 150px; padding: 5px 8px; font-size: 12.5px; }
+.ic-collection { display: flex; align-items: center; gap: 8px; }
+.ic-collection .bar-track { flex: 1; }
+.card.ic-card-muted { opacity: 0.85; }
+.calc-card.ic-calc-single { margin-bottom: 6px; }
+.ic-calc-single .calc-row.total { border-top: none; margin-top: 0; padding-top: 0; }
+
+/* Client detail */
+.ic-notes-title { font-size: 14px; margin-bottom: 6px; }
+.ic-notes { white-space: pre-wrap; }
+.ic-caret { flex: none; vertical-align: -2px; margin-right: 4px; color: var(--text-3); transition: transform 0.15s ease; }
+.ic-caret.is-open { transform: rotate(90deg); }
+.ic-flag-gap { margin-left: 6px; }
+.table td.ic-expand-cell { background: var(--surface-2); padding: 14px 24px; }
+.table.ic-subtable { background: var(--surface); }
+.ic-remarks { font-size: 12.5px; margin-bottom: 10px; }
+.ic-empty-note { font-size: 13px; }
+.ic-period-list {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 12px;
+  max-height: 220px; overflow-y: auto; display: grid; gap: 4px;
+}
+
+/* Proforma form */
+.ic-periods { display: grid; gap: 8px; }
+.ic-period {
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px;
+  display: grid; gap: 8px; background: var(--surface);
+}
+.ic-period.is-off { opacity: 0.65; }
+.ic-period-meta { font-weight: 400; color: var(--text-3); margin-left: 6px; }
+.ic-line { display: grid; gap: 6px; padding-top: 8px; border-top: 1px dashed var(--border); }
+.ic-line-top { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto; gap: 8px; align-items: center; }
+.ic-line-bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1.1fr); gap: 8px; align-items: center; }
+.ic-line-amount { font-size: 12.5px; text-align: right; color: var(--text-3); }
+.ic-line-amount strong { color: var(--text); }
+@media (max-width: 560px) {
+  .ic-line-top, .ic-line-bottom { grid-template-columns: minmax(0, 1fr); }
+  .ic-line-amount { text-align: left; }
+}
+
+/* Proforma register */
+.ic-numbering-form { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.field.ic-field-narrow { max-width: 260px; }
+.input.ic-search { max-width: 260px; }
+.ic-warn-note { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--text-3); }
+.ic-warn-note .ic-alert-icon { color: var(--warning); margin-top: 0; }
+.form-section-title .ic-section-optional { text-transform: none; letter-spacing: 0; font-weight: 500; }

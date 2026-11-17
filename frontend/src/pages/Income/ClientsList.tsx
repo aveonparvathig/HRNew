@@ -4,6 +4,7 @@ import { incomeAPI } from '../../api/income';
 import {
   PageHeader, EmptyState, LoadingBlock, ErrorAlert, Modal,
 } from '../../components/ui';
+import { Button, ButtonLink } from '../../components/Button';
 import { formatINR, collectionTone } from '../../utils/format';
 import { useRole } from '../../store/authStore';
 import { confirmDialog } from '../../components/feedback';
@@ -24,23 +25,23 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
             <th className="num">Billed</th>
             <th className="num">Received</th>
             <th className="num">Balance</th>
-            <th style={{ width: 150 }}>Collection</th>
-            <th />
+            <th className="ic-th-collection">Collection</th>
+            <th><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
           {rows.map((r: any) => (
             <tr key={r.id}>
               <td>
-                <Link to={`/income/clients/${r.id}`} style={{ fontWeight: 600 }}>{r.name}</Link>
+                <Link to={`/income/clients/${r.id}`} className="ic-strong">{r.name}</Link>
                 {r.agreementStatus && (
-                  <div className="text-muted" style={{ fontSize: 11.5 }}>{r.agreementStatus}</div>
+                  <div className="ic-sub">{r.agreementStatus}</div>
                 )}
               </td>
               <td>
                 <select
-                  className="select"
-                  style={{ width: 150, padding: '5px 8px', fontSize: 12.5 }}
+                  className="select ic-engineer-select"
+                  aria-label={`Engineer for ${r.name}`}
                   value={r.latestEngineer}
                   disabled={!canManage || r.billingCount === 0}
                   onChange={e => onEngineerChange(r.id, e.target.value)}
@@ -49,7 +50,7 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
                   {engineers.map((e: string) => <option key={e} value={e}>{e}</option>)}
                 </select>
                 {r.supportEngineer && (
-                  <div className="text-muted" style={{ fontSize: 11.5, marginTop: 3 }}
+                  <div className="ic-sub ic-sub-gap"
                     title="Additional engineer (set on the Implementation page)">
                     + {r.supportEngineer}
                   </div>
@@ -57,22 +58,27 @@ function ClientTable({ rows, totals, engineers, onEngineerChange, onToggleActive
               </td>
               <td className="num">{formatINR(r.billed)}</td>
               <td className="num text-success">{formatINR(r.received)}</td>
-              <td className={`num ${r.balance > 0 ? 'text-warning' : 'text-success'}`} style={{ fontWeight: 600 }}>
+              <td className={`num ic-strong ${r.balance > 0 ? 'text-warning' : 'text-success'}`}>
                 {formatINR(r.balance)}
               </td>
               <td>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="bar-track" style={{ flex: 1 }}>
+                <div className="ic-collection">
+                  <div className="bar-track">
+                    {/* Width is this client's collection percentage */}
                     <div className={`bar-fill ${collectionTone(r.collectionPct)}`}
                       style={{ width: `${Math.max(r.collectionPct, 3)}%` }} />
                   </div>
-                  <span className={`pct-label ${collectionTone(r.collectionPct)}`}>{r.collectionPct}%</span>
+                  <span className={`pct-label num ${collectionTone(r.collectionPct)}`}>{r.collectionPct}%</span>
                 </div>
               </td>
               <td>
                 <div className="row-actions">
-                  <Link to={`/income/clients/${r.id}`} className="btn btn-secondary btn-sm">Open</Link>
-                  {canManage && (<button className='btn btn-ghost btn-sm' onClick={() => onToggleActive(r)}>{r.isActive ? 'Discontinue' : 'Reactivate'}</button>)}
+                  <ButtonLink to={`/income/clients/${r.id}`} size="sm">Open</ButtonLink>
+                  {canManage && (
+                    <Button variant="ghost" size="sm" onClick={() => onToggleActive(r)}>
+                      {r.isActive ? 'Discontinue' : 'Reactivate'}
+                    </Button>
+                  )}
                 </div>
               </td>
             </tr>
@@ -203,7 +209,7 @@ export default function ClientsList() {
         title="Clients"
         subtitle={data ? `${data.totalCount} clients in the ledger.` : 'Client billing ledger.'}
         actions={
-          <button className="btn btn-primary" onClick={openModal}>+ Add Client</button>
+          <Button variant="accent" icon="plus" onClick={openModal}>Add client</Button>
         }
       />
 
@@ -211,29 +217,29 @@ export default function ClientsList() {
 
       <div className="toolbar">
         <div className="search-input">
-          <input className="input" placeholder="Search clients…" value={q}
-            onChange={e => setQ(e.target.value)} />
+          <input className="input" type="search" placeholder="Search clients…" aria-label="Search clients"
+            value={q} onChange={e => setQ(e.target.value)} />
         </div>
-        <select className="select" value={engineer} onChange={e => setEngineer(e.target.value)}>
+        <select className="select" aria-label="Engineer" value={engineer} onChange={e => setEngineer(e.target.value)}>
           <option value="">All engineers</option>
           {(data?.engineers || []).map((e: string) => <option key={e} value={e}>{e}</option>)}
         </select>
-        <select className="select" value={period} onChange={e => setPeriod(e.target.value)}>
+        <select className="select" aria-label="Period" value={period} onChange={e => setPeriod(e.target.value)}>
           <option value="">All periods</option>
           {(data?.periods || []).map((y: string) => <option key={y} value={y}>{y}</option>)}
           {data?.hasCustomPeriods && <option value="CUSTOM">Custom periods</option>}
         </select>
-        <select className="select" value={collection} onChange={e => setCollection(e.target.value)}>
+        <select className="select" aria-label="Collection" value={collection} onChange={e => setCollection(e.target.value)}>
           <option value="">All collection</option>
           <option value="full">Fully collected</option>
           <option value="partial">Partially collected</option>
           <option value="none">Nothing received</option>
         </select>
-        <select className="select" value={show} onChange={e => setShow(e.target.value)}>
+        <select className="select" aria-label="Show" value={show} onChange={e => setShow(e.target.value)}>
           <option value="all">All clients</option>
           <option value="balance">With balance only</option>
         </select>
-        <select className="select" value={sort} onChange={e => setSort(e.target.value)}>
+        <select className="select" aria-label="Sort" value={sort} onChange={e => setSort(e.target.value)}>
           <option value="balance">Sort: balance</option>
           <option value="name">Sort: name</option>
         </select>
@@ -247,7 +253,7 @@ export default function ClientsList() {
             title={hasFilters ? 'No matching clients' : 'No clients yet'}
             message={hasFilters ? 'Try adjusting your filters.' : 'Add your first client to start the ledger.'}
             action={!hasFilters && (
-              <button className="btn btn-primary" onClick={openModal}>+ Add Client</button>
+              <Button icon="plus" onClick={openModal}>Add client</Button>
             )}
           />
         </div>
@@ -268,7 +274,7 @@ export default function ClientsList() {
           {data.inactiveRows.length > 0 && (
             <>
               <div className="section-title text-muted">Discontinued ({data.inactiveRows.length})</div>
-              <div className="card" style={{ opacity: 0.85 }}>
+              <div className="card ic-card-muted">
                 <ClientTable rows={data.inactiveRows} totals={data.inactiveTotals}
                   engineers={data.engineers}
                   canManage={isSA}
@@ -280,7 +286,7 @@ export default function ClientsList() {
         </>
       )}
 
-      <Modal size="lg" title="Add Client" open={showModal} onClose={() => setShowModal(false)}>
+      <Modal size="lg" title="Add client" open={showModal} onClose={() => setShowModal(false)}>
         <div className="wizard-steps">
           <div className={`wizard-step ${step === 1 ? 'active' : 'done'}`}>
             <span className="n">{step > 1 ? '✓' : '1'}</span> Client details
@@ -295,16 +301,16 @@ export default function ClientsList() {
 
         {step === 1 && (
           <form onSubmit={goToStep2}>
-            <div className="field" style={{ marginBottom: 16 }}>
-              <label>Client name *</label>
-              <input className="input" value={form.name} autoFocus required
+            <div className="field mb-16">
+              <label htmlFor="new-client-name">Client name *</label>
+              <input id="new-client-name" className="input" value={form.name} autoFocus required
                 placeholder="Institution / company name"
                 onChange={e => setForm({ ...form, name: e.target.value })} />
             </div>
             <ClientAddressFields value={form} onChange={addr => setForm({ ...form, ...addr })} />
-            <div className="field" style={{ marginBottom: 16 }}>
-              <label>Agreement status</label>
-              <div className="chip-row" style={{ marginBottom: 8 }}>
+            <div className="field mb-16">
+              <label htmlFor="new-client-agreement">Agreement status</label>
+              <div className="chip-row ic-mb-8">
                 {AGREEMENT_SUGGESTIONS.map(s => (
                   <button key={s} type="button"
                     className={`chip ${form.agreementStatus === s ? 'active' : ''}`}
@@ -313,21 +319,21 @@ export default function ClientsList() {
                   </button>
                 ))}
               </div>
-              <input className="input" value={form.agreementStatus}
+              <input id="new-client-agreement" className="input" value={form.agreementStatus}
                 placeholder="Or type your own…"
                 onChange={e => setForm({ ...form, agreementStatus: e.target.value })} />
             </div>
             <div className="field">
-              <label>Notes <span style={{ fontWeight: 400, color: 'var(--text-3)' }}>(optional)</span></label>
-              <textarea className="input" rows={2} value={form.notes}
+              <label htmlFor="new-client-notes">Notes <span className="ic-optional">(optional)</span></label>
+              <textarea id="new-client-notes" className="input" rows={2} value={form.notes}
                 placeholder="Context anyone on the team should know"
                 onChange={e => setForm({ ...form, notes: e.target.value })} />
             </div>
             <div className="form-actions">
-              <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={!form.name.trim()}>
-                Continue →
-              </button>
+              <Button variant="ghost" onClick={() => setShowModal(false)}>Cancel</Button>
+              <Button type="submit" variant="accent" disabled={!form.name.trim()}>
+                Continue
+              </Button>
             </div>
           </form>
         )}
@@ -338,11 +344,11 @@ export default function ClientsList() {
           const net = students * rate * (1 + GST_RATE);
           return (
             <div>
-              <p className="text-muted" style={{ fontSize: 13, marginBottom: 16 }}>
+              <p className="modal-lede">
                 Set up <strong>{form.name}</strong>'s first billing year now, or skip and add it later
                 from the client page.
               </p>
-              <div className="field" style={{ marginBottom: 14 }}>
+              <div className="field mb-14">
                 <label>Academic year</label>
                 <div className="chip-row">
                   {yearChips.map(y => (
@@ -354,25 +360,25 @@ export default function ClientsList() {
                   ))}
                 </div>
               </div>
-              <div className="form-grid" style={{ marginBottom: 14 }}>
+              <div className="form-grid mb-14">
                 <div className="field">
-                  <label>Students</label>
-                  <input className="input" type="number" min={0} placeholder="0"
+                  <label htmlFor="wizard-students">Students</label>
+                  <input id="wizard-students" className="input" type="number" min={0} placeholder="0"
                     value={billingForm.studentCount}
                     onChange={e => setBillingForm({ ...billingForm, studentCount: e.target.value })} />
                 </div>
                 <div className="field">
-                  <label>Rate / student</label>
+                  <label htmlFor="wizard-rate">Rate / student</label>
                   <div className="input-unit">
                     <span className="unit">₹</span>
-                    <input className="input" type="number" min={0} step="0.01" placeholder="0"
+                    <input id="wizard-rate" className="input" type="number" min={0} step="0.01" placeholder="0"
                       value={billingForm.rate}
                       onChange={e => setBillingForm({ ...billingForm, rate: e.target.value })} />
                   </div>
                 </div>
                 <div className="field">
-                  <label>Engineer</label>
-                  <input className="input" list="wizard-engineers" placeholder="Optional"
+                  <label htmlFor="wizard-engineer">Engineer</label>
+                  <input id="wizard-engineer" className="input" list="wizard-engineers" placeholder="Optional"
                     value={billingForm.engineer}
                     onChange={e => setBillingForm({ ...billingForm, engineer: e.target.value })} />
                   <datalist id="wizard-engineers">
@@ -381,24 +387,23 @@ export default function ClientsList() {
                 </div>
               </div>
               {net > 0 && (
-                <div className="calc-card" style={{ marginBottom: 6 }}>
-                  <div className="calc-row total" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0 }}>
+                <div className="calc-card ic-calc-single">
+                  <div className="calc-row total">
                     <span>Net for {billingForm.academicYear} (incl. 18% GST)</span>
-                    <span className="amount">{formatINR(net)}</span>
+                    <span className="amount num">{formatINR(net)}</span>
                   </div>
                 </div>
               )}
-              <div className="form-actions" style={{ justifyContent: 'space-between' }}>
-                <button type="button" className="btn btn-ghost" onClick={() => setStep(1)}>← Back</button>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button type="button" className="btn btn-secondary" disabled={saving}
-                    onClick={() => handleFinish(false)}>
+              <div className="form-actions ic-actions-between">
+                <Button variant="ghost" onClick={() => setStep(1)}>Back</Button>
+                <div className="ic-actions-group">
+                  <Button disabled={saving} onClick={() => handleFinish(false)}>
                     Skip for now
-                  </button>
-                  <button type="button" className="btn btn-primary" disabled={saving || !(students && rate)}
+                  </Button>
+                  <Button variant="accent" loading={saving} disabled={!(students && rate)}
                     onClick={() => handleFinish(true)}>
-                    {saving ? 'Creating…' : 'Create Client & Billing'}
-                  </button>
+                    {saving ? 'Creating…' : 'Create client and billing'}
+                  </Button>
                 </div>
               </div>
             </div>
