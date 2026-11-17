@@ -141,7 +141,7 @@ export default function ProformaFormModal({ open, onClose, client, preselect = [
           ) : <span />}
         </div>
         <div className="ic-line-bottom">
-          <div className="input-unit">
+          <div className="input-unit input-unit-wide">
             <span className="unit">Qty</span>
             <input className="input" type="number" min={0.01} step="any" placeholder="Students" aria-label="Quantity"
               value={l.qty} onChange={e => update(l.key, { qty: e.target.value })} />

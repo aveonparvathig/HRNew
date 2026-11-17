@@ -123,3 +123,7 @@ td.num, th.num { text-align: right; white-space: nowrap; }
 .segmented-fill > button { flex: 1; }
 .grow-1 { flex: 1; }
 .min-w-0 { min-width: 0; }
+
+/* Numeric columns: figures use Fira Code, header labels stay in the UI font. */
+th.num, .table th.num { font-family: var(--font); font-variant-numeric: normal; }
+.input-unit-wide .input { padding-left: 44px; }
