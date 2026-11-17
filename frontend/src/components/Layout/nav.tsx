@@ -45,7 +45,7 @@ export const ICON_PATHS: Record<string, React.ReactNode> = {
 export function Icon({ name, size = 17, className = 'nav-icon' }: { name: string; size?: number; className?: string }) {
   return (
     <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {ICON_PATHS[name]}
     </svg>
   );

@@ -1,0 +1,57 @@
+/* ============ Phase 1 — foundation utilities ============ */
+
+/* Smooth cross-fade when the theme flips */
+html { transition: background-color var(--t) var(--ease); }
+body { transition: background-color var(--t) var(--ease), color var(--t) var(--ease); }
+
+/* Metric tone chips — soft tint + vivid ink, AA in both themes.
+   Used for stat-card icons, module icons, chart keys and accents. */
+.tone-indigo { background: var(--m-indigo-soft); color: var(--m-indigo); }
+.tone-blue   { background: var(--m-blue-soft);   color: var(--m-blue); }
+.tone-green  { background: var(--m-green-soft);  color: var(--m-green); }
+.tone-amber  { background: var(--m-amber-soft);  color: var(--m-amber); }
+.tone-rose   { background: var(--m-rose-soft);   color: var(--m-rose); }
+.tone-violet { background: var(--m-violet-soft); color: var(--m-violet); }
+.tone-teal   { background: var(--m-teal-soft);   color: var(--m-teal); }
+.tone-cyan   { background: var(--m-cyan-soft);   color: var(--m-cyan); }
+
+/* Elevation + interaction helpers */
+.elev-sm { box-shadow: var(--shadow-sm); }
+.elev-md { box-shadow: var(--shadow-md); }
+.elev-lg { box-shadow: var(--shadow-lg); }
+.hover-lift { transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease); }
+.hover-lift:hover { transform: var(--lift); box-shadow: var(--shadow-md); }
+
+/* Skeleton loaders */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--skeleton-base);
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: '';
+  position: absolute; inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+  animation: shimmer 1.3s infinite;
+}
+.skeleton-text { height: 12px; margin: 6px 0; }
+.skeleton-line { height: 14px; border-radius: 6px; }
+.skeleton-card { height: 96px; }
+@keyframes shimmer { 100% { transform: translateX(100%); } }
+
+/* Recharts surface tuning so charts sit in the theme */
+.recharts-cartesian-grid line { stroke: var(--chart-grid); }
+.recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line { stroke: var(--chart-axis); }
+.recharts-text { fill: var(--text-3); font-size: 11.5px; }
+.recharts-default-tooltip {
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-lg) !important;
+  padding: 8px 12px !important;
+}
+.recharts-tooltip-label { color: var(--text) !important; font-weight: 700 !important; }
+.recharts-tooltip-item { color: var(--text-2) !important; }
+

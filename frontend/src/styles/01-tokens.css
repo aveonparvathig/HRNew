@@ -1,0 +1,221 @@
+/* ============ Design Tokens ============ */
+/* "Swiss Slate" — generated from the ui-ux-pro-max skill (see
+   design-system/aveon/MASTER.md + OVERRIDES.md). Slate is the action color,
+   green is the call-to-action accent. Text tokens are AA on their surfaces;
+   -dot shades are for dots, bars and fills only. */
+:root {
+  --bg: #F8FAFC;
+  --surface: #ffffff;
+  --surface-2: #F8FAFC;
+  --surface-raise: #ffffff;
+  --border: #E2E8F0;
+  --border-strong: #CBD5E1;
+  --primary-border: #94A3B8;
+  --hover: #F1F5F9;
+  --track: #E2E8F0;
+  --overlay: rgba(15, 23, 42, 0.5);
+  --text: #0F172A;
+  --text-2: #475569;
+  --text-3: #64748B;
+  --text-muted: var(--text-2);
+
+  --primary: #1E293B;
+  --primary-hover: #0F172A;
+  --primary-soft: #F1F5F9;
+  --primary-ink: #ffffff;
+
+  --accent: #15803D;          /* CTA fill, white text = 5.0:1 */
+  --accent-hover: #166534;
+  --accent-soft: #DCFCE7;
+  --accent-text: #15803D;     /* positive figures on white */
+  --accent-dot: #22C55E;      /* bars, rails, dots */
+  --accent-ink: #ffffff;
+
+  --success: #166534;
+  --success-soft: #DCFCE7;
+  --success-dot: #16A34A;
+  --warning: #92400E;
+  --warning-soft: #FEF3C7;
+  --warning-dot: #F59E0B;
+  --danger: #B91C1C;
+  --danger-soft: #FEE2E2;
+  --danger-dot: #EF4444;
+  --info: #1E40AF;
+  --info-soft: #DBEAFE;
+  --info-dot: #3B82F6;
+  --neutral: #475569;
+  --neutral-soft: #F1F5F9;
+  --neutral-dot: #94A3B8;
+
+  /* Metric palette — categorical, AA on white. Slate leads, green is reserved
+     for positive/CTA so charts don't fight the accent. */
+  --m-indigo: #334155; --m-indigo-soft: #F1F5F9;
+  --m-blue:   #1D4ED8; --m-blue-soft:   #DBEAFE;
+  --m-green:  #15803D; --m-green-soft:  #DCFCE7;
+  --m-amber:  #B45309; --m-amber-soft:  #FEF3C7;
+  --m-rose:   #BE123C; --m-rose-soft:   #FFE4E6;
+  --m-violet: #6D28D9; --m-violet-soft: #EDE9FE;
+  --m-teal:   #0F766E; --m-teal-soft:   #CCFBF1;
+  --m-cyan:   #0E7490; --m-cyan-soft:   #CFFAFE;
+  --chart-grid: #E2E8F0;
+  --chart-axis: #94A3B8;
+
+  --sidebar-bg: #ffffff;
+  --sidebar-text: #475569;
+  --sidebar-active: #F1F5F9;
+  --sidebar-rail: #22C55E;
+
+  --radius-lg: 12px;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --shadow-xs: 0 1px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.10);
+  --shadow-lg: 0 12px 28px -6px rgba(15, 23, 42, 0.18);
+
+  /* motion — level 3/10: short fades, no lifts */
+  --t-fast: 0.1s;
+  --t: 0.15s;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ring: 0 0 0 3px rgba(30, 41, 59, 0.22);
+  --lift: none;
+
+  --skeleton-base: #E2E8F0;
+  --skeleton-shine: #F1F5F9;
+
+  --font: 'Fira Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+  --font-num: 'Fira Code', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+
+  color-scheme: light;
+}
+
+/* ============ Dark theme ============ */
+/* Explicit choice wins; otherwise follow the OS unless the user forced light.
+   The same token block is applied in both cases (previously "system" only
+   switched color-scheme and left the light palette on screen). */
+:root[data-theme="dark"],
+:root[data-theme="dark"] body { color-scheme: dark; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { color-scheme: dark; }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0F172A;
+  --surface: #1B2336;
+  --surface-2: #172033;
+  --surface-raise: #222C42;
+  --border: #334155;
+  --border-strong: #475569;
+  --primary-border: #64748B;
+  --hover: rgba(248, 250, 252, 0.05);
+  --track: #272F42;
+  --overlay: rgba(2, 6, 23, 0.7);
+  --text: #F8FAFC;
+  --text-2: #CBD5E1;
+  --text-3: #94A3B8;
+
+  --primary: #E2E8F0;
+  --primary-hover: #F8FAFC;
+  --primary-soft: rgba(226, 232, 240, 0.10);
+  --primary-ink: #0F172A;
+
+  --accent: #22C55E;
+  --accent-hover: #4ADE80;
+  --accent-soft: rgba(34, 197, 94, 0.15);
+  --accent-text: #4ADE80;
+  --accent-dot: #22C55E;
+  --accent-ink: #052E16;
+
+  --success: #4ADE80; --success-soft: rgba(74, 222, 128, 0.14); --success-dot: #22C55E;
+  --warning: #FBBF24; --warning-soft: rgba(251, 191, 36, 0.14); --warning-dot: #F59E0B;
+  --danger:  #F87171; --danger-soft:  rgba(248, 113, 113, 0.15); --danger-dot: #EF4444;
+  --info:    #60A5FA; --info-soft:    rgba(96, 165, 250, 0.15); --info-dot: #3B82F6;
+  --neutral: #94A3B8; --neutral-soft: rgba(148, 163, 184, 0.14); --neutral-dot: #64748B;
+
+  --m-indigo: #CBD5E1; --m-indigo-soft: rgba(203, 213, 225, 0.12);
+  --m-blue:   #60A5FA; --m-blue-soft:   rgba(96, 165, 250, 0.15);
+  --m-green:  #4ADE80; --m-green-soft:  rgba(74, 222, 128, 0.14);
+  --m-amber:  #FBBF24; --m-amber-soft:  rgba(251, 191, 36, 0.14);
+  --m-rose:   #FB7185; --m-rose-soft:   rgba(251, 113, 133, 0.15);
+  --m-violet: #A78BFA; --m-violet-soft: rgba(167, 139, 250, 0.16);
+  --m-teal:   #2DD4BF; --m-teal-soft:   rgba(45, 212, 191, 0.14);
+  --m-cyan:   #22D3EE; --m-cyan-soft:   rgba(34, 211, 238, 0.14);
+  --chart-grid: #273449;
+  --chart-axis: #64748B;
+
+  --sidebar-bg: #111A2D;
+  --sidebar-text: #CBD5E1;
+  --sidebar-active: rgba(226, 232, 240, 0.08);
+  --sidebar-rail: #22C55E;
+
+  --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.3);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 14px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 16px 36px -6px rgba(0, 0, 0, 0.65);
+  --ring: 0 0 0 3px rgba(226, 232, 240, 0.3);
+
+  --skeleton-base: #222C42;
+  --skeleton-shine: #2B3650;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F172A;
+    --surface: #1B2336;
+    --surface-2: #172033;
+    --surface-raise: #222C42;
+    --border: #334155;
+    --border-strong: #475569;
+    --primary-border: #64748B;
+    --hover: rgba(248, 250, 252, 0.05);
+    --track: #272F42;
+    --overlay: rgba(2, 6, 23, 0.7);
+    --text: #F8FAFC;
+    --text-2: #CBD5E1;
+    --text-3: #94A3B8;
+  
+    --primary: #E2E8F0;
+    --primary-hover: #F8FAFC;
+    --primary-soft: rgba(226, 232, 240, 0.10);
+    --primary-ink: #0F172A;
+  
+    --accent: #22C55E;
+    --accent-hover: #4ADE80;
+    --accent-soft: rgba(34, 197, 94, 0.15);
+    --accent-text: #4ADE80;
+    --accent-dot: #22C55E;
+    --accent-ink: #052E16;
+  
+    --success: #4ADE80; --success-soft: rgba(74, 222, 128, 0.14); --success-dot: #22C55E;
+    --warning: #FBBF24; --warning-soft: rgba(251, 191, 36, 0.14); --warning-dot: #F59E0B;
+    --danger:  #F87171; --danger-soft:  rgba(248, 113, 113, 0.15); --danger-dot: #EF4444;
+    --info:    #60A5FA; --info-soft:    rgba(96, 165, 250, 0.15); --info-dot: #3B82F6;
+    --neutral: #94A3B8; --neutral-soft: rgba(148, 163, 184, 0.14); --neutral-dot: #64748B;
+  
+    --m-indigo: #CBD5E1; --m-indigo-soft: rgba(203, 213, 225, 0.12);
+    --m-blue:   #60A5FA; --m-blue-soft:   rgba(96, 165, 250, 0.15);
+    --m-green:  #4ADE80; --m-green-soft:  rgba(74, 222, 128, 0.14);
+    --m-amber:  #FBBF24; --m-amber-soft:  rgba(251, 191, 36, 0.14);
+    --m-rose:   #FB7185; --m-rose-soft:   rgba(251, 113, 133, 0.15);
+    --m-violet: #A78BFA; --m-violet-soft: rgba(167, 139, 250, 0.16);
+    --m-teal:   #2DD4BF; --m-teal-soft:   rgba(45, 212, 191, 0.14);
+    --m-cyan:   #22D3EE; --m-cyan-soft:   rgba(34, 211, 238, 0.14);
+    --chart-grid: #273449;
+    --chart-axis: #64748B;
+  
+    --sidebar-bg: #111A2D;
+    --sidebar-text: #CBD5E1;
+    --sidebar-active: rgba(226, 232, 240, 0.08);
+    --sidebar-rail: #22C55E;
+  
+    --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.3);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 6px 14px -2px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 16px 36px -6px rgba(0, 0, 0, 0.65);
+    --ring: 0 0 0 3px rgba(226, 232, 240, 0.3);
+  
+    --skeleton-base: #222C42;
+    --skeleton-shine: #2B3650;
+  }
+}

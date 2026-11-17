@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <title>Aveon HR — Business Suite</title>
     <script>
       // Apply the saved appearance (theme, density, accent) before first paint
@@ -16,12 +16,13 @@
         var el = document.documentElement;
         if (st.mode === 'light' || st.mode === 'dark') el.setAttribute('data-theme', st.mode);
         if (st.density === 'compact') el.setAttribute('data-density', 'compact');
-        var A = { blue: ['#1570EF', '#0E5ACB'], violet: ['#7A3DF5', '#6227E0'], teal: ['#0E9384', '#0B7468'], rose: ['#E31B54', '#C01048'], amber: ['#DC6803', '#B45309'] };
+        var A = { blue: ["#1D4ED8", "#1E40AF"], violet: ["#6D28D9", "#5B21B6"], teal: ["#0F766E", "#115E59"], rose: ["#BE123C", "#9F1239"], amber: ["#B45309", "#92400E"] };
         var a = A[st.accent];
         if (a) {
           var s = el.style, p = a[0];
           s.setProperty('--primary', p);
           s.setProperty('--primary-hover', a[1]);
+          s.setProperty('--primary-ink', '#ffffff');
           s.setProperty('--primary-soft', 'color-mix(in srgb, ' + p + ' 13%, transparent)');
           s.setProperty('--sidebar-rail', p);
           s.setProperty('--sidebar-active', 'color-mix(in srgb, ' + p + ' 13%, transparent)');

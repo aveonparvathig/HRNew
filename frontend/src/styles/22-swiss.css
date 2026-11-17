@@ -1,0 +1,121 @@
+/* ============ Swiss Slate layer ============ */
+/* Additions for the redesign. Loaded last so it can settle conflicts with the
+   older layers above without editing every rule in place. */
+
+/* Typography: Fira Sans UI, Fira Code for figures and identifiers. */
+h1, h2, h3, h4 { letter-spacing: -0.005em; }
+.num, td.num, th.num, .mono, .money, .kpi-value, .stat-value {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "zero" 0;
+}
+td.num, th.num { text-align: right; white-space: nowrap; }
+.num-pos { color: var(--accent-text); }
+.num-neg { color: var(--danger); }
+
+/* Accent (green) call-to-action — at most one per view. */
+.btn-accent { background: var(--accent); color: var(--accent-ink); border: 1px solid transparent; box-shadow: var(--shadow-xs); }
+.btn-accent:hover:not(:disabled) { background: var(--accent-hover); }
+.btn-primary, .btn-accent, .btn-danger-solid { box-shadow: var(--shadow-xs); }
+.btn { cursor: pointer; }
+.btn:disabled { cursor: not-allowed; }
+.btn .spinner-inline {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+/* Sidebar: slate active pill with a green rail. */
+.nav-link.active, .sidebar a.active {
+  background: var(--sidebar-active);
+  color: var(--text);
+  box-shadow: inset 3px 0 0 var(--sidebar-rail);
+}
+
+/* Tables: sticky header, quieter header row, dense rows. */
+.table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface-2);
+  font-size: 11.5px; font-weight: 500; letter-spacing: 0.02em;
+  text-transform: none; color: var(--text-3);
+}
+.table tbody tr:hover td { background: var(--hover); }
+.table tr.clickable { cursor: pointer; }
+
+/* Tabs primitive */
+.tabs-ui { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+.tabs-ui button {
+  appearance: none; background: none; border: 0; cursor: pointer;
+  padding: 9px 12px; font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap;
+}
+.tabs-ui button:hover { color: var(--text); }
+.tabs-ui button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent-dot); }
+
+/* Layout helpers (replace common inline flex/grid styles). */
+.stack { display: flex; flex-direction: column; gap: var(--gap, 12px); }
+.cluster { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap, 8px); }
+.cluster.between { justify-content: space-between; }
+.cluster.end { justify-content: flex-end; }
+.grid-auto { display: grid; gap: var(--gap, 12px); grid-template-columns: repeat(auto-fit, minmax(var(--min, 220px), 1fr)); }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.toolbar .grow { flex: 1 1 220px; min-width: 0; }
+
+/* UI reference page */
+.ui-ref section { margin-bottom: 28px; }
+.ui-ref h2 { font-size: 13px; color: var(--text-3); font-weight: 500; margin-bottom: 10px; }
+.swatch { width: 100%; height: 44px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.swatch-label { font-size: 11.5px; color: var(--text-3); margin-top: 4px; font-family: var(--font-num); }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn .spinner-inline { animation-duration: 1.6s; }
+}
+
+/* Density 8/10: tighter default rows; compact goes further. */
+.table td { padding: 9px 12px; }
+.table th { padding: 8px 12px; }
+:root[data-density="compact"] .table td { padding: 6px 10px; }
+:root[data-density="compact"] .table th { padding: 6px 10px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-icon { flex: none; }
+.tab-count { color: var(--text-3); font-size: 11.5px; }
+.col-bar.draft { background: var(--warning-dot); }
+.run-period { font-weight: 500; color: var(--text); }
+.run-stage { font-size: 11.5px; color: var(--text-3); margin-top: 3px; }
+.text-sm-muted { font-size: 12.5px; color: var(--text-3); }
+.modal-lede { font-size: 12.5px; color: var(--text-2); margin-bottom: 16px; }
+.mb-14 { margin-bottom: 14px; }
+.table-search { min-width: 200px; flex: initial; }
+.table td[data-align="center"] { text-align: center; }
+.table tr.row-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.page-pad { max-width: 1200px; margin: 0 auto; padding: 24px 16px 48px; }
+.ui-ref .card { padding: 16px; }
+
+/* Platform console bar: slate, green marker instead of indigo. */
+.platform-bar { height: 52px; border-bottom: 1px solid #1E293B; }
+.platform-mark { color: var(--accent-dot); display: inline-flex; }
+.platform-nav a { border-radius: var(--radius-sm); }
+.platform-nav a.active { background: rgba(248, 250, 252, 0.08); box-shadow: inset 0 -2px 0 var(--accent-dot); }
+
+/* Dashboard greeting: a light, flat header instead of a dark banner. */
+.hero-banner { background: var(--surface); color: var(--text); border: 1px solid var(--border); box-shadow: none; padding: 18px 20px; border-radius: var(--radius-lg); }
+.hero-avatar { color: var(--primary-ink); background: var(--primary); border: 0; border-radius: var(--radius); width: 44px; height: 44px; font-size: 17px; font-weight: 600; }
+.hero-copy h1 { color: var(--text); font-size: 20px; font-weight: 600; }
+.hero-copy p { color: var(--text-3); }
+.btn-hero-ghost { background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); }
+.btn-hero-ghost:hover { background: var(--hover); color: var(--text); }
+.section-title.flush { margin-top: 0; }
+.module-icon { border-radius: var(--radius); }
+.status-figures strong { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* Auth */
+.auth-hero-features .feat .check { display: inline-flex; color: var(--accent-dot); background: none; width: auto; height: auto; }
+.auth-name-row { margin-bottom: 16px; }
+.auth-name-row .field { margin-bottom: 0; }
+.auth-center { min-height: 100vh; display: grid; place-items: center; background: var(--bg); padding: 16px; }
+.auth-card { width: 100%; max-width: 420px; }
+.auth-card-title { font-size: 20px; margin-bottom: 6px; }
+.auth-card-sub { font-size: 13px; color: var(--text-2); margin-bottom: 18px; }
+.auth-card .stack { --gap: 14px; }
+.auth-form .switch { display: block; cursor: default; }

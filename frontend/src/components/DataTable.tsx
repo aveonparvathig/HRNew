@@ -54,7 +54,7 @@ export function DataTable<T>({
         <div className="table-toolbar">
           {title && <span className="table-title">{title}</span>}
           {searchable && (
-            <div className="search-input" style={{ minWidth: 200, flex: 'initial' }}>
+            <div className="search-input table-search">
               <input className="input" placeholder={searchPlaceholder} value={q}
                 onChange={e => { setQ(e.target.value); setPage(0); }} aria-label="Search" />
             </div>
@@ -82,11 +82,13 @@ export function DataTable<T>({
                 </tr>
               ))
               : paged.map(row => (
-                <tr key={rowKey(row)} className={onRowClick ? 'row-link' : undefined}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}>
+                <tr key={rowKey(row)} className={onRowClick ? "row-link" : undefined}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={onRowClick ? e => { if (e.key === "Enter" && e.target === e.currentTarget) onRowClick(row); } : undefined}>
                   {columns.map(c => (
                     <td key={c.key} className={c.align === 'right' ? 'num' : c.className}
-                      style={c.align === 'center' ? { textAlign: 'center' } : undefined}>{c.render(row)}</td>
+                      data-align={c.align}>{c.render(row)}</td>
                   ))}
                 </tr>
               ))}

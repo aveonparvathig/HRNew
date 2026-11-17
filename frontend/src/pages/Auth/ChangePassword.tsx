@@ -44,18 +44,18 @@ export default function ChangePassword() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'var(--bg)', padding: 16 }}>
-      <div className="card card-pad" style={{ width: '100%', maxWidth: 420 }}>
-        <h2 style={{ fontSize: 20, marginBottom: 6 }}>
+    <div className="auth-center">
+      <div className="card card-pad auth-card">
+        <h2 className="auth-card-title">
           {forced ? 'Set your new password' : 'Change password'}
         </h2>
-        <p className="text-muted" style={{ fontSize: 13, marginBottom: 18 }}>
+        <p className="auth-card-sub">
           {expired ? 'Your password has expired. Choose a new one to continue.'
             : forced ? 'Your account uses a temporary password. Choose your own to continue.'
             : 'Enter your current password, then the new one.'}
         </p>
         <ErrorAlert message={error} />
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <form onSubmit={handleSubmit} className="stack">
           <div className="field">
             <label>{forced && !expired ? 'Temporary password' : 'Current password'}</label>
             <input className="input" type="password" required autoFocus autoComplete="current-password"
