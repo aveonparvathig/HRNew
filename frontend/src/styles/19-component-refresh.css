@@ -15,10 +15,10 @@
 
 /* Button depth + press feedback */
 .btn-primary {
-  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 92%, #fff), var(--primary));
+  background: var(--primary);
 }
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, var(--primary), var(--primary-hover));
+  background: var(--primary-hover);
 }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn-primary, .btn-secondary, .btn-danger, .btn-danger-solid { transition: background var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.06s var(--ease); }

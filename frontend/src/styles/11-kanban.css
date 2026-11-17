@@ -39,7 +39,7 @@
   cursor: pointer;
   transition: box-shadow 0.15s, border-color 0.15s, transform 0.1s;
 }
-.app-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary-border); transform: translateY(-1px); }
+.app-card:hover { box-shadow: var(--shadow-md); border-color: var(--primary-border); }
 .app-card .name { font-weight: 600; font-size: 13.5px; margin-bottom: 3px; }
 .app-card .meta { font-size: 11.5px; color: var(--text-3); display: flex; justify-content: space-between; gap: 8px; }
 .app-card .stars { color: #DE8F0D; font-size: 11px; letter-spacing: 1px; }

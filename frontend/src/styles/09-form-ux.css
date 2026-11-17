@@ -100,7 +100,7 @@
   font-size: 11.5px; font-weight: 700;
 }
 .wizard-step.active { color: var(--text); }
-.wizard-step.active .n { background: var(--primary); color: #fff; }
+.wizard-step.active .n { background: var(--primary); color: var(--primary-ink); }
 .wizard-step.done .n { background: var(--success-soft); color: var(--success); }
 .wizard-sep { flex: 0 0 24px; height: 1.5px; background: var(--border); }
 

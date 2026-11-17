@@ -11,6 +11,7 @@ import { FeedbackHost } from './components/feedback';
 const Register = lazy(() => import('./pages/Auth/Register'));
 const ChangePassword = lazy(() => import('./pages/Auth/ChangePassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const UiReference = lazy(() => import('./pages/UiReference'));
 const OrgChart = lazy(() => import('./pages/People/OrgChart'));
 const IncomeDashboard = lazy(() => import('./pages/Income/IncomeDashboard'));
 const IncomeAnalytics = lazy(() => import('./pages/Income/IncomeAnalytics'));
@@ -215,6 +216,7 @@ function App() {
           </Route>
 
           <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} />} />
+          {import.meta.env.DEV && <Route path="/__ui" element={<UiReference />} />}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Suspense>

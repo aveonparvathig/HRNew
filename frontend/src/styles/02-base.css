@@ -40,7 +40,7 @@ kbd {
   z-index: 100;
   padding: 9px 14px;
   background: var(--primary);
-  color: #fff;
+  color: var(--primary-ink);
   border-radius: var(--radius-sm);
   font-weight: 600;
   transition: top 0.15s;

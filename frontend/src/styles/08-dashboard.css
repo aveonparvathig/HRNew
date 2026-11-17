@@ -14,7 +14,7 @@
   color: var(--text);
   display: block;
 }
-.module-card:hover { text-decoration: none; box-shadow: var(--shadow-md); transform: translateY(-2px); border-color: var(--primary-border); }
+.module-card:hover { text-decoration: none; box-shadow: var(--shadow-md); border-color: var(--primary-border); }
 .module-card.disabled { opacity: 0.55; pointer-events: none; }
 .module-icon {
   width: 42px; height: 42px;

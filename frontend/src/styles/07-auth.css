@@ -5,7 +5,7 @@
   grid-template-columns: 1fr 1fr;
 }
 .auth-hero {
-  background: linear-gradient(150deg, #23255C 0%, #3A3D9E 45%, #5A5FE0 100%);
+  background: #0F172A;
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -19,7 +19,7 @@
   position: absolute;
   width: 480px; height: 480px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.35), transparent 65%);
+  background: none;
   bottom: -160px; right: -120px;
 }
 .auth-hero .brand { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }

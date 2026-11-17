@@ -3,7 +3,7 @@
 .mb-16 { margin-bottom: 16px; }
 .mb-24 { margin-bottom: 24px; }
 .progress-track { height: 7px; border-radius: 99px; background: var(--track); overflow: hidden; }
-.progress-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #5A5FE0, #8B8FF0); transition: width 0.4s ease; }
+.progress-fill { height: 100%; border-radius: 99px; background: var(--accent-dot); transition: width 0.4s ease; }
 
 /* ============ Toasts ============ */
 .toast-stack {

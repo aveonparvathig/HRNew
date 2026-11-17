@@ -4,10 +4,8 @@
   padding: 22px 26px; margin-bottom: 24px;
   border-radius: var(--radius-lg);
   color: #fff;
-  box-shadow: var(--shadow-md);
-  background:
-    radial-gradient(900px 260px at 100% -60%, rgba(255,255,255,0.22), transparent 60%),
-    linear-gradient(118deg, #4B4FD6 0%, #6A3DEF 52%, #8B5CF6 100%);
+  background: #1E293B;
+  border: 1px solid #334155;
 }
 .hero-avatar {
   width: 54px; height: 54px; flex: none; border-radius: 16px;
@@ -22,7 +20,7 @@
 .hero-actions { margin-left: auto; display: flex; gap: 10px; flex-wrap: wrap; }
 .btn-hero-ghost {
   background: rgba(255,255,255,0.14); color: #fff; border: 1px solid rgba(255,255,255,0.26);
-  backdrop-filter: blur(4px);
+
 }
 .btn-hero-ghost:hover:not(:disabled) { background: rgba(255,255,255,0.24); text-decoration: none; }
 

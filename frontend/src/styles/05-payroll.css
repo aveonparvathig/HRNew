@@ -13,7 +13,7 @@
   color: var(--text-2);
   cursor: pointer;
 }
-.month-chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.month-chip.active { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
 .slab-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 10px; align-items: center; margin-bottom: 10px; }
 .slab-row-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) 34px; }
 .btn-link-danger {

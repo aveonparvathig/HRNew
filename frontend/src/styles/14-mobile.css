@@ -21,7 +21,7 @@
   }
   .mobile-topbar .brand-mark {
     width: 30px; height: 30px; border-radius: 9px;
-    background: var(--primary); color: #fff;
+    background: var(--primary); color: var(--primary-ink);
     display: grid; place-items: center; font-size: 14px;
   }
   .hamburger {
@@ -104,7 +104,7 @@
 .approval-step.done { border-color: var(--success); }
 .approval-step.done .step-mark { background: var(--success-soft); color: var(--success); border-color: var(--success); }
 .approval-step.current { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-soft); }
-.approval-step.current .step-mark { background: var(--primary); color: #fff; border-color: var(--primary); }
+.approval-step.current .step-mark { background: var(--primary); color: var(--primary-ink); border-color: var(--primary); }
 .approval-step.rejected { border-color: var(--danger); }
 .approval-step.rejected .step-mark { background: var(--danger-soft); color: var(--danger); border-color: var(--danger); }
 
@@ -165,7 +165,7 @@
 .leave-cal-cell.empty { border: none; background: transparent; }
 .leave-cal-cell.holiday { background: var(--primary-soft); border-color: var(--primary); }
 .leave-cal-daynum { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; font-weight: 600; margin-bottom: 3px; }
-.leave-cal-hol { font-size: 9.5px; font-weight: 700; color: #fff; background: var(--primary); border-radius: 4px; padding: 1px 5px; }
+.leave-cal-hol { font-size: 9.5px; font-weight: 700; color: var(--primary-ink); background: var(--primary); border-radius: 4px; padding: 1px 5px; }
 .leave-cal-holname { font-size: 10.5px; color: var(--primary); font-weight: 600; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .leave-cal-chip { font-size: 10.5px; background: var(--info-soft, var(--surface-2)); color: var(--text); border-radius: 4px; padding: 1px 5px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .leave-cal-chip.lop { background: var(--warning-soft); }

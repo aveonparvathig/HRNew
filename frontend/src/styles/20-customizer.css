@@ -3,7 +3,7 @@
   position: fixed; right: 0; top: 42%; z-index: 46;
   width: 44px; height: 46px;
   display: grid; place-items: center;
-  background: var(--primary); color: #fff;
+  background: var(--primary); color: var(--primary-ink);
   border: none; border-radius: 12px 0 0 12px;
   box-shadow: var(--shadow-lg); cursor: pointer;
 }

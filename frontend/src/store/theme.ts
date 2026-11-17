@@ -5,16 +5,16 @@ import { persist } from 'zustand/middleware';
 // the stylesheet's prefers-color-scheme media query takes over.
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type Density = 'comfortable' | 'compact';
-export type Accent = 'indigo' | 'blue' | 'violet' | 'teal' | 'rose' | 'amber';
+export type Accent = 'slate' | 'blue' | 'violet' | 'teal' | 'rose' | 'amber';
 
 // primary, hover
 export const ACCENTS: Record<Accent, { primary: string; hover: string; label: string }> = {
-  indigo: { primary: '#5A5FE0', hover: '#4548C9', label: 'Indigo' },
-  blue: { primary: '#1570EF', hover: '#0E5ACB', label: 'Blue' },
-  violet: { primary: '#7A3DF5', hover: '#6227E0', label: 'Violet' },
-  teal: { primary: '#0E9384', hover: '#0B7468', label: 'Teal' },
-  rose: { primary: '#E31B54', hover: '#C01048', label: 'Rose' },
-  amber: { primary: '#DC6803', hover: '#B45309', label: 'Amber' },
+  slate: { primary: '#1E293B', hover: '#0F172A', label: 'Slate' },
+  blue: { primary: '#1D4ED8', hover: '#1E40AF', label: 'Blue' },
+  violet: { primary: '#6D28D9', hover: '#5B21B6', label: 'Violet' },
+  teal: { primary: '#0F766E', hover: '#115E59', label: 'Teal' },
+  rose: { primary: '#BE123C', hover: '#9F1239', label: 'Rose' },
+  amber: { primary: '#B45309', hover: '#92400E', label: 'Amber' },
 };
 
 export function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
@@ -34,17 +34,18 @@ function applyMode(mode: ThemeMode) {
 }
 
 // Accent re-paints the action color across both themes via inline vars. The
-// default 'indigo' clears the overrides so the tuned base tokens apply.
+// default 'slate' (or any unknown saved value) clears the overrides so the tuned base tokens apply.
 function applyAccent(accent: Accent) {
   const root = document.documentElement;
-  const vars = ['--primary', '--primary-hover', '--primary-soft', '--sidebar-rail', '--sidebar-active', '--ring', '--primary-border'];
-  if (accent === 'indigo') {
+  const vars = ['--primary', '--primary-hover', '--primary-ink', '--primary-soft', '--sidebar-rail', '--sidebar-active', '--ring', '--primary-border'];
+  if (accent === 'slate' || !ACCENTS[accent]) {
     vars.forEach(v => root.style.removeProperty(v));
     return;
   }
   const { primary, hover } = ACCENTS[accent];
   root.style.setProperty('--primary', primary);
   root.style.setProperty('--primary-hover', hover);
+  root.style.setProperty('--primary-ink', '#ffffff');
   root.style.setProperty('--primary-soft', `color-mix(in srgb, ${primary} 13%, transparent)`);
   root.style.setProperty('--sidebar-rail', primary);
   root.style.setProperty('--sidebar-active', `color-mix(in srgb, ${primary} 13%, transparent)`);
@@ -78,7 +79,7 @@ export const useTheme = create<ThemeStore>()(
   persist(
     (set, get) => ({
       mode: 'system',
-      accent: 'indigo',
+      accent: 'slate',
       density: 'comfortable',
       setMode: (mode) => { applyMode(mode); set({ mode }); },
       setAccent: (accent) => { applyAccent(accent); set({ accent }); },
