@@ -30,15 +30,15 @@
 }
 .auth-hero-copy { position: relative; z-index: 1; }
 .auth-hero-copy h2 { font-size: 30px; line-height: 1.25; letter-spacing: -0.02em; margin-bottom: 14px; }
-.auth-hero-copy p { color: #C9CCF7; font-size: 14.5px; max-width: 400px; line-height: 1.6; }
+.auth-hero-copy p { color: #CBD5E1; font-size: 14.5px; max-width: 400px; line-height: 1.6; }
 .auth-hero-features { margin-top: 28px; display: flex; flex-direction: column; gap: 12px; }
-.auth-hero-features .feat { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #e0e7ff; }
+.auth-hero-features .feat { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: #E2E8F0; }
 .auth-hero-features .feat .check {
   width: 20px; height: 20px; border-radius: 50%;
   background: rgba(255,255,255,0.15);
   display: grid; place-items: center; font-size: 11px;
 }
-.auth-hero .fineprint { color: #A9ADF5; font-size: 12px; position: relative; z-index: 1; }
+.auth-hero .fineprint { color: #94A3B8; font-size: 12px; position: relative; z-index: 1; }
 
 .auth-form-side {
   display: flex;

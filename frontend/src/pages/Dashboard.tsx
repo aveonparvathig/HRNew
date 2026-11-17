@@ -142,7 +142,7 @@ export default function Dashboard() {
 
       {managesPeople && <HrPanel />}
 
-      <h2 className="section-title" style={{ marginTop: 0 }}>Your workspace</h2>
+      <h2 className="section-title flush">Your workspace</h2>
       <div className="module-grid">
         {modules.map(mod => (
           <Link key={mod.name} to={mod.to} className="module-card">

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { ErrorAlert } from '../../components/ui';
+import { Icon } from "../../components/Layout/nav";
 import { toast } from '../../components/feedback';
 
 export default function Login() {
@@ -48,9 +49,9 @@ export default function Login() {
           <h2>Run your business finances in one place.</h2>
           <p>Track client billing, record payments, and keep your income analytics up to date — built for modern teams.</p>
           <div className="auth-hero-features">
-            <div className="feat"><span className="check">✓</span> Client billing &amp; payment tracking</div>
-            <div className="feat"><span className="check">✓</span> Real-time income analytics</div>
-            <div className="feat"><span className="check">✓</span> Multi-tenant organization support</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Client billing &amp; payment tracking</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Real-time income analytics</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Multi-tenant organization support</div>
           </div>
         </div>
         <div className="fineprint">© {new Date().getFullYear()} Aveon HR · Aveon Infotech Private Limited</div>
@@ -98,7 +99,7 @@ export default function Login() {
           </form>
 
           <p className="switch">
-            Don&apos;t have an account? <Link to="/register">Create one</Link>
+            Don&apos;t have an account?{" "}<Link to="/register">Create one</Link>
           </p>
         </div>
       </div>

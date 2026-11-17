@@ -104,8 +104,8 @@ export default function HrPanel() {
             <AreaChart data={shown} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
               <defs>
                 <linearGradient id="hcFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--m-indigo)" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="var(--m-indigo)" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="var(--m-indigo)" stopOpacity={0.12} />
+                  <stop offset="100%" stopColor="var(--m-indigo)" stopOpacity={0.12} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
@@ -114,7 +114,7 @@ export default function HrPanel() {
               <Tooltip
                 labelFormatter={(p) => monthLong(String(p))}
                 formatter={(v: number) => [plural(Number(v), 'employee'), 'Headcount']} />
-              <Area type="monotone" dataKey="headcount" stroke="var(--m-indigo)" strokeWidth={2.4}
+              <Area type="monotone" dataKey="headcount" stroke="var(--m-indigo)" strokeWidth={2}
                 fill="url(#hcFill)" dot={false} activeDot={{ r: 4 }} />
             </AreaChart>
           </ResponsiveContainer>

@@ -1,5 +1,6 @@
 import { Outlet, Link, NavLink, useNavigate } from 'react-router-dom';
 import { usePlatformStore } from '../../store/platformStore';
+import { Icon } from '../../components/Layout/nav';
 
 // A deliberately minimal shell for the owner console — no tenant sidebar, so
 // it never looks or behaves like an organization workspace.
@@ -18,7 +19,7 @@ export default function PlatformLayout() {
       <header className="platform-bar">
         <div className="platform-bar-left">
           <Link to="/platform" className="platform-brand">
-            <span className="platform-mark">◆</span> Platform Console
+            <span className="platform-mark"><Icon name="shield" size={18} className="" /></span> Platform Console
           </Link>
           <nav className="platform-nav">
             <NavLink to="/platform" end className={({ isActive }) => isActive ? 'active' : ''}>Overview</NavLink>

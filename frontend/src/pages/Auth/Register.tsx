@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { authAPI } from '../../api/auth';
 import { ErrorAlert } from '../../components/ui';
+import { Icon } from "../../components/Layout/nav";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -50,9 +51,9 @@ export default function Register() {
           <h2>Set up your workspace in under a minute.</h2>
           <p>Create your organization, invite your team, and start tracking client income right away.</p>
           <div className="auth-hero-features">
-            <div className="feat"><span className="check">✓</span> Free to get started</div>
-            <div className="feat"><span className="check">✓</span> Your data stays isolated per organization</div>
-            <div className="feat"><span className="check">✓</span> Payroll &amp; recruitment modules coming soon</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Free to get started</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Your data stays isolated per organization</div>
+            <div className="feat"><span className="check"><Icon name="checkCircle" size={16} className="" /></span> Payroll &amp; recruitment modules coming soon</div>
           </div>
         </div>
         <div className="fineprint">© {new Date().getFullYear()} Aveon HR · Aveon Infotech Private Limited</div>
@@ -80,8 +81,8 @@ export default function Register() {
               />
             </div>
 
-            <div className="form-grid" style={{ marginBottom: 16 }}>
-              <div className="field" style={{ marginBottom: 0 }}>
+            <div className="form-grid auth-name-row">
+              <div className="field">
                 <label htmlFor="firstName">First name</label>
                 <input
                   id="firstName"
@@ -93,7 +94,7 @@ export default function Register() {
                   placeholder="John"
                 />
               </div>
-              <div className="field" style={{ marginBottom: 0 }}>
+              <div className="field">
                 <label htmlFor="lastName">Last name</label>
                 <input
                   id="lastName"
@@ -144,7 +145,7 @@ export default function Register() {
           </form>
 
           <p className="switch">
-            Already have an account? <Link to="/login">Sign in</Link>
+            Already have an account?{" "}<Link to="/login">Sign in</Link>
           </p>
         </div>
       </div>
