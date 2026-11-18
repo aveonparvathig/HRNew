@@ -6,14 +6,25 @@ import { htmlToPdf } from './pdf';
 import { peekNumber, takeNumber } from './numberSeries';
 import { todayIST } from './payroll/loanLedger';
 import {
-  BUILT_IN_TEMPLATES, Paper, builtInTemplate, cleanFormData, formFields, letterOnPaper, renderLetter,
+  BUILT_IN_TEMPLATES, Paper, RETIRED_WORDINGS, builtInTemplate, cleanFormData, formFields, letterOnPaper, renderLetter,
 } from './letterEngine';
+import { createHash } from 'crypto';
 
 // A company's templates: the built-in ones are made the first time they
 // are asked for, each as the program words it. One added to the program
 // later appears the same way.
 export async function ensureTemplates(organizationId: string) {
-  const existing = await prisma.letterTemplate.findMany({ where: { organizationId }, select: { code: true } });
+  const existing = await prisma.letterTemplate.findMany({ where: { organizationId }, select: { id: true, code: true, body: true } });
+  // A built-in letter still in an earlier wording the program gave it is
+  // brought up to date; one HR has reworded is left as they wrote it.
+  for (const t of existing) {
+    const retired = RETIRED_WORDINGS[t.code];
+    const now = builtInTemplate(t.code);
+    if (!retired || !now || !retired.includes(createHash('sha256').update(t.body).digest('hex'))) continue;
+    await prisma.letterTemplate.update({
+      where: { id: t.id }, data: { subject: now.subject, salutation: now.salutation, body: now.body },
+    });
+  }
   const have = new Set(existing.map(t => t.code));
   const missing = BUILT_IN_TEMPLATES.filter(t => !have.has(t.code));
   if (missing.length === 0) return;

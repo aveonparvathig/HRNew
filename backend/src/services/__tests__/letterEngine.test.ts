@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { createHash } from 'crypto';
 import {
   BUILT_IN_TEMPLATES, LETTER_FIELDS, SAMPLE_DATA, builtInTemplate, fieldsUsed, formFields, renderBody, renderInline,
-  renderLetter, templateInput, templateProblems, markLetterhead, letterOnPaper, paperOf,
+  renderLetter, templateInput, templateProblems, markLetterhead, letterOnPaper, paperOf, isTypedLetter, RETIRED_WORDINGS,
 } from '../letterEngine';
 import { DOC_TYPES, renderLetter as legacyLetter } from './fixtures/legacyLetters';
 
@@ -189,16 +190,24 @@ describe('starting templates against the letters as they were', () => {
     expect(BUILT_IN_TEMPLATES.map(t => t.code)).toEqual(expect.arrayContaining(['CONFIRMATION', 'RELIEVING']));
   });
 
-  it('writes the employee offer letter with one salary', () => {
+  it('writes the employee offer letter as the Word sample, with one salary', () => {
     const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, {
       recipientName: 'Vimal S', designation: 'Implementation Engineer Trainee', monthlyPackage: 18000, joiningDate: '2026-05-04',
+      letterDate: '2026-04-27', recipientAddress: '12, Lake View Road', refNo: 'HR/1',
     });
-    expect(html).toContain('Your salary will be <strong>₹18,000/-</strong> (Rupees Eighteen Thousand only) per month');
+    expect(html).toContain('Your salary will be Rs. 18,000/- (Rupees Eighteen Thousand only per month) all-inclusive at your position');
     expect(html).not.toContain('During the first');
-    expect(html).toContain('the position of <strong>Implementation Engineer Trainee</strong> at <strong>Acme Systems</strong>');
-    expect(html).toContain('Your date of joining will be <strong>4 May 2026</strong>');
-    expect(html).toContain('within <strong>2 days</strong>');
-    expect(html).toContain('Aadhaar card');
+    expect(html).toContain('the position of Implementation Engineer Trainee at Acme Systems.');
+    expect(html).toContain('your joining date will be 4th May 2026.');
+    expect(html).toContain('within 2 days');
+    // No date, reference or address block, and no sign-off of the program's own
+    expect(html).not.toContain('27 April 2026');
+    expect(html).not.toContain('HR/1');
+    expect(html).not.toContain('Lake View Road');
+    expect(html).not.toContain('Yours sincerely');
+    // Plain black table, no shading
+    expect(html).toContain('border:1px solid #000');
+    expect(html).not.toContain('#f4f4fb');
   });
 
   it('writes the employee offer letter with a probation salary', () => {
@@ -206,18 +215,38 @@ describe('starting templates against the letters as they were', () => {
       recipientName: 'Bharaneedharan C', designation: 'Application Support Engineer', probationMonths: 3, probationSalary: 15000,
       monthlyPackage: 18000, joiningDate: '2026-09-02', acceptDays: 5,
     });
-    expect(html).toContain('During the first 3 months of probation, your salary will be <strong>₹15,000/-</strong> (Rupees Fifteen Thousand only) per month. After the probation period, your salary will be <strong>₹18,000/-</strong> (Rupees Eighteen Thousand only)');
-    expect(html).toContain('within <strong>5 days</strong>');
+    expect(html).toContain('During the first 3 months of probation period, your salary will be Rs. 15,000/- (Rupees Fifteen Thousand only per month). After a probation period of 3 months your salary will be Rs. 18,000/- (Rupees Eighteen Thousand only per month)');
+    expect(html).toContain('your joining date will be 2nd September 2026');
+    expect(html).toContain('within 5 days');
   });
 
-  it('prints what follows --- after the signature', () => {
+  it('signs where the letter says, and prints what follows --- after it', () => {
     const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, { recipientName: 'Vimal S', monthlyPackage: 18000 });
-    const signature = html.indexOf('Yours sincerely');
-    expect(signature).toBeGreaterThan(0);
-    expect(html.indexOf('ACKNOWLEDGEMENT')).toBeGreaterThan(signature);
-    expect(html.indexOf('List of documents')).toBeLessThan(signature);
-    expect(html).not.toContain('<p style="margin:0 0 14px;text-align:justify;">---</p>');
-    expect(html).toContain('Name: <strong>Vimal S</strong><br/>Signature:');
+    const regards = html.indexOf('Regards,');
+    const documents = html.indexOf('List of documents');
+    const sincerely = html.indexOf('Sincerely,');
+    expect(regards).toBeGreaterThan(0);
+    expect(documents).toBeGreaterThan(regards);
+    expect(sincerely).toBeGreaterThan(documents);
+    expect(html.indexOf('ACKNOWLEDGEMENT')).toBeGreaterThan(sincerely);
+    expect(html.match(/<div>R\. Kumar<\/div>\s*<div>Director<\/div>/g)).toHaveLength(2);
+    expect(html).not.toContain('>---<');
+    expect(html).toContain('Signature: ______________________________ Date:');
+  });
+
+  it('asks a typed letter only for what it prints', () => {
+    expect(isTypedLetter(builtInTemplate('EMPLOYEE_OFFER')!)).toBe(true);
+    expect(isTypedLetter(builtInTemplate('EMPLOYMENT_OFFER')!)).toBe(false);
+    const keys = formFields(builtInTemplate('EMPLOYEE_OFFER')!).map(f => f.key);
+    expect(keys).not.toContain('refNo');
+    expect(keys).not.toContain('recipientAddress');
+    expect(keys).toEqual(expect.arrayContaining(['designation', 'probationMonths', 'probationSalary', 'monthlyPackage', 'joiningDate', 'acceptDays']));
+    expect(keys.slice(-2)).toEqual(['signatoryName', 'signatoryTitle']);
+  });
+
+  it('remembers the wording it replaced', () => {
+    expect(RETIRED_WORDINGS.EMPLOYEE_OFFER).toHaveLength(1);
+    expect(RETIRED_WORDINGS.EMPLOYEE_OFFER[0]).not.toBe(createHash('sha256').update(builtInTemplate('EMPLOYEE_OFFER')!.body).digest('hex'));
   });
 
   it('marks the heading once, and blanks it for the printed letterhead', () => {

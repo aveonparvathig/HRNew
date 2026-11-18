@@ -71,6 +71,8 @@ export const LETTER_FIELDS: LetterField[] = [
   { key: 'terms', label: 'Additional terms', type: 'textarea' },
   { key: 'signatoryName', label: 'Signatory name', type: 'text', placeholder: 'e.g. R. Kumar' },
   { key: 'signatoryTitle', label: 'Signatory title', type: 'text', placeholder: 'e.g. HR Manager' },
+  // On a line of its own: room to sign, then the signatory's name and title
+  { key: 'signature', label: 'Signature (on a line of its own)', type: 'text', auto: true },
 ];
 const FIELD = new Map(LETTER_FIELDS.map(f => [f.key, f]));
 export const letterField = (key: string) => FIELD.get(key);
@@ -96,6 +98,25 @@ const rupees = (v: any) => {
   const n = Number(v);
   return !v || isNaN(n) ? '' : '₹' + n.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 };
+
+// A typed letter, as the company writes it in Word: "Rs. 18,000/-" and "4th May 2026"
+const rsAmount = (v: any) => {
+  const n = Number(v);
+  return !v || isNaN(n) ? '' : `Rs. ${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}/-`;
+};
+const ordinalDate = (v: any) => {
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return esc(v);
+  const day = d.getDate();
+  const th = day % 100 >= 11 && day % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][day % 10] || 'th';
+  return `${day}${th} ${d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`;
+};
+
+// A template that places its own {{signature}} is a typed letter: laid out
+// as the company's Word letters are — no date or address block above the
+// subject, the signature where the text puts it, plain bordered tables,
+// amounts as "Rs. 18,000/-" and dates as "4th May 2026".
+export const isTypedLetter = (t: { body?: string }) => /^[ \t]*\{\{signature\}\}[ \t]*$/m.test(String(t?.body ?? ''));
 
 // ---- Parsing ------------------------------------------------------------------------
 type Node =
@@ -238,7 +259,9 @@ export function fieldsUsed(t: TemplateText): string[] {
 // template's own fields as they come in the letter, then the signatory.
 export function formFields(t: TemplateText): LetterField[] {
   const used = fieldsUsed(t).filter(k => FIELD.has(k) && !FIELD.get(k)!.auto && !FORM_TOP.includes(k) && !FORM_END.includes(k));
-  return [...FORM_TOP, ...used, ...FORM_END].map(k => FIELD.get(k)!);
+  // A typed letter prints no reference, date or address block, so does not ask for them
+  const top = isTypedLetter(t) ? FORM_TOP.filter(k => fieldsUsed(t).includes(k)) : FORM_TOP;
+  return [...top, ...used, ...FORM_END].map(k => FIELD.get(k)!);
 }
 
 // ---- Rendering ----------------------------------------------------------------------------
@@ -259,8 +282,8 @@ function show(node: { key: string; fallback: string }, data: Data): string {
   }
   const type = FIELD.get(node.key)?.type;
   const raw = data[node.key];
-  if (type === 'date') return longDate(raw);
-  if (type === 'money') return rupees(raw);
+  if (type === 'date') return data._typed ? ordinalDate(raw) : longDate(raw);
+  if (type === 'money') return data._typed ? rsAmount(raw) : rupees(raw);
   // What was typed on several lines stays on several lines
   return esc(String(raw).trim()).replace(/\n/g, '<br/>');
 }
@@ -304,6 +327,25 @@ const detailTable = (rows: [string, string][]) => `
     </tr>`).join('')}
 </table>`;
 
+// A table on a typed letter: plain black borders, as drawn in Word
+const plainTable = (rows: [string, string][]) => `
+<table style="width:100%;border-collapse:collapse;margin:8px 0 18px;">
+  ${rows.map(([k, v]) => `
+    <tr>
+      <td style="border:1px solid #000;padding:4px 10px;width:60%;">${k}</td>
+      <td style="border:1px solid #000;padding:4px 10px;">${v}</td>
+    </tr>`).join('')}
+</table>`;
+
+// {{signature}} on a line of its own: room to sign (or the stored
+// signature), then the signatory's name and title.
+const signatureBlock = (data: Data) => `
+<div style="text-align:left;">
+  ${data._signature ? `<img src="${data._signature}" alt="" style="height:46px;max-width:220px;object-fit:contain;display:block;margin:6px 0;"/>` : '<div style="height:52px;"></div>'}
+  <div>${esc(data.signatoryName || '')}</div>
+  <div>${esc(data.signatoryTitle || '')}</div>
+</div>`;
+
 // The body: paragraphs and details tables. A paragraph left with nothing
 // in it, and a table row with no value, are dropped.
 export function renderBody(body: string, data: Data): string {
@@ -312,9 +354,14 @@ export function renderBody(body: string, data: Data): string {
       const rows = block.split('\n').map(tableRow)
         .map(([label, value]) => [renderInline(label, data), renderInline(value, data)] as [string, string])
         .filter(([, value]) => value.trim());
-      return rows.length ? detailTable(rows) : '';
+      return rows.length ? (data._typed ? plainTable(rows) : detailTable(rows)) : '';
     }
-    const html = block.split('\n').map(line => renderInline(line.trim(), data)).join('<br/>');
+    const lines = block.split('\n').map(line => line.trim());
+    if (lines.some(line => line === '{{signature}}')) {
+      // A sign-off: its lines as typed, with the signature where it is placed
+      return `<div style="margin:0 0 18px;">${lines.map(line => (line === '{{signature}}' ? signatureBlock(data) : `<div>${renderInline(line, data)}</div>`)).join('')}</div>`;
+    }
+    const html = lines.map(line => renderInline(line, data)).join('<br/>');
     return html.replace(/<br\/>/g, '').trim() ? paragraph(html) : '';
   }).join('');
 }
@@ -342,8 +389,7 @@ function sheet(orgName: string, d: any, subject: string, salutation: string, bod
   const primary = b.brandPrimary || '#4f46e5';
   const accent = b.brandAccent || '#312e81';
   const contact = [b.phone, b.email, b.website].filter(Boolean).join(' · ');
-  return `
-<div style="font-family:'Times New Roman',Times,serif;color:#1a1a2e;font-size:14px;line-height:1.7;">
+  const heading = `
   <div style="border-bottom:3px solid ${primary};padding-bottom:14px;margin-bottom:8px;display:flex;align-items:center;gap:16px;${
     b.logoPosition === 'CENTER' ? 'flex-direction:column;text-align:center;gap:8px;'
       : b.logoPosition === 'RIGHT' ? 'flex-direction:row-reverse;text-align:right;' : ''}">
@@ -353,7 +399,22 @@ function sheet(orgName: string, d: any, subject: string, salutation: string, bod
       ${d.orgAddress ? `<div style="font-size:12px;color:#555;margin-top:4px;">${esc(d.orgAddress)}</div>` : ''}
       ${contact ? `<div style="font-size:11.5px;color:#777;margin-top:2px;">${esc(contact)}</div>` : ''}
     </div>
+  </div>`;
+  if (d._typed) {
+    // As typed in Word: the subject, the greeting and the text, signed where
+    // the text says, in black on the page
+    return `
+<div style="font-family:'Times New Roman',Times,serif;color:#000;font-size:15.5px;line-height:1.6;">${heading}
+  <div style="text-align:center;font-weight:bold;text-decoration:underline;margin:28px 0 24px;font-size:20px;">
+    ${subject}
   </div>
+  ${salutation ? `<p style="margin:0 0 14px;">${salutation}</p>` : ''}
+  ${body}
+  ${after ? `<div style="border-top:1px dashed #000;margin-top:32px;padding-top:18px;">${after}</div>` : ''}
+</div>`;
+  }
+  return `
+<div style="font-family:'Times New Roman',Times,serif;color:#1a1a2e;font-size:14px;line-height:1.7;">${heading}
   <table style="width:100%;font-size:13px;color:#444;margin:14px 0 26px;"><tr>
     <td>${d.refNo ? `Ref: <strong>${esc(d.refNo)}</strong>` : ''}</td>
     <td style="text-align:right;">Date: <strong>${d.letterDate ? longDate(d.letterDate) : BLANK}</strong></td>
@@ -420,6 +481,7 @@ export function renderLetter(template: TemplateText, brand: LetterBrand, formDat
     // Amounts in words follow the amounts typed; they are never typed themselves
     monthlyPackageWords: inWords(formData.monthlyPackage),
     probationSalaryWords: inWords(formData.probationSalary),
+    _typed: isTypedLetter(template),
   };
   const { main, after } = splitAtSignature(template.body);
   return sheet(brand.name, d, renderInline(template.subject, d), renderInline(template.salutation, d), renderBody(main, d), renderBody(after, d));
@@ -456,38 +518,39 @@ export const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
     ),
   },
   {
-    // The offer letter as Aveon writes it: a monthly salary, with a lower
-    // salary for the probation months when one is typed, the documents to
-    // bring, and an acknowledgement slip for the candidate to sign.
+    // The offer letter as Aveon writes it in Word: a monthly salary, with a
+    // lower salary for the probation months when one is typed, the documents
+    // to bring, and an acknowledgement slip for the candidate to sign.
     code: 'EMPLOYEE_OFFER', name: 'Employee Offer Letter', audience: 'CANDIDATE',
     subject: 'EMPLOYEE OFFER LETTER',
     salutation: 'Dear {{recipientName}},',
     body: lines(
-      'We are pleased to extend this offer of employment for the position of **{{designation}}** at **{{orgName}}**. Our company is committed to providing the best possible work environment for our employees, and we believe that you have the skills, experience, and dedication needed to be a valuable member of our team.',
-      'You are offered employment on the following terms:',
-      '[[During the first {{probationMonths}} months of probation, your salary will be **{{probationSalary}}/-** (Rupees {{probationSalaryWords}} only) per month. After the probation period, your||Your]] salary will be **{{monthlyPackage}}/-** (Rupees {{monthlyPackageWords}} only) per month, all-inclusive at your position. The annual fixed compensation and annual variable pay will be subject to deduction of tax at source, in accordance with the Income Tax Act, 1961 and all other central and state legislation applicable to your base location.',
-      'You shall not, during the period of your employment with the Company or at any time thereafter, use, divulge or disclose, either directly or indirectly, to any person, firm or body corporate any knowledge, information or documents which you may acquire, process or have access to in the course of your employment, concerning the business and affairs of the Company.',
-      'During your employment you will observe all the rules and regulations of the Company. The Company also reserves the right to rescind, revoke, amend or withdraw this Offer Letter or any of the terms outlined herein without assigning any reason.',
-      'We trust that you will find the above in order. Please feel free to contact the undersigned for any clarifications or questions that you may have. To confirm your acceptance of this Offer Letter, please sign at the bottom of this letter, scan and email us the duplicate copy duly signed. Your date of joining will be **{{joiningDate}}**. If your employment is confirmed on successful completion of the probation period, you will be required to sign a Service Agreement, valid for a period of 3 years from the date of joining.',
+      'We are pleased to extend this offer of employment for the position of {{designation}} at {{orgName}}. Our company is committed to providing the best possible work environment for our employees, and we believe that you have the skills, experience, and dedication needed to be a valuable member of our team.',
+      'You are offered employment on the following terms:\n[[During the first {{probationMonths}} months of probation period, your salary will be {{probationSalary}} (Rupees {{probationSalaryWords}} only per month). After a probation period of {{probationMonths}} months your||Your]] salary will be {{monthlyPackage}} (Rupees {{monthlyPackageWords}} only per month) all-inclusive at your position. The Annual fixed compensation and Annual variable pay will be subject to deduction of tax at source, in accordance with Income Tax Act, 1961 and all other central and state legislation applicable to your base location.',
+      'You shall not, during the period of your employment with the Company or at any time thereafter, use, divulge or disclose, either directly or indirectly to any person, firm or body corporate any knowledge, information or documents which you may acquire, process or have access to in the course of your employment, concerning the business and affairs of the Company.',
+      'During your employment you will observe all the rules and regulations of the Company.\nThe Company also reserves the right to rescind, revoke, amend or withdraw this Offer Letter or any of the terms outlined herein without assigning any reason.',
+      'We trust that you will find the above in order. Please feel free to contact the undersigned for any clarifications/questions that you may have. To confirm your acceptance of this Offer Letter, please sign at the bottom of this page, scan and email us the duplicate copy duly signed, and your joining date will be {{joiningDate}}. If your employment is confirmed on successful completion of probation period, you will be required to sign a Service Agreement, valid for a period of 3 years from the date of joining your employment.',
       'We are very excited to welcome you to our team and look forward to your contribution to the growth of our company.',
+      'Regards,\n{{signature}}',
       '**List of documents to be submitted:**',
       [
         '| 10th mark sheet | Original |',
-        '| Diploma certificate / HSC mark sheet | Original |',
-        '| Degree certificate / mark sheet | Original |',
-        '| PAN card | 1 soft copy |',
-        '| Aadhaar card | 1 soft copy |',
+        '| Diploma certificate / HSC Marksheet | Original |',
+        '| Degree certificate / Marksheet | Original |',
+        '| PAN Card | 1 Softcopy |',
+        '| Aadhaar card | 1 Softcopy |',
         '| Passport size photograph | 1 |',
-        '| Experience certificate | 1 soft copy |',
-        '| Relieving letter | 1 soft copy |',
-        '| Salary slip | 1 soft copy |',
+        '| Experience certificate | 1 Softcopy |',
+        '| Relieving Letter | 1 Softcopy |',
+        '| Salary slip | 1 Softcopy |',
       ].join('\n'),
-      'On receipt of this letter, please send us your confirmation as a token of your acceptance within **{{acceptDays|2}} days**. We look forward to working with you and are confident you will make a significant contribution to the growth and success of the organisation.',
+      'On receipt of this letter, please send us your confirmation as a token of your acceptance within {{acceptDays|2}} days. We look forward to working with you and we are confident you will be able to make a significant contribution to the growth and success of the organization.',
       '[[{{terms}}]]',
+      'Sincerely,\n{{signature}}',
       '---',
       '**ACKNOWLEDGEMENT**',
       'I have read and understood the terms and conditions stated above and hereby signify my acceptance of the same.',
-      'Name: **{{recipientName}}**\nSignature: ______________________________\nDate: ______________________________',
+      'Signature: ______________________________ Date: ____________________',
     ),
   },
   {
@@ -594,6 +657,13 @@ export const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
 ];
 
 export const builtInTemplate = (code: string) => BUILT_IN_TEMPLATES.find(t => t.code === code);
+
+// Earlier wordings of a built-in letter, by the SHA-256 of their text. A
+// company still holding one, untouched by HR, is moved to today's wording.
+export const RETIRED_WORDINGS: Record<string, string[]> = {
+  // The first Employee Offer Letter, on the program's own letter layout
+  EMPLOYEE_OFFER: ['e68cd282c8830dac0e30896d4cee6584dfd2c11c38f8750937ee0ab691f2437d'],
+};
 
 // A template as typed on the screen, checked. Returns what is wrong, or
 // the cleaned template.
