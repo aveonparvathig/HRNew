@@ -16,6 +16,15 @@ export default function LetterView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
+  // Plain paper prints the company heading; the company's printed
+  // letterhead already has it, so the letter leaves its space blank.
+  const [paper, setPaperState] = useState<'plain' | 'letterhead'>(() => {
+    try { return localStorage.getItem('letterPaper') === 'letterhead' ? 'letterhead' : 'plain'; } catch { return 'plain'; }
+  });
+  const setPaper = (next: 'plain' | 'letterhead') => {
+    setPaperState(next);
+    try { localStorage.setItem('letterPaper', next); } catch { /* remembered for this visit only */ }
+  };
 
   useEffect(() => {
     peopleAPI.getDocument(docId!)
@@ -96,7 +105,13 @@ export default function LetterView() {
                 title={doc.emailTo ? `Send to ${doc.emailTo}` : 'No email address on record'}>
                 {sending ? 'Sending…' : 'Email'}
               </Button>
-              <DownloadButton path={`/people/documents/${doc.id}/file`} busyLabel="Making the PDF…">
+              <div className="segmented" role="group" aria-label="Paper the letter is printed on">
+                <button type="button" className={paper === 'plain' ? 'active' : ''} aria-pressed={paper === 'plain'}
+                  title="Print the company heading on a blank sheet" onClick={() => setPaper('plain')}>Plain paper</button>
+                <button type="button" className={paper === 'letterhead' ? 'active' : ''} aria-pressed={paper === 'letterhead'}
+                  title="Leave the heading blank for the company's printed letterhead" onClick={() => setPaper('letterhead')}>Letterhead</button>
+              </div>
+              <DownloadButton path={`/people/documents/${doc.id}/file`} params={{ paper }} busyLabel="Making the PDF…">
                 <Icon name="download" size={16} className="btn-icon" />PDF
               </DownloadButton>
               <Button variant="accent" icon="printer" onClick={() => window.print()}>Print</Button>
@@ -107,7 +122,7 @@ export default function LetterView() {
         <ErrorAlert message={error} onDismiss={() => setError('')} />
       </div>
 
-      <div className="letter-sheet print-area">
+      <div className={`letter-sheet print-area${paper === 'letterhead' ? ' on-letterhead' : ''}`}>
         <div dangerouslySetInnerHTML={{ __html: doc.html }} />
       </div>
     </>

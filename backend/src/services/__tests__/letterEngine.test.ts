@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   BUILT_IN_TEMPLATES, LETTER_FIELDS, SAMPLE_DATA, builtInTemplate, fieldsUsed, formFields, renderBody, renderInline,
-  renderLetter, templateInput, templateProblems,
+  renderLetter, templateInput, templateProblems, markLetterhead, letterOnPaper, paperOf,
 } from '../letterEngine';
 import { DOC_TYPES, renderLetter as legacyLetter } from './fixtures/legacyLetters';
 
@@ -218,6 +218,20 @@ describe('starting templates against the letters as they were', () => {
     expect(html.indexOf('List of documents')).toBeLessThan(signature);
     expect(html).not.toContain('<p style="margin:0 0 14px;text-align:justify;">---</p>');
     expect(html).toContain('Name: <strong>Vimal S</strong><br/>Signature:');
+  });
+
+  it('marks the heading once, and blanks it for the printed letterhead', () => {
+    const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, { recipientName: 'Vimal S' });
+    const marked = markLetterhead(html);
+    expect(marked.match(/data-letterhead/g)).toHaveLength(1);
+    expect(markLetterhead(marked)).toBe(marked);
+    expect(letterOnPaper(html, 'plain')).toBe(marked);
+    const blank = letterOnPaper(html, 'letterhead');
+    expect(blank).toContain('<div data-letterhead style="visibility:hidden;border-bottom:3px solid');
+    expect(blank).toContain('Acme Systems'); // still there, only hidden, so the space is kept
+    expect(paperOf('letterhead')).toBe('letterhead');
+    expect(paperOf('anything else')).toBe('plain');
+    expect(paperOf(undefined)).toBe('plain');
   });
 
   it('writes the two new letters', () => {

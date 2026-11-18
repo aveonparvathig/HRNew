@@ -8,7 +8,8 @@ import { actorName, logPayrollAudit } from '../services/payroll/audit';
 import { sendFile } from '../services/payroll/payslipDocs';
 import { sendMail } from '../services/mailer';
 import {
-  LETTER_FIELDS, SAMPLE_DATA, builtInTemplate, cleanFormData, formFields, renderLetter, templateCode, templateInput,
+  LETTER_FIELDS, SAMPLE_DATA, builtInTemplate, cleanFormData, formFields, markLetterhead, paperOf, renderLetter,
+  templateCode, templateInput,
 } from '../services/letterEngine';
 import {
   issueLetter, letterPdf, letterPrefill, personForLetter, templateByCode, templateJSON, templatesFor,
@@ -208,7 +209,7 @@ export const lettersController = {
   async getLetter(req: any, res: Response) {
     const doc = await fetchLetter(req.params.docId, req.user?.organizationId);
     const { email: _e, officialEmail: _o, ...person } = doc.person;
-    res.json({ ...doc, person, emailTo: letterAddress(doc.person) });
+    res.json({ ...doc, html: markLetterhead(doc.html), person, emailTo: letterAddress(doc.person) });
   },
 
   // Show the letter to the employee under My Documents, or take it back.
@@ -227,7 +228,7 @@ export const lettersController = {
 
   async letterFile(req: any, res: Response) {
     const doc = await fetchLetter(req.params.docId, req.user?.organizationId);
-    const file = await letterPdf(doc);
+    const file = await letterPdf(doc, paperOf(req.query.paper));
     sendFile(res, file.filename, PDF, file.pdf);
   },
 

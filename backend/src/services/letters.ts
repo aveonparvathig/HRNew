@@ -6,7 +6,7 @@ import { htmlToPdf } from './pdf';
 import { peekNumber, takeNumber } from './numberSeries';
 import { todayIST } from './payroll/loanLedger';
 import {
-  BUILT_IN_TEMPLATES, builtInTemplate, cleanFormData, formFields, renderLetter,
+  BUILT_IN_TEMPLATES, Paper, builtInTemplate, cleanFormData, formFields, letterOnPaper, renderLetter,
 } from './letterEngine';
 
 // A company's templates: the built-in ones are made the first time they
@@ -138,8 +138,9 @@ export async function issueLetter(
   });
 }
 
-// The letter as a PDF file, named after its title.
-export async function letterPdf(doc: { title: string; html: string }) {
+// The letter as a PDF file, named after its title: on plain paper with the
+// company heading, or for the company's printed letterhead without it.
+export async function letterPdf(doc: { title: string; html: string }, paper: Paper = 'plain') {
   const filename = `${doc.title.replace(/[^\w .()—-]+/g, '').replace(/\s+/g, ' ').trim() || 'Letter'}.pdf`;
-  return { filename, pdf: await htmlToPdf(doc.html) };
+  return { filename, pdf: await htmlToPdf(letterOnPaper(doc.html, paper)) };
 }

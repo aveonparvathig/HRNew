@@ -381,6 +381,27 @@ function sheet(orgName: string, d: any, subject: string, salutation: string, bod
 </div>`;
 }
 
+// ---- Plain paper or the company's printed letterhead --------------------------------------
+// Every letter starts with the company heading in a block underlined in the
+// brand colour. Letters already issued are marked the same way when shown.
+const HEADING = '<div style="border-bottom:3px solid';
+const MARKED = '<div data-letterhead style="border-bottom:3px solid';
+
+export type Paper = 'plain' | 'letterhead';
+export const paperOf = (v: any): Paper => (v === 'letterhead' ? 'letterhead' : 'plain');
+
+// The letter with its heading marked, for the screen to hide when printing on letterhead.
+export const markLetterhead = (html: string) =>
+  String(html ?? '').includes(MARKED) ? String(html ?? '') : String(html ?? '').replace(HEADING, MARKED);
+
+// The letter for the paper it is printed on: on the company's printed
+// letterhead the heading is left out but its space is kept, so the letter
+// starts below what is printed on the sheet.
+export function letterOnPaper(html: string, paper: Paper): string {
+  const marked = markLetterhead(html);
+  return paper === 'letterhead' ? marked.replace(MARKED, '<div data-letterhead style="visibility:hidden;border-bottom:3px solid') : marked;
+}
+
 // A letter as HTML: the template filled from what was typed on the form,
 // on the company letterhead.
 export function renderLetter(template: TemplateText, brand: LetterBrand, formData: Data): string {

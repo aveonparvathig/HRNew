@@ -67,5 +67,13 @@
     min-height: 0;
   }
   .sidebar, .no-print, .toast-stack, .skip-link, .mobile-topbar { display: none !important; }
+  /* On the company's printed letterhead: the heading's space is kept, blank */
+  .print-area.on-letterhead [data-letterhead],
+  .print-area.on-letterhead [data-letterhead] * { visibility: hidden; }
+}
+
+/* On screen, the heading the printed letterhead supplies is shown faint */
+@media screen {
+  .letter-sheet.on-letterhead [data-letterhead] { opacity: 0.18; }
 }
 
