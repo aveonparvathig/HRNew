@@ -219,6 +219,7 @@ const MARKS: [string, string][] = [
   ['[[{{stipend}} per month||Unpaid]]', 'the same, with words to use instead'],
   ['| Designation | {{designation}} |', 'a row of a details table; a row with no value is left out'],
   ['a blank line', 'starts a new paragraph'],
+  ['---', 'on a line of its own: what follows comes after the signature, e.g. an acknowledgement'],
 ];
 
 function TemplatesTab({ data, reload }: { data: any; reload: () => void }) {

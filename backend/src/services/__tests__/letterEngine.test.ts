@@ -189,6 +189,37 @@ describe('starting templates against the letters as they were', () => {
     expect(BUILT_IN_TEMPLATES.map(t => t.code)).toEqual(expect.arrayContaining(['CONFIRMATION', 'RELIEVING']));
   });
 
+  it('writes the employee offer letter with one salary', () => {
+    const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, {
+      recipientName: 'Vimal S', designation: 'Implementation Engineer Trainee', monthlyPackage: 18000, joiningDate: '2026-05-04',
+    });
+    expect(html).toContain('Your salary will be <strong>₹18,000/-</strong> (Rupees Eighteen Thousand only) per month');
+    expect(html).not.toContain('During the first');
+    expect(html).toContain('the position of <strong>Implementation Engineer Trainee</strong> at <strong>Acme Systems</strong>');
+    expect(html).toContain('Your date of joining will be <strong>4 May 2026</strong>');
+    expect(html).toContain('within <strong>2 days</strong>');
+    expect(html).toContain('Aadhaar card');
+  });
+
+  it('writes the employee offer letter with a probation salary', () => {
+    const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, {
+      recipientName: 'Bharaneedharan C', designation: 'Application Support Engineer', probationMonths: 3, probationSalary: 15000,
+      monthlyPackage: 18000, joiningDate: '2026-09-02', acceptDays: 5,
+    });
+    expect(html).toContain('During the first 3 months of probation, your salary will be <strong>₹15,000/-</strong> (Rupees Fifteen Thousand only) per month. After the probation period, your salary will be <strong>₹18,000/-</strong> (Rupees Eighteen Thousand only)');
+    expect(html).toContain('within <strong>5 days</strong>');
+  });
+
+  it('prints what follows --- after the signature', () => {
+    const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, { recipientName: 'Vimal S', monthlyPackage: 18000 });
+    const signature = html.indexOf('Yours sincerely');
+    expect(signature).toBeGreaterThan(0);
+    expect(html.indexOf('ACKNOWLEDGEMENT')).toBeGreaterThan(signature);
+    expect(html.indexOf('List of documents')).toBeLessThan(signature);
+    expect(html).not.toContain('<p style="margin:0 0 14px;text-align:justify;">---</p>');
+    expect(html).toContain('Name: <strong>Vimal S</strong><br/>Signature:');
+  });
+
   it('writes the two new letters', () => {
     const confirmation = renderLetter(builtInTemplate('CONFIRMATION')!, brand, full);
     expect(confirmation).toContain('are confirmed with effect from <strong>1 October 2026</strong>');
