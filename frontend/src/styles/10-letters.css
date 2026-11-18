@@ -70,10 +70,34 @@
   /* On the company's printed letterhead: the heading's space is kept, blank */
   .print-area.on-letterhead [data-letterhead],
   .print-area.on-letterhead [data-letterhead] * { visibility: hidden; }
+  /* The page has no margin of its own (above), so a new page in a letter
+     starts with the same room at the top as the first */
+  .print-area [data-page-break] { height: 14mm !important; }
+}
+
+/* Writing a letter: the form beside the letter as it will print */
+.letter-compose { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); gap: 20px; align-items: start; }
+.letter-compose-form { min-width: 0; }
+.letter-compose-form .form-grid { grid-template-columns: 1fr 1fr; }
+.letter-compose-preview { position: sticky; top: 72px; min-width: 0; }
+.letter-compose-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.letter-compose-sheet {
+  max-width: none; min-height: 0; padding: 26px 28px; box-shadow: var(--shadow-sm);
+  max-height: calc(100vh - 220px); overflow-y: auto;
+}
+/* The letter at about three quarters of its size, so a full line fits */
+.letter-compose-sheet > div { zoom: 0.72; }
+.letter-compose-sheet [data-page-break] { border-top: 1px dashed #bbb; margin: 18px 0; }
+@media (max-width: 900px) {
+  .letter-compose { grid-template-columns: 1fr; }
+  .letter-compose-preview { position: static; }
+  .letter-compose-form .form-grid { grid-template-columns: 1fr; }
 }
 
 /* On screen, the heading the printed letterhead supplies is shown faint */
 @media screen {
   .letter-sheet.on-letterhead [data-letterhead] { opacity: 0.18; }
+  /* Where the next page starts */
+  .letter-sheet [data-page-break] { border-top: 1px dashed #bbb; margin: 24px 0; }
 }
 

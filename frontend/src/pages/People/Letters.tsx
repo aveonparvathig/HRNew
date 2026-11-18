@@ -220,6 +220,7 @@ const MARKS: [string, string][] = [
   ['| Designation | {{designation}} |', 'a row of a details table; a row with no value is left out'],
   ['a blank line', 'starts a new paragraph'],
   ['---', 'on a line of its own: what follows comes after the signature, e.g. an acknowledgement'],
+  ['===', 'on a line of its own: what follows starts on a new page'],
   ['Regards,\n{{signature}}', 'signs where you put it, and lays the letter out as typed in Word: no date or address block, Rs. 18,000/-, 4th May 2026'],
 ];
 

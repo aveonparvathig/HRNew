@@ -54,7 +54,8 @@ export const peopleAPI = {
   updateLetterTemplate: (templateId: string, data: any) => apiClient.put(`/people/letter-templates/${templateId}`, data),
   resetLetterTemplate: (templateId: string) => apiClient.post(`/people/letter-templates/${templateId}/reset`),
   deleteLetterTemplate: (templateId: string) => apiClient.delete(`/people/letter-templates/${templateId}`),
-  previewLetter: (data: { code?: string; template?: any; personId?: string; formData?: any }) => apiClient.post('/people/letters/preview', data),
+  // exact: the letter from formData alone, as generating it would write it
+  previewLetter: (data: { code?: string; template?: any; personId?: string; formData?: any; exact?: boolean }) => apiClient.post('/people/letters/preview', data),
   createLetters: (data: { docType: string; personIds: string[]; formData: any; visibleToEmployee: boolean }) => apiClient.post('/people/letters', data),
 
   // Bulk imports: a dry run first, then the same call with dryRun false

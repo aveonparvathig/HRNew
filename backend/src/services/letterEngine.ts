@@ -14,6 +14,7 @@
 //   a blank line               a new paragraph
 //   ---                        on a line of its own: what follows is printed
 //                              after the signature (an acknowledgement slip)
+//   ===                        on a line of its own: what follows starts on a new page
 
 import { escapeHtml } from '../utils/html';
 import { amountInWords } from './payrollCalc';
@@ -331,11 +332,14 @@ const detailTable = (rows: [string, string][]) => `
 const plainTable = (rows: [string, string][]) => `
 <table style="width:100%;border-collapse:collapse;margin:8px 0 18px;">
   ${rows.map(([k, v]) => `
-    <tr>
+    <tr style="break-inside:avoid;page-break-inside:avoid;">
       <td style="border:1px solid #000;padding:4px 10px;width:60%;">${k}</td>
       <td style="border:1px solid #000;padding:4px 10px;">${v}</td>
     </tr>`).join('')}
 </table>`;
+
+// A new page. The screen's print rules give it a top margin (see 10-letters.css).
+const PAGE_BREAK = '<div data-page-break style="break-before:page;page-break-before:always;height:0;"></div>';
 
 // {{signature}} on a line of its own: room to sign (or the stored
 // signature), then the signatory's name and title.
@@ -356,10 +360,13 @@ export function renderBody(body: string, data: Data): string {
         .filter(([, value]) => value.trim());
       return rows.length ? (data._typed ? plainTable(rows) : detailTable(rows)) : '';
     }
+    // === on its own: what follows starts on a new page
+    if (block === '===') return PAGE_BREAK;
     const lines = block.split('\n').map(line => line.trim());
     if (lines.some(line => line === '{{signature}}')) {
-      // A sign-off: its lines as typed, with the signature where it is placed
-      return `<div style="margin:0 0 18px;">${lines.map(line => (line === '{{signature}}' ? signatureBlock(data) : `<div>${renderInline(line, data)}</div>`)).join('')}</div>`;
+      // A sign-off: its lines as typed, with the signature where it is
+      // placed, kept together on one page
+      return `<div style="margin:0 0 18px;break-inside:avoid;page-break-inside:avoid;">${lines.map(line => (line === '{{signature}}' ? signatureBlock(data) : `<div>${renderInline(line, data)}</div>`)).join('')}</div>`;
     }
     const html = lines.map(line => renderInline(line, data)).join('<br/>');
     return html.replace(/<br\/>/g, '').trim() ? paragraph(html) : '';
@@ -410,7 +417,7 @@ function sheet(orgName: string, d: any, subject: string, salutation: string, bod
   </div>
   ${salutation ? `<p style="margin:0 0 14px;">${salutation}</p>` : ''}
   ${body}
-  ${after ? `<div style="border-top:1px dashed #000;margin-top:32px;padding-top:18px;">${after}</div>` : ''}
+  ${after ? `<div style="border-top:1px dashed #000;margin-top:32px;padding-top:18px;break-inside:avoid;page-break-inside:avoid;">${after}</div>` : ''}
 </div>`;
   }
   return `
@@ -532,6 +539,7 @@ export const BUILT_IN_TEMPLATES: BuiltInTemplate[] = [
       'We trust that you will find the above in order. Please feel free to contact the undersigned for any clarifications/questions that you may have. To confirm your acceptance of this Offer Letter, please sign at the bottom of this page, scan and email us the duplicate copy duly signed, and your joining date will be {{joiningDate}}. If your employment is confirmed on successful completion of probation period, you will be required to sign a Service Agreement, valid for a period of 3 years from the date of joining your employment.',
       'We are very excited to welcome you to our team and look forward to your contribution to the growth of our company.',
       'Regards,\n{{signature}}',
+      '===',
       '**List of documents to be submitted:**',
       [
         '| 10th mark sheet | Original |',
@@ -661,8 +669,12 @@ export const builtInTemplate = (code: string) => BUILT_IN_TEMPLATES.find(t => t.
 // Earlier wordings of a built-in letter, by the SHA-256 of their text. A
 // company still holding one, untouched by HR, is moved to today's wording.
 export const RETIRED_WORDINGS: Record<string, string[]> = {
-  // The first Employee Offer Letter, on the program's own letter layout
-  EMPLOYEE_OFFER: ['e68cd282c8830dac0e30896d4cee6584dfd2c11c38f8750937ee0ab691f2437d'],
+  EMPLOYEE_OFFER: [
+    // The first, on the program's own letter layout
+    'e68cd282c8830dac0e30896d4cee6584dfd2c11c38f8750937ee0ab691f2437d',
+    // As the Word sample, before the documents list had a page of its own
+    'e2b090aa67969f9d2594cc25cdf01c9587de33806573f0551a94c870c6306a41',
+  ],
 };
 
 // A template as typed on the screen, checked. Returns what is wrong, or

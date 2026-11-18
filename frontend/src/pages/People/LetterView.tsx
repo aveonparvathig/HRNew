@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useLetterPaper } from '../../utils/letterPaper';
+import PaperChoice from '../../components/PaperChoice';
 import { peopleAPI } from '../../api/people';
 import { PageHeader, LoadingBlock, EmptyState, ErrorAlert, BackButton,
 } from '../../components/ui';
@@ -16,15 +18,8 @@ export default function LetterView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
-  // Plain paper prints the company heading; the company's printed
-  // letterhead already has it, so the letter leaves its space blank.
-  const [paper, setPaperState] = useState<'plain' | 'letterhead'>(() => {
-    try { return localStorage.getItem('letterPaper') === 'letterhead' ? 'letterhead' : 'plain'; } catch { return 'plain'; }
-  });
-  const setPaper = (next: 'plain' | 'letterhead') => {
-    setPaperState(next);
-    try { localStorage.setItem('letterPaper', next); } catch { /* remembered for this visit only */ }
-  };
+  const [paper, setPaper] = useLetterPaper();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   useEffect(() => {
     peopleAPI.getDocument(docId!)
@@ -32,6 +27,15 @@ export default function LetterView() {
       .catch(err => setError(err.response?.data?.error || 'Failed to load the letter'))
       .finally(() => setLoading(false));
   }, [docId]);
+
+  // Opened by "Generate & print": print once the letter is on the page,
+  // and forget it so a reload does not print again
+  useEffect(() => {
+    if (!doc || searchParams.get('print') !== '1') return;
+    setSearchParams({}, { replace: true });
+    const timer = setTimeout(() => window.print(), 300);
+    return () => clearTimeout(timer);
+  }, [doc, searchParams, setSearchParams]);
 
   const handleDelete = async () => {
     if (!await confirmDialog('Remove this letter from the record? This cannot be undone.')) return;
@@ -105,12 +109,7 @@ export default function LetterView() {
                 title={doc.emailTo ? `Send to ${doc.emailTo}` : 'No email address on record'}>
                 {sending ? 'Sending…' : 'Email'}
               </Button>
-              <div className="segmented" role="group" aria-label="Paper the letter is printed on">
-                <button type="button" className={paper === 'plain' ? 'active' : ''} aria-pressed={paper === 'plain'}
-                  title="Print the company heading on a blank sheet" onClick={() => setPaper('plain')}>Plain paper</button>
-                <button type="button" className={paper === 'letterhead' ? 'active' : ''} aria-pressed={paper === 'letterhead'}
-                  title="Leave the heading blank for the company's printed letterhead" onClick={() => setPaper('letterhead')}>Letterhead</button>
-              </div>
+              <PaperChoice paper={paper} onChange={setPaper} />
               <DownloadButton path={`/people/documents/${doc.id}/file`} params={{ paper }} busyLabel="Making the PDF…">
                 <Icon name="download" size={16} className="btn-icon" />PDF
               </DownloadButton>

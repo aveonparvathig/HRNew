@@ -145,12 +145,19 @@ export const lettersController = {
     }
     const brand = await orgBrand(organizationId);
     let data: any = { ...SAMPLE_DATA, letterDate: new Date().toISOString().slice(0, 10) };
-    if (b.personId) {
+    if (b.personId && b.exact) {
+      // The letter form's own preview: what is typed, as issuing it would write it
       const person = await fetchPerson(b.personId, organizationId);
-      data = await letterPrefill(organizationId, person, { code: template.code || '' }, brand);
+      data = cleanFormData(b.formData);
+      data.recipientName = str(data.recipientName) || person.name;
+    } else {
+      if (b.personId) {
+        const person = await fetchPerson(b.personId, organizationId);
+        data = await letterPrefill(organizationId, person, { code: template.code || '' }, brand);
+      }
+      Object.assign(data, Object.fromEntries(Object.entries(cleanFormData(b.formData)).filter(([, v]) => str(v) !== '')));
     }
-    Object.assign(data, Object.fromEntries(Object.entries(cleanFormData(b.formData)).filter(([, v]) => str(v) !== '')));
-    res.json({ html: renderLetter(template, brand, data), fields: formFields(template) });
+    res.json({ html: markLetterhead(renderLetter(template, brand, data)), fields: formFields(template) });
   },
 
   // ---- One letter -----------------------------------------------------------------------

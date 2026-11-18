@@ -244,9 +244,32 @@ describe('starting templates against the letters as they were', () => {
     expect(keys.slice(-2)).toEqual(['signatoryName', 'signatoryTitle']);
   });
 
-  it('remembers the wording it replaced', () => {
-    expect(RETIRED_WORDINGS.EMPLOYEE_OFFER).toHaveLength(1);
-    expect(RETIRED_WORDINGS.EMPLOYEE_OFFER[0]).not.toBe(createHash('sha256').update(builtInTemplate('EMPLOYEE_OFFER')!.body).digest('hex'));
+  it('remembers the wordings it replaced', () => {
+    const now = createHash('sha256').update(builtInTemplate('EMPLOYEE_OFFER')!.body).digest('hex');
+    expect(RETIRED_WORDINGS.EMPLOYEE_OFFER).toHaveLength(2);
+    expect(RETIRED_WORDINGS.EMPLOYEE_OFFER).not.toContain(now);
+  });
+
+  it('starts a new page at ===, and shows nothing for it', () => {
+    const html = renderBody('One\n\n===\n\nTwo', {});
+    expect(html.match(/data-page-break/g)).toHaveLength(1);
+    expect(html).toContain('break-before:page');
+    expect(html).not.toContain('===');
+  });
+
+  it('puts the documents list of the employee offer letter on page 2, as the Word sample', () => {
+    const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, { recipientName: 'Vimal S', monthlyPackage: 18000 });
+    const pageBreak = html.indexOf('data-page-break');
+    expect(html.indexOf('Regards,')).toBeLessThan(pageBreak);
+    expect(html.indexOf('List of documents')).toBeGreaterThan(pageBreak);
+    expect(html.match(/data-page-break/g)).toHaveLength(1);
+  });
+
+  it('keeps table rows, sign-offs and the acknowledgement of a typed letter whole on a page', () => {
+    const html = renderLetter(builtInTemplate('EMPLOYEE_OFFER')!, brand, { recipientName: 'Vimal S', monthlyPackage: 18000 });
+    expect(html.match(/<tr style="break-inside:avoid;/g)).toHaveLength(9);
+    expect(html.match(/break-inside:avoid;page-break-inside:avoid;">\s*<div>(Regards|Sincerely),/g)).toHaveLength(2);
+    expect(html).toMatch(/break-inside:avoid;page-break-inside:avoid;"><p[^>]*><strong>ACKNOWLEDGEMENT/);
   });
 
   it('marks the heading once, and blanks it for the printed letterhead', () => {

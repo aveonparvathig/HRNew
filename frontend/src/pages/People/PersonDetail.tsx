@@ -67,7 +67,8 @@ export default function PersonDetail() {
   const [error, setError] = useState('');
   const [editModal, setEditModal] = useState(false);
   const [confirming, setConfirming] = useState(''); // the confirmation date being entered, or ''
-  const [docModal, setDocModal] = useState<{ open: boolean; docType: string; docLabel: string }>({ open: false, docType: '', docLabel: '' });
+  // pick: the form lets HR choose among the letters; otherwise it writes docType
+  const [docModal, setDocModal] = useState<{ open: boolean; docType: string; docLabel: string; pick?: boolean }>({ open: false, docType: '', docLabel: '' });
   const [interviewModal, setInterviewModal] = useState(false);
   const [interviewForm, setInterviewForm] = useState<any>(EMPTY_INTERVIEW);
   const [saving, setSaving] = useState(false);
@@ -160,6 +161,10 @@ export default function PersonDetail() {
   }
 
   const isIntern = person.kind === 'INTERN';
+  // The letters this person can be written
+  const letterChoices: { value: string; label: string }[] = (meta?.docTypes || [])
+    .filter((t: any) => t.kinds.includes(person.kind))
+    .map((t: any) => ({ value: t.value, label: t.label }));
 
   return (
     <>
@@ -355,14 +360,15 @@ export default function PersonDetail() {
         <div className="card-header">
           <h3>Letters ({(person.documents || []).length})</h3>
           <div className="cluster">
-            {canManagePeople && (meta?.docTypes || [])
-              .filter((t: any) => t.kinds.includes(person.kind))
-              .map((t: any) => (
-                <Button key={t.value} size="sm" icon="pen"
-                  onClick={() => setDocModal({ open: true, docType: t.value, docLabel: t.label })}>
-                  {t.label}
-                </Button>
-              ))}
+            {canManagePeople && letterChoices.length > 0 && (
+              <Button size="sm" variant="accent" icon="pen" onClick={() => {
+                // A candidate's form opens on the offer letter; anyone else's on the first letter
+                const first = letterChoices.find(l => person.kind === 'CANDIDATE' && l.value === 'EMPLOYEE_OFFER') || letterChoices[0];
+                setDocModal({ open: true, docType: first.value, docLabel: first.label, pick: true });
+              }}>
+                Write letter
+              </Button>
+            )}
           </div>
         </div>
         {(person.documents || []).length === 0 ? (
@@ -611,6 +617,7 @@ export default function PersonDetail() {
         personName={person.name}
         docType={docModal.docType}
         docLabel={docModal.docLabel}
+        letters={docModal.pick ? letterChoices : undefined}
       />
 
       {/* Add interview round */}
