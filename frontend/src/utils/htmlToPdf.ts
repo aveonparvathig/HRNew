@@ -12,7 +12,7 @@ export async function downloadHtmlAsPdf(html: string, filename: string, opts: {
    *  so selectors to break before / avoid splitting must be given here. */
   pagebreak?: { mode?: string[]; before?: string | string[]; after?: string | string[]; avoid?: string | string[] };
   /** Render at 3x into lossless PNG instead of 2x JPEG: logos and fine
-   *  text stay sharp. Larger files — meant for one- or two-page documents. */
+   *  text stay sharp. Slower to build — meant for one- or two-page documents. */
   crisp?: boolean;
 } = {}) {
   const html2pdf = (await import('html2pdf.js')).default;
@@ -39,7 +39,9 @@ export async function downloadHtmlAsPdf(html: string, filename: string, opts: {
       scale: opts.crisp ? 3 : 2, useCORS: true, scrollX: 0, scrollY: 0,
       windowWidth: Math.round(contentMm * 96 / 25.4),
     },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    // compress: without it jsPDF embeds a PNG page as raw RGB — a 3x A4 page
+    // is ~21 MB. Deflate is lossless, so the page stays exactly as sharp.
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
     pagebreak: opts.pagebreak || { mode: ['css', 'legacy'] },
   } as any).from(container).save();
 }
