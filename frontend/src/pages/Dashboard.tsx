@@ -117,22 +117,21 @@ export default function Dashboard() {
     && (m.to !== '/my/payslips' || Boolean(user?.personId))
     && (!TILE_MODULE[m.to] || enabledModules.includes(TILE_MODULE[m.to])));
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  const initials = (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
 
   useEffect(() => { document.title = 'Dashboard · Aveon HR'; return () => { document.title = 'Aveon HR'; }; }, []);
 
   return (
     <>
-      <section className="hero-banner no-print">
-        <div className="hero-avatar">{initials}</div>
-        <div className="hero-copy">
-          <h1>{greeting()}, {firstName}</h1>
-          <p>{today}</p>
+      <section className="welcome no-print">
+        <div>
+          <h1>Welcome {firstName}!</h1>
+          <p className="welcome-sub">{greeting()} — here is your workspace today.</p>
         </div>
-        <div className="hero-actions">
+        <div className="welcome-actions">
+          <span className="pill-date"><Icon name="calendar" size={16} className="" />{today}</span>
           {staff && <Link to="/payroll" className="btn btn-primary"><Icon name="banknote" size={16} className="" />Payroll</Link>}
-          {managesPeople && <Link to="/people" className="btn btn-hero-ghost"><Icon name="users" size={16} className="" />People</Link>}
-          {user?.personId && <Link to="/my/payslips" className="btn btn-hero-ghost"><Icon name="banknote" size={16} className="" />My payslips</Link>}
+          {managesPeople && <Link to="/people" className="btn btn-secondary"><Icon name="users" size={16} className="" />People</Link>}
+          {user?.personId && <Link to="/my/payslips" className="btn btn-secondary"><Icon name="banknote" size={16} className="" />My payslips</Link>}
         </div>
       </section>
 
@@ -140,13 +139,15 @@ export default function Dashboard() {
 
       {managesPeople && <HrPanel />}
 
-      <h2 className="section-title flush">Your workspace</h2>
+      <h2 className="section-title">Quick actions</h2>
       <div className="module-grid">
         {modules.map(mod => (
           <Link key={mod.name} to={mod.to} className="module-card">
-            <div className={`module-icon ${mod.tone}`}><Icon name={mod.icon} size={21} className="" /></div>
-            <h3>{mod.name}</h3>
-            <p>{mod.desc}</p>
+            <div className={`module-icon ${mod.tone}`}><Icon name={mod.icon} size={24} className="" /></div>
+            <div className="min-w-0">
+              <h3>{mod.name}</h3>
+              <p>{mod.desc}</p>
+            </div>
           </Link>
         ))}
       </div>

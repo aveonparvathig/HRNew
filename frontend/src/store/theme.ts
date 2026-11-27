@@ -5,16 +5,16 @@ import { persist } from 'zustand/middleware';
 // the stylesheet's prefers-color-scheme media query takes over.
 export type ThemeMode = 'light' | 'dark' | 'system';
 export type Density = 'comfortable' | 'compact';
-export type Accent = 'slate' | 'blue' | 'violet' | 'teal' | 'rose' | 'amber';
+export type Accent = 'purple' | 'blue' | 'violet' | 'teal' | 'rose' | 'amber';
 
-// primary, hover
+// primary, hover (keep in step with the boot script in index.html)
 export const ACCENTS: Record<Accent, { primary: string; hover: string; label: string }> = {
-  slate: { primary: '#1E293B', hover: '#0F172A', label: 'Slate' },
-  blue: { primary: '#1D4ED8', hover: '#1E40AF', label: 'Blue' },
-  violet: { primary: '#6D28D9', hover: '#5B21B6', label: 'Violet' },
-  teal: { primary: '#0F766E', hover: '#115E59', label: 'Teal' },
-  rose: { primary: '#BE123C', hover: '#9F1239', label: 'Rose' },
-  amber: { primary: '#B45309', hover: '#92400E', label: 'Amber' },
+  purple: { primary: '#BB33AA', hover: '#962987', label: 'Orchid' },
+  blue: { primary: '#2B6FD4', hover: '#1F58AD', label: 'Blue' },
+  violet: { primary: '#8A4FD9', hover: '#7339C2', label: 'Violet' },
+  teal: { primary: '#278B86', hover: '#1D6E6A', label: 'Teal' },
+  rose: { primary: '#D33558', hover: '#B0284A', label: 'Rose' },
+  amber: { primary: '#C2571A', hover: '#9E4614', label: 'Orange' },
 };
 
 export function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
@@ -34,11 +34,11 @@ function applyMode(mode: ThemeMode) {
 }
 
 // Accent re-paints the action color across both themes via inline vars. The
-// default 'slate' (or any unknown saved value) clears the overrides so the tuned base tokens apply.
+// default 'purple' (or any unknown saved value, such as the old 'slate') clears the overrides so the tuned base tokens apply.
 function applyAccent(accent: Accent) {
   const root = document.documentElement;
   const vars = ['--primary', '--primary-hover', '--primary-ink', '--primary-soft', '--sidebar-rail', '--sidebar-active', '--ring', '--primary-border'];
-  if (accent === 'slate' || !ACCENTS[accent]) {
+  if (accent === 'purple' || !ACCENTS[accent]) {
     vars.forEach(v => root.style.removeProperty(v));
     return;
   }
@@ -79,7 +79,7 @@ export const useTheme = create<ThemeStore>()(
   persist(
     (set, get) => ({
       mode: 'system',
-      accent: 'slate',
+      accent: 'purple',
       density: 'comfortable',
       setMode: (mode) => { applyMode(mode); set({ mode }); },
       setAccent: (accent) => { applyAccent(accent); set({ accent }); },
@@ -93,6 +93,11 @@ export const useTheme = create<ThemeStore>()(
     }),
     {
       name: 'aveon-theme',
+      // A saved accent that no longer exists (the old 'slate') falls back to the default
+      merge: (persisted, current) => {
+        const p = (persisted || {}) as Partial<ThemeStore>;
+        return { ...current, ...p, accent: p.accent && ACCENTS[p.accent] ? p.accent : 'purple' };
+      },
       // Re-apply once the persisted value is read back (the inline boot script
       // in index.html already set mode for the very first paint).
       onRehydrateStorage: () => (state) => state && applyAll(state),

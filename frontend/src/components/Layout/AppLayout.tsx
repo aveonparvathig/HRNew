@@ -1,19 +1,16 @@
 import { Suspense, useState, useEffect, useMemo, useRef } from 'react';
-import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore, useEnabledModules } from '../../store/authStore';
 import { useTheme, resolveTheme, type ThemeMode } from '../../store/theme';
 import { authAPI } from '../../api/auth';
 import { LoadingBlock } from '../ui';
 import CommandPalette from '../CommandPalette';
 import ThemeCustomizer from '../ThemeCustomizer';
-import { HOME_ITEM, ICON_PATHS, Icon, activeNav, navSectionsFor } from './nav';
+import { HOME_ITEM, Icon, activeNav, navSectionsFor, type NavItem } from './nav';
 
-// Which sidebar sections the user opened or closed by hand
-const NAV_STATE_KEY = 'nav-sections';
+// Collapsed = only the icon rail shows; the sub-menu panel is hidden
 const RAIL_KEY = 'nav-rail';
-const readNavState = (): Record<string, boolean> => {
-  try { return JSON.parse(localStorage.getItem(NAV_STATE_KEY) || '{}') || {}; } catch { return {}; }
-};
+const HOME_KEY = 'home';
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -48,8 +45,7 @@ export default function AppLayout() {
   const [acctOpen, setAcctOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [systemDark, setSystemDark] = useState(() => resolveTheme('system') === 'dark');
-  const [navState, setNavState] = useState<Record<string, boolean>>(readNavState);
-  const navRef = useRef<HTMLElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   const sections = useMemo(() => navSectionsFor(user, modules), [user, modules]);
 
@@ -61,20 +57,36 @@ export default function AppLayout() {
       .catch(() => { /* leave the stored context in place */ });
   }, [setOrg]);
   const active = activeNav(sections, location.pathname);
-  const activeKey = active?.key ?? null;
-  const activeItem = sections.flatMap(s => s.items).find(i => i.to === active?.to);
+  const activeKey = active?.key ?? HOME_KEY;
+  const activeSection = sections.find(s => s.key === activeKey);
+  const activeItem = activeSection?.items.find(i => i.to === active?.to);
   const pageTitle = location.pathname === HOME_ITEM.to ? HOME_ITEM.label : (activeItem?.label || HOME_ITEM.label);
-  // A short menu is shown whole; a long one opens only the section in use
-  const linkCount = sections.reduce((n, s) => n + s.items.length, 0);
-  const isOpen = (key: string) => navState[key] ?? (linkCount <= 12 || key === activeKey);
 
-  const toggleSection = (key: string) => {
-    const next = { ...navState, [key]: !isOpen(key) };
-    setNavState(next);
-    try { localStorage.setItem(NAV_STATE_KEY, JSON.stringify(next)); } catch { /* private mode */ }
+  // The section whose sub-menu is showing: the one in use, until the user picks another on the rail
+  const [picked, setPicked] = useState<string | null>(null);
+  // In collapsed mode a picked section opens its sub-menu as a flyout
+  const [flyout, setFlyout] = useState(false);
+  const shownKey = picked ?? activeKey;
+  const shownSection = sections.find(s => s.key === shownKey);
+
+  // The home panel lists the dashboard and a shortcut into each section
+  const homeItems: NavItem[] = [
+    HOME_ITEM,
+    ...sections.map(s => ({ to: s.items[0].to, icon: s.icon, label: s.label })),
+  ];
+  const panelItems = shownSection ? shownSection.items : homeItems;
+  const panelTitle = shownSection ? shownSection.label : 'Overview';
+  const panelLinkActive = (item: NavItem) => shownSection
+    ? item.to === active?.to
+    : item.to === HOME_ITEM.to && location.pathname === HOME_ITEM.to;
+
+  const pickSection = (key: string) => {
+    setPicked(key);
+    if (rail) setFlyout(f => (key === shownKey ? !f : true));
   };
 
   const toggleRail = () => {
+    setFlyout(false);
     setRail(r => {
       const next = !r;
       try { localStorage.setItem(RAIL_KEY, next ? '1' : '0'); } catch { /* private mode */ }
@@ -91,31 +103,30 @@ export default function AppLayout() {
   }, []);
   const resolved: 'light' | 'dark' = mode === 'system' ? (systemDark ? 'dark' : 'light') : mode;
 
-  // Arriving in a section the user had closed opens it again
-  useEffect(() => {
-    if (!activeKey) return;
-    setNavState(state => (state[activeKey] === false ? { ...state, [activeKey]: true } : state));
-  }, [activeKey]);
-
-  // Each page starts at the top; the drawer/menus close whenever navigation happens
+  // Each page starts at the top; the drawer, flyout and menus close whenever
+  // navigation happens, and the sub-menu follows the page in use again
   useEffect(() => {
     setNavOpen(false);
     setAcctOpen(false);
     setNotifOpen(false);
+    setFlyout(false);
+    setPicked(null);
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  // The current link is brought into view in a long menu
+  // The current link is brought into view in a long sub-menu
   useEffect(() => {
-    navRef.current?.querySelector('.nav-link.active')?.scrollIntoView({ block: 'nearest' });
-  }, [location.pathname, activeKey]);
+    panelRef.current?.querySelector('.nav-link.active')?.scrollIntoView({ block: 'nearest' });
+  }, [location.pathname, shownKey]);
 
-  // Ctrl+K (⌘K on a Mac) opens the quick search from anywhere
+  // Ctrl+K (⌘K on a Mac) opens the quick search from anywhere; Esc closes the flyout
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearchOpen(open => !open);
+      } else if (e.key === 'Escape') {
+        setFlyout(false);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -130,11 +141,18 @@ export default function AppLayout() {
   const initials = (user?.firstName?.[0] || user?.email?.[0] || 'U').toUpperCase();
   const fullName = user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Account';
 
-  // In rail (collapsed) mode the groups flatten to a single icon list
-  const railItems = rail ? sections.flatMap(s => s.items) : [];
+  const railButton = (key: string, icon: string, label: string) => (
+    <button key={key} type="button" title={label}
+      className={`rail-item${key === activeKey ? ' current' : ''}${key === shownKey && (!rail || flyout) ? ' open' : ''}`}
+      onClick={() => pickSection(key)} aria-expanded={key === shownKey && (!rail || flyout)}
+      aria-controls="nav-panel">
+      <span className="rail-icon"><Icon name={icon} size={20} className="" /></span>
+      <span className="rail-label">{label}</span>
+    </button>
+  );
 
   return (
-    <div className={`app-shell${rail ? ' rail' : ''}`}>
+    <div className={`app-shell${rail ? ' rail' : ''}${flyout ? ' flyout' : ''}`}>
       <a className="skip-link" href="#main">Skip to content</a>
 
       <header className="mobile-topbar">
@@ -153,89 +171,53 @@ export default function AppLayout() {
       </header>
 
       {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
+      {flyout && <div className="flyout-backdrop" onClick={() => setFlyout(false)} />}
 
       <aside className={`sidebar${navOpen ? ' open' : ''}`}>
-        <div className="sidebar-brand">
-          <BrandMark />
-          <span className="brand-text">
-            Aveon HR
-            <span className="brand-sub">Aveon Infotech</span>
-          </span>
-        </div>
-
-        <button className="sidebar-search" onClick={() => { setNavOpen(false); setSearchOpen(true); }}>
-          <Icon name="search" size={15} />
-          <span className="search-label">Search</span>
-          <kbd>{isMac ? '⌘K' : 'Ctrl K'}</kbd>
-        </button>
-
-        <nav className="sidebar-nav" ref={navRef} aria-label="Main">
-          <NavLink to={HOME_ITEM.to} end className="nav-link" title={HOME_ITEM.label}>
-            <Icon name={HOME_ITEM.icon} />
-            <span className="nav-label">{HOME_ITEM.label}</span>
-          </NavLink>
-
-          {rail ? (
-            railItems.map(item => (
-              <Link key={item.to} to={item.to} title={item.label}
-                className={`nav-link${item.to === active?.to ? ' active' : ''}`}
-                aria-current={item.to === active?.to ? 'page' : undefined}>
-                <Icon name={item.icon} />
-                <span className="nav-label">{item.label}</span>
+        <nav className="nav-rail" aria-label="Sections">
+          <Link to={HOME_ITEM.to} className="rail-brand" title="Aveon HR — Dashboard">
+            <BrandMark />
+          </Link>
+          <div className="rail-items">
+            {railButton(HOME_KEY, HOME_ITEM.icon, HOME_ITEM.label)}
+            {sections.map(s => railButton(s.key, s.icon, s.label))}
+          </div>
+          <div className="rail-foot">
+            {user?.personId ? (
+              <Link to={`/people/${user.personId}`} className="rail-item" title="My profile">
+                <span className="avatar">{initials}</span>
+                <span className="rail-label">Profile</span>
               </Link>
-            ))
-          ) : (
-            sections.map(section => {
-              const open = isOpen(section.key);
-              return (
-                <div key={section.key} className="nav-group">
-                  <button className={`sidebar-section${section.key === activeKey ? ' current' : ''}`}
-                    onClick={() => toggleSection(section.key)} aria-expanded={open}>
-                    <span>{section.label}</span>
-                    <Icon name="chevron" size={13} className={`section-chevron${open ? ' open' : ''}`} />
-                  </button>
-                  {open && section.items.map(item => (
-                    <Link key={item.to} to={item.to} title={item.label}
-                      className={`nav-link${item.to === active?.to ? ' active' : ''}`}
-                      aria-current={item.to === active?.to ? 'page' : undefined}>
-                      <Icon name={item.icon} />
-                      <span className="nav-label">{item.label}</span>
-                    </Link>
-                  ))}
-                </div>
-              );
-            })
-          )}
+            ) : (
+              <span className="rail-item" title={fullName}>
+                <span className="avatar">{initials}</span>
+              </span>
+            )}
+            <button type="button" className="rail-item" onClick={handleLogout} title="Sign out">
+              <span className="rail-icon"><Icon name="logout" size={19} className="" /></span>
+              <span className="rail-label">Sign out</span>
+            </button>
+          </div>
         </nav>
 
-        <div className="sidebar-footer">
-          {user?.personId ? (
-            <Link to={`/people/${user.personId}`} className="sidebar-user-link" title="View my profile">
-              <div className="avatar">{initials}</div>
-              <div className="sidebar-user">
-                <div className="name">{fullName}</div>
-                <div className="email">My profile</div>
-              </div>
-            </Link>
-          ) : (
-            <>
-              <div className="avatar">{initials}</div>
-              <div className="sidebar-user">
-                <div className="name">{fullName}</div>
-                <div className="email">{user?.email}</div>
-              </div>
-            </>
-          )}
-          <Link to="/change-password" className="icon-btn key-btn" title="Change password" aria-label="Change password">
-            <Icon name="key" size={16} className="" />
-          </Link>
-          <button className="icon-btn" onClick={handleLogout} title="Sign out" aria-label="Sign out">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              {ICON_PATHS.logout}
-            </svg>
-          </button>
-        </div>
+        <nav className="nav-panel" id="nav-panel" ref={panelRef} aria-label={panelTitle}>
+          <div className="panel-head">
+            <div className="panel-title">{panelTitle}</div>
+            <div className="panel-sub">Aveon HR</div>
+          </div>
+          <div className="panel-links">
+            {panelItems.map(item => {
+              const on = panelLinkActive(item);
+              return (
+                <Link key={item.to + item.label} to={item.to} title={item.label}
+                  className={`nav-link${on ? ' active' : ''}`} aria-current={on ? 'page' : undefined}>
+                  <Icon name={item.icon} />
+                  <span className="nav-label">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
       </aside>
 
       <div className="app-main">
@@ -252,11 +234,16 @@ export default function AppLayout() {
         <header className="topbar no-print">
           <div className="topbar-left">
             <button className="sidebar-collapse" onClick={toggleRail}
-              title={rail ? 'Expand sidebar' : 'Collapse sidebar'} aria-label="Toggle sidebar">
+              title={rail ? 'Show the sub-menu' : 'Hide the sub-menu'} aria-label="Toggle sub-menu">
               <Icon name="panelLeft" size={17} className="" />
             </button>
             <div className="topbar-ctx">
               <div className="title">{pageTitle}</div>
+              <div className="crumbs">
+                <Link to={HOME_ITEM.to}>Home</Link>
+                <Icon name="chevron" size={11} className="crumb-sep" />
+                {activeSection ? activeSection.label : HOME_ITEM.label}
+              </div>
             </div>
           </div>
 
@@ -269,13 +256,13 @@ export default function AppLayout() {
 
             <button className="topbar-btn" onClick={toggleTheme}
               title={resolved === 'dark' ? 'Switch to light' : 'Switch to dark'} aria-label="Toggle theme">
-              <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={18} className="" />
+              <Icon name={resolved === 'dark' ? 'sun' : 'moon'} size={19} className="" />
             </button>
 
             <div className="dropdown">
               <button className={`topbar-btn${notifOpen ? ' on' : ''}`} onClick={() => { setNotifOpen(o => !o); setAcctOpen(false); }}
                 aria-label="Notifications" aria-expanded={notifOpen}>
-                <Icon name="bell" size={18} className="" />
+                <Icon name="bell" size={19} className="" />
               </button>
               {notifOpen && (
                 <>
@@ -292,8 +279,11 @@ export default function AppLayout() {
             </div>
 
             <div className="dropdown">
-              <button className="topbar-avatar avatar" onClick={() => { setAcctOpen(o => !o); setNotifOpen(false); }}
-                aria-label="Account" aria-expanded={acctOpen}>{initials}</button>
+              <button className="topbar-user" onClick={() => { setAcctOpen(o => !o); setNotifOpen(false); }}
+                aria-label="Account" aria-expanded={acctOpen}>
+                <span className="topbar-user-name">{fullName}</span>
+                <span className="topbar-avatar avatar">{initials}</span>
+              </button>
               {acctOpen && (
                 <>
                   <div className="dropdown-backdrop" onClick={() => setAcctOpen(false)} />

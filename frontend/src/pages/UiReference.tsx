@@ -6,7 +6,7 @@ import { Cluster, AutoGrid } from '../components/layout';
 import { DataTable, type Column } from '../components/DataTable';
 import { useTheme } from '../store/theme';
 
-// Dev-only living reference for the Swiss Slate design system (/__ui).
+// Dev-only living reference for the Orchid design system (/__ui).
 // Every redesign PR is reviewed against this page in both themes.
 const SWATCHES = [
   '--bg', '--surface', '--surface-2', '--border', '--text', '--text-2', '--text-3',
@@ -37,7 +37,7 @@ export default function UiReference() {
 
   return (
     <div className="ui-ref page-pad">
-      <PageHeader title="UI reference" subtitle="Swiss Slate tokens and primitives. Dev builds only."
+      <PageHeader title="UI reference" subtitle="Orchid tokens and primitives. Dev builds only."
         actions={<>
           <Button icon="sun" onClick={toggle}>Toggle theme</Button>
           <Button onClick={() => setDensity(density === 'compact' ? 'comfortable' : 'compact')}>

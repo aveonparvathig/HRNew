@@ -1,0 +1,201 @@
+/* ============ Orchid layer ============ */
+/* The soft, rounded look: borderless white cards on a light grey page, pill
+   buttons and badges, Urbanist headings. Loaded after the older layers so it
+   settles their conflicts; page CSS below it may still refine. */
+
+/* ---- Typography ---- */
+h1, h2, h3, h4, .page-title, .section-title, .card-header h3, .status-title, .auth-card-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.page-title { font-size: 26px; }
+.section-title { font-size: 16px; margin: 28px 0 14px; }
+.card-header h3 { font-size: 16px; }
+
+/* ---- Top bar ---- */
+.topbar {
+  height: 72px;
+  padding: 0 32px;
+  gap: 14px;
+  border-bottom: 0;
+  backdrop-filter: blur(10px);
+}
+.topbar-ctx .title { font-family: var(--font-heading); font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+.topbar-ctx .crumbs { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-3); margin-top: 1px; }
+.topbar-ctx .crumbs a { color: var(--text-3); }
+.topbar-ctx .crumbs a:hover { color: var(--primary); text-decoration: none; }
+.crumb-sep { opacity: 0.6; }
+.topbar-search {
+  height: 40px; min-width: 230px; padding: 0 14px;
+  background: var(--surface); border: 0; border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-sm);
+}
+.topbar-search:hover { box-shadow: var(--shadow-md); background: var(--surface); }
+.topbar-btn { width: 40px; height: 40px; border-radius: 50%; color: var(--text-2); }
+.topbar-btn:hover { background: var(--surface); box-shadow: var(--shadow-sm); }
+.topbar-user {
+  display: flex; align-items: center; gap: 10px;
+  margin-left: 6px; padding: 3px 3px 3px 12px;
+  background: none; border: 0; border-radius: var(--radius-pill);
+  font-family: inherit; font-size: 13.5px; font-weight: 600; color: var(--text);
+  cursor: pointer; transition: background var(--t) var(--ease);
+}
+.topbar-user:hover { background: var(--surface); box-shadow: var(--shadow-sm); }
+.topbar-avatar { width: 38px; height: 38px; font-size: 14px; background: var(--primary); color: var(--primary-ink); }
+.topbar-user-name { white-space: nowrap; max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1100px) { .topbar-user-name { display: none; } .topbar-search { min-width: 0; } .topbar-search span, .topbar-search kbd { display: none; } }
+
+.sidebar-collapse { display: none; }
+@media (min-width: 769px) {
+  .sidebar-collapse {
+    display: grid; place-items: center;
+    width: 38px; height: 38px; flex: none; border-radius: 50%;
+    border: 0; background: var(--surface); color: var(--text-2); cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background var(--t), color var(--t), box-shadow var(--t);
+  }
+  .sidebar-collapse:hover { color: var(--primary); box-shadow: var(--shadow-md); }
+}
+
+/* ---- Dropdowns ---- */
+.dropdown-panel { border: 0; border-radius: var(--radius-lg); padding: 8px; }
+.dropdown-item { border-radius: var(--radius-sm); }
+.theme-opt { border-radius: var(--radius); }
+
+/* ---- Cards ---- */
+.card, .stat-card, .module-card, .table-card, .status-card, .kpi-tile, .section-card, .report-tile, .payout-card {
+  border-color: transparent;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+.card-pad { padding: 24px; }
+.card-header { padding: 18px 24px; border-bottom-color: var(--border); }
+.card.interactive:hover, .module-card:hover { border-color: transparent; box-shadow: var(--shadow-md); }
+:root[data-theme="dark"] .card, :root[data-theme="dark"] .stat-card, :root[data-theme="dark"] .module-card,
+:root[data-theme="dark"] .table-card, :root[data-theme="dark"] .kpi-tile { border-color: var(--border); }
+
+/* ---- Buttons: pills ---- */
+.btn { border-radius: var(--radius-pill); padding: 9px 18px; font-weight: 600; }
+.btn-sm { padding: 6px 14px; }
+.btn-primary { box-shadow: none; }
+.btn-secondary {
+  background: var(--surface); color: var(--primary);
+  border-color: var(--primary-border); box-shadow: none;
+}
+.btn-secondary:hover:not(:disabled) { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.btn-ghost { color: var(--primary); }
+.btn-ghost:hover:not(:disabled) { background: var(--primary-soft); color: var(--primary); }
+.btn-danger { border-color: color-mix(in srgb, var(--danger) 30%, transparent); }
+.btn-back { border: 0; border-radius: 50%; width: 34px; height: 34px; }
+.btn-back:hover { color: var(--primary); border: 0; }
+
+/* ---- Badges and chips ---- */
+.badge { border-radius: var(--radius-pill); padding: 3px 11px; font-weight: 700; }
+.chip, .sort-chip { border-radius: var(--radius-pill); }
+.trend-chip { border-radius: var(--radius-pill); }
+
+/* ---- Stat cards ---- */
+.stat-card { padding: 20px 22px; }
+.stat-label { font-size: 13px; color: var(--text-2); font-weight: 600; }
+.stat-value { font-family: var(--font-heading); font-size: 26px; font-weight: 700; }
+.stat-icon { border-radius: var(--radius); }
+
+/* ---- Forms ---- */
+.input, .select, textarea.input {
+  border-radius: 12px;
+  background: var(--surface-2);
+  border-color: transparent;
+}
+.input:hover, .select:hover { border-color: var(--border-strong); }
+.input:focus, .select:focus { background: var(--surface); border-color: var(--primary); }
+.field label { font-weight: 600; }
+
+/* ---- Tables ---- */
+.table-wrap { border-radius: var(--radius-lg); }
+.table th {
+  background: transparent;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-3);
+}
+.table tbody tr:hover td, .table tbody tr:hover { background: var(--hover); }
+.table-sticky-actions thead th:last-child { background: var(--surface); }
+
+/* ---- Tabs and segmented controls ---- */
+.tabs, .tabs-ui { border-bottom: 0; gap: 6px; }
+.tab, .tabs-ui button {
+  border: 0; border-radius: var(--radius-pill);
+  padding: 8px 16px; margin-bottom: 0;
+  font-weight: 600;
+}
+.tab:hover, .tabs-ui button:hover { background: var(--surface); }
+.tab.active, .tabs-ui button[aria-selected="true"] {
+  background: var(--primary-soft); color: var(--primary);
+  border: 0;
+}
+.tab.active:hover { background: var(--primary-soft); }
+.segmented { border-radius: var(--radius-pill); }
+.segmented button { border-radius: var(--radius-pill); }
+
+/* ---- Alerts, modals, menus ---- */
+.alert { border-radius: var(--radius); border-color: transparent; }
+.modal { border-radius: var(--radius-xl); border: 0; }
+.menu-panel { border-radius: var(--radius); border: 0; box-shadow: var(--shadow-lg); }
+
+/* ---- Customizer button ---- */
+.customizer-fab { border-radius: 16px 0 0 16px; }
+
+/* ---- Page header ---- */
+.page-header { margin-bottom: 26px; }
+.page-subtitle { color: var(--text-3); }
+
+/* ---- Dashboard ---- */
+.welcome {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-bottom: 26px;
+}
+.welcome h1 { font-size: 28px; line-height: 1.15; }
+.welcome-sub { margin-top: 6px; font-size: 13px; color: var(--text-3); }
+.welcome-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.pill-date {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 40px; padding: 0 16px;
+  background: var(--surface); border-radius: var(--radius-pill); box-shadow: var(--shadow-sm);
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+}
+
+/* Quick-action tiles: tinted icon square, title and line of help */
+.module-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.module-card {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 18px 12px 12px;
+  border-radius: var(--radius-lg);
+}
+.module-card .module-icon {
+  width: 64px; height: 64px; flex: none; margin: 0;
+  border-radius: var(--radius);
+}
+.module-card h3 { font-family: var(--font); font-size: 14.5px; font-weight: 700; margin-bottom: 2px; }
+.module-card p { font-size: 12.5px; color: var(--text-3); }
+.module-card:hover h3 { color: var(--primary); }
+
+
+/* ---- Auth ---- */
+.auth-card { border-radius: var(--radius-xl); }
+
+@media (max-width: 768px) {
+  .welcome h1 { font-size: 22px; }
+  .module-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Segmented (report kit): grey track, purple active pill ---- */
+.seg { background: var(--track); border: 0; border-radius: var(--radius-pill); padding: 3px; gap: 2px; }
+.seg button { border-right: 0; border-radius: var(--radius-pill); min-height: 30px; color: var(--text-2); }
+.seg button:hover { background: var(--surface); }
+.seg button.active { background: var(--surface); color: var(--primary); box-shadow: var(--shadow-sm); }
+.segmented { background: var(--track); padding: 3px; }
+.segmented button.active { color: var(--primary); }
