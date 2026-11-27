@@ -1,98 +1,101 @@
 /* ============ Design Tokens ============ */
-/* "Swiss Slate" — generated from the ui-ux-pro-max skill (see
-   design-system/aveon/MASTER.md + OVERRIDES.md). Slate is the action color,
-   green is the call-to-action accent. Text tokens are AA on their surfaces;
-   -dot shades are for dots, bars and fills only. */
+/* "Orchid" theme — a soft, rounded admin look: magenta-purple action colour,
+   violet secondary, light grey page with borderless white cards and very soft
+   shadows. Mulish for body text, Urbanist for headings. Text tokens are AA on
+   their surfaces; -dot shades are for dots, bars and fills only. */
 :root {
-  --bg: #F8FAFC;
+  --bg: #F7F7F7;
   --surface: #ffffff;
-  --surface-2: #F8FAFC;
+  --surface-2: #F7F7F7;
   --surface-raise: #ffffff;
-  --border: #E2E8F0;
-  --border-strong: #CBD5E1;
-  --primary-border: #94A3B8;
-  --hover: #F1F5F9;
-  --track: #E2E8F0;
-  --overlay: rgba(15, 23, 42, 0.5);
-  --text: #0F172A;
-  --text-2: #475569;
-  --text-3: #64748B;
+  --border: #ECECEC;
+  --border-strong: #DADADA;
+  --primary-border: #E3B3DC;
+  --hover: #F4F4F4;
+  --track: #EDEDED;
+  --overlay: rgba(30, 30, 30, 0.45);
+  --text: #3D3D3D;
+  --text-2: #5C5C5C;
+  --text-3: #6E6E6E;
   --text-muted: var(--text-2);
 
-  --primary: #1E293B;
-  --primary-hover: #0F172A;
-  --primary-soft: #F1F5F9;
+  --primary: #BB33AA;         /* white text = 5.0:1 */
+  --primary-hover: #962987;
+  --primary-soft: #F8E8F5;
   --primary-ink: #ffffff;
 
-  --accent: #15803D;          /* CTA fill, white text = 5.0:1 */
-  --accent-hover: #166534;
-  --accent-soft: #DCFCE7;
-  --accent-text: #15803D;     /* positive figures on white */
-  --accent-dot: #22C55E;      /* bars, rails, dots */
+  --accent: #8A4FD9;          /* violet secondary, white text = 5.1:1 */
+  --accent-hover: #7339C2;
+  --accent-soft: #F1EAFB;
+  --accent-text: #7339C2;
+  --accent-dot: #9D6BE3;
   --accent-ink: #ffffff;
 
-  --success: #166534;
-  --success-soft: #DCFCE7;
-  --success-dot: #16A34A;
-  --warning: #92400E;
-  --warning-soft: #FEF3C7;
-  --warning-dot: #F59E0B;
-  --danger: #B91C1C;
-  --danger-soft: #FEE2E2;
-  --danger-dot: #EF4444;
-  --info: #1E40AF;
-  --info-soft: #DBEAFE;
-  --info-dot: #3B82F6;
-  --neutral: #475569;
-  --neutral-soft: #F1F5F9;
-  --neutral-dot: #94A3B8;
+  --success: #2F7A22;
+  --success-soft: #EAF6E6;
+  --success-dot: #6DC25A;
+  --warning: #A34E0C;
+  --warning-soft: #FDEEE3;
+  --warning-dot: #EE8B47;
+  --danger: #B4264A;
+  --danger-soft: #FBE6EB;
+  --danger-dot: #D63E62;
+  --info: #0E6A87;
+  --info-soft: #E3F5FB;
+  --info-dot: #48BFE3;
+  --neutral: #5C5C5C;
+  --neutral-soft: #F0F0F0;
+  --neutral-dot: #A3A3A3;
 
-  /* Metric palette — categorical, AA on white. Slate leads, green is reserved
-     for positive/CTA so charts don't fight the accent. */
-  --m-indigo: #334155; --m-indigo-soft: #F1F5F9;
-  --m-blue:   #1D4ED8; --m-blue-soft:   #DBEAFE;
-  --m-green:  #15803D; --m-green-soft:  #DCFCE7;
-  --m-amber:  #B45309; --m-amber-soft:  #FEF3C7;
-  --m-rose:   #BE123C; --m-rose-soft:   #FFE4E6;
-  --m-violet: #6D28D9; --m-violet-soft: #EDE9FE;
-  --m-teal:   #0F766E; --m-teal-soft:   #CCFBF1;
-  --m-cyan:   #0E7490; --m-cyan-soft:   #CFFAFE;
-  --chart-grid: #E2E8F0;
-  --chart-axis: #94A3B8;
+  /* Metric palette — categorical. Purple leads; the rest follow the six
+     accent hues (blue, teal, green, lime/amber, orange-rose). */
+  --m-indigo: #BB33AA; --m-indigo-soft: #F8E8F5;
+  --m-blue:   #2B6FD4; --m-blue-soft:   #E6EFFB;
+  --m-green:  #34984F; --m-green-soft:  #E7F5EA;
+  --m-amber:  #B5830F; --m-amber-soft:  #FBF3DC;
+  --m-rose:   #D33558; --m-rose-soft:   #FBE6EB;
+  --m-violet: #8A4FD9; --m-violet-soft: #F1EAFB;
+  --m-teal:   #278B86; --m-teal-soft:   #E2F5F4;
+  --m-cyan:   #1E89A8; --m-cyan-soft:   #E3F5FB;
+  --chart-grid: #EFEFEF;
+  --chart-axis: #A3A3A3;
 
   --sidebar-bg: #ffffff;
-  --sidebar-text: #475569;
-  --sidebar-active: #F1F5F9;
-  --sidebar-rail: #22C55E;
+  --sidebar-text: #4D4D4D;
+  --sidebar-active: #F8E8F5;
+  --sidebar-rail: #BB33AA;
 
-  --radius-lg: 12px;
-  --radius: 8px;
-  --radius-sm: 6px;
-  --shadow-xs: 0 1px 0 rgba(15, 23, 42, 0.04);
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --shadow-md: 0 4px 10px -2px rgba(15, 23, 42, 0.10);
-  --shadow-lg: 0 12px 28px -6px rgba(15, 23, 42, 0.18);
+  --radius-xl: 22px;
+  --radius-lg: 18px;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 2px 3px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.12);
 
-  /* motion — level 3/10: short fades, no lifts */
+  /* motion — gentle fades */
   --t-fast: 0.1s;
-  --t: 0.15s;
+  --t: 0.18s;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --ring: 0 0 0 3px rgba(30, 41, 59, 0.22);
+  --ring: 0 0 0 3px rgba(187, 51, 170, 0.22);
   --lift: none;
 
-  --skeleton-base: #E2E8F0;
-  --skeleton-shine: #F1F5F9;
+  --skeleton-base: #EDEDED;
+  --skeleton-shine: #F6F6F6;
 
-  --font: 'Fira Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
-  --font-num: 'Fira Code', ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --font: 'Mulish', 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', sans-serif;
+  --font-heading: 'Urbanist', var(--font);
+  --font-num: var(--font);
+  --font-mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
 
   color-scheme: light;
 }
 
 /* ============ Dark theme ============ */
 /* Explicit choice wins; otherwise follow the OS unless the user forced light.
-   The same token block is applied in both cases (previously "system" only
-   switched color-scheme and left the light palette on screen). */
+   The two token blocks below must stay identical. */
 :root[data-theme="dark"],
 :root[data-theme="dark"] body { color-scheme: dark; }
 
@@ -101,121 +104,121 @@
 }
 
 :root[data-theme="dark"] {
-  --bg: #0F172A;
-  --surface: #1B2336;
-  --surface-2: #172033;
-  --surface-raise: #222C42;
-  --border: #334155;
-  --border-strong: #475569;
-  --primary-border: #64748B;
-  --hover: rgba(248, 250, 252, 0.05);
-  --track: #272F42;
-  --overlay: rgba(2, 6, 23, 0.7);
-  --text: #F8FAFC;
-  --text-2: #CBD5E1;
-  --text-3: #94A3B8;
+  --bg: #1A1A1A;
+  --surface: #262626;
+  --surface-2: #212121;
+  --surface-raise: #2E2E2E;
+  --border: #363636;
+  --border-strong: #474747;
+  --primary-border: #7A4E74;
+  --hover: rgba(255, 255, 255, 0.05);
+  --track: #333333;
+  --overlay: rgba(0, 0, 0, 0.65);
+  --text: #EDEDED;
+  --text-2: #C2C2C2;
+  --text-3: #949494;
 
-  --primary: #E2E8F0;
-  --primary-hover: #F8FAFC;
-  --primary-soft: rgba(226, 232, 240, 0.10);
-  --primary-ink: #0F172A;
+  --primary: #D666CB;
+  --primary-hover: #E084D6;
+  --primary-soft: rgba(214, 102, 203, 0.14);
+  --primary-ink: #1A1A1A;
 
-  --accent: #22C55E;
-  --accent-hover: #4ADE80;
-  --accent-soft: rgba(34, 197, 94, 0.15);
-  --accent-text: #4ADE80;
-  --accent-dot: #22C55E;
-  --accent-ink: #052E16;
+  --accent: #A97CE6;
+  --accent-hover: #BC98EC;
+  --accent-soft: rgba(169, 124, 230, 0.16);
+  --accent-text: #BC98EC;
+  --accent-dot: #A97CE6;
+  --accent-ink: #1A1A1A;
 
-  --success: #4ADE80; --success-soft: rgba(74, 222, 128, 0.14); --success-dot: #22C55E;
-  --warning: #FBBF24; --warning-soft: rgba(251, 191, 36, 0.14); --warning-dot: #F59E0B;
-  --danger:  #F87171; --danger-soft:  rgba(248, 113, 113, 0.15); --danger-dot: #EF4444;
-  --info:    #60A5FA; --info-soft:    rgba(96, 165, 250, 0.15); --info-dot: #3B82F6;
-  --neutral: #94A3B8; --neutral-soft: rgba(148, 163, 184, 0.14); --neutral-dot: #64748B;
+  --success: #8FD27F; --success-soft: rgba(109, 194, 90, 0.15); --success-dot: #6DC25A;
+  --warning: #F3A770; --warning-soft: rgba(238, 139, 71, 0.15); --warning-dot: #EE8B47;
+  --danger:  #EE7F98; --danger-soft:  rgba(214, 62, 98, 0.18); --danger-dot: #E0577A;
+  --info:    #7DD1EA; --info-soft:    rgba(72, 191, 227, 0.15); --info-dot: #48BFE3;
+  --neutral: #A8A8A8; --neutral-soft: rgba(255, 255, 255, 0.07); --neutral-dot: #6B6B6B;
 
-  --m-indigo: #CBD5E1; --m-indigo-soft: rgba(203, 213, 225, 0.12);
-  --m-blue:   #60A5FA; --m-blue-soft:   rgba(96, 165, 250, 0.15);
-  --m-green:  #4ADE80; --m-green-soft:  rgba(74, 222, 128, 0.14);
-  --m-amber:  #FBBF24; --m-amber-soft:  rgba(251, 191, 36, 0.14);
-  --m-rose:   #FB7185; --m-rose-soft:   rgba(251, 113, 133, 0.15);
-  --m-violet: #A78BFA; --m-violet-soft: rgba(167, 139, 250, 0.16);
-  --m-teal:   #2DD4BF; --m-teal-soft:   rgba(45, 212, 191, 0.14);
-  --m-cyan:   #22D3EE; --m-cyan-soft:   rgba(34, 211, 238, 0.14);
-  --chart-grid: #273449;
-  --chart-axis: #64748B;
+  --m-indigo: #D666CB; --m-indigo-soft: rgba(214, 102, 203, 0.14);
+  --m-blue:   #6FA0E8; --m-blue-soft:   rgba(111, 160, 232, 0.15);
+  --m-green:  #6DC27F; --m-green-soft:  rgba(109, 194, 127, 0.15);
+  --m-amber:  #E8C15A; --m-amber-soft:  rgba(232, 193, 90, 0.15);
+  --m-rose:   #EE7F98; --m-rose-soft:   rgba(238, 127, 152, 0.15);
+  --m-violet: #A97CE6; --m-violet-soft: rgba(169, 124, 230, 0.16);
+  --m-teal:   #5ACFC9; --m-teal-soft:   rgba(90, 207, 201, 0.14);
+  --m-cyan:   #48BFE3; --m-cyan-soft:   rgba(72, 191, 227, 0.14);
+  --chart-grid: #333333;
+  --chart-axis: #6B6B6B;
 
-  --sidebar-bg: #111A2D;
-  --sidebar-text: #CBD5E1;
-  --sidebar-active: rgba(226, 232, 240, 0.08);
-  --sidebar-rail: #22C55E;
+  --sidebar-bg: #262626;
+  --sidebar-text: #C2C2C2;
+  --sidebar-active: rgba(214, 102, 203, 0.14);
+  --sidebar-rail: #D666CB;
 
-  --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.3);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 6px 14px -2px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 16px 36px -6px rgba(0, 0, 0, 0.65);
-  --ring: 0 0 0 3px rgba(226, 232, 240, 0.3);
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.55);
+  --ring: 0 0 0 3px rgba(214, 102, 203, 0.35);
 
-  --skeleton-base: #222C42;
-  --skeleton-shine: #2B3650;
+  --skeleton-base: #2E2E2E;
+  --skeleton-shine: #383838;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0F172A;
-    --surface: #1B2336;
-    --surface-2: #172033;
-    --surface-raise: #222C42;
-    --border: #334155;
-    --border-strong: #475569;
-    --primary-border: #64748B;
-    --hover: rgba(248, 250, 252, 0.05);
-    --track: #272F42;
-    --overlay: rgba(2, 6, 23, 0.7);
-    --text: #F8FAFC;
-    --text-2: #CBD5E1;
-    --text-3: #94A3B8;
-  
-    --primary: #E2E8F0;
-    --primary-hover: #F8FAFC;
-    --primary-soft: rgba(226, 232, 240, 0.10);
-    --primary-ink: #0F172A;
-  
-    --accent: #22C55E;
-    --accent-hover: #4ADE80;
-    --accent-soft: rgba(34, 197, 94, 0.15);
-    --accent-text: #4ADE80;
-    --accent-dot: #22C55E;
-    --accent-ink: #052E16;
-  
-    --success: #4ADE80; --success-soft: rgba(74, 222, 128, 0.14); --success-dot: #22C55E;
-    --warning: #FBBF24; --warning-soft: rgba(251, 191, 36, 0.14); --warning-dot: #F59E0B;
-    --danger:  #F87171; --danger-soft:  rgba(248, 113, 113, 0.15); --danger-dot: #EF4444;
-    --info:    #60A5FA; --info-soft:    rgba(96, 165, 250, 0.15); --info-dot: #3B82F6;
-    --neutral: #94A3B8; --neutral-soft: rgba(148, 163, 184, 0.14); --neutral-dot: #64748B;
-  
-    --m-indigo: #CBD5E1; --m-indigo-soft: rgba(203, 213, 225, 0.12);
-    --m-blue:   #60A5FA; --m-blue-soft:   rgba(96, 165, 250, 0.15);
-    --m-green:  #4ADE80; --m-green-soft:  rgba(74, 222, 128, 0.14);
-    --m-amber:  #FBBF24; --m-amber-soft:  rgba(251, 191, 36, 0.14);
-    --m-rose:   #FB7185; --m-rose-soft:   rgba(251, 113, 133, 0.15);
-    --m-violet: #A78BFA; --m-violet-soft: rgba(167, 139, 250, 0.16);
-    --m-teal:   #2DD4BF; --m-teal-soft:   rgba(45, 212, 191, 0.14);
-    --m-cyan:   #22D3EE; --m-cyan-soft:   rgba(34, 211, 238, 0.14);
-    --chart-grid: #273449;
-    --chart-axis: #64748B;
-  
-    --sidebar-bg: #111A2D;
-    --sidebar-text: #CBD5E1;
-    --sidebar-active: rgba(226, 232, 240, 0.08);
-    --sidebar-rail: #22C55E;
-  
-    --shadow-xs: 0 1px 0 rgba(0, 0, 0, 0.3);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-md: 0 6px 14px -2px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 16px 36px -6px rgba(0, 0, 0, 0.65);
-    --ring: 0 0 0 3px rgba(226, 232, 240, 0.3);
-  
-    --skeleton-base: #222C42;
-    --skeleton-shine: #2B3650;
+    --bg: #1A1A1A;
+    --surface: #262626;
+    --surface-2: #212121;
+    --surface-raise: #2E2E2E;
+    --border: #363636;
+    --border-strong: #474747;
+    --primary-border: #7A4E74;
+    --hover: rgba(255, 255, 255, 0.05);
+    --track: #333333;
+    --overlay: rgba(0, 0, 0, 0.65);
+    --text: #EDEDED;
+    --text-2: #C2C2C2;
+    --text-3: #949494;
+
+    --primary: #D666CB;
+    --primary-hover: #E084D6;
+    --primary-soft: rgba(214, 102, 203, 0.14);
+    --primary-ink: #1A1A1A;
+
+    --accent: #A97CE6;
+    --accent-hover: #BC98EC;
+    --accent-soft: rgba(169, 124, 230, 0.16);
+    --accent-text: #BC98EC;
+    --accent-dot: #A97CE6;
+    --accent-ink: #1A1A1A;
+
+    --success: #8FD27F; --success-soft: rgba(109, 194, 90, 0.15); --success-dot: #6DC25A;
+    --warning: #F3A770; --warning-soft: rgba(238, 139, 71, 0.15); --warning-dot: #EE8B47;
+    --danger:  #EE7F98; --danger-soft:  rgba(214, 62, 98, 0.18); --danger-dot: #E0577A;
+    --info:    #7DD1EA; --info-soft:    rgba(72, 191, 227, 0.15); --info-dot: #48BFE3;
+    --neutral: #A8A8A8; --neutral-soft: rgba(255, 255, 255, 0.07); --neutral-dot: #6B6B6B;
+
+    --m-indigo: #D666CB; --m-indigo-soft: rgba(214, 102, 203, 0.14);
+    --m-blue:   #6FA0E8; --m-blue-soft:   rgba(111, 160, 232, 0.15);
+    --m-green:  #6DC27F; --m-green-soft:  rgba(109, 194, 127, 0.15);
+    --m-amber:  #E8C15A; --m-amber-soft:  rgba(232, 193, 90, 0.15);
+    --m-rose:   #EE7F98; --m-rose-soft:   rgba(238, 127, 152, 0.15);
+    --m-violet: #A97CE6; --m-violet-soft: rgba(169, 124, 230, 0.16);
+    --m-teal:   #5ACFC9; --m-teal-soft:   rgba(90, 207, 201, 0.14);
+    --m-cyan:   #48BFE3; --m-cyan-soft:   rgba(72, 191, 227, 0.14);
+    --chart-grid: #333333;
+    --chart-axis: #6B6B6B;
+
+    --sidebar-bg: #262626;
+    --sidebar-text: #C2C2C2;
+    --sidebar-active: rgba(214, 102, 203, 0.14);
+    --sidebar-rail: #D666CB;
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.25);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 6px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 16px 36px rgba(0, 0, 0, 0.55);
+    --ring: 0 0 0 3px rgba(214, 102, 203, 0.35);
+
+    --skeleton-base: #2E2E2E;
+    --skeleton-shine: #383838;
   }
 }

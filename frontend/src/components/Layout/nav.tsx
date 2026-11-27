@@ -59,7 +59,7 @@ export function Icon({ name, size = 17, className = 'nav-icon' }: { name: string
 
 // `also`: other path prefixes that belong to this link (pages reached from it)
 export interface NavItem { to: string; icon: string; label: string; also?: string[] }
-export interface NavSection { key: string; label: string; items: NavItem[] }
+export interface NavSection { key: string; label: string; icon: string; items: NavItem[] }
 
 export const HOME_ITEM: NavItem = { to: '/dashboard', icon: 'dashboard', label: 'Dashboard' };
 
@@ -168,9 +168,9 @@ export function navSectionsFor(
   // Sections follow the employee lifecycle: hire → manage → time → pay →
   // self-service, then the revenue/business modules, then settings.
   // Recruitment opens the stack (module-gated below via allowed()).
-  if (isSA || isHR) sections.push({ key: 'recruitment', label: 'Recruitment', items: RECRUITMENT_ITEMS });
+  if (isSA || isHR) sections.push({ key: 'recruitment', label: 'Recruitment', icon: 'megaphone', items: RECRUITMENT_ITEMS });
   sections.push({
-    key: 'people', label: isMarketing ? 'Expenses' : 'People',
+    key: 'people', label: isMarketing ? 'Expenses' : 'People', icon: isMarketing ? 'receipt' : 'users',
     items: PEOPLE_ITEMS.filter(i =>
       (isSA || isHR) ? true
         : isMarketing ? i.to === '/expenses' // marketing: own expenses only
@@ -178,22 +178,22 @@ export function navSectionsFor(
   });
   // Leave: everyone applies + sees the calendar; HR also gets balances/holidays/settings
   sections.push({
-    key: 'leave', label: 'Leave',
+    key: 'leave', label: 'Leave', icon: 'calendar',
     items: LEAVE_ITEMS.filter(i => (isSA || isHR) ? true : ['/leave', '/leave/calendar'].includes(i.to)),
   });
   // The payroll viewer reads the same pages; the API refuses any change
-  if (isSA || isHR || role === 'PAYROLL_VIEWER') sections.push({ key: 'payroll', label: 'Payroll', items: PAYROLL_ITEMS });
-  if (user?.personId) sections.push({ key: 'my', label: 'My pay', items: MY_PAY_ITEMS });
+  if (isSA || isHR || role === 'PAYROLL_VIEWER') sections.push({ key: 'payroll', label: 'Payroll', icon: 'banknote', items: PAYROLL_ITEMS });
+  if (user?.personId) sections.push({ key: 'my', label: 'My pay', icon: 'user', items: MY_PAY_ITEMS });
   if (isSA || role === 'EMPLOYEE') {
     sections.push({
-      key: 'income', label: 'Project',
+      key: 'income', label: 'Project', icon: 'briefcase',
       items: INCOME_ITEMS.filter(i => isSA || !['/income/academic-years', '/income/import-export'].includes(i.to)),
     });
   }
-  if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', items: PROPOSAL_ITEMS });
+  if (isSA || isMarketing) sections.push({ key: 'sales', label: 'Sales', icon: 'pen', items: PROPOSAL_ITEMS });
   // HR keeps the company's registrations, bank accounts and lists; logins are the Super Admin's
   if (isSA || isHR) {
-    sections.push({ key: 'org', label: 'Organization', items: ORG_ITEMS.filter(i => isSA || i.to === '/organization') });
+    sections.push({ key: 'org', label: 'Organization', icon: 'building', items: ORG_ITEMS.filter(i => isSA || i.to === '/organization') });
   }
   // Drop links for modules the plan does not include, and any section left empty
   return sections
